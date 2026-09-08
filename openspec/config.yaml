@@ -1,0 +1,67 @@
+---
+# OpenSpec Configuration — arnold
+# Spec-Driven Development (SDD) for structured change management
+
+project: arnold
+version: "1.0"
+created: 2026-08-10
+
+context: |
+  arnold is a Next.js 16 React 19 frontend application with Clean Architecture
+  principles. The project uses ESLint for linting and TypeScript strict mode.
+  No test framework is currently configured.
+  
+  Architectural patterns: Clean Architecture, TDD, Atomic Design, SDD.
+  Primary layers: models, adapters, services, components, app, utilities.
+
+strict_tdd: false
+tdd_reason: "No test framework detected; testing setup required before TDD enforcement"
+
+testing:
+  runner: null
+  framework: null
+  unit_available: false
+  integration_available: false
+  e2e_available: false
+  coverage_available: false
+  linter:
+    name: ESLint
+    command: "eslint"
+  type_checker:
+    name: TypeScript
+    command: "tsc --noEmit"
+  formatter: null
+
+phases:
+  proposal:
+    required_fields:
+      - intent
+      - scope
+      - stakeholder_impact
+  spec:
+    required_fields:
+      - requirements
+      - acceptance_criteria
+      - test_scenarios
+  design:
+    required_fields:
+      - approach
+      - architecture
+      - implementation_plan
+  tasks:
+    required_fields:
+      - task_breakdown
+      - dependencies
+      - acceptance_tests
+  apply:
+    required_fields:
+      - implementation_checklist
+      - test_results
+  verify:
+    required_fields:
+      - test_coverage
+      - acceptance_proof
+  archive:
+    required_fields:
+      - completion_summary
+      - delta_specs

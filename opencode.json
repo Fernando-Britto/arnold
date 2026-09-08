@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "architecturalRules": {
+    "layers": {
+      "models": "src/models/ - Interfaces y tipos TypeScript para entidades del dominio (Socio, Membresia, Cuota, Pago, Rutina, etc.)",
+      "adapters": "src/adapters/ - Mapeadores y transformadores de datos externos hacia modelos internos de la app",
+      "services": "src/services/ - Comunicacion HTTP (Axios/Fetch) hacia APIs de backend e integraciones",
+      "components": "src/components/ - Componentes UI reutilizables e independientes de la lógica pura",
+      "app": "src/app/ - Rutas y vistas de Next.js (App Router con SSR/Client Components)",
+      "utilities": "src/utilities/ - Funciones puras, helper de AbortController, formateadores de fechas y cargas"
+    },
+    "patterns": [
+      "Clean Architecture",
+      "TDD",
+      "Atomic Design",
+      "Spec-Driven Development (SDD)"
+    ]
+  },
+  "mcp": {
+    "open-pencil": {
+      "type": "local",
+      "command": [
+        "openpencil-mcp"
+      ],
+      "enabled": true
+    }
+  }
+}
