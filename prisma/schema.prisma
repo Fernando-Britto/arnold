@@ -1,0 +1,386 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USUARIOS Y ROLES
+// ============================================================================
+
+model Usuario {
+  id            String   @id @default(cuid())
+  nombre        String
+  email         String   @unique
+  password      String   // cifrada
+  rol           Rol      @default(SOCIO)
+  estado        EstadoUsuario @default(ACTIVO)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  // Relaciones polimórficas
+  socio         Socio?
+  empleado      Empleado?
+
+  // Auditoría
+  registrosAuditoria RegistroDeAuditoria[]
+
+  @@index([email])
+  @@index([rol])
+}
+
+enum Rol {
+  ADMINISTRADOR
+  INSTRUCTOR
+  RECEPCIONISTA
+  SOCIO
+}
+
+enum EstadoUsuario {
+  ACTIVO
+  INACTIVO
+  BLOQUEADO
+}
+
+// ============================================================================
+// SOCIOS
+// ============================================================================
+
+model Socio {
+  id            String   @id @default(cuid())
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId     String   @unique
+  dni           String   @unique
+  telefono      String?
+  fechaAlta     DateTime @default(now())
+  estadoCuota   EstadoCuota @default(AL_DIA)
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  membresiaAsignada Membresia? @relation("MembresiaDelSocio", fields: [membresiaAsignadaId], references: [id], onDelete: SetNull)
+  membresiaAsignadaId String?
+
+  asistencias   Asistencia[]
+  rutinas       Rutina[] @relation("RutinasDelSocio")
+  sesiones      SesionDeEntrenamiento[]
+  registrosProgreso RegistroDeProgreso[]
+
+  @@index([dni])
+  @@index([estadoCuota])
+  @@index([membresiaAsignadaId])
+}
+
+enum EstadoCuota {
+  AL_DIA
+  VENCIDA
+  PENDIENTE
+}
+
+// ============================================================================
+// EMPLEADOS
+// ============================================================================
+
+model Empleado {
+  id            String   @id @default(cuid())
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId     String   @unique
+  cargo         Cargo
+  turno         Turno    @default(MANANA)
+  estadoLaboral EstadoLaboral @default(ACTIVO)
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  cierresDeCaja CierreDeCaja[]
+
+  @@index([cargo])
+  @@index([estadoLaboral])
+}
+
+enum Cargo {
+  RECEPCIONISTA
+  INSTRUCTOR
+  ADMINISTRADOR
+}
+
+enum Turno {
+  MANANA
+  TARDE
+  NOCHE
+}
+
+enum EstadoLaboral {
+  ACTIVO
+  INACTIVO
+  LICENCIA
+}
+
+// ============================================================================
+// MEMBRESÍAS
+// ============================================================================
+
+model Membresia {
+  id            String   @id @default(cuid())
+  nombre        String
+  precio        Decimal  @db.Decimal(10, 2)
+  periodicidad  Int      // días
+  descripcion   String?
+  estado        EstadoMembresia @default(ACTIVA)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  socios        Socio[]  @relation("MembresiaDelSocio")
+
+  @@index([estado])
+}
+
+enum EstadoMembresia {
+  ACTIVA
+  INACTIVA
+}
+
+// ============================================================================
+// EJERCICIOS
+// ============================================================================
+
+model Ejercicio {
+  id            String   @id @default(cuid())
+  nombre        String
+  grupoMuscular String
+  descripcion   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  rutinas       EjercicioEnRutina[]
+  registrosProgreso RegistroDeProgreso[]
+
+  @@index([grupoMuscular])
+}
+
+// ============================================================================
+// RUTINAS
+// ============================================================================
+
+model Rutina {
+  id                String   @id @default(cuid())
+  nombre            String
+  objetivoPrincipal String
+  frecuenciaSemanal Int      // 1-7 días
+  duracionEstimada  Int      // minutos
+  nivelDeDificultad NivelDeDificultad
+  descripcion       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  socio             Socio?   @relation("RutinasDelSocio", fields: [socioId], references: [id], onDelete: SetNull)
+  socioId           String?
+  ejercicios        EjercicioEnRutina[]
+  sesiones          SesionDeEntrenamiento[]
+
+  @@index([socioId])
+}
+
+enum NivelDeDificultad {
+  BASICO
+  INTERMEDIO
+  AVANZADO
+}
+
+// ============================================================================
+// EJERCICIOS EN RUTINA (Relación)
+// ============================================================================
+
+model EjercicioEnRutina {
+  id            String   @id @default(cuid())
+  rutina        Rutina   @relation(fields: [rutinaId], references: [id], onDelete: Cascade)
+  rutinaId      String
+  ejercicio     Ejercicio @relation(fields: [ejercicioId], references: [id], onDelete: Restrict)
+  ejercicioId   String
+  series        Int
+  repeticiones  Int
+  descanso      Int      // segundos
+  orden         Int      @default(0) // para reordenar
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([rutinaId, ejercicioId])
+  @@index([rutinaId])
+  @@index([ejercicioId])
+}
+
+// ============================================================================
+// MÁQUINAS
+// ============================================================================
+
+model Maquina {
+  id              String   @id @default(cuid())
+  nombre          String
+  tipoEquipamiento TipoEquipamiento
+  estado          EstadoMaquina @default(DISPONIBLE)
+  ubicacion       String
+  fechaAlta       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([estado])
+  @@index([tipoEquipamiento])
+}
+
+enum TipoEquipamiento {
+  MAQUINA_GUIADA
+  PESO_LIBRE
+  CARDIO
+}
+
+enum EstadoMaquina {
+  DISPONIBLE
+  OCUPADA
+  FUERA_DE_SERVICIO
+  INACTIVA
+}
+
+// ============================================================================
+// ASISTENCIAS
+// ============================================================================
+
+model Asistencia {
+  id                String   @id @default(cuid())
+  fechaHora         DateTime @default(now())
+  socio             Socio    @relation(fields: [socioId], references: [id], onDelete: Restrict)
+  socioId           String
+  estadoAlIngresar  String   // referencia a EstadoCuota o estado de autorización
+  autorizadoExcepcionalmente Boolean @default(false)
+
+  @@index([socioId])
+  @@index([fechaHora])
+}
+
+// ============================================================================
+// SESIONES DE ENTRENAMIENTO
+// ============================================================================
+
+model SesionDeEntrenamiento {
+  id                  String   @id @default(cuid())
+  horaInicio          DateTime
+  horaFin             DateTime?
+  socio               Socio    @relation(fields: [socioId], references: [id], onDelete: Restrict)
+  socioId             String
+  rutina              Rutina   @relation(fields: [rutinaId], references: [id], onDelete: Restrict)
+  rutinaId            String
+  estadoDeFinalizacion EstadoSesion
+  observaciones       String?
+  createdAt           DateTime @default(now())
+
+  @@index([socioId])
+  @@index([rutinaId])
+  @@index([horaInicio])
+}
+
+enum EstadoSesion {
+  COMPLETADA
+  INCOMPLETA
+  ABANDONADA
+}
+
+// ============================================================================
+// REGISTROS DE PROGRESO
+// ============================================================================
+
+model RegistroDeProgreso {
+  id            String   @id @default(cuid())
+  carga         Decimal  @db.Decimal(10, 2) // kg
+  repeticiones  Int
+  pesoCorporal  Decimal  @db.Decimal(10, 2) // kg
+  fecha         DateTime @default(now())
+  ejercicio     Ejercicio @relation(fields: [ejercicioId], references: [id], onDelete: Restrict)
+  ejercicioId   String
+  socio         Socio    @relation(fields: [socioId], references: [id], onDelete: Restrict)
+  socioId       String
+
+  @@index([ejercicioId])
+  @@index([socioId])
+  @@index([fecha])
+}
+
+// ============================================================================
+// REGLAS DE PROGRESIÓN
+// ============================================================================
+
+model ReglaDeProgresion {
+  id                String   @id @default(cuid())
+  tipo              TipoProgresion
+  incrementoSugerido Decimal @db.Decimal(10, 2) // kg
+
+  @@index([tipo])
+}
+
+enum TipoProgresion {
+  LINEAL
+  ONDULANTE
+}
+
+// ============================================================================
+// CIERRES DE CAJA
+// ============================================================================
+
+model CierreDeCaja {
+  id                String   @id @default(cuid())
+  totalRecaudado    Decimal  @db.Decimal(10, 2)
+  totalEfectivo     Decimal  @db.Decimal(10, 2)
+  totalTransferencia Decimal @db.Decimal(10, 2)
+  totalTarjeta      Decimal  @db.Decimal(10, 2)
+  cantidadOperaciones Int
+  observaciones     String?
+  responsable       Empleado @relation(fields: [responsableId], references: [id], onDelete: Restrict)
+  responsableId     String
+  createdAt         DateTime @default(now())
+
+  @@index([responsableId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// AUDITORÍA
+// ============================================================================
+
+model RegistroDeAuditoria {
+  id              String   @id @default(cuid())
+  tipoOperacion   TipoOperacion
+  fechaHora       DateTime @default(now())
+  responsable     Usuario  @relation(fields: [responsableId], references: [id], onDelete: Restrict)
+  responsableId   String
+  detalles        String?  // JSON stringified details
+
+  @@index([tipoOperacion])
+  @@index([fechaHora])
+  @@index([responsableId])
+}
+
+enum TipoOperacion {
+  ALTA
+  BAJA
+  MODIFICACION
+  ANULACION
+}
+
+// ============================================================================
+// CONFIGURACIÓN DEL SISTEMA
+// ============================================================================
+
+model ConfiguracionDelSistema {
+  id                    String   @id @default(cuid())
+  capacidadMaxima       Int
+  periodoGracia         Int      // días, default 0
+  diasInactividad       Int      // para notificaciones
+  descuentoReactivacion Decimal  @db.Decimal(5, 2) // %
+  ventanaAforoMinutos   Int      @default(90)
+  updatedAt             DateTime @updatedAt
+}
