@@ -68,9 +68,11 @@ model Socio {
   membresiaAsignadaId String?
 
   asistencias   Asistencia[]
-  rutinas       Rutina[] @relation("RutinasDelSocio")
+  rutinasAsignadas RutinaAsignada[]  // relación indirecta a Rutina
   sesiones      SesionDeEntrenamiento[]
   registrosProgreso RegistroDeProgreso[]
+  cuotas        Cuota[]
+  pagos         Pago[]  @relation("PagosDeSocio")
 
   @@index([dni])
   @@index([estadoCuota])
@@ -91,7 +93,6 @@ model Empleado {
   id            String   @id @default(cuid())
   usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId     String   @unique
-  cargo         Cargo
   turno         Turno    @default(MANANA)
   estadoLaboral EstadoLaboral @default(ACTIVO)
   updatedAt     DateTime @updatedAt
@@ -99,14 +100,7 @@ model Empleado {
   // Relaciones
   cierresDeCaja CierreDeCaja[]
 
-  @@index([cargo])
   @@index([estadoLaboral])
-}
-
-enum Cargo {
-  RECEPCIONISTA
-  INSTRUCTOR
-  ADMINISTRADOR
 }
 
 enum Turno {
@@ -147,6 +141,71 @@ enum EstadoMembresia {
 }
 
 // ============================================================================
+// CUOTAS
+// ============================================================================
+
+model Cuota {
+  id                String   @id @default(cuid())
+  socio             Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  socioId           String
+  fechaInicio       DateTime @default(now())
+  fechaVencimiento  DateTime
+  estado            EstadoCuotaModel @default(VIGENTE)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  pagos             Pago[]
+
+  @@index([socioId])
+  @@index([fechaVencimiento])
+  @@index([estado])
+}
+
+enum EstadoCuotaModel {
+  VIGENTE
+  VENCIDA
+}
+
+// ============================================================================
+// PAGOS
+// ============================================================================
+
+model Pago {
+  id                String   @id @default(cuid())
+  fechaPago         DateTime @default(now())
+  monto             Decimal  @db.Decimal(10, 2)
+  metodoPago        MetodoPago
+  estado            EstadoPago @default(CONFIRMADO)
+  cuota             Cuota?   @relation(fields: [cuotaId], references: [id], onDelete: SetNull)
+  cuotaId           String?
+  socio             Socio?   @relation("PagosDeSocio", fields: [socioId], references: [id], onDelete: SetNull) // relación opcional para pagos fuera de cuota
+  socioId           String?
+  cierreDeCaja      CierreDeCaja? @relation(fields: [cierreDeCajaId], references: [id], onDelete: SetNull)
+  cierreDeCajaId    String?
+  createdAt         DateTime @default(now())
+
+  @@index([fechaPago])
+  @@index([estado])
+  @@index([metodoPago])
+  @@index([cuotaId])
+  @@index([socioId])
+  @@index([cierreDeCajaId])
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+}
+
+enum EstadoPago {
+  CONFIRMADO
+  PENDIENTE
+  ANULADO
+}
+
+// ============================================================================
 // EJERCICIOS
 // ============================================================================
 
@@ -181,12 +240,8 @@ model Rutina {
   updatedAt         DateTime @updatedAt
 
   // Relaciones
-  socio             Socio?   @relation("RutinasDelSocio", fields: [socioId], references: [id], onDelete: SetNull)
-  socioId           String?
   ejercicios        EjercicioEnRutina[]
-  sesiones          SesionDeEntrenamiento[]
-
-  @@index([socioId])
+  asignaciones      RutinaAsignada[]   // plantilla reutilizable
 }
 
 enum NivelDeDificultad {
@@ -215,6 +270,29 @@ model EjercicioEnRutina {
   @@unique([rutinaId, ejercicioId])
   @@index([rutinaId])
   @@index([ejercicioId])
+}
+
+// ============================================================================
+// RUTINAS ASIGNADAS (Relación Socio ↔ Rutina)
+// ============================================================================
+
+model RutinaAsignada {
+  id                String   @id @default(cuid())
+  socio             Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  socioId           String
+  rutina            Rutina   @relation(fields: [rutinaId], references: [id], onDelete: Cascade)
+  rutinaId          String
+  fechaAsignacion   DateTime @default(now())
+  activa            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  sesiones          SesionDeEntrenamiento[]
+
+  @@index([socioId, activa]) // para queries eficientes de RN-04 (una sola activa por socio); enforcement a nivel de aplicación
+  @@index([rutinaId])
+  @@index([activa])
 }
 
 // ============================================================================
@@ -273,14 +351,14 @@ model SesionDeEntrenamiento {
   horaFin             DateTime?
   socio               Socio    @relation(fields: [socioId], references: [id], onDelete: Restrict)
   socioId             String
-  rutina              Rutina   @relation(fields: [rutinaId], references: [id], onDelete: Restrict)
-  rutinaId            String
+  rutinaAsignada      RutinaAsignada @relation(fields: [rutinaAsignadaId], references: [id], onDelete: Restrict)
+  rutinaAsignadaId    String
   estadoDeFinalizacion EstadoSesion
   observaciones       String?
   createdAt           DateTime @default(now())
 
   @@index([socioId])
-  @@index([rutinaId])
+  @@index([rutinaAsignadaId])
   @@index([horaInicio])
 }
 
@@ -341,6 +419,7 @@ model CierreDeCaja {
   observaciones     String?
   responsable       Empleado @relation(fields: [responsableId], references: [id], onDelete: Restrict)
   responsableId     String
+  pagos             Pago[]   // relación a los pagos asociados a este cierre
   createdAt         DateTime @default(now())
 
   @@index([responsableId])
