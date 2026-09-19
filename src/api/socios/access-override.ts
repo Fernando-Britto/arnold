@@ -56,13 +56,18 @@ export async function handleAccessOverride(
   success: boolean;
   message: string;
 }> {
+  // Validate user is authenticated
+  if (!req.user) {
+    throw new Error("UNAUTHORIZED: User not authenticated");
+  }
+
   // Validate ADMIN role
-  if (!canApproveAccessOverride(req.user)) {
+  if (!canApproveAccessOverride(req.user.rol as any)) {
     throw new Error("FORBIDDEN: Rol de administrador requerido");
   }
 
   // Parse and validate request body
-  const body = req.body as AccessOverrideRequest;
+  const body = (req.body || {}) as AccessOverrideRequest;
   const validation = validateAccessOverride(body);
 
   if (!validation.valid) {
@@ -79,25 +84,26 @@ export async function handleAccessOverride(
   }
 
   // Create audit log
-  await prisma.auditoriaAcceso.create({
+  await prisma.registroDeAuditoria.create({
     data: {
-      usuario_id: req.user.id,
-      socio_id: socioId,
-      accion: "OVERRIDE_GRANT",
-      motivo: body.motivo,
-      resultado: "ALLOW",
-      timestamp: new Date(),
-      ip_address: req.ip || "0.0.0.0",
-      user_agent: req.headers["user-agent"] || "unknown",
+      tipoOperacion: "ALTA", // OVERRIDE_GRANT maps to ALTA (access granted)
+      responsableId: req.user.id,
+      detalles: JSON.stringify({
+        socio_id: socioId,
+        motivo: body.motivo,
+        ip_address: req.ip || "0.0.0.0",
+        user_agent: (req.headers?.["user-agent"] as string) || "unknown",
+      }),
     },
   });
 
   // Create asistencia record
   await prisma.asistencia.create({
     data: {
-      socio_id: socioId,
-      timestamp: new Date(),
-      motivo: null,
+      socioId: socioId,
+      fechaHora: new Date(),
+      estadoAlIngresar: "PERMITIDO",
+      autorizadoExcepcionalmente: true,
     },
   });
 

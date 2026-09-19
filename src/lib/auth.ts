@@ -90,6 +90,7 @@ export function extractUserFromAuthHeader(authHeader?: string): { id: string; ro
 
 /**
  * Request object with user attached (from JWT verification)
+ * Used by API handlers to pass user context, body, and request metadata
  */
 export interface RequestWithUser {
   user?: {
@@ -98,4 +99,7 @@ export interface RequestWithUser {
     nombre: string;
     rol: string;
   } | null;
+  body?: any; // Request body (parsed JSON or form data)
+  ip?: string; // Client IP address
+  headers?: Record<string, string | string[]>; // Request headers
 }
