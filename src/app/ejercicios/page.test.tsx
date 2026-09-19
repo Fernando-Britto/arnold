@@ -290,8 +290,9 @@ describe("Ejercicios CRUD Screen (Page)", () => {
 
     it("should show error if create fails", async () => {
       const user = userEvent.setup();
+      // Simulate error from domain validation (already in Spanish)
       (ejercicioApi.createEjercicio as jest.Mock).mockRejectedValue(
-        new Error("Validation failed")
+        new Error("Validación fallida: El nombre es requerido")
       );
 
       render(<EjerciciosPage />);
@@ -305,8 +306,9 @@ describe("Ejercicios CRUD Screen (Page)", () => {
       await user.click(saveButton);
 
       await waitFor(() => {
+        // Verify exact Spanish error message from domain validation
         expect(
-          screen.getByText(/Error al guardar|falló|error/i)
+          screen.getByText("Validación fallida: El nombre es requerido")
         ).toBeInTheDocument();
       });
     });

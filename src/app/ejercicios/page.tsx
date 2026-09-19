@@ -92,8 +92,8 @@ export function EjerciciosPage() {
       // Reset form
       setSelectedEjercicio(null);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Error desconocido";
-      setError(`Error al guardar: ${errorMsg}`);
+      // Error message is already in Spanish from the domain layer
+      setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setIsSaving(false);
     }

@@ -41,22 +41,22 @@ export function validateEjercicio(data: any): ValidationResult {
 
   // Validate nombre
   if (!data.nombre || typeof data.nombre !== "string") {
-    errors.push("Nombre is required");
+    errors.push("El nombre es requerido");
   } else if (data.nombre.length < 3) {
-    errors.push("Nombre must be at least 3 characters");
+    errors.push("El nombre debe tener al menos 3 caracteres");
   } else if (data.nombre.length > 100) {
-    errors.push("Nombre cannot exceed 100 characters");
+    errors.push("El nombre no puede exceder 100 caracteres");
   }
 
   // Validate grupoMuscular
   if (!data.grupoMuscular || typeof data.grupoMuscular !== "string") {
-    errors.push("Grupo muscular is required");
+    errors.push("El grupo muscular es requerido");
   }
 
   // Validate descripcion (optional)
   if (data.descripcion && typeof data.descripcion === "string") {
     if (data.descripcion.length > 500) {
-      errors.push("Descripción cannot exceed 500 characters");
+      errors.push("La descripción no puede exceder 500 caracteres");
     }
   }
 
@@ -80,7 +80,7 @@ export class EjercicioRepository {
   async create(data: EjercicioInput): Promise<Ejercicio> {
     const validation = validateEjercicio(data);
     if (!validation.valid) {
-      throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
+      throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
     }
 
     return prisma.ejercicio.create({
@@ -135,7 +135,7 @@ export class EjercicioRepository {
 
       const validation = validateEjercicio(updateData);
       if (!validation.valid) {
-        throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
+        throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
       }
     }
 
