@@ -42,13 +42,23 @@
 - **Risk**: Low (straightforward middleware)
 - **Dependencies**: T-001
 
+### T-023: Common UI Utilities (Validation, Formatting, Errors)
+- **Spec**: Cross-cutting concerns (email, DNI, phone formats; API error handling)
+- **What**: validateEmail, formatDNI, formatPhone, handleApiError, notification context
+- **Test file**: src/utils/validation.test.ts, src/utils/formatting.test.ts
+- **LOC**: 130 (util) + 110 (tests) = 240
+- **Acceptance**: `npm test -- src/utils/` passes (all utility + error handling tests)
+- **PR**: PR-001-C
+- **Risk**: Low (unit tests, isolated)
+- **Dependencies**: T-001
+
 ### T-002: Ejercicio Domain Model + Repository
 - **Spec**: ejercicios-crud/spec.md
 - **What**: Domain model + validation + Prisma repository
 - **Test file**: src/domains/ejercicio/ejercicio.test.ts
 - **LOC**: 180 (impl) + 120 (tests) = 300
 - **Acceptance**: `npm test -- src/domains/ejercicio/` passes (8+ scenarios)
-- **PR**: PR-001-C
+- **PR**: PR-002-A
 - **Risk**: Low
 - **Dependencies**: T-001
 
@@ -58,7 +68,7 @@
 - **Test files**: src/components/ejercicio-crud/ejercicio-form.test.tsx, ejercicio-list.test.tsx
 - **LOC**: 220 (comp) + 160 (tests) = 380
 - **Acceptance**: `npm test -- src/components/ejercicio-crud/` passes (6+ scenarios)
-- **PR**: PR-002-A
+- **PR**: PR-002-B
 - **Risk**: Medium
 - **Dependencies**: T-002
 
@@ -68,7 +78,7 @@
 - **Test file**: src/api/ejercicios.test.ts
 - **LOC**: 140 (impl) + 110 (tests) = 250
 - **Acceptance**: `npm test -- src/api/ejercicios` passes (6+ scenarios)
-- **PR**: PR-002-B
+- **PR**: PR-002-C
 - **Risk**: Low
 - **Dependencies**: T-002
 
@@ -78,7 +88,9 @@
 - **Test file**: src/app/ejercicios/page.test.tsx
 - **LOC**: 160 (page) + 90 (tests) = 250
 - **Acceptance**: `npm test -- src/app/ejercicios/` passes (3+ role/flow scenarios)
-- **PR**: PR-002-C
+- **PR**: PR-003-A
+- **Risk**: Medium
+- **Dependencies**: T-003, T-004, T-022 (role gating)
 - **Risk**: Medium
 - **Dependencies**: T-003, T-004, T-022 (role gating)
 
@@ -88,7 +100,7 @@
 - **Test file**: src/domains/rutina/rutina.test.ts
 - **LOC**: 200 (impl) + 130 (tests) = 330
 - **Acceptance**: `npm test -- src/domains/rutina/` passes (validation + CRUD tests)
-- **PR**: PR-003-A
+- **PR**: PR-003-B
 - **Risk**: Low
 - **Dependencies**: T-001
 
@@ -98,7 +110,7 @@
 - **Test file**: src/components/rutina-crud/rutina-form.test.tsx
 - **LOC**: 200 (comp) + 120 (tests) = 320
 - **Acceptance**: `npm test -- src/components/rutina-crud/` passes (form + nested add scenarios)
-- **PR**: PR-003-B
+- **PR**: PR-003-C
 - **Risk**: Medium
 - **Dependencies**: T-006, T-002 (Ejercicio dropdown)
 
@@ -108,7 +120,7 @@
 - **Test file**: src/components/rutina-crud/ejercicio-en-rutina-list.test.tsx
 - **LOC**: 80 (comp) + 60 (tests) = 140
 - **Acceptance**: `npm test -- src/components/rutina-crud/` passes (advanced scenarios)
-- **PR**: PR-003-C
+- **PR**: PR-004-A
 - **Risk**: Medium
 - **Dependencies**: T-007a
 
@@ -118,7 +130,7 @@
 - **Test file**: src/api/rutinas.test.ts
 - **LOC**: 170 (impl) + 120 (tests) = 290
 - **Acceptance**: `npm test -- src/api/rutinas` passes (7+ scenarios)
-- **PR**: PR-004-A
+- **PR**: PR-004-B
 - **Risk**: Medium
 - **Dependencies**: T-006
 
@@ -128,7 +140,7 @@
 - **Test file**: src/app/rutinas/page.test.tsx
 - **LOC**: 180 (page) + 100 (tests) = 280
 - **Acceptance**: `npm test -- src/app/rutinas/` passes (role + nested UX scenarios)
-- **PR**: PR-004-B
+- **PR**: PR-004-C
 - **Risk**: Medium
 - **Dependencies**: T-007b, T-008, T-022 (role gating)
 
@@ -138,7 +150,7 @@
 - **Test file**: src/domains/cliente/cliente.test.ts
 - **LOC**: 210 (impl) + 140 (tests) = 350
 - **Acceptance**: `npm test -- src/domains/cliente/` passes (validation + CRUD + RN-01 downstream)
-- **PR**: PR-004-C
+- **PR**: PR-005-A
 - **Risk**: Low
 - **Dependencies**: T-001
 
@@ -148,7 +160,7 @@
 - **Test file**: src/components/cliente-crud/cliente-form.test.tsx, cliente-list.test.tsx
 - **LOC**: 240 (comp) + 150 (tests) = 390
 - **Acceptance**: `npm test -- src/components/cliente-crud/` passes (form + dropdown scenarios)
-- **PR**: PR-005-A
+- **PR**: PR-005-B
 - **Risk**: Medium
 - **Dependencies**: T-010
 
@@ -158,7 +170,7 @@
 - **Test file**: src/api/clientes.test.ts
 - **LOC**: 160 (impl) + 110 (tests) = 270
 - **Acceptance**: `npm test -- src/api/clientes` passes (7+ scenarios)
-- **PR**: PR-005-B
+- **PR**: PR-005-C
 - **Risk**: Medium
 - **Dependencies**: T-010
 
@@ -168,7 +180,7 @@
 - **Test file**: src/app/clientes/page.test.tsx
 - **LOC**: 190 (page) + 110 (tests) = 300
 - **Acceptance**: `npm test -- src/app/clientes/` passes (role + membresía integration)
-- **PR**: PR-005-C
+- **PR**: PR-006-A
 - **Risk**: Medium
 - **Dependencies**: T-011, T-012, T-022 (role gating)
 
@@ -178,7 +190,7 @@
 - **Test file**: src/domains/membresia/membresia.test.ts
 - **LOC**: 200 (impl) + 130 (tests) = 330
 - **Acceptance**: `npm test -- src/domains/membresia/` passes (validation + estado transitions)
-- **PR**: PR-006-A
+- **PR**: PR-006-B
 - **Risk**: Low
 - **Dependencies**: T-001
 
@@ -188,7 +200,7 @@
 - **Test file**: src/components/membresia-crud/membresia-form.test.tsx, membresia-list.test.tsx
 - **LOC**: 220 (comp) + 140 (tests) = 360
 - **Acceptance**: `npm test -- src/components/membresia-crud/` passes (form + list scenarios)
-- **PR**: PR-006-B
+- **PR**: PR-006-C
 - **Risk**: Medium
 - **Dependencies**: T-014
 
@@ -198,7 +210,7 @@
 - **Test file**: src/api/membresias.test.ts
 - **LOC**: 150 (impl) + 100 (tests) = 250
 - **Acceptance**: `npm test -- src/api/membresias` passes (referential integrity scenarios)
-- **PR**: PR-006-C
+- **PR**: PR-007-A
 - **Risk**: Medium
 - **Dependencies**: T-014
 
@@ -208,7 +220,7 @@
 - **Test file**: src/app/membresias/page.test.tsx
 - **LOC**: 170 (page) + 95 (tests) = 265
 - **Acceptance**: `npm test -- src/app/membresias/` passes (role + estado transitions)
-- **PR**: PR-007-A
+- **PR**: PR-007-B
 - **Risk**: Medium
 - **Dependencies**: T-015, T-016, T-022 (role gating)
 
@@ -218,7 +230,7 @@
 - **Test file**: src/components/home-socio/tarjeta-detalle.test.tsx
 - **LOC**: 160 (comp) + 110 (tests) = 270
 - **Acceptance**: `npm test -- src/components/home-socio/tarjeta-detalle` passes (rendering + data updates)
-- **PR**: PR-007-B
+- **PR**: PR-007-C
 - **Risk**: High (focal component, UX-critical)
 - **Dependencies**: T-002, T-006 (Ejercicio + Rutina data)
 
@@ -228,7 +240,7 @@
 - **Test file**: src/app/home-socio/page.test.tsx
 - **LOC**: 220 (page) + 140 (tests) = 360
 - **Acceptance**: `npm test -- src/app/home-socio/page` passes (layout + data flow scenarios)
-- **PR**: PR-007-C
+- **PR**: PR-008-A
 - **Risk**: High (multi-source data orchestration)
 - **Dependencies**: T-018, T-022 (auth context)
 
@@ -238,7 +250,7 @@
 - **Test file**: src/components/home-interno/operation-card.test.tsx, activity-column.test.tsx
 - **LOC**: 200 (comp) + 130 (tests) = 330
 - **Acceptance**: `npm test -- src/components/home-interno/{operation,activity}` passes (rendering + updates)
-- **PR**: PR-008-A
+- **PR**: PR-008-B
 - **Risk**: High (operational data complexity)
 - **Dependencies**: T-002 (Máquina), T-010 (Cliente)
 
@@ -248,7 +260,7 @@
 - **Test file**: src/app/home-interno/page-part1.test.tsx
 - **LOC**: 150 (page layout + aggregation) + 100 (tests) = 250
 - **Acceptance**: `npm test -- src/app/home-interno/page-part1` passes (layout + first 3 row aggregations)
-- **PR**: PR-008-B
+- **PR**: PR-008-C
 - **Risk**: High (aggregation queries, operational data)
 - **Dependencies**: T-020, T-022 (auth context)
 
@@ -258,19 +270,9 @@
 - **Test file**: src/app/home-interno/page-part2.test.tsx
 - **LOC**: 100 (page layout + data integration) + 50 (tests) = 150
 - **Acceptance**: `npm test -- src/app/home-interno/page-part2` passes (final 2 rows + full integration scenarios)
-- **PR**: PR-008-C
+- **PR**: PR-009-A
 - **Risk**: High (event stream, counter aggregations, multi-source integration)
 - **Dependencies**: T-021a, T-024 (fixtures for consistent test data)
-
-### T-023: Common UI Utilities (Validation, Formatting, Errors)
-- **Spec**: Cross-cutting concerns (email, DNI, phone formats; API error handling)
-- **What**: validateEmail, formatDNI, formatPhone, handleApiError, notification context
-- **Test file**: src/utils/validation.test.ts, src/utils/formatting.test.ts
-- **LOC**: 130 (util) + 110 (tests) = 240
-- **Acceptance**: `npm test -- src/utils/` passes (all utility + error handling tests)
-- **PR**: PR-008-C
-- **Risk**: Low (unit tests, isolated)
-- **Dependencies**: None
 
 ### T-024: Test Fixtures & Factories
 - **Spec**: Test infrastructure (data generation)
@@ -333,9 +335,9 @@
 20. **PR-007-B**: T-018 (270 LOC) — Tarjeta_Detalle + supporting components
 21. **PR-007-C**: T-019 (360 LOC) — Home_Socio page layout
 22. **PR-008-A**: T-020 (330 LOC) — Home_Interno components
-23. **PR-008-B**: T-021a (250 LOC) — Home_Interno page layout (Part 1: Rows 1–3)
-24. **PR-008-C**: T-021b (150 LOC) — Home_Interno page layout (Part 2: Rows 4–5 + integration)
-25. **PR-009-A**: T-023 (240 LOC) — Common UI utilities
+22. **PR-008-B**: T-021a (250 LOC) — Home_Interno page layout (Part 1: Rows 1–3)
+23. **PR-008-C**: T-021b (150 LOC) — Home_Interno page layout (Part 2: Rows 4–5 + integration)
+24. **PR-009-A**: T-024 (240 LOC) — Test Fixtures & Factories
 26. **PR-009-B**: T-024 (240 LOC) — Test fixtures & factories
 
 **Total**: 7,235 LOC across 26 PRs (each ≤400 LOC)
@@ -417,7 +419,7 @@ npm test -- src/middleware/role-gating
 
 Once approved:
 1. Load `sdd-apply` skill
-2. Execute tasks in order: T-001 → T-022 → T-002 → ... → T-021b → T-023 → T-024
+2. Execute tasks in order: T-001 → T-022 → T-023 → T-002 → ... → T-021b → T-024
 3. For each task: write tests first (red), implement (green), verify (npm test)
 4. Group commits by PR boundary (e.g., T-002 + tests = PR-001-C commit)
 5. Create chained PRs: PR-001-A → PR-001-B → PR-001-C → PR-002-A → ... → PR-009-B

@@ -463,3 +463,18 @@ model ConfiguracionDelSistema {
   ventanaAforoMinutos   Int      @default(90)
   updatedAt             DateTime @updatedAt
 }
+
+// ============================================================================
+// RATE LIMITING
+// ============================================================================
+
+model RateLimitLog {
+  id        String   @id @default(cuid())
+  key       String   // userId or IP address
+  route     String   // base path being accessed (e.g., /api/socios, /api/auth/login)
+  timestamp DateTime @default(now())
+
+  // Indexes for efficient sliding-window queries and cleanup
+  @@index([key, route, timestamp])
+  @@index([timestamp])
+}

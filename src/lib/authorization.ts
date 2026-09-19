@@ -60,6 +60,17 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
  * @param pathname Request pathname (e.g., /api/socios/123)
  * @param method HTTP method (GET, POST, etc.)
  * @returns RouteAccessResult with allowed status and matched basePath (for rate limiting grouping)
+ *
+ * ⚠️ IMPORTANT: This matrix enforces path-level (prefix-based) access control.
+ * Fine-grained restrictions (e.g., "only ADMIN can approve overrides") must be
+ * checked INSIDE the route handler, NOT in the middleware. Example:
+ *
+ *   - Recepcionista has POST /api/socios → but /api/socios/{id}/access-override
+ *     must validate rol === 'ADMINISTRADOR' inside the handler logic.
+ *   - Socio has GET /api/socios → but fetches only own record via handler filtering.
+ *
+ * This keeps authorization concerns where they belong: business logic in handlers,
+ * coarse-grained access control in middleware.
  */
 export function hasRouteAccess(
   rol: UserRole,
