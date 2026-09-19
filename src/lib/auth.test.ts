@@ -1,4 +1,10 @@
-import { hashPassword, comparePassword, createJWT, verifyJWT } from "./auth";
+import {
+  hashPassword,
+  comparePassword,
+  createJWT,
+  verifyJWT,
+  extractUserFromAuthHeader,
+} from "./auth";
 
 describe("Auth Library", () => {
   describe("Password hashing and comparison", () => {
@@ -68,7 +74,7 @@ describe("Auth Library", () => {
       const token = createJWT(userId);
 
       const verified = verifyJWT(token);
-      expect(verified).toBe(userId);
+      expect(verified?.sub).toBe(userId);
     });
 
     it("should create different tokens for different users", () => {
@@ -76,8 +82,8 @@ describe("Auth Library", () => {
       const token2 = createJWT("user-2");
 
       expect(token1).not.toBe(token2);
-      expect(verifyJWT(token1)).toBe("user-1");
-      expect(verifyJWT(token2)).toBe("user-2");
+      expect(verifyJWT(token1)?.sub).toBe("user-1");
+      expect(verifyJWT(token2)?.sub).toBe("user-2");
     });
 
     it("should reject invalid tokens", () => {
@@ -108,7 +114,7 @@ describe("Auth Library", () => {
       const token = createJWT(userId, "1h");
 
       const verified = verifyJWT(token);
-      expect(verified).toBe(userId);
+      expect(verified?.sub).toBe(userId);
     });
 
     it("should support numeric expiration (seconds)", () => {
@@ -116,7 +122,7 @@ describe("Auth Library", () => {
       const token = createJWT(userId, 3600); // 1 hour
 
       const verified = verifyJWT(token);
-      expect(verified).toBe(userId);
+      expect(verified?.sub).toBe(userId);
     });
   });
 
@@ -126,7 +132,7 @@ describe("Auth Library", () => {
       const token = createJWT(longUserId);
 
       const verified = verifyJWT(token);
-      expect(verified).toBe(longUserId);
+      expect(verified?.sub).toBe(longUserId);
     });
 
     it("should handle special characters in user ID", () => {
@@ -134,7 +140,45 @@ describe("Auth Library", () => {
       const token = createJWT(specialId);
 
       const verified = verifyJWT(token);
-      expect(verified).toBe(specialId);
+      expect(verified?.sub).toBe(specialId);
+    });
+
+    it("should include role in JWT when provided", () => {
+      const userId = "admin-123";
+      const token = createJWT(userId, "7d", { rol: "ADMINISTRADOR" });
+
+      const verified = verifyJWT(token);
+      expect(verified?.sub).toBe(userId);
+      expect(verified?.rol).toBe("ADMINISTRADOR");
+    });
+
+    it("should extract user from Authorization Bearer header", () => {
+      const userId = "user-456";
+      const token = createJWT(userId, "7d", {
+        rol: "RECEPCIONISTA",
+        email: "user@test.com",
+        nombre: "Test User",
+      });
+
+      const user = extractUserFromAuthHeader(`Bearer ${token}`);
+      expect(user).toBeDefined();
+      expect(user?.id).toBe(userId);
+      expect(user?.rol).toBe("RECEPCIONISTA");
+    });
+
+    it("should return null for missing Authorization header", () => {
+      const user = extractUserFromAuthHeader(undefined);
+      expect(user).toBeNull();
+    });
+
+    it("should return null for malformed Bearer header", () => {
+      const user = extractUserFromAuthHeader("Basic user:pass");
+      expect(user).toBeNull();
+    });
+
+    it("should return null for invalid JWT token", () => {
+      const user = extractUserFromAuthHeader("Bearer invalid.token.xyz");
+      expect(user).toBeNull();
     });
   });
 });

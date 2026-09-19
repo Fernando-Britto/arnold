@@ -24,16 +24,16 @@ export function validateAccessOverride(data: any): ValidationResult {
   const errors: string[] = [];
 
   // Validate motivo exists and is string
-  if (!data.motivo || typeof data.motivo !== "string") {
+  if (typeof data.motivo !== "string") {
     errors.push("La razón es requerida");
     return { valid: false, errors };
   }
 
-  // Validate motivo is not empty or whitespace
-  if (data.motivo.trim().length === 0) {
+  // Validate motivo is not empty or whitespace-only
+  const trimmed = data.motivo.trim();
+  if (trimmed.length === 0) {
     errors.push("La razón no puede estar vacía");
-  } else if (data.motivo.length < 10) {
-    // Length check includes whitespace for UX clarity
+  } else if (trimmed.length < 10) {
     errors.push("La razón debe tener al menos 10 caracteres");
   } else if (data.motivo.length > 500) {
     errors.push("La razón no puede exceder 500 caracteres");

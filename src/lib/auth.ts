@@ -25,28 +25,67 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 /**
+ * Payload structure for JWT tokens
+ */
+export interface JWTPayload {
+  sub: string; // user ID
+  rol?: string; // user role (ADMINISTRADOR, INSTRUCTOR, RECEPCIONISTA, SOCIO)
+  email?: string;
+  nombre?: string;
+}
+
+/**
  * Create a JWT token for a user
  * @param userId The user's ID (string)
  * @param expiresIn Token expiration time (default: '7d', e.g., '24h', '7d', 3600)
+ * @param payload Optional additional payload (rol, email, nombre)
  * @returns The signed JWT token
  */
-export function createJWT(userId: string, expiresIn: string | number = '7d'): string {
-  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn } as SignOptions);
+export function createJWT(
+  userId: string,
+  expiresIn: string | number = '7d',
+  payload?: Partial<JWTPayload>
+): string {
+  return jwt.sign({ sub: userId, ...payload }, JWT_SECRET, { expiresIn } as SignOptions);
 }
 
 /**
  * Verify and decode a JWT token
  * @param token The JWT token to verify
- * @returns The user ID (from token.sub) if valid, null if invalid or expired
+ * @returns The decoded JWT payload if valid, null if invalid or expired
  */
-export function verifyJWT(token: string): string | null {
+export function verifyJWT(token: string): JWTPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { sub: string };
-    return decoded.sub;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return decoded;
   } catch {
     // Invalid, expired, or tampered token
     return null;
   }
+}
+
+/**
+ * Extract user from Authorization header
+ * Supports Bearer token format: "Authorization: Bearer <token>"
+ * @param authHeader The Authorization header value
+ * @returns User object { id, rol } if valid token, null otherwise
+ */
+export function extractUserFromAuthHeader(authHeader?: string): { id: string; rol?: string } | null {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.slice(7); // Remove "Bearer "
+  const payload = verifyJWT(token);
+
+  if (!payload) {
+    return null;
+  }
+
+  return {
+    id: payload.sub,
+    rol: payload.rol,
+  };
 }
 
 /**

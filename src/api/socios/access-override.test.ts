@@ -25,7 +25,7 @@ describe("Access Override Authorization (T-025)", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors).toContain("La razón es requerida");
+      expect(validation.errors).toContain("La razón no puede estar vacía");
     });
 
     it("should reject motivo with only whitespace", () => {
