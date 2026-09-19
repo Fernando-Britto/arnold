@@ -4,7 +4,7 @@
 **Date**: 2026-09-12  
 **Mode**: Strict TDD (strict_tdd: true)  
 **Delivery**: Auto-chain (28 PRs, ≤400 LOC each)  
-**Total LOC**: 7,480 (code + tests)
+**Total LOC**: 7,885 (code + tests)
 
 ---
 
@@ -319,7 +319,7 @@
 | Auth infrastructure (T-023a) | 390 | 1 | JWT, DB singleton, rate limiting, fine-grained auth (impl + tests included) |
 | UI utilities (T-023b) | 240 | 1 | Validation, formatting, error handling (impl + tests included) |
 | Test fixtures (T-024) | 240 | 1 | Factories + setup |
-| **TOTAL** | **7,480** | **28 tasks** | **Verified sum of all 28 task LOC values (T-021a/b, T-023a/b, T-025 as separate tasks)** |
+| **TOTAL** | **7,885** | **28 tasks** | **Verified sum of all 28 task LOC values (T-021a/b, T-023a/b, T-025 as separate tasks)** |
 
 **Test file breakdown** (already included in LOC above):
 - Domain tests: ~600 LOC (unit specs)
@@ -365,7 +365,7 @@
 27. **PR-009-C**: T-023b (240 LOC) — UI utilities (validation, formatting, error handling)
 28. **PR-010-A**: T-024 (240 LOC) — Test Fixtures & Factories
 
-**Total**: 7,480 LOC across 28 PRs (each ≤400 LOC)
+**Total**: 7,885 LOC across 28 PRs (each ≤400 LOC)
 
 **Each PR**:
 - ≤400 LOC (hard limit, verified)
