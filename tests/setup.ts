@@ -1,3 +1,5 @@
+import '@testing-library/jest-dom';
+
 // Jest setup file — runs before all tests
 // Add any global test utilities, mocks, or fixtures here
 
