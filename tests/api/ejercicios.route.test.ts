@@ -13,6 +13,25 @@ jest.mock("@/api/ejercicios");
 jest.mock("@/lib/db");
 
 /**
+ * Type guards for discriminated union responses
+ */
+function isCreateSuccess(result: any): result is { id: string; nombre: string; createdAt: Date; status: 201 } {
+  return "id" in result && result.status === 201;
+}
+
+function isCreateError(result: any): result is { code: string; message: string; status: number } {
+  return "code" in result && "status" in result;
+}
+
+function isListSuccess(result: any): result is any[] {
+  return Array.isArray(result);
+}
+
+function isListError(result: any): result is { code: string; message: string; status: number } {
+  return "code" in result && "status" in result;
+}
+
+/**
  * Integration tests for GET/POST /api/ejercicios route
  *
  * Tests the route handler functions exported from route.ts
@@ -47,9 +66,12 @@ describe("POST /api/ejercicios — Create Handler", () => {
 
     const result = await handleEjercicioCreateRequest(input);
 
-    expect(result.status).toBe(201);
-    expect(result.id).toBe("ej-new-1");
-    expect(result.nombre).toBe("Sentadilla");
+    expect(isCreateSuccess(result)).toBe(true);
+    if (isCreateSuccess(result)) {
+      expect(result.status).toBe(201);
+      expect(result.id).toBe("ej-new-1");
+      expect(result.nombre).toBe("Sentadilla");
+    }
   });
 
   it("should return 400 VALIDATION_ERROR when nombre is missing", async () => {
@@ -64,9 +86,12 @@ describe("POST /api/ejercicios — Create Handler", () => {
 
     const result = await handleEjercicioCreateRequest(invalidInput);
 
-    expect(result.status).toBe(400);
-    expect(result.code).toBe("VALIDATION_ERROR");
-    expect(result.message).toBe("El nombre es requerido");
+    expect(isCreateError(result)).toBe(true);
+    if (isCreateError(result)) {
+      expect(result.status).toBe(400);
+      expect(result.code).toBe("VALIDATION_ERROR");
+      expect(result.message).toBe("El nombre es requerido");
+    }
   });
 
   it("should return 400 VALIDATION_ERROR when nombre is too short", async () => {
@@ -81,9 +106,12 @@ describe("POST /api/ejercicios — Create Handler", () => {
 
     const result = await handleEjercicioCreateRequest(invalidInput);
 
-    expect(result.status).toBe(400);
-    expect(result.code).toBe("VALIDATION_ERROR");
-    expect(result.message).toContain("3 caracteres");
+    expect(isCreateError(result)).toBe(true);
+    if (isCreateError(result)) {
+      expect(result.status).toBe(400);
+      expect(result.code).toBe("VALIDATION_ERROR");
+      expect(result.message).toContain("3 caracteres");
+    }
   });
 
   it("should return 400 VALIDATION_ERROR when grupoMuscular is missing", async () => {
@@ -98,9 +126,12 @@ describe("POST /api/ejercicios — Create Handler", () => {
 
     const result = await handleEjercicioCreateRequest(invalidInput);
 
-    expect(result.status).toBe(400);
-    expect(result.code).toBe("VALIDATION_ERROR");
-    expect(result.message).toContain("grupo muscular");
+    expect(isCreateError(result)).toBe(true);
+    if (isCreateError(result)) {
+      expect(result.status).toBe(400);
+      expect(result.code).toBe("VALIDATION_ERROR");
+      expect(result.message).toContain("grupo muscular");
+    }
   });
 
   it("should return 500 SERVER_ERROR on database error", async () => {
@@ -115,8 +146,11 @@ describe("POST /api/ejercicios — Create Handler", () => {
 
     const result = await handleEjercicioCreateRequest(validInput);
 
-    expect(result.status).toBe(500);
-    expect(result.code).toBe("SERVER_ERROR");
+    expect(isCreateError(result)).toBe(true);
+    if (isCreateError(result)) {
+      expect(result.status).toBe(500);
+      expect(result.code).toBe("SERVER_ERROR");
+    }
   });
 
   it("should pass valid input to handleEjercicioCreate", async () => {
@@ -137,17 +171,18 @@ describe("POST /api/ejercicios — Create Handler", () => {
     expect(handleEjercicioCreate).toHaveBeenCalledWith(input);
   });
 
-  it("should create ejercicio with optional description and difficulty", async () => {
+  it("should create ejercicio with optional description", async () => {
     const input: EjercicioInput = {
       nombre: "Press Banco",
       grupoMuscular: "Pecho",
       descripcion: "Ejercicio compuesto",
-      dificultad: "intermedio",
     };
 
     const mockCreated = {
       id: "ej-complete-1",
-      ...input,
+      nombre: "Press Banco",
+      grupoMuscular: "Pecho",
+      descripcion: "Ejercicio compuesto",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -156,9 +191,12 @@ describe("POST /api/ejercicios — Create Handler", () => {
 
     const result = await handleEjercicioCreateRequest(input);
 
-    expect(result.status).toBe(201);
-    expect(result.descripcion).toBe("Ejercicio compuesto");
-    expect(result.dificultad).toBe("intermedio");
+    expect(isCreateSuccess(result)).toBe(true);
+    if (isCreateSuccess(result)) {
+      expect(result.status).toBe(201);
+      expect(result.descripcion).toBe("Ejercicio compuesto");
+      expect(result.id).toBe("ej-complete-1");
+    }
   });
 });
 
@@ -183,8 +221,10 @@ describe("GET /api/ejercicios — List Handler", () => {
     const result = await handleEjercicioListRequest();
 
     expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBe(1);
-    expect((result as any)[0].nombre).toBe("Press Militar");
+    if (Array.isArray(result)) {
+      expect(result.length).toBe(1);
+      expect(result[0].nombre).toBe("Press Militar");
+    }
   });
 
   it("should return empty array when no ejercicios match", async () => {
@@ -193,7 +233,9 @@ describe("GET /api/ejercicios — List Handler", () => {
     const result = await handleEjercicioListRequest({ search: "nonexistent" });
 
     expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBe(0);
+    if (Array.isArray(result)) {
+      expect(result.length).toBe(0);
+    }
   });
 
   it("should return 500 SERVER_ERROR on database error", async () => {
@@ -203,9 +245,11 @@ describe("GET /api/ejercicios — List Handler", () => {
 
     const result = await handleEjercicioListRequest();
 
-    expect("status" in result).toBe(true);
-    expect((result as any).status).toBe(500);
-    expect((result as any).code).toBe("SERVER_ERROR");
+    expect(isListError(result)).toBe(true);
+    if (isListError(result)) {
+      expect(result.status).toBe(500);
+      expect(result.code).toBe("SERVER_ERROR");
+    }
   });
 
   it("should pass muscleGroup filter to handleEjercicioList", async () => {
@@ -245,7 +289,6 @@ describe("GET /api/ejercicios — List Handler", () => {
         nombre: "Press Banco",
         grupoMuscular: "Pecho",
         descripcion: "Ejercicio compuesto",
-        dificultad: "intermedio",
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -257,7 +300,7 @@ describe("GET /api/ejercicios — List Handler", () => {
 
     expect(Array.isArray(result)).toBe(true);
     expect((result as any)[0].descripcion).toBe("Ejercicio compuesto");
-    expect((result as any)[0].dificultad).toBe("intermedio");
+    expect((result as any)[0].nombre).toBe("Press Banco");
   });
 });
 

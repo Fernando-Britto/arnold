@@ -1,23 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Ejercicio } from "@prisma/client";
 import { handleEjercicioCreate, handleEjercicioList } from "@/api/ejercicios";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 
 /**
+ * Discriminated union types for handler responses
+ */
+type CreateSuccess = Ejercicio & { status: 201 };
+type CreateError = { code: string; message: string; status: number };
+type ListSuccess = Ejercicio[];
+type ListError = { code: string; message: string; status: number };
+
+/**
+ * Type guard to check if result is a success response
+ */
+function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateSuccess {
+  return "id" in result && (result as any).status === 201;
+}
+
+function isListSuccess(result: ListSuccess | ListError): result is ListSuccess {
+  return Array.isArray(result);
+}
+
+/**
  * Core handler logic for POST /api/ejercicios
  * Exported for testing without NextRequest/NextResponse mocking
- * @returns ejercicio object or { code, message, status }
+ * @returns Ejercicio with status 201, or error response
  */
-export async function handleEjercicioCreateRequest(body: any): Promise<
-  | any
-  | {
-      code: string;
-      message: string;
-      status: number;
-    }
-> {
+export async function handleEjercicioCreateRequest(
+  body: any
+): Promise<CreateSuccess | CreateError> {
   try {
     const ejercicio = await handleEjercicioCreate(body);
-    return { ...ejercicio, status: 201 };
+    return { ...ejercicio, status: 201 } as CreateSuccess;
   } catch (error) {
     const mapped = mapErrorToResponse(error, {
       forbiddenMessage: "Se requiere rol de administrador o instructor",
@@ -34,16 +49,15 @@ export async function handleEjercicioCreateRequest(body: any): Promise<
 /**
  * Core handler logic for GET /api/ejercicios
  * Exported for testing without NextRequest/NextResponse mocking
- * @returns ejercicios array or { code, message, status }
+ * @returns Ejercicio array or error response
  */
 export async function handleEjercicioListRequest(options?: {
   muscleGroup?: string;
   search?: string;
-}): Promise<any[] | { code: string; message: string; status: number }> {
+}): Promise<ListSuccess | ListError> {
   try {
     const ejercicios = await handleEjercicioList(options);
-    // Array with implicit status 200
-    return (ejercicios as any[]).map((e) => ({ ...e }));
+    return ejercicios as ListSuccess;
   } catch (error) {
     const mapped = mapErrorToResponse(error, {
       forbiddenMessage: "Se requiere rol de administrador o instructor",

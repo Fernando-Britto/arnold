@@ -36,10 +36,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  const userId = verifyJWT(token);
-  if (!userId) {
+  const payload = verifyJWT(token);
+  if (!payload) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
+
+  const userId = payload.sub;
 
   // Fetch user from DB to verify active status + get role
   const user = await prisma.usuario.findUnique({
