@@ -10,7 +10,7 @@
 
 ## Overview
 
-26 implementation tasks split across 28 chained PRs (T-021 split into T-021a + T-021b for risk management, T-023 split into T-023a + T-023b for scope separation, T-025 added for /access-override endpoint). Each task pairs implementation with corresponding test file(s). Test-first discipline enforced: tests written before implementation (red-green-refactor).
+28 implementation tasks split across 28 chained PRs (T-021 split into T-021a + T-021b for risk management, T-023 split into T-023a + T-023b for scope separation, T-025 added for /access-override endpoint). Each task pairs implementation with corresponding test file(s). Test-first discipline enforced: tests written before implementation (red-green-refactor).
 
 **Key metrics**:
 - Domain models: 4 (Ejercicio, Rutina, Cliente, Membresía)
@@ -90,7 +90,7 @@
 - **Test file**: src/app/ejercicios/page.test.tsx
 - **LOC**: 160 (page) + 90 (tests) = 250
 - **Acceptance**: `npm test -- src/app/ejercicios/` passes (3+ role/flow scenarios)
-- **PR**: PR-003-C
+- **PR**: PR-003-A
 - **Risk**: Medium
 - **Dependencies**: T-003, T-004, T-022 (role gating)
 
@@ -100,7 +100,7 @@
 - **Test file**: src/api/socios/access-override.test.ts
 - **LOC**: 140 (handler) + 120 (tests) = 260
 - **Acceptance**: `npm test -- src/api/socios/access-override` passes (admin check, motivo validation, asistencia update)
-- **PR**: PR-003-D
+- **PR**: PR-003-B
 - **Risk**: Low (uses existing canApproveAccessOverride() + simple endpoint logic)
 - **Dependencies**: T-022 (auth middleware), T-005 (Socio endpoint pattern)
 
@@ -110,7 +110,7 @@
 - **Test file**: src/domains/rutina/rutina.test.ts
 - **LOC**: 200 (impl) + 130 (tests) = 330
 - **Acceptance**: `npm test -- src/domains/rutina/` passes (validation + CRUD tests)
-- **PR**: PR-003-D
+- **PR**: PR-003-C
 - **Risk**: Low
 - **Dependencies**: T-001
 
@@ -313,23 +313,26 @@
 | Prisma schema (T-001) | 120 | 1 | Schema definition, no tests |
 | Domain models + repos (T-002, T-006, T-010, T-014) | 1,310 | 4 | 300 + 330 + 350 + 330 (impl + tests included) |
 | Components (T-003, T-007a, T-007b, T-011, T-015, T-018, T-020) | 2,190 | 7 | 380 + 320 + 140 + 390 + 360 + 270 + 330 (impl + tests included) |
-| API routes (T-004, T-008, T-012, T-016) | 1,060 | 4 | 250 + 290 + 270 + 250 (impl + tests included) |
+| API routes (T-004, T-008, T-012, T-016, T-025) | 1,320 | 5 | 250 + 290 + 270 + 250 + 260 (impl + tests included) |
 | Page components (T-005, T-009, T-013, T-017, T-019, T-021a, T-021b) | 1,855 | 7 | 250 + 280 + 300 + 265 + 360 + 250 + 150 (impl + tests included) |
-| Middleware + context (T-022) + Utilities (T-023) | 460 | 2 | 220 + 240 (impl + tests included) |
+| Role gating middleware (T-022) | 220 | 1 | JWT validation + route access matrix (impl + tests included) |
+| Auth infrastructure (T-023a) | 390 | 1 | JWT, DB singleton, rate limiting, fine-grained auth (impl + tests included) |
+| UI utilities (T-023b) | 240 | 1 | Validation, formatting, error handling (impl + tests included) |
 | Test fixtures (T-024) | 240 | 1 | Factories + setup |
-| **TOTAL** | **7,235** | **25 tasks** | **Verified sum of all 25 task LOC values (T-021 split into T-021a + T-021b)** |
+| **TOTAL** | **7,480** | **28 tasks** | **Verified sum of all 28 task LOC values (T-021a/b, T-023a/b, T-025 as separate tasks)** |
 
 **Test file breakdown** (already included in LOC above):
 - Domain tests: ~600 LOC (unit specs)
 - Component tests: ~700 LOC (render + interaction specs)
-- API tests: ~400 LOC (endpoint + integration specs)
+- API tests: ~450 LOC (endpoint + integration specs, includes T-025)
 - Page tests: ~600 LOC (flow + UX specs)
-- Utilities: ~100 LOC (validation + formatting)
-- **Total test LOC: ~2,400**
+- Auth infrastructure tests: ~180 LOC (JWT, rate limiting, helpers)
+- UI utilities tests: ~110 LOC (validation + formatting)
+- **Total test LOC: ~2,640**
 
 ---
 
-## Chained PR Strategy (26 PRs, ≤400 LOC each)
+## Chained PR Strategy (28 PRs, ≤400 LOC each)
 
 **Ordering enforces dependency flow and TDD discipline** (T-021 split into T-021a + T-021b for risk management):
 
@@ -387,14 +390,15 @@
 ```
 T-001 (Prisma) →
 ├─ T-022 (Role Gating) [MUST BE HERE]
-├─ T-002 (Ejercicio Domain) → T-003 (Ejercicio UI) → T-004 (Ejercicio API) → T-005 (Screen + Gate)
+├─ T-023a (Auth Infrastructure: JWT, DB, Rate Limiting)
+├─ T-002 (Ejercicio Domain) → T-003 (Ejercicio UI) → T-004 (Ejercicio API) → T-005 (Screen + Gate) → T-025 (Override Authorization)
 ├─ T-006 (Rutina Domain) → T-007a/b (Rutina UI) → T-008 (API) → T-009 (Screen + Gate)
 ├─ T-010 (Cliente Domain) → T-011 (Cliente UI) → T-012 (API) → T-013 (Screen + Gate)
 ├─ T-014 (Membresía Domain) → T-015 (UI) → T-016 (API) → T-017 (Screen + Gate)
 ├─ T-018 (Tarjeta_Detalle) → T-019 (Home_Socio)
 ├─ T-020 (Home_Interno Components) → T-021a (Home_Interno Part 1) → T-021b (Home_Interno Part 2)
-├─ T-023 (Utilities)
-└─ T-024 (Fixtures)
+├─ T-023b (UI Utilities: Validation, Formatting)
+└─ T-024 (Test Fixtures)
 ```
 
 ---
