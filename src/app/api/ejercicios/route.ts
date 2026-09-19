@@ -1,86 +1,97 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleEjercicioCreate, handleEjercicioList } from "@/api/ejercicios";
-import { RequestWithUser } from "@/lib/auth";
+import { mapErrorToResponse } from "@/lib/route-error-mapper";
+
+/**
+ * Core handler logic for POST /api/ejercicios
+ * Exported for testing without NextRequest/NextResponse mocking
+ * @returns ejercicio object or { code, message, status }
+ */
+export async function handleEjercicioCreateRequest(body: any): Promise<
+  | any
+  | {
+      code: string;
+      message: string;
+      status: number;
+    }
+> {
+  try {
+    const ejercicio = await handleEjercicioCreate(body);
+    return { ...ejercicio, status: 201 };
+  } catch (error) {
+    const mapped = mapErrorToResponse(error);
+    return {
+      code: mapped.code,
+      message: mapped.message,
+      status: mapped.status,
+    };
+  }
+}
+
+/**
+ * Core handler logic for GET /api/ejercicios
+ * Exported for testing without NextRequest/NextResponse mocking
+ * @returns ejercicios array or { code, message, status }
+ */
+export async function handleEjercicioListRequest(options?: {
+  muscleGroup?: string;
+  search?: string;
+}): Promise<any[] | { code: string; message: string; status: number }> {
+  try {
+    const ejercicios = await handleEjercicioList(options);
+    // Array with implicit status 200
+    return (ejercicios as any[]).map((e) => ({ ...e }));
+  } catch (error) {
+    const mapped = mapErrorToResponse(error);
+    return {
+      code: mapped.code,
+      message: mapped.message,
+      status: mapped.status,
+    };
+  }
+}
 
 /**
  * POST /api/ejercicios - Create a new ejercicio
  * Requires ADMINISTRADOR or INSTRUCTOR role
  */
 export async function POST(request: NextRequest) {
-  try {
-    // Parse JWT from Authorization header (middleware would set this in real scenario)
-    // For now, we'll simulate the request context
-    const body = await request.json();
+  const body = await request.json();
+  const result = await handleEjercicioCreateRequest(body);
 
-    const ejercicio = await handleEjercicioCreate(body);
-
-    return NextResponse.json(ejercicio, { status: 201 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-
-    // Map error messages to HTTP status codes and structured responses
-    if (message.includes("Validación fallida")) {
-      return NextResponse.json(
-        {
-          code: "VALIDATION_ERROR",
-          message: message.replace("Validación fallida: ", ""),
-        },
-        { status: 400 }
-      );
-    }
-
-    if (message.includes("FORBIDDEN")) {
-      return NextResponse.json(
-        {
-          code: "FORBIDDEN",
-          message: "Se requiere rol de administrador o instructor",
-        },
-        { status: 403 }
-      );
-    }
-
-    if (message.includes("NOT_FOUND")) {
-      return NextResponse.json(
-        {
-          code: "NOT_FOUND",
-          message: "Ejercicio no encontrado",
-        },
-        { status: 404 }
-      );
-    }
-
+  // If error response (has status property)
+  if ("status" in result && "code" in result) {
     return NextResponse.json(
-      {
-        code: "SERVER_ERROR",
-        message: "No se pudo procesar la solicitud",
-      },
-      { status: 500 }
+      { code: result.code, message: result.message },
+      { status: result.status }
     );
   }
+
+  // Success: return ejercicio
+  return NextResponse.json(result, { status: 201 });
 }
 
 /**
  * GET /api/ejercicios - List all ejercicios
  */
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const muscleGroup = searchParams.get("muscleGroup") || undefined;
-    const search = searchParams.get("search") || undefined;
+  const searchParams = request.nextUrl.searchParams;
+  const muscleGroup = searchParams.get("muscleGroup") || undefined;
+  const search = searchParams.get("search") || undefined;
 
-    const ejercicios = await handleEjercicioList({
-      muscleGroup: muscleGroup || undefined,
-      search: search || undefined,
-    });
+  const result = await handleEjercicioListRequest({
+    muscleGroup,
+    search,
+  });
 
-    return NextResponse.json(ejercicios, { status: 200 });
-  } catch (error) {
+  // If error response (has status and code properties)
+  if ("status" in result && "code" in result) {
     return NextResponse.json(
-      {
-        code: "SERVER_ERROR",
-        message: "No se pudo obtener ejercicios",
-      },
-      { status: 500 }
+      { code: result.code, message: result.message },
+      { status: result.status }
     );
   }
+
+  // Success: return array of ejercicios
+  return NextResponse.json(result, { status: 200 });
 }

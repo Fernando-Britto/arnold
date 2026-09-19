@@ -1,7 +1,11 @@
 import {
+  handleEjercicioCreateRequest,
+  handleEjercicioListRequest,
+} from "@/app/api/ejercicios/route";
+import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import {
   handleEjercicioCreate,
   handleEjercicioList,
-  handleEjercicioGet,
 } from "@/api/ejercicios";
 import { EjercicioInput } from "@/domains/ejercicio/ejercicio";
 
@@ -11,91 +15,19 @@ jest.mock("@/lib/db");
 /**
  * Integration tests for GET/POST /api/ejercicios route
  *
- * Tests the route handler logic by invoking the API handlers and
- * verifying they are called with correct parameters.
+ * Tests the route handler functions exported from route.ts
+ * (handleEjercicioCreateRequest, handleEjercicioListRequest)
+ * with real error scenarios and proper assertions.
+ *
  * Spec: ejercicios-crud/spec.md
  */
-
-describe("GET /api/ejercicios — List Handler", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it("should call handleEjercicioList with no options for simple GET", async () => {
-    const mockEjercicios = [
-      {
-        id: "ej-1",
-        nombre: "Press Militar",
-        grupoMuscular: "Hombros",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ];
-
-    (handleEjercicioList as jest.Mock).mockResolvedValue(mockEjercicios);
-
-    // Simulating: GET /api/ejercicios (no query params)
-    const result = await handleEjercicioList();
-
-    expect(handleEjercicioList).toHaveBeenCalledWith();
-    expect(result).toEqual(mockEjercicios);
-  });
-
-  it("should call handleEjercicioList with muscleGroup filter", async () => {
-    const mockEjercicios = [
-      {
-        id: "ej-pecho-1",
-        nombre: "Bench Press",
-        grupoMuscular: "Pecho",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ];
-
-    (handleEjercicioList as jest.Mock).mockResolvedValue(mockEjercicios);
-
-    // Simulating: GET /api/ejercicios?muscleGroup=Pecho
-    const result = await handleEjercicioList({ muscleGroup: "Pecho" });
-
-    expect(handleEjercicioList).toHaveBeenCalledWith({ muscleGroup: "Pecho" });
-    expect(result).toEqual(mockEjercicios);
-  });
-
-  it("should call handleEjercicioList with search filter", async () => {
-    const mockEjercicios = [
-      {
-        id: "ej-search-1",
-        nombre: "Bench Press",
-        grupoMuscular: "Pecho",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ];
-
-    (handleEjercicioList as jest.Mock).mockResolvedValue(mockEjercicios);
-
-    // Simulating: GET /api/ejercicios?search=bench
-    const result = await handleEjercicioList({ search: "bench" });
-
-    expect(handleEjercicioList).toHaveBeenCalledWith({ search: "bench" });
-    expect(result).toEqual(mockEjercicios);
-  });
-
-  it("should return empty array when no ejercicios match filter", async () => {
-    (handleEjercicioList as jest.Mock).mockResolvedValue([]);
-
-    const result = await handleEjercicioList({ search: "nonexistent" });
-
-    expect(result).toEqual([]);
-  });
-});
 
 describe("POST /api/ejercicios — Create Handler", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should call handleEjercicioCreate with valid input", async () => {
+  it("should return 201 with ejercicio on successful create", async () => {
     const input: EjercicioInput = {
       nombre: "Sentadilla",
       grupoMuscular: "Piernas",
@@ -113,15 +45,81 @@ describe("POST /api/ejercicios — Create Handler", () => {
 
     (handleEjercicioCreate as jest.Mock).mockResolvedValue(mockCreated);
 
-    // Simulating: POST /api/ejercicios { nombre, grupoMuscular, ... }
-    const result = await handleEjercicioCreate(input);
+    const result = await handleEjercicioCreateRequest(input);
 
-    expect(handleEjercicioCreate).toHaveBeenCalledWith(input);
-    expect(result).toEqual(mockCreated);
-    expect(result.id).toBeDefined();
+    expect(result.status).toBe(201);
+    expect(result.id).toBe("ej-new-1");
+    expect(result.nombre).toBe("Sentadilla");
   });
 
-  it("should pass motivo from request body to handler", async () => {
+  it("should return 400 VALIDATION_ERROR when nombre is missing", async () => {
+    const invalidInput = {
+      grupoMuscular: "Piernas",
+      // nombre missing
+    };
+
+    (handleEjercicioCreate as jest.Mock).mockRejectedValue(
+      new Error("Validación fallida: El nombre es requerido")
+    );
+
+    const result = await handleEjercicioCreateRequest(invalidInput);
+
+    expect(result.status).toBe(400);
+    expect(result.code).toBe("VALIDATION_ERROR");
+    expect(result.message).toBe("El nombre es requerido");
+  });
+
+  it("should return 400 VALIDATION_ERROR when nombre is too short", async () => {
+    const invalidInput = {
+      nombre: "AB",
+      grupoMuscular: "Pecho",
+    };
+
+    (handleEjercicioCreate as jest.Mock).mockRejectedValue(
+      new Error("Validación fallida: El nombre debe tener al menos 3 caracteres")
+    );
+
+    const result = await handleEjercicioCreateRequest(invalidInput);
+
+    expect(result.status).toBe(400);
+    expect(result.code).toBe("VALIDATION_ERROR");
+    expect(result.message).toContain("3 caracteres");
+  });
+
+  it("should return 400 VALIDATION_ERROR when grupoMuscular is missing", async () => {
+    const invalidInput = {
+      nombre: "Press Banco",
+      // grupoMuscular missing
+    };
+
+    (handleEjercicioCreate as jest.Mock).mockRejectedValue(
+      new Error("Validación fallida: El grupo muscular es requerido")
+    );
+
+    const result = await handleEjercicioCreateRequest(invalidInput);
+
+    expect(result.status).toBe(400);
+    expect(result.code).toBe("VALIDATION_ERROR");
+    expect(result.message).toContain("grupo muscular");
+  });
+
+  it("should return 500 SERVER_ERROR on database error", async () => {
+    const validInput: EjercicioInput = {
+      nombre: "Curl",
+      grupoMuscular: "Brazos",
+    };
+
+    (handleEjercicioCreate as jest.Mock).mockRejectedValue(
+      new Error("Database connection timeout")
+    );
+
+    const result = await handleEjercicioCreateRequest(validInput);
+
+    expect(result.status).toBe(500);
+    expect(result.code).toBe("SERVER_ERROR");
+  });
+
+  it("should pass valid input to handleEjercicioCreate", async () => {
     const input: EjercicioInput = {
       nombre: "Flexiones",
       grupoMuscular: "Pecho",
@@ -134,17 +132,12 @@ describe("POST /api/ejercicios — Create Handler", () => {
       updatedAt: new Date(),
     });
 
-    await handleEjercicioCreate(input);
+    await handleEjercicioCreateRequest(input);
 
-    expect(handleEjercicioCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        nombre: "Flexiones",
-        grupoMuscular: "Pecho",
-      })
-    );
+    expect(handleEjercicioCreate).toHaveBeenCalledWith(input);
   });
 
-  it("should create ejercicio with all optional fields", async () => {
+  it("should create ejercicio with optional description and difficulty", async () => {
     const input: EjercicioInput = {
       nombre: "Press Banco",
       grupoMuscular: "Pecho",
@@ -161,158 +154,202 @@ describe("POST /api/ejercicios — Create Handler", () => {
 
     (handleEjercicioCreate as jest.Mock).mockResolvedValue(mockCreated);
 
-    const result = await handleEjercicioCreate(input);
+    const result = await handleEjercicioCreateRequest(input);
 
+    expect(result.status).toBe(201);
     expect(result.descripcion).toBe("Ejercicio compuesto");
     expect(result.dificultad).toBe("intermedio");
   });
 });
 
-describe("GET /api/ejercicios/:id — Get Handler", () => {
+describe("GET /api/ejercicios — List Handler", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should call handleEjercicioGet with ejercicio ID", async () => {
-    const mockEjercicio = {
-      id: "ej-123",
-      nombre: "Sentadilla",
-      grupoMuscular: "Piernas",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    (handleEjercicioGet as jest.Mock).mockResolvedValue(mockEjercicio);
-
-    // Simulating: GET /api/ejercicios/ej-123
-    const result = await handleEjercicioGet("ej-123");
-
-    expect(handleEjercicioGet).toHaveBeenCalledWith("ej-123");
-    expect(result).toEqual(mockEjercicio);
-  });
-
-  it("should return null when ejercicio not found", async () => {
-    (handleEjercicioGet as jest.Mock).mockResolvedValue(null);
-
-    const result = await handleEjercicioGet("nonexistent-id");
-
-    expect(result).toBeNull();
-  });
-});
-
-describe("Route error mapping expectations", () => {
-  it("should map validation errors (400) — verified via handler rejection", () => {
-    // Validation errors from handler would be caught by route
-    // and mapped to 400 VALIDATION_ERROR per spec
-    const errorMessage = "El nombre debe tener al menos 3 caracteres";
-    const isValidation = errorMessage.includes("debe");
-
-    expect(isValidation).toBe(true);
-  });
-
-  it("should map 403 FORBIDDEN errors when role check fails", () => {
-    // Route checks role via middleware before calling handler
-    // If role is not ADMINISTRADOR/INSTRUCTOR → 403 FORBIDDEN
-    const userRole = "RECEPCIONISTA";
-    const canCreate = userRole === "ADMINISTRADOR" || userRole === "INSTRUCTOR";
-
-    expect(canCreate).toBe(false); // Would trigger 403
-  });
-
-  it("should map 404 NOT_FOUND errors when ejercicio not found", () => {
-    // Handler returns null for missing ID → route maps to 404
-    const ejercicio = null;
-    const isNotFound = ejercicio === null;
-
-    expect(isNotFound).toBe(true);
-  });
-
-  it("should map 500 SERVER_ERROR for database errors", () => {
-    // Unhandled errors from handler caught by route → 500
-    const errorMessage = "Database connection timeout";
-    const isServerError =
-      !errorMessage.includes("Validación fallida") &&
-      !errorMessage.includes("FORBIDDEN");
-
-    expect(isServerError).toBe(true);
-  });
-});
-
-describe("Route.ts file structure verification", () => {
-  it("should have handlers exported from src/api/ejercicios.ts", () => {
-    expect(typeof handleEjercicioCreate).toBe("function");
-    expect(typeof handleEjercicioList).toBe("function");
-    expect(typeof handleEjercicioGet).toBe("function");
-  });
-
-  it("should accept EjercicioInput type for create handler", () => {
-    const validInput: EjercicioInput = {
-      nombre: "Test",
-      grupoMuscular: "Test Group",
-    };
-
-    expect(validInput.nombre).toBeDefined();
-    expect(validInput.grupoMuscular).toBeDefined();
-  });
-
-  it("should return Ejercicio type from handlers", async () => {
-    (handleEjercicioList as jest.Mock).mockResolvedValue([
+  it("should return 200 with ejercicios array on successful list", async () => {
+    const mockEjercicios = [
       {
-        id: "test-1",
-        nombre: "Test",
-        grupoMuscular: "Test",
+        id: "ej-1",
+        nombre: "Press Militar",
+        grupoMuscular: "Hombros",
         createdAt: new Date(),
         updatedAt: new Date(),
       },
-    ]);
+    ];
 
-    const result = await handleEjercicioList();
-    expect(result[0].id).toBeDefined();
-    expect(result[0].nombre).toBeDefined();
+    (handleEjercicioList as jest.Mock).mockResolvedValue(mockEjercicios);
+
+    const result = await handleEjercicioListRequest();
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(1);
+    expect((result as any)[0].nombre).toBe("Press Militar");
   });
-});
 
-describe("Handler parameter passing", () => {
-  it("should pass query parameters from GET request to handler", async () => {
+  it("should return empty array when no ejercicios match", async () => {
     (handleEjercicioList as jest.Mock).mockResolvedValue([]);
 
-    // Simulating: GET /api/ejercicios?muscleGroup=Hombros&search=press
-    await handleEjercicioList({
+    const result = await handleEjercicioListRequest({ search: "nonexistent" });
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(0);
+  });
+
+  it("should return 500 SERVER_ERROR on database error", async () => {
+    (handleEjercicioList as jest.Mock).mockRejectedValue(
+      new Error("Database connection timeout")
+    );
+
+    const result = await handleEjercicioListRequest();
+
+    expect("status" in result).toBe(true);
+    expect((result as any).status).toBe(500);
+    expect((result as any).code).toBe("SERVER_ERROR");
+  });
+
+  it("should pass muscleGroup filter to handleEjercicioList", async () => {
+    (handleEjercicioList as jest.Mock).mockResolvedValue([]);
+
+    await handleEjercicioListRequest({ muscleGroup: "Pecho" });
+
+    expect(handleEjercicioList).toHaveBeenCalledWith({ muscleGroup: "Pecho", search: undefined });
+  });
+
+  it("should pass search filter to handleEjercicioList", async () => {
+    (handleEjercicioList as jest.Mock).mockResolvedValue([]);
+
+    await handleEjercicioListRequest({ search: "press" });
+
+    expect(handleEjercicioList).toHaveBeenCalledWith({ muscleGroup: undefined, search: "press" });
+  });
+
+  it("should pass both filters to handleEjercicioList", async () => {
+    (handleEjercicioList as jest.Mock).mockResolvedValue([]);
+
+    await handleEjercicioListRequest({
       muscleGroup: "Hombros",
-      search: "press",
+      search: "militar",
     });
 
     expect(handleEjercicioList).toHaveBeenCalledWith({
       muscleGroup: "Hombros",
-      search: "press",
+      search: "militar",
     });
   });
 
-  it("should pass JSON body from POST request to create handler", async () => {
+  it("should handle ejercicios with all fields", async () => {
+    const mockEjercicios = [
+      {
+        id: "ej-complete-1",
+        nombre: "Press Banco",
+        grupoMuscular: "Pecho",
+        descripcion: "Ejercicio compuesto",
+        dificultad: "intermedio",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+
+    (handleEjercicioList as jest.Mock).mockResolvedValue(mockEjercicios);
+
+    const result = await handleEjercicioListRequest();
+
+    expect(Array.isArray(result)).toBe(true);
+    expect((result as any)[0].descripcion).toBe("Ejercicio compuesto");
+    expect((result as any)[0].dificultad).toBe("intermedio");
+  });
+});
+
+describe("Shared error mapping (mapErrorToResponse)", () => {
+  it("should map validation error to 400 VALIDATION_ERROR", () => {
+    const result = mapErrorToResponse(
+      new Error("Validación fallida: El nombre es requerido")
+    );
+
+    expect(result.code).toBe("VALIDATION_ERROR");
+    expect(result.status).toBe(400);
+    expect(result.message).toBe("El nombre es requerido");
+  });
+
+  it("should map FORBIDDEN error to 403", () => {
+    const result = mapErrorToResponse(
+      new Error("FORBIDDEN: Se requiere rol de administrador")
+    );
+
+    expect(result.code).toBe("FORBIDDEN");
+    expect(result.status).toBe(403);
+  });
+
+  it("should map NOT_FOUND error to 404", () => {
+    const result = mapErrorToResponse(
+      new Error("NOT_FOUND: Ejercicio no encontrado")
+    );
+
+    expect(result.code).toBe("NOT_FOUND");
+    expect(result.status).toBe(404);
+    expect(result.message).toContain("Recurso");
+  });
+
+  it("should map unhandled error to 500 SERVER_ERROR", () => {
+    const result = mapErrorToResponse(new Error("Unexpected error"));
+
+    expect(result.code).toBe("SERVER_ERROR");
+    expect(result.status).toBe(500);
+  });
+
+  it("should handle non-Error objects", () => {
+    const result = mapErrorToResponse("string error");
+
+    expect(result.code).toBe("SERVER_ERROR");
+    expect(result.status).toBe(500);
+  });
+});
+
+describe("Route.ts wrappers (POST and GET functions)", () => {
+  it("should distinguish between success (array) and error (object with status) in list", async () => {
+    (handleEjercicioList as jest.Mock).mockResolvedValue([
+      { id: "ej-1", nombre: "Test" },
+    ]);
+
+    const result = await handleEjercicioListRequest();
+
+    // Success: Array
+    expect(Array.isArray(result)).toBe(true);
+
+    // Error: Object with status and code
+    (handleEjercicioList as jest.Mock).mockRejectedValue(new Error("DB error"));
+    const errorResult = await handleEjercicioListRequest();
+    expect("status" in errorResult).toBe(true);
+    expect("code" in errorResult).toBe(true);
+  });
+
+  it("should distinguish between success (object with id) and error (object with code) in create", async () => {
     const input: EjercicioInput = {
-      nombre: "Curl de Bíceps",
-      grupoMuscular: "Brazos",
+      nombre: "Test",
+      grupoMuscular: "Test",
     };
 
     (handleEjercicioCreate as jest.Mock).mockResolvedValue({
-      id: "new-1",
-      ...input,
+      id: "ej-1",
+      nombre: "Test",
+      grupoMuscular: "Test",
       createdAt: new Date(),
       updatedAt: new Date(),
     });
 
-    // Simulating: POST /api/ejercicios with JSON body
-    await handleEjercicioCreate(input);
+    const result = await handleEjercicioCreateRequest(input);
 
-    expect(handleEjercicioCreate).toHaveBeenCalledWith(input);
-  });
+    // Success: has status 201 and id
+    expect(result.status).toBe(201);
+    expect("id" in result).toBe(true);
 
-  it("should pass URL parameter from GET/:id to handler", async () => {
-    (handleEjercicioGet as jest.Mock).mockResolvedValue(null);
-
-    // Simulating: GET /api/ejercicios/abc-123
-    await handleEjercicioGet("abc-123");
-
-    expect(handleEjercicioGet).toHaveBeenCalledWith("abc-123");
+    // Error: has status and code
+    (handleEjercicioCreate as jest.Mock).mockRejectedValue(
+      new Error("Validación fallida: Error")
+    );
+    const errorResult = await handleEjercicioCreateRequest(input);
+    expect("status" in errorResult).toBe(true);
+    expect("code" in errorResult).toBe(true);
   });
 });

@@ -1,49 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleAccessOverride } from "@/api/socios/access-override";
 import { extractUserFromAuthHeader, RequestWithUser } from "@/lib/auth";
-
-/**
- * Error handler for POST /api/socios/{id}/access-override
- * Maps error messages to HTTP response codes per spec
- * Exported for testing
- */
-export function mapErrorToResponse(error: unknown): {
-  code: string;
-  message: string;
-  status: number;
-} {
-  const message = error instanceof Error ? error.message : "Unknown error";
-
-  if (message.includes("Validación fallida")) {
-    return {
-      code: "VALIDATION_ERROR",
-      message: message.replace("Validación fallida: ", ""),
-      status: 400,
-    };
-  }
-
-  if (message.includes("FORBIDDEN")) {
-    return {
-      code: "FORBIDDEN",
-      message: "Se requiere rol de administrador",
-      status: 403,
-    };
-  }
-
-  if (message.includes("NOT_FOUND")) {
-    return {
-      code: "NOT_FOUND",
-      message: "Socio no encontrado",
-      status: 404,
-    };
-  }
-
-  return {
-    code: "SERVER_ERROR",
-    message: "No se pudo procesar el override",
-    status: 500,
-  };
-}
+import { mapErrorToResponse } from "@/lib/route-error-mapper";
 
 /**
  * Core handler logic for POST /api/socios/{id}/access-override
