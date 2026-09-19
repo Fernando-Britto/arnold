@@ -3,6 +3,106 @@ import { handleAccessOverride } from "@/api/socios/access-override";
 import { extractUserFromAuthHeader, RequestWithUser } from "@/lib/auth";
 
 /**
+ * Error handler for POST /api/socios/{id}/access-override
+ * Maps error messages to HTTP response codes per spec
+ * Exported for testing
+ */
+export function mapErrorToResponse(error: unknown): {
+  code: string;
+  message: string;
+  status: number;
+} {
+  const message = error instanceof Error ? error.message : "Unknown error";
+
+  if (message.includes("Validación fallida")) {
+    return {
+      code: "VALIDATION_ERROR",
+      message: message.replace("Validación fallida: ", ""),
+      status: 400,
+    };
+  }
+
+  if (message.includes("FORBIDDEN")) {
+    return {
+      code: "FORBIDDEN",
+      message: "Se requiere rol de administrador",
+      status: 403,
+    };
+  }
+
+  if (message.includes("NOT_FOUND")) {
+    return {
+      code: "NOT_FOUND",
+      message: "Socio no encontrado",
+      status: 404,
+    };
+  }
+
+  return {
+    code: "SERVER_ERROR",
+    message: "No se pudo procesar el override",
+    status: 500,
+  };
+}
+
+/**
+ * Core handler logic for POST /api/socios/{id}/access-override
+ * Exported for testing without NextRequest/NextResponse mocking
+ * @returns { code, message, status } or { success, message }
+ */
+export async function handleAccessOverrideRequest(
+  authHeader: string | undefined,
+  body: any,
+  socioId: string
+): Promise<{
+  code?: string;
+  message: string;
+  status: number;
+  success?: boolean;
+}> {
+  try {
+    // Extract user from Authorization header
+    const user = extractUserFromAuthHeader(authHeader);
+
+    // Require valid authentication
+    if (!user) {
+      return {
+        code: "UNAUTHORIZED",
+        message: "Token de autenticación inválido o faltante",
+        status: 401,
+      };
+    }
+
+    // Create RequestWithUser with real user from JWT
+    const req: RequestWithUser = {
+      user: {
+        id: user.id,
+        rol: user.rol || "UNKNOWN",
+        email: "",
+        nombre: "",
+      },
+      body,
+      ip: "0.0.0.0",
+      headers: {},
+    } as any;
+
+    const result = await handleAccessOverride(req, socioId);
+
+    return {
+      ...result,
+      status: 200,
+    };
+  } catch (error) {
+    const mapped = mapErrorToResponse(error);
+    return {
+      code: mapped.code,
+      message: mapped.message,
+      status: mapped.status,
+    };
+  }
+}
+
+/**
  * POST /api/socios/{id}/access-override
  * Grant access override with mandatory reason and audit trail
  * Requires ADMINISTRADOR role
@@ -14,83 +114,16 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    // Await params per Next.js 16 App Router spec
-    const { id: socioId } = await params;
+  // Await params per Next.js 16 App Router spec
+  const { id: socioId } = await params;
 
-    // Extract user from Authorization header
-    const authHeader = request.headers.get("Authorization");
-    const user = extractUserFromAuthHeader(authHeader || undefined);
+  const authHeader = request.headers.get("Authorization") || undefined;
+  const body = await request.json();
 
-    // Require valid authentication
-    if (!user) {
-      return NextResponse.json(
-        {
-          code: "UNAUTHORIZED",
-          message: "Token de autenticación inválido o faltante",
-        },
-        { status: 401 }
-      );
-    }
+  const result = await handleAccessOverrideRequest(authHeader, body, socioId);
 
-    const body = await request.json();
-
-    // Create RequestWithUser with real user from JWT
-    const req: RequestWithUser = {
-      user: {
-        id: user.id,
-        rol: user.rol || "UNKNOWN",
-        email: "", // Not in JWT yet, can be added later
-        nombre: "", // Not in JWT yet, can be added later
-      },
-      body,
-      ip: request.headers.get("x-forwarded-for") || "0.0.0.0",
-      headers: Object.fromEntries(request.headers),
-    } as any;
-
-    const result = await handleAccessOverride(req, socioId);
-
-    return NextResponse.json(result, { status: 200 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-
-    // Map error messages to HTTP status codes per spec
-    if (message.includes("Validación fallida")) {
-      return NextResponse.json(
-        {
-          code: "VALIDATION_ERROR",
-          message: message.replace("Validación fallida: ", ""),
-        },
-        { status: 400 }
-      );
-    }
-
-    if (message.includes("FORBIDDEN")) {
-      return NextResponse.json(
-        {
-          code: "FORBIDDEN",
-          message: "Se requiere rol de administrador",
-        },
-        { status: 403 }
-      );
-    }
-
-    if (message.includes("NOT_FOUND")) {
-      return NextResponse.json(
-        {
-          code: "NOT_FOUND",
-          message: "Socio no encontrado",
-        },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        code: "SERVER_ERROR",
-        message: "No se pudo procesar el override",
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    { code: result.code, message: result.message, success: result.success },
+    { status: result.status }
+  );
 }
