@@ -21,7 +21,7 @@ describe("Rutina Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors).toContain("Nombre is required");
+      expect(validation.errors).toContain("El nombre es requerido");
     });
 
     it("should validate nombre minimum length (3 chars)", () => {
@@ -33,7 +33,7 @@ describe("Rutina Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors[0]).toContain("at least 3 characters");
+      expect(validation.errors[0]).toContain("al menos 3 caracteres");
     });
 
     it("should validate nombre maximum length (100 chars)", () => {
@@ -46,7 +46,7 @@ describe("Rutina Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors[0]).toContain("100 characters");
+      expect(validation.errors[0]).toContain("no puede exceder 100 caracteres");
     });
 
     it("should validate frecuenciaSemanal range (1-7)", () => {
@@ -88,7 +88,7 @@ describe("Rutina Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors[0]).toContain("greater than 0");
+      expect(validation.errors[0]).toContain("mayor a 0");
     });
 
     it("should validate nivelDeDificultad enum", () => {
@@ -124,7 +124,7 @@ describe("Rutina Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors[0]).toContain("500 characters");
+      expect(validation.errors[0]).toContain("no puede exceder 500 caracteres");
     });
 
     it("should accept valid rutina with all fields", () => {

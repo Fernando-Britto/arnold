@@ -67,11 +67,11 @@ export function validateRutina(data: Partial<Rutina>): ValidationResult {
 
   // Validate nombre
   if (!data.nombre || data.nombre.trim() === "") {
-    errors.push("Nombre is required");
+    errors.push("El nombre es requerido");
   } else if (data.nombre.length < 3) {
-    errors.push("Nombre must be at least 3 characters");
+    errors.push("El nombre debe tener al menos 3 caracteres");
   } else if (data.nombre.length > 100) {
-    errors.push("Nombre must not exceed 100 characters");
+    errors.push("El nombre no puede exceder 100 caracteres");
   }
 
   // Validate frecuenciaSemanal
@@ -80,23 +80,23 @@ export function validateRutina(data: Partial<Rutina>): ValidationResult {
     data.frecuenciaSemanal < 1 ||
     data.frecuenciaSemanal > 7
   ) {
-    errors.push("Frecuencia semanal must be between 1 and 7");
+    errors.push("La frecuencia semanal debe estar entre 1 y 7");
   }
 
   // Validate duracionEstimada
   if (!data.duracionEstimada || data.duracionEstimada <= 0) {
-    errors.push("Duración estimada must be greater than 0");
+    errors.push("La duración estimada debe ser mayor a 0");
   }
 
   // Validate nivelDeDificultad (accept both Spanish names and enum values)
   const validLevels = ["Básico", "Intermedio", "Avanzado", "BASICO", "INTERMEDIO", "AVANZADO"];
   if (!validLevels.includes(data.nivelDeDificultad || "")) {
-    errors.push("Nivel de dificultad must be one of: Básico, Intermedio, Avanzado");
+    errors.push("El nivel de dificultad debe ser uno de: Básico, Intermedio, Avanzado");
   }
 
   // Validate descripcion (optional)
   if (data.descripcion && data.descripcion.length > 500) {
-    errors.push("Descripción must not exceed 500 characters");
+    errors.push("La descripción no puede exceder 500 caracteres");
   }
 
   return {
@@ -123,7 +123,7 @@ export class RutinaRepository {
     // Validate first
     const validation = validateRutina(data);
     if (!validation.valid) {
-      throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
+      throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
     }
 
     // Create in database
@@ -175,7 +175,7 @@ export class RutinaRepository {
       const merged = { ...current, ...data };
       const validation = validateRutina(merged);
       if (!validation.valid) {
-        throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
+        throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
       }
     }
 
