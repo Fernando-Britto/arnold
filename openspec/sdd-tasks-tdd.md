@@ -76,10 +76,11 @@
 
 ### T-004: Ejercicio API Route
 - **Spec**: ejercicios-crud/spec.md
-- **What**: POST/PUT/DELETE endpoints → Ejercicio repo
-- **Test file**: src/api/ejercicios.test.ts
-- **LOC**: 140 (impl) + 110 (tests) = 250
+- **What**: POST/PUT/DELETE endpoints → Ejercicio repo + Next.js route.ts with JWT auth
+- **Test file**: src/api/ejercicios.test.ts, tests/api/ejercicios.route.test.ts
+- **LOC**: 140 (impl) + 110 (tests) = 250 (does not include route.ts + auth tests: see T-023a)
 - **Acceptance**: `npm test -- src/api/ejercicios` passes (6+ scenarios)
+- **Route.ts**: src/app/api/ejercicios/route.ts (40 LOC, GET/POST handlers with error mapping per spec)
 - **PR**: PR-002-C
 - **Risk**: Low
 - **Dependencies**: T-002
@@ -96,10 +97,11 @@
 
 ### T-025: Manual Override Authorization (Admin-Only)
 - **Spec**: manual-override-authorization/spec.md, rbac-middleware/spec.md, access-audit-logging/spec.md
-- **What**: POST /api/socios/{id}/access-override endpoint with ADMIN-only validation + Asistencia override logic
-- **Test file**: src/api/socios/access-override.test.ts
-- **LOC**: 140 (handler) + 120 (tests) = 260
+- **What**: POST /api/socios/{id}/access-override endpoint with ADMIN-only validation + Asistencia override logic + Next.js route.ts with JWT auth
+- **Test file**: src/api/socios/access-override.test.ts, tests/api/socios-access-override.route.test.ts
+- **LOC**: 140 (handler) + 120 (tests) = 260 (does not include route.ts + auth tests: see T-023a)
 - **Acceptance**: `npm test -- src/api/socios/access-override` passes (admin check, motivo validation, asistencia update)
+- **Route.ts**: src/app/api/socios/[id]/access-override/route.ts (80 LOC, JWT extraction, ADMIN role check, error mapping per spec, params as Promise)
 - **PR**: PR-003-B
 - **Risk**: Low (uses existing canApproveAccessOverride() + simple endpoint logic)
 - **Dependencies**: T-022 (auth middleware), T-005 (Socio endpoint pattern)
@@ -136,10 +138,11 @@
 
 ### T-008: Rutina API Route
 - **Spec**: rutinas-crud/spec.md
-- **What**: CRUD endpoints + cascade logic for EjercicioEnRutina
+- **What**: CRUD endpoints + cascade logic for EjercicioEnRutina + Next.js route.ts with JWT auth
 - **Test file**: src/api/rutinas.test.ts
-- **LOC**: 170 (impl) + 120 (tests) = 290
+- **LOC**: 170 (impl) + 120 (tests) = 290 (route.ts + auth tests included in T-023a)
 - **Acceptance**: `npm test -- src/api/rutinas` passes (7+ scenarios)
+- **Route.ts**: src/app/api/rutinas/route.ts (include GET/POST with error mapping per spec)
 - **PR**: PR-004-C
 - **Risk**: Medium
 - **Dependencies**: T-006
@@ -176,10 +179,11 @@
 
 ### T-012: Cliente API Route
 - **Spec**: clientes-crud/spec.md (RN-01 cascading)
-- **What**: CRUD endpoints + Membresía assignment effects
+- **What**: CRUD endpoints + Membresía assignment effects + Next.js route.ts with JWT auth
 - **Test file**: src/api/clientes.test.ts
-- **LOC**: 160 (impl) + 110 (tests) = 270
+- **LOC**: 160 (impl) + 110 (tests) = 270 (route.ts + auth tests included in T-023a)
 - **Acceptance**: `npm test -- src/api/clientes` passes (7+ scenarios)
+- **Route.ts**: src/app/api/clientes/route.ts (include GET/POST with error mapping per spec)
 - **PR**: PR-006-A
 - **Risk**: Medium
 - **Dependencies**: T-010
@@ -216,10 +220,11 @@
 
 ### T-016: Membresía API Route
 - **Spec**: membresias-crud/spec.md
-- **What**: CRUD endpoints, prevent deletion if Clientes reference
+- **What**: CRUD endpoints, prevent deletion if Clientes reference + Next.js route.ts with JWT auth
 - **Test file**: src/api/membresias.test.ts
-- **LOC**: 150 (impl) + 100 (tests) = 250
+- **LOC**: 150 (impl) + 100 (tests) = 250 (route.ts + auth tests included in T-023a)
 - **Acceptance**: `npm test -- src/api/membresias` passes (referential integrity scenarios)
+- **Route.ts**: src/app/api/membresias/route.ts (include GET/POST with error mapping per spec)
 - **PR**: PR-007-B
 - **Risk**: Medium
 - **Dependencies**: T-014
