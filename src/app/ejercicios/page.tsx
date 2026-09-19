@@ -70,7 +70,7 @@ export function EjerciciosPage() {
         savedEjercicio = await updateEjercicio(formData.id, {
           nombre: formData.nombre,
           grupoMuscular: formData.grupoMuscular,
-          descripcion: formData.descripcion || null,
+          descripcion: formData.descripcion || undefined,
         });
 
         // Update in list

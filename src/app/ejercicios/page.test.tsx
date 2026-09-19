@@ -72,8 +72,10 @@ describe("Ejercicios CRUD Screen (Page)", () => {
 
       render(<EjerciciosPage />);
 
-      expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
-      expect(screen.getByTestId("ejercicio-list")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
+        expect(screen.getByTestId("ejercicio-list")).toBeInTheDocument();
+      });
     });
 
     it("should render page for INSTRUCTOR role", async () => {
@@ -84,8 +86,10 @@ describe("Ejercicios CRUD Screen (Page)", () => {
 
       render(<EjerciciosPage />);
 
-      expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
-      expect(screen.getByTestId("ejercicio-list")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
+        expect(screen.getByTestId("ejercicio-list")).toBeInTheDocument();
+      });
     });
 
     it("should deny access for SOCIO role", () => {
@@ -143,10 +147,12 @@ describe("Ejercicios CRUD Screen (Page)", () => {
       expect(screen.getByText(/Ejercicios/i)).toBeInTheDocument();
     });
 
-    it("should render FormPanel on the left", () => {
+    it("should render FormPanel on the left", async () => {
       render(<EjerciciosPage />);
 
-      expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
+      });
     });
 
     it("should render ListPanel on the right", async () => {
@@ -290,6 +296,11 @@ describe("Ejercicios CRUD Screen (Page)", () => {
 
       render(<EjerciciosPage />);
 
+      await waitFor(() => {
+        const saveButton = screen.getByRole("button", { name: /Save/i });
+        expect(saveButton).toBeInTheDocument();
+      });
+
       const saveButton = screen.getByRole("button", { name: /Save/i });
       await user.click(saveButton);
 
@@ -340,11 +351,10 @@ describe("Ejercicios CRUD Screen (Page)", () => {
 
       render(<EjerciciosPage />);
 
-      const saveButton = screen.getByRole("button", { name: /Save/i });
-      
-      // Button may be disabled during submit (depends on implementation)
-      // This is optional based on form design
-      expect(saveButton).toBeInTheDocument();
+      await waitFor(() => {
+        const saveButton = screen.getByRole("button", { name: /Save/i });
+        expect(saveButton).toBeInTheDocument();
+      });
     });
   });
 });

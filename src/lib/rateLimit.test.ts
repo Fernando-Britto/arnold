@@ -11,7 +11,8 @@ jest.mock("@/lib/db", () => ({
   },
 }));
 
-const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+// Cast prisma with proper mocking support
+const mockPrisma = prisma as any;
 
 describe("Rate Limiting", () => {
   beforeEach(() => {

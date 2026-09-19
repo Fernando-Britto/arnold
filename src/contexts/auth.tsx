@@ -7,6 +7,7 @@ import { isAdmin as isAdminUtil, isStaff as isStaffUtil } from "@/middleware/rol
 interface AuthContextType {
   user: (Usuario & { rol: Rol }) | null;
   userRole: Rol | null;
+  isAuthenticated: boolean;
   isAdmin: boolean;
   isStaff: boolean;
   isMember: boolean;
@@ -44,6 +45,7 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
   const value: AuthContextType = {
     user,
     userRole,
+    isAuthenticated: !!user,
     isAdmin,
     isStaff,
     isMember,

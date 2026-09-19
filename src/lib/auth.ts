@@ -48,3 +48,15 @@ export function verifyJWT(token: string): string | null {
     return null;
   }
 }
+
+/**
+ * Request object with user attached (from JWT verification)
+ */
+export interface RequestWithUser {
+  user?: {
+    id: string;
+    email: string;
+    nombre: string;
+    rol: string;
+  } | null;
+}

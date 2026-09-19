@@ -36,7 +36,13 @@ export function roleGatingMiddleware(req: RequestWithUser, route: string): boole
     return false;
   }
 
-  return allowedRoles.includes(req.user.rol);
+  // Ensure user.rol is a valid Rol enum value
+  const userRol = Object.values(Rol).includes(req.user.rol as Rol) ? (req.user.rol as Rol) : null;
+  if (!userRol) {
+    return false;
+  }
+
+  return allowedRoles.includes(userRol);
 }
 
 /**
@@ -59,9 +65,11 @@ export function isAdmin(rol: Rol): boolean {
 
 /**
  * Checks if a user is staff (ADMINISTRADOR, INSTRUCTOR, or RECEPCIONISTA)
+ * Note: SOCIO role is not considered staff
  */
 export function isStaff(rol: Rol): boolean {
-  return [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA].includes(rol);
+  const staffRoles: Rol[] = [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA];
+  return staffRoles.includes(rol);
 }
 
 /**
