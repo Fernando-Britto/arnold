@@ -51,7 +51,10 @@ export async function handleAccessOverrideRequest(
       status: 200,
     };
   } catch (error) {
-    const mapped = mapErrorToResponse(error);
+    const mapped = mapErrorToResponse(error, {
+      forbiddenMessage: "Se requiere rol de administrador",
+      resourceName: "Socio",
+    });
     return {
       code: mapped.code,
       message: mapped.message,

@@ -272,23 +272,24 @@ describe("Shared error mapping (mapErrorToResponse)", () => {
     expect(result.message).toBe("El nombre es requerido");
   });
 
-  it("should map FORBIDDEN error to 403", () => {
-    const result = mapErrorToResponse(
-      new Error("FORBIDDEN: Se requiere rol de administrador")
-    );
+  it("should map FORBIDDEN error to 403 with ejercicios custom message", () => {
+    const result = mapErrorToResponse(new Error("FORBIDDEN: Rol requerido"), {
+      forbiddenMessage: "Se requiere rol de administrador o instructor",
+    });
 
     expect(result.code).toBe("FORBIDDEN");
     expect(result.status).toBe(403);
+    expect(result.message).toBe("Se requiere rol de administrador o instructor");
   });
 
-  it("should map NOT_FOUND error to 404", () => {
-    const result = mapErrorToResponse(
-      new Error("NOT_FOUND: Ejercicio no encontrado")
-    );
+  it("should map NOT_FOUND error to 404 with Ejercicio resource name", () => {
+    const result = mapErrorToResponse(new Error("NOT_FOUND: Not found"), {
+      resourceName: "Ejercicio",
+    });
 
     expect(result.code).toBe("NOT_FOUND");
     expect(result.status).toBe(404);
-    expect(result.message).toContain("Recurso");
+    expect(result.message).toBe("Ejercicio no encontrado");
   });
 
   it("should map unhandled error to 500 SERVER_ERROR", () => {
@@ -303,6 +304,18 @@ describe("Shared error mapping (mapErrorToResponse)", () => {
 
     expect(result.code).toBe("SERVER_ERROR");
     expect(result.status).toBe(500);
+  });
+
+  it("should use default forbidden message when not specified", () => {
+    const result = mapErrorToResponse(new Error("FORBIDDEN: Something"));
+
+    expect(result.message).toBe("Se requiere rol de administrador");
+  });
+
+  it("should use default resource name when not specified", () => {
+    const result = mapErrorToResponse(new Error("NOT_FOUND: Something"));
+
+    expect(result.message).toBe("Recurso no encontrado");
   });
 });
 

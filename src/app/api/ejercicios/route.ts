@@ -19,7 +19,10 @@ export async function handleEjercicioCreateRequest(body: any): Promise<
     const ejercicio = await handleEjercicioCreate(body);
     return { ...ejercicio, status: 201 };
   } catch (error) {
-    const mapped = mapErrorToResponse(error);
+    const mapped = mapErrorToResponse(error, {
+      forbiddenMessage: "Se requiere rol de administrador o instructor",
+      resourceName: "Ejercicio",
+    });
     return {
       code: mapped.code,
       message: mapped.message,
@@ -42,7 +45,10 @@ export async function handleEjercicioListRequest(options?: {
     // Array with implicit status 200
     return (ejercicios as any[]).map((e) => ({ ...e }));
   } catch (error) {
-    const mapped = mapErrorToResponse(error);
+    const mapped = mapErrorToResponse(error, {
+      forbiddenMessage: "Se requiere rol de administrador o instructor",
+      resourceName: "Ejercicio",
+    });
     return {
       code: mapped.code,
       message: mapped.message,
