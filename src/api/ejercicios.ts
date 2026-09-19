@@ -72,3 +72,62 @@ export async function ejercicioExists(id: string): Promise<boolean> {
 export async function getEjercicioCount(): Promise<number> {
   return ejercicioRepository.count();
 }
+
+/**
+ * Client-side API call: fetch all ejercicios
+ */
+export async function fetchEjercicios(): Promise<Ejercicio[]> {
+  const response = await fetch("/api/ejercicios");
+  if (!response.ok) {
+    throw new Error("Failed to fetch ejercicios");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: create a new ejercicio
+ */
+export async function createEjercicio(data: EjercicioInput): Promise<Ejercicio> {
+  const response = await fetch("/api/ejercicios", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to create ejercicio");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: update an ejercicio
+ */
+export async function updateEjercicio(
+  id: string,
+  data: Partial<EjercicioInput>
+): Promise<Ejercicio> {
+  const response = await fetch(`/api/ejercicios/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to update ejercicio");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: delete an ejercicio
+ */
+export async function deleteEjercicio(id: string): Promise<void> {
+  const response = await fetch(`/api/ejercicios/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to delete ejercicio");
+  }
+}
