@@ -18,7 +18,7 @@ describe("Ejercicio Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors).toContain("Nombre is required");
+      expect(validation.errors).toContain("El nombre es requerido");
     });
 
     it("should validate minimum nombre length (3 chars)", () => {
@@ -28,7 +28,7 @@ describe("Ejercicio Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors[0]).toContain("at least 3 characters");
+      expect(validation.errors[0]).toContain("al menos 3 caracteres");
     });
 
     it("should validate maximum nombre length (100 chars)", () => {
@@ -39,7 +39,7 @@ describe("Ejercicio Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors[0]).toContain("100 characters");
+      expect(validation.errors[0]).toContain("no puede exceder 100 caracteres");
     });
 
     it("should validate required grupoMuscular field", () => {
@@ -49,7 +49,7 @@ describe("Ejercicio Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors).toContain("Grupo muscular is required");
+      expect(validation.errors).toContain("El grupo muscular es requerido");
     });
 
     it("should validate maximum descripcion length (500 chars)", () => {
@@ -61,7 +61,7 @@ describe("Ejercicio Domain Model", () => {
       });
 
       expect(validation.valid).toBe(false);
-      expect(validation.errors[0]).toContain("500 characters");
+      expect(validation.errors[0]).toContain("no puede exceder 500 caracteres");
     });
 
     it("should accept valid ejercicio with all fields", () => {
