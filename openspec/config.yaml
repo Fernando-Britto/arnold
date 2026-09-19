@@ -14,16 +14,18 @@ context: |
   Architectural patterns: Clean Architecture, TDD, Atomic Design, SDD.
   Primary layers: models, adapters, services, components, app, utilities.
 
-strict_tdd: false
-tdd_reason: "No test framework detected; testing setup required before TDD enforcement"
+strict_tdd: true
+tdd_reason: "Jest configured with ts-jest; TDD mode enforced for Phase 1 MVP Core"
 
 testing:
-  runner: null
-  framework: null
-  unit_available: false
+  runner: jest
+  framework: ts-jest
+  unit_available: true
   integration_available: false
   e2e_available: false
-  coverage_available: false
+  coverage_available: true
+  test_command: "npm test"
+  coverage_command: "npm run test:coverage"
   linter:
     name: ESLint
     command: "eslint"

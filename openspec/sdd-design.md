@@ -50,18 +50,17 @@ All entity definitions, attributes, relationships, and business rules come from 
 
 | Token | Hex | RGB | Usage |
 |-------|-----|-----|-------|
-| **brand-fill** | #FD7009 | (253, 112, 9) | Primary actions, highlights, machine status |
+| **brand-fill** | #FC4C02 | (252, 76, 2) | Primary actions, highlights, machine status |
 | **text-primary** | #18181B | (24, 24, 27) | Headlines, form labels, strong emphasis |
-| **text-secondary** | #6B7280 | (107, 114, 128) | Body text, secondary labels, muscle group |
-| **text-tertiary** | #4B5563 | (75, 85, 99) | Descriptions, fine print |
+| **text-secondary** | #71727B | (113, 114, 123) | Body text, secondary labels, muscle group |
+| **text-tertiary** | #3D4454 | (61, 68, 84) | Descriptions, fine print |
 | **text-disabled** | #A1A5B0 | (161, 165, 176) | Disabled fields, muted text |
 | **surface-bg** | #FFFFFF | (255, 255, 255) | Card backgrounds, panels |
-| **surface-secondary** | #F3F4F6 | (243, 244, 246) | Alternate backgrounds |
-| **border-light** | #E5E7EB | (229, 231, 235) | Dividers, borders |
-| **border-dark** | #D1D5DB | (209, 213, 219) | Emphasized borders |
-| **status-success** | #10B981 | (16, 185, 129) | Active, available |
-| **status-warning** | #F59E0B | (245, 158, 11) | Maintenance, caution |
-| **status-error** | #EF4444 | (239, 68, 68) | Inactive, blocked |
+| **surface-subtle** | #F4F4F5 | (244, 244, 245) | Subtle backgrounds, secondary surfaces |
+| **border-light** | #E4E4E7 | (228, 228, 231) | Dividers, borders |
+| **status-success** | #14B452 | (20, 180, 82) | Active, available |
+| **status-warning** | #B94A0E | (185, 74, 14) | Maintenance, caution |
+| **status-error** | #DC2626 | (220, 38, 38) | Inactive, blocked |
 
 ### 2.2 Typography
 
@@ -361,6 +360,8 @@ All screens share a consistent three-zone structure:
 
 ### 5.2 Row_Acciones (Quick Actions)
 
+**Note**: This section has NO visible zone label above it (unlike "Hoy", "Operación", "Gestión", "Actividad Reciente" which all display zone titles).
+
 **Structure**: Horizontal flex, 4 equal-width button cards, spaced evenly  
 **Card dimensions**: ~210px each (with gaps)
 
@@ -417,17 +418,29 @@ All screens share a consistent three-zone structure:
 **Title**: "Operación" (14px, text-secondary, uppercase)  
 **Layout**: 3 equal cards (592px each)
 
-| Card | Icon | Header | Status Text | Color |
-|------|------|--------|-------------|-------|
-| **Equipo** | wrench | "Equipo" (title inside card) | "2 en mantenimiento" | status-warning |
-| **Staff** | people | "Staff" | "2 entrenadores, 4 staff" | status-success |
-| **Socios** | user | "Socios" | "Sin visita > 15 días" | text-secondary |
+#### Card 1: Estado de equipos
+- **Header** (14px Body Strong, text-secondary): "Estado de equipos"
+- **Main metric** (24px bold, text-primary): "98%"
+- **Footer status** (12px Label, text-muted): "2 en mantenimiento"
+- **Icon**: dumbbell
+- **Background**: white, border: 1px border-light, corner-radius: 12px
 
-**Card structure**:
-- Header: Icon + title (14px Body Strong)
-- Status: Icon + text (12px Label, gray)
-- Background: white, border: 1px border-light
-- On click: Navigate to detail view (e.g., machine list, staff roster, inactive members)
+#### Card 2: Personal en turno
+- **Header** (14px Body Strong, text-secondary): "Personal en turno"
+- **Main metric** (24px bold, text-primary): "6"
+- **Footer status** (12px Label, text-muted): "2 entrenadores, 4 staff"
+- **Icon**: users
+- **Background**: white, border: 1px border-light, corner-radius: 12px
+
+#### Card 3: Socios inactivos
+- **Header** (14px Body Strong, text-secondary): "Socios inactivos"
+- **Main metric** (24px bold, text-primary): "42"
+- **Footer status** (12px Label, text-muted): "Sin visita > 15 días"
+- **Icon**: user-x
+- **Background**: white, border: 1px border-light, corner-radius: 12px
+
+**Interaction**:
+- On click: Navigate to detail view (e.g., machine list, staff roster, inactive members list)
 
 ### 5.5 Row_Gestion (Management Counters)
 
@@ -446,26 +459,7 @@ All screens share a consistent three-zone structure:
 - On click: Navigate to CRUD list (Ejercicios, Rutinas, Clientes, Membresías)
 - Hover: Cursor pointer, shadow light
 
-### 5.6 Row_Operacion Card Details (Expanded View)
-
-Each "Operacion" card can expand to show more detail:
-
-**Equipo** card:
-- Subheader: "Máquinas" (small icon + text)
-- List: Machine names + status badges (Disponible/Ocupada/Fuera de Servicio)
-- Action: "Reportar mantenimiento" button
-
-**Staff** card:
-- Subheader: "Turnos activos" (small icon + text)
-- List: Staff names + current shift/role
-- Action: "Gestionar turnos" button
-
-**Socios** card:
-- Subheader: "Inactividad" (small icon + text)
-- List: Member names + days inactive
-- Action: "Contactar" button (email/SMS template)
-
-### 5.7 Col_Actividad (Recent Activity)
+### 5.6 Col_Actividad (Recent Activity)
 
 **Title**: "Actividad Reciente" (14px Body Strong, text-secondary)  
 **Content**: Timeline of recent actions (4–6 items visible)
@@ -743,10 +737,12 @@ Before implementation begins:
 
 - [ ] All form field labels match literal text from Ejercicios.fig
 - [ ] Button labels ("Nuevo Socio", "Registrar Pago", etc.) are exactly as designed
-- [ ] Color palette verified: brand-fill #FD7009, text-primary #18181B
+- [ ] Color palette verified: brand-fill #FC4C02, text-primary #18181B
 - [ ] Spacing grid (8px base) applied to all components
 - [ ] Typography hierarchy matches specification
-- [ ] Row_Acciones, Row_Gestion, Row_Operacion metrics match screenshot
+- [ ] Row_Acciones (no zone label) has 4 buttons with exact literal text
+- [ ] Row_Gestion has 4 counters with exact counts (124, 342, 892, 15)
+- [ ] Row_Operacion has 3 cards with exact metrics and descriptions
 - [ ] Tarjeta_Detalle structure and content verified with literal text
 - [ ] Responsive breakpoints defined and tested
 - [ ] Accessibility requirements documented
@@ -760,17 +756,17 @@ Before implementation begins:
 
 | Element | Literal Text | Hex Color | Font Size | Font Weight |
 |---------|-------------|-----------|-----------|------------|
-| EJERCICIO ACTUAL label | EJERCICIO ACTUAL | #FD7009 | 11px | 700 |
+| EJERCICIO ACTUAL label | EJERCICIO ACTUAL | #FC4C02 | 11px | 700 |
 | Press Militar (name) | Press Militar | #18181B | 17px | 700 |
-| Hombros (muscle group) | Hombros | #6B7280 | 14px | 400 |
-| Series×Reps label | Series×Reps | #6B7280 | 11px | 500 |
+| Hombros (muscle group) | Hombros | #71727B | 14px | 400 |
+| Series×Reps label | Series×Reps | #71727B | 11px | 500 |
 | 3×10 (value) | 3×10 | #18181B | 14px | 700 |
-| Descanso label | Descanso | #6B7280 | 11px | 500 |
+| Descanso label | Descanso | #71727B | 11px | 500 |
 | 2 min (value) | 2 min | #18181B | 14px | 700 |
-| Objetivo label | Objetivo | #6B7280 | 11px | 500 |
-| 82,5 kg (value) | 82,5 kg | #FD7009 | 14px | 700 |
-| Description | Ejercicio de empuje vertical para deltoides anterior. Mantené el core firme y evitá arquear la zona lumbar al extender los brazos. | #4B5563 | 13px | 400 |
-| Libre en ~5 min | Libre en ~5 min | #FD7009 | 13px | 700 |
+| Objetivo label | Objetivo | #71727B | 11px | 500 |
+| 82,5 kg (value) | 82,5 kg | #FC4C02 | 14px | 700 |
+| Description | Ejercicio de empuje vertical para deltoides anterior. Mantené el core firme y evitá arquear la zona lumbar al extender los brazos. | #3D4454 | 13px | 400 |
+| Libre en ~5 min | Libre en ~5 min | #FC4C02 | 13px | 700 |
 | Nuevo Socio button | Nuevo Socio | #18181B | 14px | 700 |
 | Registrar Pago button | Registrar Pago | #18181B | 14px | 700 |
 | Asignar Rutina button | Asignar Rutina | #18181B | 14px | 700 |
@@ -783,9 +779,25 @@ Before implementation begins:
 | 892 (count) | 892 | #18181B | 24px | 700 |
 | Membresías (card title) | Membresías | — | 14px | 500 |
 | 15 (count) | 15 | #18181B | 24px | 700 |
-| 2 en mantenimiento | 2 en mantenimiento | #A1A5B0 | 12px | 400 |
-| 2 entrenadores, 4 staff | 2 entrenadores, 4 staff | #A1A5B0 | 12px | 400 |
-| Sin visita > 15 días | Sin visita > 15 días | #A1A5B0 | 12px | 400 |
+| Estado de equipos (card header) | Estado de equipos | #71727B | 14px | 500 |
+| 98% (card metric) | 98% | #18181B | 24px | 700 |
+| 2 en mantenimiento (card footer) | 2 en mantenimiento | #A1A5B0 | 12px | 400 |
+| Personal en turno (card header) | Personal en turno | #71727B | 14px | 500 |
+| 6 (card metric) | 6 | #18181B | 24px | 700 |
+| 2 entrenadores, 4 staff (card footer) | 2 entrenadores, 4 staff | #A1A5B0 | 12px | 400 |
+| Socios inactivos (card header) | Socios inactivos | #71727B | 14px | 500 |
+| 42 (card metric) | 42 | #18181B | 24px | 700 |
+| Sin visita > 15 días (card footer) | Sin visita > 15 días | #A1A5B0 | 12px | 400 |
+| Nuevo Socio (action button) | Nuevo Socio | #18181B | 14px | 700 |
+| Registrar Pago (action button) | Registrar Pago | #18181B | 14px | 700 |
+| Asignar Rutina (action button) | Asignar Rutina | #18181B | 14px | 700 |
+| Control Acceso (action button) | Control Acceso | #18181B | 14px | 700 |
+
+**Notes**:
+- Row_Acciones (Quick Actions zone) has NO visible zone label above the 4 buttons
+- Row_Operacion displays 3 cards with header (zone title), main metric (24px), and footer status (12px)
+- brand-fill (#FC4C02) is used for icons, highlights, and brand-accent values (e.g., "82,5 kg" in Tarjeta_Detalle)
+- text-secondary (#71727B) is used for secondary labels and zone headers
 
 ---
 
