@@ -92,7 +92,8 @@ export function EjerciciosPage() {
       // Reset form
       setSelectedEjercicio(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error saving ejercicio");
+      const errorMsg = err instanceof Error ? err.message : "Error desconocido";
+      setError(`Error al guardar: ${errorMsg}`);
     } finally {
       setIsSaving(false);
     }

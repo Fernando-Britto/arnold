@@ -7,9 +7,10 @@ import * as ejercicioApi from "@/api/ejercicios";
 import { Ejercicio } from "@prisma/client";
 
 // Mock dependencies
+const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockPush,
     replace: jest.fn(),
     prefetch: jest.fn(),
   }),
@@ -47,6 +48,15 @@ const mockEjercicio: Ejercicio = {
   nombre: "Press Militar",
   grupoMuscular: "Hombros",
   descripcion: "Empuje vertical",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const mockEjercicio2: Ejercicio = {
+  id: "2",
+  nombre: "Sentadilla",
+  grupoMuscular: "Piernas",
+  descripcion: "Flexión de rodillas",
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -110,20 +120,18 @@ describe("Ejercicios CRUD Screen (Page)", () => {
     });
 
     it("should redirect unauthenticated users", async () => {
+      mockPush.mockClear();
+      
       (useAuth as jest.Mock).mockReturnValue({
         user: null,
         isAuthenticated: false,
       });
 
-      const { container } = render(<EjerciciosPage />);
+      render(<EjerciciosPage />);
 
-      // When not authenticated, component returns null (router.push is called)
-      // or the page briefly renders with isAuthenticated=false
+      // Verify router.push was called with /login
       await waitFor(() => {
-        expect(
-          container.querySelector("h1") === null ||
-          !screen.queryByTestId("ejercicio-form")
-        ).toBe(true);
+        expect(mockPush).toHaveBeenCalledWith("/login");
       });
     });
 
@@ -181,8 +189,9 @@ describe("Ejercicios CRUD Screen (Page)", () => {
   describe("CRUD operations", () => {
     it("should create new ejercicio and add to list", async () => {
       const user = userEvent.setup();
+      // Return a NEW ejercicio with different ID to avoid key duplication
       (ejercicioApi.createEjercicio as jest.Mock).mockResolvedValue(
-        mockEjercicio
+        mockEjercicio2
       );
 
       render(<EjerciciosPage />);
@@ -297,7 +306,7 @@ describe("Ejercicios CRUD Screen (Page)", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/error|falló|validation|failed/i)
+          screen.getByText(/Error al guardar|falló|error/i)
         ).toBeInTheDocument();
       });
     });
@@ -307,7 +316,7 @@ describe("Ejercicios CRUD Screen (Page)", () => {
     it("should reset form after successful creation", async () => {
       const user = userEvent.setup();
       (ejercicioApi.createEjercicio as jest.Mock).mockResolvedValue(
-        mockEjercicio
+        mockEjercicio2
       );
 
       render(<EjerciciosPage />);
