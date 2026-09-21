@@ -16,9 +16,10 @@ import {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  // Await params per Next.js 16 App Router spec
+  const { id } = await params;
   const result = await handleRutinaGetRequest(id);
 
   // If error response (has status and code properties)
@@ -38,9 +39,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  // Await params per Next.js 16 App Router spec
+  const { id } = await params;
   const body = await request.json();
   const result = await handleRutinaUpdateRequest(id, body);
 
@@ -61,9 +63,10 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  // Await params per Next.js 16 App Router spec
+  const { id } = await params;
   const result = await handleRutinaDeleteRequest(id);
 
   // If error response (has status and code properties)
@@ -74,6 +77,6 @@ export async function DELETE(
     );
   }
 
-  // Success: return message
-  return NextResponse.json(result, { status: 204 });
+  // Success: 204 No Content
+  return NextResponse.json(null, { status: 204 });
 }

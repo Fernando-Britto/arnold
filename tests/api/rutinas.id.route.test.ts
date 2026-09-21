@@ -55,7 +55,7 @@ describe("GET /api/rutinas/[id] — Get single Rutina by ID", () => {
 
     const result = await roueteHandlers.GET(
       {} as any,
-      { params: { id: "rutina-1" } }
+      { params: Promise.resolve({ id: "rutina-1" }) }
     );
 
     const json = await result.json();
@@ -69,7 +69,7 @@ describe("GET /api/rutinas/[id] — Get single Rutina by ID", () => {
 
     const result = await roueteHandlers.GET(
       {} as any,
-      { params: { id: "nonexistent" } }
+      { params: Promise.resolve({ id: "nonexistent" }) }
     );
 
     expect(result.status).toBe(404);
@@ -105,7 +105,7 @@ describe("PUT /api/rutinas/[id] — Update specific Rutina", () => {
 
     const result = await roueteHandlers.PUT(
       mockRequest,
-      { params: { id: "rutina-1" } }
+      { params: Promise.resolve({ id: "rutina-1" }) }
     );
 
     expect(result.status).toBe(200);
@@ -125,7 +125,7 @@ describe("PUT /api/rutinas/[id] — Update specific Rutina", () => {
 
     const result = await roueteHandlers.PUT(
       mockRequest,
-      { params: { id: "nonexistent" } }
+      { params: Promise.resolve({ id: "nonexistent" }) }
     );
 
     expect(result.status).toBe(404);
@@ -142,7 +142,7 @@ describe("DELETE /api/rutinas/[id] — Delete specific Rutina", () => {
 
     const result = await roueteHandlers.DELETE(
       {} as any,
-      { params: { id: "rutina-1" } }
+      { params: Promise.resolve({ id: "rutina-1" }) }
     );
 
     expect(result.status).toBe(204);
@@ -156,7 +156,7 @@ describe("DELETE /api/rutinas/[id] — Delete specific Rutina", () => {
 
     const result = await roueteHandlers.DELETE(
       {} as any,
-      { params: { id: "nonexistent" } }
+      { params: Promise.resolve({ id: "nonexistent" }) }
     );
 
     expect(result.status).toBe(404);
