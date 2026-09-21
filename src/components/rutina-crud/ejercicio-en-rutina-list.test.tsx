@@ -197,6 +197,59 @@ describe("EjercicioEnRutinaList Component", () => {
       const addButton = screen.getByRole("button", { name: /Agregar \(0\)/i });
       expect(addButton).toBeDisabled(); // No checkboxes can be selected initially
     });
+
+    it("should filter catalog exercises by search term", async () => {
+      const onRowsChange = jest.fn();
+      const user = userEvent.setup();
+
+      render(
+        <EjercicioEnRutinaList
+          rows={[]}
+          availableEjercicios={mockEjercicios}
+          onRowsChange={onRowsChange}
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: /Agregar Ejercicio/i }));
+
+      // Initially, all exercises are visible
+      expect(screen.getByText("Press Banca")).toBeInTheDocument();
+      expect(screen.getByText("Sentadilla")).toBeInTheDocument();
+
+      // Type in search field to filter
+      const searchInput = screen.getByPlaceholderText("Buscar ejercicio...");
+      await user.type(searchInput, "sentad");
+
+      // Now only Sentadilla should be visible
+      expect(screen.getByText("Sentadilla")).toBeInTheDocument();
+      expect(screen.queryByText("Press Banca")).not.toBeInTheDocument();
+
+      // Clear search to see all exercises again
+      await user.clear(searchInput);
+
+      expect(screen.getByText("Press Banca")).toBeInTheDocument();
+      expect(screen.getByText("Sentadilla")).toBeInTheDocument();
+    });
+
+    it("should show 'No se encontraron ejercicios' message when search returns no results", async () => {
+      const onRowsChange = jest.fn();
+      const user = userEvent.setup();
+
+      render(
+        <EjercicioEnRutinaList
+          rows={[]}
+          availableEjercicios={mockEjercicios}
+          onRowsChange={onRowsChange}
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: /Agregar Ejercicio/i }));
+
+      const searchInput = screen.getByPlaceholderText("Buscar ejercicio...");
+      await user.type(searchInput, "xyz123nonexistent");
+
+      expect(screen.getByText("No se encontraron ejercicios")).toBeInTheDocument();
+    });
   });
 
   describe("Inline editing", () => {

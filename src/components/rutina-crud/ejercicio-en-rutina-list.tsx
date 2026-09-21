@@ -38,6 +38,7 @@ function CatalogModal({
   const [selectedInModal, setSelectedInModal] = useState<Set<string>>(
     new Set()
   );
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const handleCheckChange = (ejercicioId: string) => {
     const newSelected = new Set(selectedInModal);
@@ -52,21 +53,35 @@ function CatalogModal({
   const handleAdd = () => {
     onSelect(Array.from(selectedInModal));
     setSelectedInModal(new Set());
+    setSearchTerm("");
     onClose();
   };
+
+  const filteredEjercicios = ejercicios.filter(ejercicio =>
+    ejercicio.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full max-h-96 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full max-h-96 overflow-y-auto flex flex-col">
         <h2 className="text-lg font-semibold mb-4">Agregar Ejercicios</h2>
         
-        {ejercicios.length === 0 ? (
-          <p className="text-gray-500">No hay ejercicios disponibles</p>
+        <input
+          type="text"
+          placeholder="Buscar ejercicio..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          data-testid="catalog-search"
+        />
+        
+        {filteredEjercicios.length === 0 ? (
+          <p className="text-gray-500">{searchTerm ? "No se encontraron ejercicios" : "No hay ejercicios disponibles"}</p>
         ) : (
-          <div className="space-y-2 mb-4">
-            {ejercicios.map(ejercicio => (
+          <div className="space-y-2 mb-4 overflow-y-auto flex-1">
+            {filteredEjercicios.map(ejercicio => (
               <label
                 key={ejercicio.id}
                 className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
