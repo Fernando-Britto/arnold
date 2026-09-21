@@ -4,15 +4,28 @@ import '@testing-library/jest-dom';
 // Add any global test utilities, mocks, or fixtures here
 
 // Mock next/server globally to avoid ReferenceError during test suite compilation
-jest.mock('next/server', () => ({
-  NextRequest: jest.fn(),
-  NextResponse: {
-    json: (data: any, options?: any) => ({
-      json: jest.fn(async () => data),
+jest.mock('next/server', () => {
+  // NextResponse constructor: new NextResponse(body, options)
+  const NextResponseConstructor = function (body: any, options?: any) {
+    return {
+      json: jest.fn(async () => body),
       status: options?.status || 200,
-    }),
-  },
-}));
+      headers: options?.headers || {},
+    };
+  };
+
+  // Static method: NextResponse.json(data, options)
+  NextResponseConstructor.json = (data: any, options?: any) => ({
+    json: jest.fn(async () => data),
+    status: options?.status || 200,
+    headers: options?.headers || {},
+  });
+
+  return {
+    NextRequest: jest.fn(),
+    NextResponse: NextResponseConstructor,
+  };
+});
 
 beforeAll(() => {
   // Setup test environment

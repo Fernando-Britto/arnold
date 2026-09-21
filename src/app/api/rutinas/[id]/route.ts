@@ -77,6 +77,6 @@ export async function DELETE(
     );
   }
 
-  // Success: 204 No Content
-  return NextResponse.json(null, { status: 204 });
+  // Success: 204 No Content (no body)
+  return new NextResponse(null, { status: 204 });
 }
