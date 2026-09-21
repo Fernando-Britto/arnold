@@ -1,6 +1,10 @@
 import {
   handleEjercicioCreateRequest,
   handleEjercicioListRequest,
+  type CreateSuccess,
+  type CreateError,
+  type ListSuccess,
+  type ListError,
 } from "@/app/api/ejercicios/route";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import {
@@ -15,19 +19,19 @@ jest.mock("@/lib/db");
 /**
  * Type guards for discriminated union responses
  */
-function isCreateSuccess(result: any): result is { id: string; nombre: string; createdAt: Date; status: 201 } {
+function isCreateSuccess(result: any): result is CreateSuccess {
   return "id" in result && result.status === 201;
 }
 
-function isCreateError(result: any): result is { code: string; message: string; status: number } {
+function isCreateError(result: any): result is CreateError {
   return "code" in result && "status" in result;
 }
 
-function isListSuccess(result: any): result is any[] {
+function isListSuccess(result: any): result is ListSuccess {
   return Array.isArray(result);
 }
 
-function isListError(result: any): result is { code: string; message: string; status: number } {
+function isListError(result: any): result is ListError {
   return "code" in result && "status" in result;
 }
 

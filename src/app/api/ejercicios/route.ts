@@ -6,10 +6,10 @@ import { mapErrorToResponse } from "@/lib/route-error-mapper";
 /**
  * Discriminated union types for handler responses
  */
-type CreateSuccess = Ejercicio & { status: 201 };
-type CreateError = { code: string; message: string; status: number };
-type ListSuccess = Ejercicio[];
-type ListError = { code: string; message: string; status: number };
+export type CreateSuccess = Ejercicio & { status: 201 };
+export type CreateError = { code: string; message: string; status: number };
+export type ListSuccess = Ejercicio[];
+export type ListError = { code: string; message: string; status: number };
 
 /**
  * Type guard to check if result is a success response
