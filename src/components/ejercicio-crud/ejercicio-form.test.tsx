@@ -222,7 +222,7 @@ describe("EjercicioForm Component", () => {
       const longDesc = "d".repeat(501);
       await user.type(screen.getByLabelText(/Nombre/i), "Press");
       await user.selectOptions(screen.getByLabelText(/Grupo Muscular/i), "Pecho");
-      await user.type(screen.getByLabelText(/Descripción/i), longDesc);
+      await user.type(screen.getByLabelText(/Descripción/i), longDesc, { delay: null });
       await user.click(screen.getByRole("button", { name: /Guardar/i }));
 
       await waitFor(() => {
