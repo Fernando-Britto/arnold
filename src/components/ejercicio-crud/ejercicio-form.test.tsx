@@ -215,14 +215,14 @@ describe("EjercicioForm Component", () => {
 
     it("should show error for descripcion exceeding 500 characters", async () => {
       const onSave = jest.fn();
-      const user = userEvent.setup();
+      const user = userEvent.setup({ delay: null }); // Configure setup to skip delays
       
       render(<EjercicioForm onSave={onSave} initialData={null} />);
 
       const longDesc = "d".repeat(501);
       await user.type(screen.getByLabelText(/Nombre/i), "Press");
       await user.selectOptions(screen.getByLabelText(/Grupo Muscular/i), "Pecho");
-      await user.type(screen.getByLabelText(/Descripción/i), longDesc, { delay: null });
+      await user.type(screen.getByLabelText(/Descripción/i), longDesc);
       await user.click(screen.getByRole("button", { name: /Guardar/i }));
 
       await waitFor(() => {
