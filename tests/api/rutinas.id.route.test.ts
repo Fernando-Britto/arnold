@@ -148,10 +148,10 @@ describe("DELETE /api/rutinas/[id] — Delete specific Rutina", () => {
     expect(result.status).toBe(204);
   });
 
-  it("should handle errors from delete operation", async () => {
-    // When handleRutinaDelete throws, handleRutinaDeleteRequest catches and maps to error response
+  it("should return 404 when rutina not found during delete", async () => {
+    // handleRutinaDelete throws "NOT_FOUND" error which mapErrorToResponse maps to 404
     mockRutinasApi.handleRutinaDelete.mockRejectedValue(
-      new Error("Rutina no encontrada")
+      new Error("NOT_FOUND")
     );
 
     const result = await roueteHandlers.DELETE(
@@ -159,7 +159,8 @@ describe("DELETE /api/rutinas/[id] — Delete specific Rutina", () => {
       { params: { id: "nonexistent" } }
     );
 
-    // The error gets mapped by mapErrorToResponse in handleRutinaDeleteRequest
-    expect([404, 500]).toContain(result.status);
+    expect(result.status).toBe(404);
+    const json = await result.json();
+    expect(json.code).toBe("NOT_FOUND");
   });
 });

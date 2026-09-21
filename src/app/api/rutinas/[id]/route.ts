@@ -12,22 +12,6 @@ import {
 } from "@/app/api/rutinas/route";
 
 /**
- * Type guards for discriminated union responses
- * Internal use only, not exported
- */
-function isGetSuccess(result: GetSuccess | GetError): result is GetSuccess {
-  return "id" in result && !("status" in result) && !("code" in result);
-}
-
-function isUpdateSuccess(result: UpdateSuccess | UpdateError): result is UpdateSuccess {
-  return "id" in result && (result as any).status === 200;
-}
-
-function isDeleteSuccess(result: DeleteSuccess | DeleteError): result is DeleteSuccess {
-  return "message" in result && (result as any).status === 204;
-}
-
-/**
  * GET /api/rutinas/:id - Get a specific rutina by ID
  */
 export async function GET(
