@@ -32,11 +32,14 @@ export async function handleRutinaCreate(data: RutinaInput & { ejercicios?: any[
 
 /**
  * Handle GET /api/rutinas
- * Lists all rutinas
+ * Lists all rutinas with exercise count (for ListPanel)
  */
-export async function handleRutinaList(): Promise<Rutina[]> {
+export async function handleRutinaList(): Promise<
+  (Rutina & { _count: { ejercicios: number } })[]
+> {
   return prisma.rutina.findMany({
     orderBy: { createdAt: "desc" },
+    include: { _count: { select: { ejercicios: true } } },
   });
 }
 
@@ -94,4 +97,69 @@ export async function handleRutinaDelete(id: string): Promise<void> {
 
   // Safe to delete: Prisma cascade will delete EjercicioEnRutina rows
   await prisma.rutina.delete({ where: { id } });
+}
+
+/**
+ * Client-side API call: fetch all rutinas
+ */
+export async function fetchRutinas(): Promise<Rutina[]> {
+  const response = await fetch("/api/rutinas");
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to fetch rutinas");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: create a new rutina
+ */
+export async function createRutina(
+  data: RutinaInput & { ejercicios?: any[] }
+): Promise<Rutina> {
+  const response = await fetch("/api/rutinas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to create rutina");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: update a rutina
+ */
+export async function updateRutina(
+  id: string,
+  data: Partial<RutinaInput> & { ejercicios?: any[] }
+): Promise<Rutina> {
+  const response = await fetch(`/api/rutinas/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to update rutina");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: delete a rutina
+ *
+ * Throws error with message "Rutina asignada activamente a N socio(s)"
+ * if rutina is assigned to active socio(s) (409 Conflict)
+ */
+export async function deleteRutina(id: string): Promise<void> {
+  const response = await fetch(`/api/rutinas/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to delete rutina");
+  }
 }

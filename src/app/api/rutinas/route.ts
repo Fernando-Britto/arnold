@@ -20,7 +20,7 @@ export type CreateError = { code: string; message: string; status: number };
 export type GetSuccess = Rutina;
 export type GetError = { code: string; message: string; status: number };
 
-export type ListSuccess = Rutina[];
+export type ListSuccess = (Rutina & { _count: { ejercicios: number } })[];
 export type ListError = { code: string; message: string; status: number };
 
 export type UpdateSuccess = Rutina & { status: 200 };

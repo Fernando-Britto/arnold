@@ -284,6 +284,7 @@ describe("GET /api/rutinas — List Handler", () => {
         descripcion: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        _count: { ejercicios: 5 },
       },
       {
         id: "rut-2",
@@ -295,6 +296,7 @@ describe("GET /api/rutinas — List Handler", () => {
         descripcion: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        _count: { ejercicios: 3 },
       },
     ];
 
@@ -306,7 +308,9 @@ describe("GET /api/rutinas — List Handler", () => {
     if (isListSuccess(result)) {
       expect(result.length).toBe(2);
       expect(result[0].nombre).toBe("Full Body");
+      expect(result[0]._count.ejercicios).toBe(5);
       expect(result[1].nombre).toBe("Upper Body");
+      expect(result[1]._count.ejercicios).toBe(3);
     }
   });
 
