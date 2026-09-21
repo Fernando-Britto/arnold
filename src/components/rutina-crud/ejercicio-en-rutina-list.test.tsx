@@ -361,41 +361,305 @@ describe("EjercicioEnRutinaList Component", () => {
       });
     });
 
-    it("should accept descanso as plain seconds", async () => {
-      const onRowsChange = jest.fn();
-      const rows: EjercicioEnRutinaRow[] = [
-        {
-          ejercicioId: "1",
-          ejercicioNombre: "Press Banca",
-          series: 3,
-          repeticiones: 10,
-          descanso: 60,
-        },
-      ];
+     it("should accept descanso as plain seconds", async () => {
+       const onRowsChange = jest.fn();
+       const rows: EjercicioEnRutinaRow[] = [
+         {
+           ejercicioId: "1",
+           ejercicioNombre: "Press Banca",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+         },
+       ];
 
-      render(
-        <EjercicioEnRutinaList
-          rows={rows}
-          availableEjercicios={mockEjercicios}
-          onRowsChange={onRowsChange}
-        />
-      );
+       render(
+         <EjercicioEnRutinaList
+           rows={rows}
+           availableEjercicios={mockEjercicios}
+           onRowsChange={onRowsChange}
+         />
+       );
 
-      const descansoInput = screen.getByDisplayValue("1:00") as HTMLInputElement;
-      
-      fireEvent.change(descansoInput, { target: { value: "90" } });
+       const descansoInput = screen.getByDisplayValue("1:00") as HTMLInputElement;
+       
+       fireEvent.change(descansoInput, { target: { value: "90" } });
 
-      await waitFor(() => {
-        expect(onRowsChange).toHaveBeenCalledWith(
-          expect.arrayContaining([
-            expect.objectContaining({
-              descanso: 90,
-            }),
-          ])
-        );
-      });
-    });
-  });
+       await waitFor(() => {
+         expect(onRowsChange).toHaveBeenCalledWith(
+           expect.arrayContaining([
+             expect.objectContaining({
+               descanso: 90,
+             }),
+           ])
+         );
+       });
+     });
+
+     it("should move row up and update orden field", async () => {
+       const onRowsChange = jest.fn();
+       const user = userEvent.setup();
+       const rows: EjercicioEnRutinaRow[] = [
+         {
+           ejercicioId: "1",
+           ejercicioNombre: "Press Banca",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 0,
+         },
+         {
+           ejercicioId: "2",
+           ejercicioNombre: "Sentadilla",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 1,
+         },
+         {
+           ejercicioId: "3",
+           ejercicioNombre: "Peso Muerto",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 2,
+         },
+       ];
+
+       render(
+         <EjercicioEnRutinaList
+           rows={rows}
+           availableEjercicios={mockEjercicios}
+           onRowsChange={onRowsChange}
+         />
+       );
+
+       // Click up button on row 2 (ejercicioId: "2", currently at index 1)
+       const moveUpButton = screen.getByTestId("move-up-1");
+       await user.click(moveUpButton);
+
+       await waitFor(() => {
+         expect(onRowsChange).toHaveBeenCalledWith(
+           expect.arrayContaining([
+             expect.objectContaining({
+               ejercicioId: "2",
+               orden: 0,
+             }),
+             expect.objectContaining({
+               ejercicioId: "1",
+               orden: 1,
+             }),
+             expect.objectContaining({
+               ejercicioId: "3",
+               orden: 2,
+             }),
+           ])
+         );
+       });
+     });
+
+     it("should move row down and update orden field", async () => {
+       const onRowsChange = jest.fn();
+       const user = userEvent.setup();
+       const rows: EjercicioEnRutinaRow[] = [
+         {
+           ejercicioId: "1",
+           ejercicioNombre: "Press Banca",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 0,
+         },
+         {
+           ejercicioId: "2",
+           ejercicioNombre: "Sentadilla",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 1,
+         },
+         {
+           ejercicioId: "3",
+           ejercicioNombre: "Peso Muerto",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 2,
+         },
+       ];
+
+       render(
+         <EjercicioEnRutinaList
+           rows={rows}
+           availableEjercicios={mockEjercicios}
+           onRowsChange={onRowsChange}
+         />
+       );
+
+       // Click down button on row 1 (ejercicioId: "1", currently at index 0)
+       const moveDownButton = screen.getByTestId("move-down-0");
+       await user.click(moveDownButton);
+
+       await waitFor(() => {
+         expect(onRowsChange).toHaveBeenCalledWith(
+           expect.arrayContaining([
+             expect.objectContaining({
+               ejercicioId: "2",
+               orden: 0,
+             }),
+             expect.objectContaining({
+               ejercicioId: "1",
+               orden: 1,
+             }),
+             expect.objectContaining({
+               ejercicioId: "3",
+               orden: 2,
+             }),
+           ])
+         );
+       });
+     });
+
+     it("should disable up button on first row", () => {
+       const onRowsChange = jest.fn();
+       const rows: EjercicioEnRutinaRow[] = [
+         {
+           ejercicioId: "1",
+           ejercicioNombre: "Press Banca",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 0,
+         },
+         {
+           ejercicioId: "2",
+           ejercicioNombre: "Sentadilla",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 1,
+         },
+       ];
+
+       render(
+         <EjercicioEnRutinaList
+           rows={rows}
+           availableEjercicios={mockEjercicios}
+           onRowsChange={onRowsChange}
+         />
+       );
+
+       const moveUpButton = screen.getByTestId("move-up-0");
+       expect(moveUpButton).toBeDisabled();
+     });
+
+     it("should disable down button on last row", () => {
+       const onRowsChange = jest.fn();
+       const rows: EjercicioEnRutinaRow[] = [
+         {
+           ejercicioId: "1",
+           ejercicioNombre: "Press Banca",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 0,
+         },
+         {
+           ejercicioId: "2",
+           ejercicioNombre: "Sentadilla",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 1,
+         },
+         {
+           ejercicioId: "3",
+           ejercicioNombre: "Peso Muerto",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 2,
+         },
+       ];
+
+       render(
+         <EjercicioEnRutinaList
+           rows={rows}
+           availableEjercicios={mockEjercicios}
+           onRowsChange={onRowsChange}
+         />
+       );
+
+       const moveDownButton = screen.getByTestId("move-down-2");
+       expect(moveDownButton).toBeDisabled();
+     });
+
+     it("should maintain orden consistency across all rows after move", async () => {
+       const onRowsChange = jest.fn();
+       const user = userEvent.setup();
+       const rows: EjercicioEnRutinaRow[] = [
+         {
+           ejercicioId: "1",
+           ejercicioNombre: "Press Banca",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 0,
+         },
+         {
+           ejercicioId: "2",
+           ejercicioNombre: "Sentadilla",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 1,
+         },
+         {
+           ejercicioId: "3",
+           ejercicioNombre: "Peso Muerto",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 2,
+         },
+         {
+           ejercicioId: "4",
+           ejercicioNombre: "Flexiones",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 3,
+         },
+         {
+           ejercicioId: "5",
+           ejercicioNombre: "Dominadas",
+           series: 3,
+           repeticiones: 10,
+           descanso: 60,
+           orden: 4,
+         },
+       ];
+
+       render(
+         <EjercicioEnRutinaList
+           rows={rows}
+           availableEjercicios={mockEjercicios}
+           onRowsChange={onRowsChange}
+         />
+       );
+
+       // Move row at index 2 down
+       const moveDownButton = screen.getByTestId("move-down-2");
+       await user.click(moveDownButton);
+
+       await waitFor(() => {
+         const callArgument = onRowsChange.mock.calls[0][0];
+         // Verify all rows have orden values 0, 1, 2, 3, 4 with no gaps or duplicates
+         const ordens = callArgument.map((row: EjercicioEnRutinaRow) => row.orden).sort((a: number, b: number) => a - b);
+         expect(ordens).toEqual([0, 1, 2, 3, 4]);
+       });
+     });
+   });
 
   describe("Delete functionality", () => {
     it("should show delete button for each row", () => {

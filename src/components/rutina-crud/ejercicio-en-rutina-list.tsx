@@ -11,6 +11,7 @@ export interface EjercicioEnRutinaRow {
   series: number;
   repeticiones: number;
   descanso: number; // stored as seconds
+  orden?: number; // 0-indexed position for reordering
 }
 
 export interface EjercicioEnRutinaListProps {
@@ -213,6 +214,50 @@ export function EjercicioEnRutinaList({
     [rows, onRowsChange]
   );
 
+  /**
+   * Move a row up in the table (decrease index by 1)
+   * Swaps with the previous row and recalculates orden for consistency
+   */
+  const handleMoveUp = useCallback(
+    (index: number) => {
+      if (index <= 0) return; // Can't move first row up
+
+      const updated = [...rows];
+      // Swap with previous row
+      [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+
+      // Recalculate orden for all rows to maintain consistency
+      updated.forEach((row, i) => {
+        row.orden = i;
+      });
+
+      onRowsChange(updated);
+    },
+    [rows, onRowsChange]
+  );
+
+  /**
+   * Move a row down in the table (increase index by 1)
+   * Swaps with the next row and recalculates orden for consistency
+   */
+  const handleMoveDown = useCallback(
+    (index: number) => {
+      if (index >= rows.length - 1) return; // Can't move last row down
+
+      const updated = [...rows];
+      // Swap with next row
+      [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+
+      // Recalculate orden for all rows to maintain consistency
+      updated.forEach((row, i) => {
+        row.orden = i;
+      });
+
+      onRowsChange(updated);
+    },
+    [rows, onRowsChange]
+  );
+
   const getAvailableEjercicios = () => {
     return availableEjercicios.filter(e => !selectedEjercicioIds.has(e.id));
   };
@@ -248,12 +293,12 @@ export function EjercicioEnRutinaList({
                 <th className="px-4 py-2 text-center font-medium text-gray-700 w-20">
                   REPS.
                 </th>
-                <th className="px-4 py-2 text-center font-medium text-gray-700 w-24">
-                  DESCANSO
-                </th>
-                <th className="px-4 py-2 text-center font-medium text-gray-700 w-16">
-                  ACCIONES
-                </th>
+                 <th className="px-4 py-2 text-center font-medium text-gray-700 w-24">
+                   DESCANSO
+                 </th>
+                 <th className="px-4 py-2 text-center font-medium text-gray-700 w-24">
+                   ACCIONES
+                 </th>
               </tr>
             </thead>
             <tbody>
@@ -306,16 +351,36 @@ export function EjercicioEnRutinaList({
                     />
                   </td>
 
-                  {/* Delete button */}
-                  <td className="px-4 py-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(index)}
-                      className="px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
-                    >
-                      Eliminar
-                    </button>
-                  </td>
+                   {/* Move and Delete buttons */}
+                   <td className="px-4 py-2 text-center flex gap-1 justify-center">
+                     <button
+                       type="button"
+                       onClick={() => handleMoveUp(index)}
+                       disabled={index === 0}
+                       className="px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded disabled:text-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                       aria-label="Move row up"
+                       data-testid={`move-up-${index}`}
+                     >
+                       ↑
+                     </button>
+                     <button
+                       type="button"
+                       onClick={() => handleMoveDown(index)}
+                       disabled={index === rows.length - 1}
+                       className="px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded disabled:text-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                       aria-label="Move row down"
+                       data-testid={`move-down-${index}`}
+                     >
+                       ↓
+                     </button>
+                     <button
+                       type="button"
+                       onClick={() => handleDelete(index)}
+                       className="px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+                     >
+                       Eliminar
+                     </button>
+                   </td>
                 </tr>
               ))}
             </tbody>
