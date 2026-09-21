@@ -1,5 +1,6 @@
 import bcryptjs from 'bcryptjs';
 import jwt, { SignOptions, VerifyOptions } from 'jsonwebtoken';
+import { type UserRole } from '@/lib/authorization';
 
 const JWT_SECRET: string = process.env.JWT_SECRET || 'dev-secret-key-change-in-production';
 const SALT_ROUNDS = 10;
@@ -70,7 +71,7 @@ export function verifyJWT(token: string): JWTPayload | null {
  * @param authHeader The Authorization header value
  * @returns User object { id, rol } if valid token, null otherwise
  */
-export function extractUserFromAuthHeader(authHeader?: string): { id: string; rol?: string } | null {
+export function extractUserFromAuthHeader(authHeader?: string): { id: string; rol?: UserRole } | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
@@ -84,7 +85,7 @@ export function extractUserFromAuthHeader(authHeader?: string): { id: string; ro
 
   return {
     id: payload.sub,
-    rol: payload.rol,
+    rol: payload.rol as UserRole | undefined,
   };
 }
 
@@ -97,7 +98,7 @@ export interface RequestWithUser {
     id: string;
     email: string;
     nombre: string;
-    rol: string;
+    rol: UserRole;  // Typed as UserRole enum (SOCIO | INSTRUCTOR | RECEPCIONISTA | ADMINISTRADOR)
   } | null;
   body?: any; // Request body (parsed JSON or form data)
   ip?: string; // Client IP address

@@ -62,7 +62,7 @@ export async function handleAccessOverride(
   }
 
   // Validate ADMIN role
-  if (!canApproveAccessOverride(req.user.rol as any)) {
+  if (!canApproveAccessOverride(req.user.rol)) {
     throw new Error("FORBIDDEN: Rol de administrador requerido");
   }
 
@@ -83,26 +83,26 @@ export async function handleAccessOverride(
     throw new Error("NOT_FOUND: Socio no encontrado");
   }
 
-  // Create audit log
-  await prisma.registroDeAuditoria.create({
+  // Create audit log (append-only access audit trail)
+  await prisma.auditoriaAcceso.create({
     data: {
-      tipoOperacion: "ALTA", // OVERRIDE_GRANT maps to ALTA (access granted)
-      responsableId: req.user.id,
-      detalles: JSON.stringify({
-        socio_id: socioId,
-        motivo: body.motivo,
-        ip_address: req.ip || "0.0.0.0",
-        user_agent: (req.headers?.["user-agent"] as string) || "unknown",
-      }),
+      usuarioId: req.user.id,
+      socioId: socioId,
+      accion: "OVERRIDE_GRANT",
+      motivo: body.motivo,
+      resultado: "ALLOW",
+      timestamp: new Date(),
+      ipAddress: req.ip || "0.0.0.0",
+      userAgent: (req.headers?.["user-agent"] as string) || "unknown",
     },
   });
 
-  // Create asistencia record
+  // Create asistencia record (member check-in granted via override)
   await prisma.asistencia.create({
     data: {
       socioId: socioId,
       fechaHora: new Date(),
-      estadoAlIngresar: "PERMITIDO",
+      estado: "PERMITIDO",
       autorizadoExcepcionalmente: true,
     },
   });

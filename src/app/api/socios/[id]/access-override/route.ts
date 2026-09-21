@@ -35,14 +35,14 @@ export async function handleAccessOverrideRequest(
     const req: RequestWithUser = {
       user: {
         id: user.id,
-        rol: user.rol || "UNKNOWN",
+        rol: user.rol || "SOCIO",  // Default to SOCIO if undefined (should not happen if token valid)
         email: "",
         nombre: "",
       },
       body,
       ip: "0.0.0.0",
       headers: {},
-    } as any;
+    };
 
     const result = await handleAccessOverride(req, socioId);
 

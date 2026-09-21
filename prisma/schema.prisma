@@ -31,6 +31,7 @@ model Usuario {
 
   // Auditoría
   registrosAuditoria RegistroDeAuditoria[]
+  auditoriaAcceso    AuditoriaAcceso[]
 
   @@index([email])
   @@index([rol])
@@ -73,6 +74,7 @@ model Socio {
   registrosProgreso RegistroDeProgreso[]
   cuotas        Cuota[]
   pagos         Pago[]  @relation("PagosDeSocio")
+  auditoriaAcceso AuditoriaAcceso[]
 
   @@index([dni])
   @@index([estadoCuota])
@@ -334,11 +336,18 @@ model Asistencia {
   fechaHora         DateTime @default(now())
   socio             Socio    @relation(fields: [socioId], references: [id], onDelete: Restrict)
   socioId           String
-  estadoAlIngresar  String   // referencia a EstadoCuota o estado de autorización
+  estado            EstadoAlIngresar @default(PERMITIDO)  // PERMITIDO or DENEGADO
+  razon             String?  // Free text reason for DENEGADO (e.g., "Cuota vencida", "Membresía vencida")
   autorizadoExcepcionalmente Boolean @default(false)
 
   @@index([socioId])
   @@index([fechaHora])
+  @@index([estado])
+}
+
+enum EstadoAlIngresar {
+  PERMITIDO
+  DENEGADO
 }
 
 // ============================================================================
@@ -448,6 +457,43 @@ enum TipoOperacion {
   BAJA
   MODIFICACION
   ANULACION
+}
+
+// ============================================================================
+// ACCESO Y AUDITORÍA DE ACCESO (AuditoriaAcceso — append-only access log)
+// ============================================================================
+
+model AuditoriaAcceso {
+  id            String   @id @default(cuid())
+  usuario       Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  usuarioId     String?  // nullable for failed logins
+  socio         Socio?   @relation(fields: [socioId], references: [id], onDelete: SetNull)
+  socioId       String?  // nullable for login actions
+  accion        AccionAcceso
+  motivo        String?  // required for OVERRIDE_GRANT; null for others
+  resultado     ResultadoAcceso
+  timestamp     DateTime @default(now())
+  ipAddress     String   // IPv4/IPv6
+  userAgent     String   // User-Agent header
+  createdAt     DateTime @default(now())
+
+  @@index([accion])
+  @@index([resultado])
+  @@index([timestamp])
+  @@index([usuarioId])
+  @@index([socioId])
+}
+
+enum AccionAcceso {
+  LOGIN
+  CHECK_IN
+  OVERRIDE_GRANT
+  MANUAL_DENY
+}
+
+enum ResultadoAcceso {
+  ALLOW
+  DENY
 }
 
 // ============================================================================
