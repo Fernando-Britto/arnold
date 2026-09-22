@@ -45,7 +45,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -63,7 +63,7 @@ describe("ClienteList", () => {
       const onDelete = jest.fn();
 
       render(
-        <ClienteList clientes={[]} onEdit={onEdit} onDelete={onDelete} />
+        <ClienteList clientes={[]} onModify={onEdit} onDelete={onDelete} />
       );
 
       expect(
@@ -78,7 +78,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -103,7 +103,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -126,7 +126,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -148,7 +148,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -170,7 +170,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -191,7 +191,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -214,7 +214,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -240,7 +240,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -270,7 +270,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -296,7 +296,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -320,7 +320,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -340,7 +340,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
         />
       );
@@ -363,7 +363,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
           membresiaLabels={membresiaLabels}
         />
@@ -386,7 +386,7 @@ describe("ClienteList", () => {
       render(
         <ClienteList
           clientes={mockClientes}
-          onEdit={onEdit}
+          onModify={onEdit}
           onDelete={onDelete}
           isLoading={true}
         />

@@ -12,7 +12,7 @@ export interface ClienteListProps {
     estadoCuenta: EstadoCuenta;
     fechaAlta: Date;
   }>;
-  onEdit: (cliente: any) => void;
+  onModify: (cliente: any) => void;
   onDelete: (id: string) => Promise<void>;
   membresiaLabels?: Record<string, string>;
   isLoading?: boolean;
@@ -35,7 +35,7 @@ function getEstadoCuentaBadgeClass(estado: EstadoCuenta): string {
 
 export function ClienteList({
   clientes,
-  onEdit,
+  onModify,
   onDelete,
   membresiaLabels = {},
   isLoading = false,
@@ -219,7 +219,7 @@ export function ClienteList({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={() => onEdit(cliente)}
+                      onClick={() => onModify(cliente)}
                       className="text-blue-600 hover:text-blue-800 font-medium text-sm mr-3"
                       disabled={deletingId === cliente.id}
                     >

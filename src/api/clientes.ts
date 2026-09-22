@@ -69,3 +69,72 @@ export async function handleClienteDelete(id: string): Promise<void> {
   const clienteRepo = new ClienteRepository();
   return clienteRepo.delete(id);
 }
+
+/**
+ * ============================================
+ * CLIENT-SIDE API FUNCTIONS (for page.tsx)
+ * ============================================
+ */
+
+/**
+ * Client-side API call: fetch all clientes
+ */
+export async function fetchClientes(): Promise<Cliente[]> {
+  const response = await fetch("/api/clientes");
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to fetch clientes");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: create a new cliente
+ * @returns { cliente, tempPassword } where tempPassword is UNA SOLA VEZ
+ */
+export async function createCliente(
+  data: ClienteInput
+): Promise<{ cliente: Cliente; tempPassword: string }> {
+  const response = await fetch("/api/clientes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to create cliente");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: update a cliente
+ */
+export async function updateCliente(
+  id: string,
+  data: Partial<ClienteInput>
+): Promise<Cliente> {
+  const response = await fetch(`/api/clientes/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to update cliente");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: delete a cliente
+ */
+export async function deleteCliente(id: string): Promise<void> {
+  const response = await fetch(`/api/clientes/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to delete cliente");
+  }
+}
