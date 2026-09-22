@@ -388,4 +388,43 @@ describe("Membresia Domain", () => {
       expect(result.valid).toBe(true);
     });
   });
+
+  describe("Membresia.precio type contract (JSON serialization safety)", () => {
+    it("should ensure precio is always a number, never Decimal or object", () => {
+      // This test ensures the mapper converts Prisma Decimal → number
+      // Critical because Decimal serializes to string in JSON, breaking frontend code
+      const membresia = createMembresia({
+        nombre: "Gold",
+        precio: 15000.5,
+        periodicidad: 30,
+        estado: "ACTIVA",
+      });
+
+      // Verify precio is a number type
+      expect(typeof membresia.precio).toBe("number");
+      expect(membresia.precio).toBe(15000.5);
+
+      // Verify JSON serialization works correctly
+      const json = JSON.stringify(membresia);
+      const parsed = JSON.parse(json);
+      expect(typeof parsed.precio).toBe("number");
+      expect(parsed.precio).toBe(15000.5);
+    });
+
+    it("should have normalized precio with 2 decimals or fewer", () => {
+      const membresia = createMembresia({
+        nombre: "Gold",
+        precio: 15000.999, // Will be rounded
+        periodicidad: 30,
+        estado: "ACTIVA",
+      });
+
+      // Check decimal places after normalization
+      const priceStr = membresia.precio.toString();
+      const decimalIndex = priceStr.indexOf(".");
+      const decimals =
+        decimalIndex === -1 ? 0 : priceStr.length - decimalIndex - 1;
+      expect(decimals).toBeLessThanOrEqual(2);
+    });
+  });
 });

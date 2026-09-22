@@ -4,19 +4,51 @@
  * AC-001 to AC-007: See openspec/specs/membresias-crud/spec.md
  */
 
-import { Decimal } from "@prisma/client/runtime/library";
-
 export type EstadoMembresia = "ACTIVA" | "INACTIVA";
 
 export interface Membresia {
   id: string;
   nombre: string;
-  precio: Decimal | number; // Prisma returns Decimal, but we accept number for validation
+  precio: number; // Always number — Prisma Decimal is converted to number by mapper
   periodicidad: number; // Days as positive integer
   descripcion?: string | null;
   estado: EstadoMembresia;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * Prisma model for Membresia (matches schema)
+ * Used internally by repository to type Prisma results
+ */
+interface PrismaMembresiaRecord {
+  id: string;
+  nombre: string;
+  precio: any; // Prisma Decimal type
+  periodicidad: number;
+  descripcion: string | null;
+  estado: EstadoMembresia;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Map Prisma membresia record to domain Membresia
+ * Explicitly converts Decimal precio to number
+ */
+function mapPrismaToMembresia(
+  prismaRecord: PrismaMembresiaRecord
+): Membresia {
+  return {
+    id: prismaRecord.id,
+    nombre: prismaRecord.nombre,
+    precio: Number(prismaRecord.precio), // Decimal → number
+    periodicidad: prismaRecord.periodicidad,
+    descripcion: prismaRecord.descripcion,
+    estado: prismaRecord.estado,
+    createdAt: prismaRecord.createdAt,
+    updatedAt: prismaRecord.updatedAt,
+  };
 }
 
 export interface ValidationResult {
@@ -145,7 +177,7 @@ export class MembresiaRepository {
     const prisma = await this.getPrisma();
     try {
       const normalized = createMembresia(data);
-      const membresia = await prisma.membresia.create({
+      const prismaResult = await prisma.membresia.create({
         data: {
           nombre: normalized.nombre,
           precio: normalized.precio,
@@ -154,7 +186,7 @@ export class MembresiaRepository {
           estado: normalized.estado,
         },
       });
-      return membresia as unknown as Membresia;
+      return mapPrismaToMembresia(prismaResult);
     } finally {
       await prisma.$disconnect();
     }
@@ -169,7 +201,7 @@ export class MembresiaRepository {
       const result = await prisma.membresia.findUnique({
         where: { id },
       });
-      return result as unknown as Membresia | null;
+      return result ? mapPrismaToMembresia(result) : null;
     } finally {
       await prisma.$disconnect();
     }
@@ -182,7 +214,7 @@ export class MembresiaRepository {
     const prisma = await this.getPrisma();
     try {
       const results = await prisma.membresia.findMany();
-      return results as unknown as Membresia[];
+      return results.map(mapPrismaToMembresia);
     } finally {
       await prisma.$disconnect();
     }
@@ -197,7 +229,7 @@ export class MembresiaRepository {
       const results = await prisma.membresia.findMany({
         where: { estado: "ACTIVA" },
       });
-      return results as unknown as Membresia[];
+      return results.map(mapPrismaToMembresia);
     } finally {
       await prisma.$disconnect();
     }
@@ -235,11 +267,11 @@ export class MembresiaRepository {
         updateData.descripcion = data.descripcion;
       if (data.estado !== undefined) updateData.estado = data.estado;
 
-      const membresia = await prisma.membresia.update({
+      const prismaResult = await prisma.membresia.update({
         where: { id },
         data: updateData,
       });
-      return membresia as unknown as Membresia;
+      return mapPrismaToMembresia(prismaResult);
     } finally {
       await prisma.$disconnect();
     }
