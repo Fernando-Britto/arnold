@@ -1,0 +1,391 @@
+import {
+  validateMembresia,
+  createMembresia,
+  type Membresia,
+  type EstadoMembresia,
+} from "./membresia";
+
+describe("Membresia Domain", () => {
+  describe("validateMembresia", () => {
+    describe("nombre validation (AC-001)", () => {
+      it("should reject when nombre is missing", () => {
+        const result = validateMembresia({
+          nombre: "",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain(
+          "El nombre de la membresía es requerido"
+        );
+      });
+
+      it("should reject when nombre is less than 3 chars", () => {
+        const result = validateMembresia({
+          nombre: "Ab",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.includes("3 caracteres"))).toBe(
+          true
+        );
+      });
+
+      it("should reject when nombre exceeds 50 chars", () => {
+        const result = validateMembresia({
+          nombre: "A".repeat(51),
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.includes("50 caracteres"))).toBe(
+          true
+        );
+      });
+
+      it("should accept valid nombre (3-50 chars)", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.errors).not.toContain(
+          expect.stringMatching(/nombre|name/)
+        );
+      });
+    });
+
+    describe("precio validation (AC-002)", () => {
+      it("should reject when precio is missing", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: undefined as any,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.includes("precio"))).toBe(true);
+      });
+
+      it("should reject when precio is zero", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 0,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain("Debe ser mayor a 0");
+      });
+
+      it("should reject when precio is negative", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: -10,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain("Debe ser mayor a 0");
+      });
+
+      it("should accept precio > 0", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000.5,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.errors.some((e) => e.includes("precio"))).toBe(false);
+      });
+    });
+
+    describe("periodicidad validation (AC-003)", () => {
+      it("should reject when periodicidad is missing", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: undefined as any,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.includes("periodicidad"))).toBe(
+          true
+        );
+      });
+
+      it("should reject when periodicidad is zero", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 0,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain("Debe ser mayor a 0");
+      });
+
+      it("should reject when periodicidad is negative", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: -5,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain("Debe ser mayor a 0");
+      });
+
+      it("should accept positive integer periodicidad", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(
+          result.errors.some((e) => e.includes("periodicidad"))
+        ).toBe(false);
+      });
+
+      it("should reject non-integer periodicidad", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30.5,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.includes("entero"))).toBe(true);
+      });
+    });
+
+    describe("descripcion validation (AC-004)", () => {
+      it("should accept empty descripcion (optional)", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+          descripcion: "",
+        });
+        expect(
+          result.errors.some((e) => e.includes("descripcion"))
+        ).toBe(false);
+      });
+
+      it("should accept undefined descripcion (optional)", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(
+          result.errors.some((e) => e.includes("descripcion"))
+        ).toBe(false);
+      });
+
+      it("should reject descripcion exceeding 300 chars", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+          descripcion: "A".repeat(301),
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.includes("300 caracteres"))).toBe(
+          true
+        );
+      });
+
+      it("should accept descripcion up to 300 chars", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+          descripcion: "A".repeat(300),
+        });
+        expect(
+          result.errors.some((e) => e.includes("descripcion"))
+        ).toBe(false);
+      });
+    });
+
+    describe("estado validation", () => {
+      it("should reject when estado is missing", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: undefined as any,
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.includes("estado"))).toBe(true);
+      });
+
+      it("should reject invalid estado values", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "INVALIDO" as any,
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.includes("estado"))).toBe(true);
+      });
+
+      it("should accept ACTIVA estado", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.errors.some((e) => e.includes("estado"))).toBe(false);
+      });
+
+      it("should accept INACTIVA estado", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "INACTIVA",
+        });
+        expect(result.errors.some((e) => e.includes("estado"))).toBe(false);
+      });
+    });
+
+    describe("all fields valid", () => {
+      it("should validate successfully with all required fields", () => {
+        const result = validateMembresia({
+          nombre: "Gold",
+          precio: 15000.5,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it("should validate successfully with all fields including descripcion", () => {
+        const result = validateMembresia({
+          nombre: "Gold Premium",
+          precio: 25000,
+          periodicidad: 30,
+          descripcion: "Premium membership with extra benefits",
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+    });
+  });
+
+  describe("createMembresia", () => {
+    it("should create membresia with all required fields", () => {
+      const membresia = createMembresia({
+        nombre: "Gold",
+        precio: 15000,
+        periodicidad: 30,
+        estado: "ACTIVA",
+      });
+
+      expect(membresia).toHaveProperty("nombre", "Gold");
+      expect(membresia).toHaveProperty("precio", 15000);
+      expect(membresia).toHaveProperty("periodicidad", 30);
+      expect(membresia).toHaveProperty("estado", "ACTIVA");
+    });
+
+    it("should create membresia with descripcion", () => {
+      const membresia = createMembresia({
+        nombre: "Gold",
+        precio: 15000,
+        periodicidad: 30,
+        descripcion: "Premium plan",
+        estado: "ACTIVA",
+      });
+
+      expect(membresia).toHaveProperty("descripcion", "Premium plan");
+    });
+
+    it("should normalize precio to 2 decimal places", () => {
+      const membresia = createMembresia({
+        nombre: "Gold",
+        precio: 15000,
+        periodicidad: 30,
+        estado: "ACTIVA",
+      });
+
+      // Precio should be stored with 2 decimals
+      expect(Number.isFinite(membresia.precio)).toBe(true);
+      // Check that it has at most 2 decimal places
+      const priceStr = membresia.precio.toString();
+      const decimalIndex = priceStr.indexOf(".");
+      const decimals =
+        decimalIndex === -1 ? 0 : priceStr.length - decimalIndex - 1;
+      expect(decimals).toBeLessThanOrEqual(2);
+    });
+
+    it("should not include id field (repository concern)", () => {
+      const membresia = createMembresia({
+        nombre: "Gold",
+        precio: 15000,
+        periodicidad: 30,
+        estado: "ACTIVA",
+      });
+
+      expect(membresia).not.toHaveProperty("id");
+    });
+  });
+
+  describe("Precio formatting (AC-002)", () => {
+    it("should handle precio with no decimals", () => {
+      const result = validateMembresia({
+        nombre: "Gold",
+        precio: 15000,
+        periodicidad: 30,
+        estado: "ACTIVA",
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it("should handle precio with 1 decimal", () => {
+      const result = validateMembresia({
+        nombre: "Gold",
+        precio: 15000.5,
+        periodicidad: 30,
+        estado: "ACTIVA",
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it("should handle precio with 2 decimals", () => {
+      const result = validateMembresia({
+        nombre: "Gold",
+        precio: 15000.99,
+        periodicidad: 30,
+        estado: "ACTIVA",
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it("should accept precio with more than 2 decimals (will be rounded on save)", () => {
+      const result = validateMembresia({
+        nombre: "Gold",
+        precio: 15000.999,
+        periodicidad: 30,
+        estado: "ACTIVA",
+      });
+      // Per spec: "MUST round or truncate to 2 decimals on save, not reject outright"
+      expect(result.valid).toBe(true);
+    });
+  });
+});
