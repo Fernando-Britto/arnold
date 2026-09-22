@@ -31,10 +31,14 @@ export interface ErrorMapperOptions {
  * Map error messages to HTTP response codes per API spec
  * Shared across all route.ts files
  *
- * Error codes:
- * - "Validación fallida" → 400 VALIDATION_ERROR
- * - "FORBIDDEN" → 403 FORBIDDEN (with custom message per route)
- * - "NOT_FOUND" → 404 NOT_FOUND (with resource-specific name)
+ * Supported error patterns (prefix: message):
+ * - "Validación fallida: ..." or "VALIDATION_ERROR: ..." → 400 VALIDATION_ERROR
+ * - "VALIDATION_DUPLICATE_DNI: ..." → 400 VALIDATION_DUPLICATE_DNI
+ * - "VALIDATION_EMAIL_FORMAT: ..." → 400 VALIDATION_EMAIL_FORMAT
+ * - "VALIDATION_REQUIRED: ..." → 400 VALIDATION_REQUIRED
+ * - "MEMBERSHIP_NO_LONGER_ACTIVE: ..." → 400 MEMBERSHIP_NO_LONGER_ACTIVE
+ * - "FORBIDDEN: ..." → 403 FORBIDDEN (with custom message per route)
+ * - "NOT_FOUND: ..." → 404 NOT_FOUND (with resource-specific name)
  * - Other → 500 SERVER_ERROR
  *
  * @param error The error to map
@@ -50,6 +54,20 @@ export function mapErrorToResponse(
     resourceName = "Recurso",
   } = options;
 
+  // Extract specific validation error codes (VALIDATION_XXX, MEMBERSHIP_XXX)
+  const validationCodeMatch = message.match(
+    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+):\s*(.+)$/
+  );
+  if (validationCodeMatch) {
+    const [, code, errorMessage] = validationCodeMatch;
+    return {
+      code,
+      message: errorMessage,
+      status: 400,
+    };
+  }
+
+  // Legacy pattern: "Validación fallida: ..."
   if (message.includes("Validación fallida")) {
     return {
       code: "VALIDATION_ERROR",
