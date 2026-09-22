@@ -45,6 +45,26 @@ export function generateTemporaryPassword(): string {
 }
 
 /**
+ * Map Socio.estadoCuota to Cliente.estadoCuenta
+ * Socio tracks payment status (AL_DIA, VENCIDO, DENEGADO)
+ * Cliente exposes account status (Activo, Inactivo, Bloqueado)
+ */
+export function mapEstadoCuotaToEstadoCuenta(
+  estadoCuota: string
+): EstadoCuenta {
+  switch (estadoCuota) {
+    case "AL_DIA":
+      return "Activo";
+    case "VENCIDO":
+      return "Inactivo";
+    case "DENEGADO":
+      return "Bloqueado";
+    default:
+      return "Activo"; // Fallback
+  }
+}
+
+/**
  * Normalize DNI to digits-only format
  * Accepts both "XX.XXX.XXX" and "XXXXXXXX" formats
  */
@@ -383,7 +403,7 @@ export class ClienteRepository {
       telefono: socio.telefono,
       email: socio.usuario?.email || "",
       membresiaAsignada: socio.membresiaAsignadaId || "",
-      estadoCuenta: "Activo", // Simplified for MVP
+      estadoCuenta: mapEstadoCuotaToEstadoCuenta(socio.estadoCuota),
       fechaAlta: socio.fechaAlta,
       updatedAt: socio.updatedAt,
     };

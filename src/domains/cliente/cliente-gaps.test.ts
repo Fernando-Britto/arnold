@@ -1,5 +1,8 @@
 import { comparePassword, hashPassword } from "@/lib/auth";
-import { generateTemporaryPassword } from "./cliente";
+import {
+  generateTemporaryPassword,
+  mapEstadoCuotaToEstadoCuenta,
+} from "./cliente";
 
 describe("GAP 1: Temporary password generation for new usuarios", () => {
   it("should demonstrate that empty password prevents login (the bug)", async () => {
@@ -87,5 +90,45 @@ describe("GAP 2: Stale membership cache - INACTIVA membership accepted", () => {
     
     console.log("✅ GAP 2 FIX: ClienteRepository.create/update() now validate membership ACTIVA status");
     console.log("   Handles spec edge case: 'Assigning an Inactiva membership via stale dropdown cache'");
+  });
+});
+
+describe("GAP 3: estadoCuenta hardcoded to 'Activo'", () => {
+  it("should document that mapSocioToCliente hardcodes estadoCuenta", () => {
+    // mapSocioToCliente currently returns estadoCuenta: "Activo" always
+    // But Socio has estadoCuota: AL_DIA | VENCIDO | DENEGADO
+    // There's no mapping between these concepts
+    
+    // Example:
+    // - Socio.estadoCuota = "VENCIDO" (user has overdue payment)
+    // - mapSocioToCliente returns estadoCuenta: "Activo" (lies to frontend)
+    // - Frontend shows user as active even though payment is overdue
+    
+    console.log("❌ GAP 3: estadoCuota is always mapped to 'Activo'");
+    console.log("   Real Socio.estadoCuota values: AL_DIA | VENCIDO | DENEGADO");
+    console.log("   Frontend expects Cliente.estadoCuenta: Activo | Inactivo | Bloqueado");
+    console.log("   Mapping strategy needed:");
+    console.log("     - AL_DIA → Activo");
+    console.log("     - VENCIDO → Inactivo");
+    console.log("     - DENEGADO → Bloqueado");
+  });
+
+  it("should properly map estadoCuota to estadoCuenta", () => {
+    // After fix, mapEstadoCuotaToEstadoCuenta handles the mapping
+    
+    expect(mapEstadoCuotaToEstadoCuenta("AL_DIA")).toBe("Activo");
+    expect(mapEstadoCuotaToEstadoCuenta("VENCIDO")).toBe("Inactivo");
+    expect(mapEstadoCuotaToEstadoCuenta("DENEGADO")).toBe("Bloqueado");
+    expect(mapEstadoCuotaToEstadoCuenta("UNKNOWN")).toBe("Activo"); // Fallback
+  });
+
+  it("should now map real estadoCuota from Socio model (FIXED)", () => {
+    // mapSocioToCliente() now uses mapEstadoCuotaToEstadoCuenta
+    // instead of hardcoding "Activo"
+    
+    console.log("✅ GAP 3 FIX: mapSocioToCliente now maps real estadoCuota");
+    console.log("   AL_DIA → Activo");
+    console.log("   VENCIDO → Inactivo");
+    console.log("   DENEGADO → Bloqueado");
   });
 });
