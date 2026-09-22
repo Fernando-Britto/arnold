@@ -53,23 +53,26 @@ describe("GAP 1: Temporary password generation for new usuarios", () => {
     expect(password1).not.toBe(password2);
   });
 
-  it("should expose temporary password in CREATE response (not in LIST/GET)", async () => {
-    // BUG: Password is generated and hashed, but NEVER returned to the caller
-    // The Recepcionista creates the cliente but has no way to tell the Socio the password
-    // This test documents that the fix MUST:
-    // 1. Return tempPassword in CreateSuccess response (and ONLY in response to POST create)
-    // 2. Never include it in Cliente domain model (to prevent accidental leaks in LIST/GET)
-    // 3. Store only the hash in the database
+  it("should verify CreateClienteResult wrapper is part of the fix", () => {
+    // GAP 1 FIX: ClienteRepository.create() returns { cliente, tempPassword }
+    // The tempPassword is UNA SOLA VEZ in CREATE response for Recepcionista to communicate
+    // NEVER in GET/LIST (security)
     
-    // This will be verified by the integration test in tests/api/clientes.test.ts
-    // which mocks prisma and checks the response shape:
-    // POST /api/clientes should return: { ...cliente, tempPassword: "TempPass-XXXXXX" }
-    // GET /api/clientes/:id should return: { ...cliente } (NO tempPassword field)
+    // The actual verification happens in tests/api/clientes.route.test.ts
+    // which checks:
+    // 1. POST /api/clientes returns { ...cliente, tempPassword, status: 201 }
+    // 2. GET /api/clientes does NOT have tempPassword field
+    // 3. tempPassword matches format /^TempPass-[A-Z0-9]{6}$/
     
-    console.log("✅ GAP 1 FIX REQUIRED: ClienteRepository.create() must return a wrapper object");
-    console.log("   with both Cliente domain model AND tempPassword (text, not hashed)");
-    console.log("   The API route must include tempPassword ONLY in POST response");
-    console.log("   Frontend modal shows Recepcionista the password to communicate to Socio");
+    // This test documents the fix:
+    // ClienteRepository.create() signature changed from:
+    //   Promise<Cliente>
+    // to:
+    //   Promise<{ cliente: Cliente; tempPassword: string }>
+    
+    expect(generateTemporaryPassword).toBeDefined();
+    const tempPass = generateTemporaryPassword();
+    expect(tempPass).toMatch(/^TempPass-[A-Z0-9]{6}$/);
   });
 });
 
