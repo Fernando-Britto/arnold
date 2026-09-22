@@ -21,6 +21,9 @@ jest.mock("@/lib/db", () => ({
       create: jest.fn(),
       update: jest.fn(),
     },
+    membresia: {
+      findUnique: jest.fn(),
+    },
   },
 }));
 
@@ -54,6 +57,14 @@ describe("Cliente API Routes", () => {
 
       // Mock: no existing DNI
       (prisma.socio.findUnique as jest.Mock).mockResolvedValueOnce(null);
+
+      // Mock: Membresía exists and is ACTIVA
+      (prisma.membresia.findUnique as jest.Mock).mockResolvedValueOnce({
+        id: "gold-123",
+        nombre: "Gold",
+        precio: 150.0,
+        estado: "ACTIVA",
+      });
 
       // Mock: Usuario.create succeeds
       (prisma.usuario.create as jest.Mock).mockResolvedValueOnce(mockUsuario);

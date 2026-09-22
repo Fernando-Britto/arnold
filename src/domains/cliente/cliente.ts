@@ -191,6 +191,20 @@ export class ClienteRepository {
       throw new Error("VALIDATION_DUPLICATE_DNI: DNI ya registrado");
     }
 
+    // GAP 2: Validate that membresía exists and is ACTIVA
+    // (Prevents accepting stale dropdown cache with INACTIVA membership)
+    const membresesia = await prisma.membresia.findUnique({
+      where: { id: data.membresiaAsignada },
+    });
+    if (!membresesia) {
+      throw new Error("VALIDATION_MEMBERSHIP_NOT_FOUND: Membresía no encontrada");
+    }
+    if (membresesia.estado !== "ACTIVA") {
+      throw new Error(
+        `VALIDATION_MEMBERSHIP_INACTIVE: La membresía seleccionada ya no está activa`
+      );
+    }
+
     // Create Usuario with temporary password (hashed)
     // User must change password on first login (TODO: T-013 auth flow)
     const tempPassword = generateTemporaryPassword();
@@ -289,6 +303,21 @@ export class ClienteRepository {
         });
         if (duplicate && duplicate.id !== id) {
           throw new Error("VALIDATION_DUPLICATE_DNI: DNI ya registrado");
+        }
+      }
+
+      // GAP 2: Validate that membresía exists and is ACTIVA (if updating)
+      if (data.membresiaAsignada !== undefined) {
+        const membresesia = await prisma.membresia.findUnique({
+          where: { id: data.membresiaAsignada },
+        });
+        if (!membresesia) {
+          throw new Error("VALIDATION_MEMBERSHIP_NOT_FOUND: Membresía no encontrada");
+        }
+        if (membresesia.estado !== "ACTIVA") {
+          throw new Error(
+            `VALIDATION_MEMBERSHIP_INACTIVE: La membresía seleccionada ya no está activa`
+          );
         }
       }
     }
