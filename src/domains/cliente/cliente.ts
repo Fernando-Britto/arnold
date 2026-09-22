@@ -1,0 +1,145 @@
+/**
+ * Cliente domain model
+ * Represents a Socio (member/client) with membership and account status
+ */
+
+/**
+ * Estado de Cuenta enum
+ */
+export type EstadoCuenta = "Activo" | "Inactivo" | "Bloqueado";
+
+/**
+ * Cliente domain model
+ */
+export interface Cliente {
+  id: string;
+  nombre: string;
+  dni: string; // Stored normalized (digits only)
+  telefono?: string | null;
+  email: string;
+  membresiaAsignada: string; // ID of active Membresía
+  estadoCuenta: EstadoCuenta;
+  fechaAlta: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/**
+ * Validation result
+ */
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+/**
+ * Normalize DNI to digits-only format
+ * Accepts both "XX.XXX.XXX" and "XXXXXXXX" formats
+ */
+export function normalizeDNI(dni: string): string {
+  return dni.replace(/\D/g, "");
+}
+
+/**
+ * Validate DNI format
+ * Accepts both "XX.XXX.XXX" (with dots) and "XXXXXXXX" (digits only)
+ */
+function validateDNIFormat(dni: string): boolean {
+  const withDots = /^\d{2}\.\d{3}\.\d{3}$/;
+  const withoutDots = /^\d{8}$/;
+  return withDots.test(dni) || withoutDots.test(dni);
+}
+
+/**
+ * Validate email format
+ */
+function validateEmailFormat(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Validate phone format (optional)
+ * Accepts format: +54 9 XXXX XXXXXX
+ */
+function validatePhoneFormat(phone: string): boolean {
+  const phoneRegex = /^\+54\s9\s\d{4}\s\d{6}$/;
+  return phoneRegex.test(phone);
+}
+
+/**
+ * Validate a Cliente object
+ */
+export function validateCliente(data: Partial<Cliente>): ValidationResult {
+  const errors: string[] = [];
+
+  // Validate nombre (required, 5-100 chars)
+  if (!data.nombre || data.nombre.trim() === "") {
+    errors.push("El nombre es requerido");
+  } else if (data.nombre.length < 5) {
+    errors.push("El nombre debe tener al menos 5 caracteres");
+  } else if (data.nombre.length > 100) {
+    errors.push("El nombre no puede exceder 100 caracteres");
+  }
+
+  // Validate DNI (required, unique, format XX.XXX.XXX or XXXXXXXX)
+  if (!data.dni || data.dni.trim() === "") {
+    errors.push("El DNI es requerido");
+  } else if (!validateDNIFormat(data.dni)) {
+    errors.push("El DNI debe tener formato XX.XXX.XXX o XXXXXXXX");
+  }
+
+  // Validate telefono (optional, but if provided must match format)
+  if (data.telefono && data.telefono.trim() !== "") {
+    if (!validatePhoneFormat(data.telefono)) {
+      errors.push("El teléfono debe tener formato +54 9 XXXX XXXXXX");
+    }
+  }
+
+  // Validate email (required, valid format)
+  if (!data.email || data.email.trim() === "") {
+    errors.push("El email es requerido");
+  } else if (!validateEmailFormat(data.email)) {
+    errors.push("Formato de email inválido");
+  }
+
+  // Validate membresiaAsignada (required, must be one of the active memberships)
+  if (!data.membresiaAsignada || data.membresiaAsignada.trim() === "") {
+    errors.push("Debe seleccionar una membresía activa");
+  }
+
+  // Validate estadoCuenta (required, one of the enum values)
+  if (!data.estadoCuenta) {
+    errors.push("El estado de cuenta es requerido");
+  } else if (!["Activo", "Inactivo", "Bloqueado"].includes(data.estadoCuenta)) {
+    errors.push("El estado de cuenta debe ser uno de: Activo, Inactivo, Bloqueado");
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Create a Cliente with required fields
+ */
+export function createCliente(
+  nombre: string,
+  dni: string,
+  email: string,
+  membresiaAsignada: string,
+  estadoCuenta: EstadoCuenta,
+  telefono?: string
+): Cliente {
+  return {
+    id: `cliente-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    nombre,
+    dni: normalizeDNI(dni),
+    telefono: telefono || null,
+    email,
+    membresiaAsignada,
+    estadoCuenta,
+    fechaAlta: new Date(),
+  };
+}
