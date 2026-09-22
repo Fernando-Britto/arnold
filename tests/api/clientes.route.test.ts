@@ -84,6 +84,10 @@ describe("Cliente API Routes", () => {
       expect((result as CreateSuccess).status).toBe(201);
       expect((result as CreateSuccess).id).toBe("cliente-123");
       expect((result as CreateSuccess).fechaAlta).toEqual(new Date("2024-01-15"));
+      
+      // GAP 1 FIX: tempPassword must be present in CREATE response
+      expect((result as CreateSuccess).tempPassword).toBeDefined();
+      expect((result as CreateSuccess).tempPassword).toMatch(/^TempPass-[A-Z0-9]{6}$/);
     });
   });
 
@@ -119,6 +123,9 @@ describe("Cliente API Routes", () => {
       expect(Array.isArray(result)).toBe(true);
       expect(result).toHaveLength(1);
       expect((result as ListSuccess)[0].id).toBe("cliente-123");
+      
+      // GAP 1 FIX: tempPassword MUST NEVER appear in LIST responses (security)
+      expect((result as ListSuccess)[0]).not.toHaveProperty("tempPassword");
     });
   });
 });

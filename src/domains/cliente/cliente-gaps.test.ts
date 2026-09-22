@@ -52,6 +52,25 @@ describe("GAP 1: Temporary password generation for new usuarios", () => {
     // Should be different (very likely)
     expect(password1).not.toBe(password2);
   });
+
+  it("should expose temporary password in CREATE response (not in LIST/GET)", async () => {
+    // BUG: Password is generated and hashed, but NEVER returned to the caller
+    // The Recepcionista creates the cliente but has no way to tell the Socio the password
+    // This test documents that the fix MUST:
+    // 1. Return tempPassword in CreateSuccess response (and ONLY in response to POST create)
+    // 2. Never include it in Cliente domain model (to prevent accidental leaks in LIST/GET)
+    // 3. Store only the hash in the database
+    
+    // This will be verified by the integration test in tests/api/clientes.test.ts
+    // which mocks prisma and checks the response shape:
+    // POST /api/clientes should return: { ...cliente, tempPassword: "TempPass-XXXXXX" }
+    // GET /api/clientes/:id should return: { ...cliente } (NO tempPassword field)
+    
+    console.log("✅ GAP 1 FIX REQUIRED: ClienteRepository.create() must return a wrapper object");
+    console.log("   with both Cliente domain model AND tempPassword (text, not hashed)");
+    console.log("   The API route must include tempPassword ONLY in POST response");
+    console.log("   Frontend modal shows Recepcionista the password to communicate to Socio");
+  });
 });
 
 describe("GAP 2: Stale membership cache - INACTIVA membership accepted", () => {

@@ -1,4 +1,4 @@
-import { Cliente, ClienteRepository, EstadoCuenta, validateCliente } from "@/domains/cliente/cliente";
+import { Cliente, ClienteRepository, EstadoCuenta, validateCliente, CreateClienteResult } from "@/domains/cliente/cliente";
 
 /**
  * Cliente input type for create operations
@@ -16,8 +16,9 @@ export interface ClienteInput {
 /**
  * Handle POST /api/clientes
  * Creates a new cliente
+ * @returns CreateClienteResult with Cliente + plaintext tempPassword (ephemeral)
  */
-export async function handleClienteCreate(data: ClienteInput): Promise<Cliente> {
+export async function handleClienteCreate(data: ClienteInput): Promise<CreateClienteResult> {
   const clienteRepo = new ClienteRepository();
   return clienteRepo.create({
     nombre: data.nombre,

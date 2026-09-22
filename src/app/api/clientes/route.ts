@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Cliente } from "@/domains/cliente/cliente";
+import { Cliente, CreateClienteResult } from "@/domains/cliente/cliente";
 import {
   handleClienteCreate,
   handleClienteList,
@@ -11,7 +11,9 @@ import { mapErrorToResponse } from "@/lib/route-error-mapper";
  * Discriminated union types for handler responses
  * CRITICAL: Exported from route.ts (day 1) per T-012 spec
  */
-export type CreateSuccess = Cliente & { status: 201 };
+export type CreateSuccess = Omit<CreateClienteResult, "cliente"> & 
+  CreateClienteResult["cliente"] & 
+  { status: 201 };
 export type CreateError = { code: string; message: string; status: number };
 
 export type ListSuccess = Cliente[];
@@ -31,7 +33,7 @@ export type DeleteError = { code: string; message: string; status: number };
  * Internal use only
  */
 function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateSuccess {
-  return "id" in result && (result as any).status === 201;
+  return "id" in result && "tempPassword" in result && (result as any).status === 201;
 }
 
 function isListSuccess(result: ListSuccess | ListError): result is ListSuccess {
@@ -41,14 +43,19 @@ function isListSuccess(result: ListSuccess | ListError): result is ListSuccess {
 /**
  * Core handler logic for POST /api/clientes
  * Exported for testing without NextRequest/NextResponse mocking
- * @returns Cliente with status 201, or error response
+ * @returns Cliente + tempPassword with status 201, or error response
+ * NOTE: tempPassword is ephemeral and MUST NEVER be exposed in GET/LIST responses
  */
 export async function handleClienteCreateRequest(
   body: any
 ): Promise<CreateSuccess | CreateError> {
   try {
-    const cliente = await handleClienteCreate(body);
-    return { ...cliente, status: 201 } as CreateSuccess;
+    const result = await handleClienteCreate(body);
+    return { 
+      ...result.cliente, 
+      tempPassword: result.tempPassword,
+      status: 201 
+    } as CreateSuccess;
   } catch (error) {
     const mapped = mapErrorToResponse(error, {
       forbiddenMessage: "Se requiere rol de administrador o recepcionista",

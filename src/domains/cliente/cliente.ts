@@ -27,6 +27,16 @@ export interface Cliente {
 }
 
 /**
+ * Response wrapper for ClienteRepository.create()
+ * Includes the plaintext temporary password that MUST be communicated to the Socio
+ * CRITICAL: Never expose this type in GET/LIST responses — tempPassword is ephemeral
+ */
+export interface CreateClienteResult {
+  cliente: Cliente;
+  tempPassword: string; // Plaintext, UNA SOLA VEZ, only in create response
+}
+
+/**
  * Validation result
  */
 export interface ValidationResult {
@@ -189,11 +199,12 @@ export class ClienteRepository {
   /**
    * Create a new cliente in the database
    * Omits id, fechaAlta, createdAt, updatedAt — Prisma auto-generates
+   * @returns CreateClienteResult with Cliente + plaintext tempPassword (ephemeral)
    * @throws "VALIDATION_DUPLICATE_DNI: DNI ya registrado" if DNI exists
    */
   async create(
     data: Omit<Cliente, "id" | "fechaAlta" | "createdAt" | "updatedAt">
-  ): Promise<Cliente> {
+  ): Promise<CreateClienteResult> {
     const prisma = await this.getPrisma();
 
     // Validate first
@@ -213,13 +224,13 @@ export class ClienteRepository {
 
     // GAP 2: Validate that membresía exists and is ACTIVA
     // (Prevents accepting stale dropdown cache with INACTIVA membership)
-    const membresesia = await prisma.membresia.findUnique({
+    const membresia = await prisma.membresia.findUnique({
       where: { id: data.membresiaAsignada },
     });
-    if (!membresesia) {
+    if (!membresia) {
       throw new Error("VALIDATION_MEMBERSHIP_NOT_FOUND: Membresía no encontrada");
     }
-    if (membresesia.estado !== "ACTIVA") {
+    if (membresia.estado !== "ACTIVA") {
       throw new Error(
         `VALIDATION_MEMBERSHIP_INACTIVE: La membresía seleccionada ya no está activa`
       );
@@ -251,7 +262,10 @@ export class ClienteRepository {
       include: { usuario: true },
     });
 
-    return this.mapSocioToCliente(socio);
+    return {
+      cliente: this.mapSocioToCliente(socio),
+      tempPassword, // Returned ONLY in create response, never in GET/LIST
+    };
   }
 
   /**
@@ -328,13 +342,13 @@ export class ClienteRepository {
 
       // GAP 2: Validate that membresía exists and is ACTIVA (if updating)
       if (data.membresiaAsignada !== undefined) {
-        const membresesia = await prisma.membresia.findUnique({
+        const membresia = await prisma.membresia.findUnique({
           where: { id: data.membresiaAsignada },
         });
-        if (!membresesia) {
+        if (!membresia) {
           throw new Error("VALIDATION_MEMBERSHIP_NOT_FOUND: Membresía no encontrada");
         }
-        if (membresesia.estado !== "ACTIVA") {
+        if (membresia.estado !== "ACTIVA") {
           throw new Error(
             `VALIDATION_MEMBERSHIP_INACTIVE: La membresía seleccionada ya no está activa`
           );
