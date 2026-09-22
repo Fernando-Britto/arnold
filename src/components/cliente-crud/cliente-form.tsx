@@ -3,12 +3,13 @@ import { validateCliente, type EstadoCuenta } from "@/domains/cliente/cliente";
 
 /**
  * Format a date to DD/MM/YYYY safely without timezone issues
- * Handles dates that come from API or tests by using local components
+ * Uses UTC components to handle ISO dates from API (which represent calendar dates, not instants)
+ * A date like "2024-01-15" semantically means Jan 15 regardless of where the code runs
  */
 function formatDateDDMMYYYY(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${day}/${month}/${year}`;
 }
 

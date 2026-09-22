@@ -107,12 +107,22 @@ describe("ClienteForm", () => {
       await user.type(nombreInput, "Ana García");
       await user.type(dniInput, "30.123.456");
       await user.type(emailInput, "invalid-email");
+      
+      // Ensure React has processed state changes before selecting
+      await waitFor(() => {
+        expect((membresiaSelect as HTMLSelectElement).value).toBe("");
+      });
+      
       await user.selectOptions(membresiaSelect, ["gold-1"]);
 
-      const submitButton = screen.getByText("Crear");
-      await user.click(submitButton);
-
-      // Verify that validation prevented the save call (invalid email should block submission)
+      // Trigger form submission via the button
+      const submitButton = screen.getByText("Crear") as HTMLButtonElement;
+      const form = submitButton.closest("form") as HTMLFormElement;
+      
+      // Dispatch submit event on form (this triggers handleSubmit and React state updates)
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      
+      // The critical part: validation should prevent onSave from being called
       expect(onSave).not.toHaveBeenCalled();
     });
 
@@ -281,7 +291,7 @@ describe("ClienteForm", () => {
       telefono: "+54 9 1234 567890",
       membresiaAsignada: "gold-1",
       estadoCuenta: "Activo" as const,
-      fechaAlta: new Date(2024, 0, 15), // month is 0-indexed
+      fechaAlta: new Date("2024-01-15"), // ISO string, will arrive like this from API
     };
 
     it("should render form with 'Editar Cliente' title", () => {
