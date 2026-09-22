@@ -3,6 +3,8 @@
  * Represents a Socio (member/client) with membership and account status
  */
 
+import { hashPassword } from "@/lib/auth";
+
 /**
  * Estado de Cuenta enum
  */
@@ -30,6 +32,16 @@ export interface Cliente {
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
+}
+
+/**
+ * Generate a temporary password for new users
+ * Format: TempPass-XXXXXX (where X are alphanumeric)
+ * Must be changed on first login (not implemented yet, see T-013)
+ */
+export function generateTemporaryPassword(): string {
+  const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `TempPass-${randomSuffix}`;
 }
 
 /**
@@ -179,12 +191,16 @@ export class ClienteRepository {
       throw new Error("VALIDATION_DUPLICATE_DNI: DNI ya registrado");
     }
 
-    // Create Usuario first
+    // Create Usuario with temporary password (hashed)
+    // User must change password on first login (TODO: T-013 auth flow)
+    const tempPassword = generateTemporaryPassword();
+    const hashedPassword = await hashPassword(tempPassword);
+    
     const usuario = await prisma.usuario.create({
       data: {
         nombre: data.nombre,
         email: data.email,
-        password: "", // Placeholder - should be set via auth flow
+        password: hashedPassword,
         rol: "SOCIO" as const,
       },
     });
