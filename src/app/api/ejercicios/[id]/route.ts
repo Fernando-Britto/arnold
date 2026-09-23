@@ -71,6 +71,11 @@ export async function handleEjercicioUpdateRequest(
 ): Promise<UpdateSuccess | UpdateError> {
   try {
     const ejercicio = await handleEjercicioUpdate(id, body);
+    if (!ejercicio) {
+      throw Object.assign(new Error("NOT_FOUND: Ejercicio no encontrado"), {
+        code: "NOT_FOUND",
+      });
+    }
     return { ...ejercicio, status: 200 } as UpdateSuccess;
   } catch (error) {
     const mapped = mapErrorToResponse(error, {

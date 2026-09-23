@@ -152,11 +152,7 @@ describe("Ejercicio [id] API Routes", () => {
       const mockUpdate = handleEjercicioUpdate as jest.MockedFunction<
         typeof handleEjercicioUpdate
       >;
-      mockUpdate.mockRejectedValue(
-        Object.assign(new Error("NOT_FOUND: Ejercicio no encontrado"), {
-          code: "NOT_FOUND",
-        })
-      );
+      mockUpdate.mockResolvedValue(null); // Repository returns null when not found
 
       const result = await handleEjercicioUpdateRequest("nonexistent", {
         nombre: "Updated",
