@@ -12,7 +12,7 @@ import {
   deleteCliente,
   type ClienteInput,
 } from "@/api/clientes";
-import { fetchMembresias, type Membresia } from "@/api/membresias";
+import { fetchMembresias, type MembresiaDropdown } from "@/api/membresias";
 import { Cliente } from "@/domains/cliente/cliente";
 
 export function ClientesPage() {
@@ -20,7 +20,7 @@ export function ClientesPage() {
   const { user, isAuthenticated } = useAuth();
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [membresias, setMembresias] = useState<Membresia[]>([]);
+  const [membresias, setMembresias] = useState<MembresiaDropdown[]>([]);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
