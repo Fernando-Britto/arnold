@@ -37,6 +37,8 @@ export interface ErrorMapperOptions {
  * - "VALIDATION_EMAIL_FORMAT: ..." → 400 VALIDATION_EMAIL_FORMAT
  * - "VALIDATION_REQUIRED: ..." → 400 VALIDATION_REQUIRED
  * - "MEMBERSHIP_NO_LONGER_ACTIVE: ..." → 400 MEMBERSHIP_NO_LONGER_ACTIVE
+ * - "DEACTIVATION_WARNING: ..." → 400 DEACTIVATION_WARNING (AC-005)
+ * - "DELETE_BLOCKED_ASSIGNED: ..." → 409 DELETE_BLOCKED_ASSIGNED (AC-006)
  * - "FORBIDDEN: ..." → 403 FORBIDDEN (with custom message per route)
  * - "NOT_FOUND: ..." → 404 NOT_FOUND (with resource-specific name)
  * - Other → 500 SERVER_ERROR
@@ -49,21 +51,50 @@ export function mapErrorToResponse(
   options: ErrorMapperOptions = {}
 ): ErrorResponse {
   const message = error instanceof Error ? error.message : "Unknown error";
+  const code = (error as any)?.code;
   const {
     forbiddenMessage = "Se requiere rol de administrador",
     resourceName = "Recurso",
   } = options;
 
-  // Extract specific validation error codes (VALIDATION_XXX, MEMBERSHIP_XXX)
+  // Check if error has an explicit code property (for custom errors from handlers)
+  if (code) {
+    if (code === "DEACTIVATION_WARNING") {
+      return {
+        code: "DEACTIVATION_WARNING",
+        message: message,
+        status: 400,
+      };
+    }
+    if (code === "DELETE_BLOCKED_ASSIGNED") {
+      return {
+        code: "DELETE_BLOCKED_ASSIGNED",
+        message: message,
+        status: 409,
+      };
+    }
+    if (code === "NOT_FOUND") {
+      return {
+        code: "NOT_FOUND",
+        message: `${resourceName} no encontrado`,
+        status: 404,
+      };
+    }
+  }
+
+  // Extract specific error codes from message prefix (VALIDATION_XXX, MEMBERSHIP_XXX, NOT_FOUND, etc.)
   const validationCodeMatch = message.match(
-    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+):\s*(.+)$/
+    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|NOT_FOUND):\s*(.+)$/
   );
   if (validationCodeMatch) {
-    const [, code, errorMessage] = validationCodeMatch;
+    const [, errorCode, errorMessage] = validationCodeMatch;
+    let status = 400;
+    if (errorCode === "DELETE_BLOCKED_ASSIGNED") status = 409;
+    if (errorCode === "NOT_FOUND") status = 404;
     return {
-      code,
+      code: errorCode,
       message: errorMessage,
-      status: 400,
+      status,
     };
   }
 

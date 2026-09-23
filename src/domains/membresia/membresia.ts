@@ -156,8 +156,9 @@ function normalizePrecio(precio: number): number {
  */
 export class MembresiaRepository {
   private async getPrisma() {
-    const { PrismaClient } = await import("@prisma/client");
-    return new PrismaClient();
+    // Use the singleton from src/lib/db instead of creating new instances
+    const { prisma } = await import("@/lib/db");
+    return prisma;
   }
 
   /**

@@ -14,6 +14,7 @@ export interface MembresiaInput {
   periodicidad?: number;
   descripcion?: string;
   estado?: EstadoMembresia;
+  confirmarDesactivacion?: boolean;
 }
 
 /**
@@ -26,7 +27,7 @@ export async function handleMembresiaCreate(
   // Validate input
   const validation = validateMembresia(input);
   if (!validation.valid) {
-    const error = new Error(validation.errors[0] || "Validation failed");
+    const error = new Error(`VALIDATION_ERROR: ${validation.errors[0] || "Validation failed"}`);
     (error as any).code = "VALIDATION_ERROR";
     throw error;
   }
@@ -75,7 +76,7 @@ export async function handleMembresiaGetById(id: string): Promise<Membresia> {
   const membresia = await repository.getById(id);
 
   if (!membresia) {
-    const error = new Error("Membresia not found");
+    const error = new Error("NOT_FOUND: Membresía no encontrada");
     (error as any).code = "NOT_FOUND";
     throw error;
   }
@@ -100,7 +101,7 @@ export async function handleMembresiaUpdate(
   const existing = await repository.getById(id);
 
   if (!existing) {
-    const error = new Error("Membresia not found");
+    const error = new Error("NOT_FOUND: Membresía no encontrada");
     (error as any).code = "NOT_FOUND";
     throw error;
   }
@@ -117,20 +118,22 @@ export async function handleMembresiaUpdate(
   // Validate merged data
   const validation = validateMembresia(merged);
   if (!validation.valid) {
-    const error = new Error(validation.errors[0] || "Validation failed");
+    const error = new Error(`VALIDATION_ERROR: ${validation.errors[0] || "Validation failed"}`);
     (error as any).code = "VALIDATION_ERROR";
     throw error;
   }
 
-  // Check deactivation warning (AC-005)
+  // Check deactivation warning (AC-005): requires explicit confirmation if socios assigned
   if (input.estado === "INACTIVA" && existing.estado === "ACTIVA") {
     const assignedCount = await repository.getAssignedSocioCount(id);
-    if (assignedCount > 0) {
-      const error = new Error(`${assignedCount} socios tienen esta membresía asignada`);
+    if (assignedCount > 0 && input.confirmarDesactivacion !== true) {
+      // Warn but don't block — require explicit confirmation
+      const error = new Error(`DEACTIVATION_WARNING: ${assignedCount} socios tienen esta membresía asignada`);
       (error as any).code = "DEACTIVATION_WARNING";
       (error as any).assignedCount = assignedCount;
       throw error;
     }
+    // If confirmarDesactivacion === true, allow the deactivation to proceed
   }
 
   // Update in database
@@ -152,7 +155,7 @@ export async function handleMembresiaDelete(id: string): Promise<void> {
   const membresia = await repository.getById(id);
 
   if (!membresia) {
-    const error = new Error("Membresia not found");
+    const error = new Error("NOT_FOUND: Membresía no encontrada");
     (error as any).code = "NOT_FOUND";
     throw error;
   }
@@ -160,7 +163,7 @@ export async function handleMembresiaDelete(id: string): Promise<void> {
   // Check if assigned to any socios (AC-006)
   const assignedCount = await repository.getAssignedSocioCount(id);
   if (assignedCount > 0) {
-    const error = new Error(`No se puede eliminar: ${assignedCount} socios asignados`);
+    const error = new Error(`DELETE_BLOCKED_ASSIGNED: No se puede eliminar: ${assignedCount} socios asignados`);
     (error as any).code = "DELETE_BLOCKED_ASSIGNED";
     (error as any).assignedCount = assignedCount;
     throw error;
