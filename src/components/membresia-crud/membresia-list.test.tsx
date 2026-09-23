@@ -251,7 +251,7 @@ describe("MembresiaList", () => {
   });
 
   describe("Delete blocking (AC-006)", () => {
-    it("should DISABLE delete button when Socios are assigned (asignedSocioCount > 0)", () => {
+    it("should DISABLE delete button when Socios are assigned (assignedSocioCount > 0)", () => {
       render(
         <MembresiaList
           membresias={mockMembresias}
