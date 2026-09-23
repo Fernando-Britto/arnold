@@ -3,6 +3,7 @@ import {
   validateMembresia,
   createMembresia,
   MembresiaRepository,
+  mapPrismaToMembresia,
   type Membresia,
   type EstadoMembresia,
 } from "./membresia";
@@ -430,11 +431,10 @@ describe("Membresia Domain", () => {
     });
   });
 
-  describe("MembresiaRepository — Decimal to number conversion via mapper", () => {
-    it("should convert Prisma Decimal precio to number in getById results", async () => {
-      // THIS TEST VALIDATES mapPrismaToMembresia WORKS CORRECTLY
-      // It creates a Prisma Decimal object and simulates the mapper's job
-      // Verifying that Decimal → number conversion happens, not a direct cast
+  describe("mapPrismaToMembresia — Decimal to number conversion", () => {
+    it("should convert Prisma Decimal precio to number type", () => {
+      // THIS TEST CALLS THE REAL mapPrismaToMembresia FUNCTION
+      // If someone breaks the mapper, this test fails immediately
 
       // Create a real Prisma Decimal (simulating what Prisma would return)
       const prismaDecimalPrecio = new Decimal("15000.50");
@@ -457,35 +457,25 @@ describe("Membresia Domain", () => {
       });
       expect(rawDecimalJson).toContain('"precio":"15000.5'); // Without mapper, becomes string!
 
-      // Now simulate what the mapper should do
-      // This is what mapPrismaToMembresia does: Number(decimal) conversion
-      const mappedMembresia: Membresia = {
-        id: mockPrismaRecord.id,
-        nombre: mockPrismaRecord.nombre,
-        precio: Number(mockPrismaRecord.precio), // THE CRITICAL CONVERSION
-        periodicidad: mockPrismaRecord.periodicidad,
-        descripcion: mockPrismaRecord.descripcion,
-        estado: mockPrismaRecord.estado,
-        createdAt: mockPrismaRecord.createdAt,
-        updatedAt: mockPrismaRecord.updatedAt,
-      };
+      // CALL THE REAL MAPPER FUNCTION
+      const result = mapPrismaToMembresia(mockPrismaRecord);
 
-      // CRITICAL VALIDATIONS:
+      // CRITICAL VALIDATIONS ON THE REAL FUNCTION:
       // 1. precio MUST be a number type (not Decimal, not string)
-      expect(typeof mappedMembresia.precio).toBe("number");
-      expect(mappedMembresia.precio).toBe(15000.5);
+      expect(typeof result.precio).toBe("number");
+      expect(result.precio).toBe(15000.5);
 
       // 2. JSON serialization must NOT convert number to string
-      const mappedJson = JSON.stringify(mappedMembresia);
-      expect(mappedJson).toContain('"precio":15000.5'); // number, no quotes around value
-      expect(mappedJson).not.toContain('"precio":"15000'); // MUST NOT be string
+      const resultJson = JSON.stringify(result);
+      expect(resultJson).toContain('"precio":15000.5'); // number, no quotes around value
+      expect(resultJson).not.toContain('"precio":"15000'); // MUST NOT be string
 
       // 3. Round-trip JSON parse/stringify preserves number type
-      const parsed = JSON.parse(mappedJson);
+      const parsed = JSON.parse(resultJson);
       expect(typeof parsed.precio).toBe("number");
       expect(parsed.precio).toBe(15000.5);
 
-      // 4. This test would FAIL if someone replaced the mapper with:
+      // 4. This test CATCHES if someone replaces the mapper with:
       //    `return prismaRecord as unknown as Membresia`
       //    Because then JSON would serialize precio as string: "15000.5"
       // Proof: direct cast would fail this assertion

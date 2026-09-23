@@ -35,8 +35,9 @@ interface PrismaMembresiaRecord {
 /**
  * Map Prisma membresia record to domain Membresia
  * Explicitly converts Decimal precio to number
+ * Exported for testing purposes to validate Decimal → number conversion
  */
-function mapPrismaToMembresia(
+export function mapPrismaToMembresia(
   prismaRecord: PrismaMembresiaRecord
 ): Membresia {
   return {
