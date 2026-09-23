@@ -84,7 +84,7 @@ export function validateMembresia(
   } else if (typeof data.precio !== "number") {
     errors.push("El precio debe ser un número");
   } else if (data.precio <= 0) {
-    errors.push("Debe ser mayor a 0");
+    errors.push("El precio debe ser mayor a 0");
   }
 
   // Validate periodicidad (AC-003)
@@ -98,7 +98,7 @@ export function validateMembresia(
   } else if (!Number.isInteger(data.periodicidad)) {
     errors.push("La periodicidad debe ser un número entero");
   } else if (data.periodicidad <= 0) {
-    errors.push("Debe ser mayor a 0");
+    errors.push("La periodicidad debe ser mayor a 0");
   }
 
   // Validate descripcion (AC-004)

@@ -83,7 +83,7 @@ describe("Membresia Domain", () => {
           estado: "ACTIVA",
         });
         expect(result.valid).toBe(false);
-        expect(result.errors).toContain("Debe ser mayor a 0");
+        expect(result.errors).toContain("El precio debe ser mayor a 0");
       });
 
       it("should reject when precio is negative", () => {
@@ -94,7 +94,7 @@ describe("Membresia Domain", () => {
           estado: "ACTIVA",
         });
         expect(result.valid).toBe(false);
-        expect(result.errors).toContain("Debe ser mayor a 0");
+        expect(result.errors).toContain("El precio debe ser mayor a 0");
       });
 
       it("should accept precio > 0", () => {
@@ -130,7 +130,7 @@ describe("Membresia Domain", () => {
           estado: "ACTIVA",
         });
         expect(result.valid).toBe(false);
-        expect(result.errors).toContain("Debe ser mayor a 0");
+        expect(result.errors).toContain("La periodicidad debe ser mayor a 0");
       });
 
       it("should reject when periodicidad is negative", () => {
@@ -141,7 +141,7 @@ describe("Membresia Domain", () => {
           estado: "ACTIVA",
         });
         expect(result.valid).toBe(false);
-        expect(result.errors).toContain("Debe ser mayor a 0");
+        expect(result.errors).toContain("La periodicidad debe ser mayor a 0");
       });
 
       it("should accept positive integer periodicidad", () => {
