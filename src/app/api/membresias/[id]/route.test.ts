@@ -10,11 +10,61 @@ import {
   handleMembresiaUpdateRequest,
   handleMembresiaDeleteRequest,
 } from "./route";
+import {
+  handleMembresiaGetById,
+  handleMembresiaUpdate,
+  handleMembresiaDelete,
+} from "@/api/membresias";
+
+// Mock the API layer
+jest.mock("@/api/membresias");
+jest.mock("@/lib/db");
 
 describe("Membresia [id] API Routes", () => {
+  const mockMembresia = {
+    id: "1",
+    nombre: "Gold",
+    precio: 15000,
+    periodicidad: 30,
+    descripcion: "Plan Gold",
+    estado: "ACTIVA" as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe("GET /api/membresias/[id]", () => {
-    it("should return error for nonexistent membresia", async () => {
-      const result = await handleMembresiaGetByIdRequest("nonexistent-id");
+    it("should return single membresia by id with assignedSocioCount", async () => {
+      const mockGetById = handleMembresiaGetById as jest.MockedFunction<
+        typeof handleMembresiaGetById
+      >;
+      mockGetById.mockResolvedValue({
+        ...mockMembresia,
+        assignedSocioCount: 5,
+      });
+
+      const result = await handleMembresiaGetByIdRequest("1");
+
+      expect((result as any).status).toBe(200);
+      expect((result as any).id).toBe("1");
+      expect((result as any).nombre).toBe("Gold");
+      expect((result as any).assignedSocioCount).toBe(5);
+    });
+
+    it("should return 404 if membresia not found", async () => {
+      const mockGetById = handleMembresiaGetById as jest.MockedFunction<
+        typeof handleMembresiaGetById
+      >;
+      mockGetById.mockRejectedValue(
+        Object.assign(new Error("NOT_FOUND: Membresía no encontrada"), {
+          code: "NOT_FOUND",
+        })
+      );
+
+      const result = await handleMembresiaGetByIdRequest("nonexistent");
 
       expect("code" in result).toBe(true);
       if ("code" in result) {
@@ -27,48 +77,131 @@ describe("Membresia [id] API Routes", () => {
   describe("PUT /api/membresias/[id]", () => {
     describe("AC-005: Deactivation Warning (two-step confirmation)", () => {
       it("should return DEACTIVATION_WARNING when trying to deactivate without confirmation", async () => {
-        // This test would require a membresia with assigned socios
-        // For now, verify the handler structure supports the confirmarDesactivacion field
-        const result = await handleMembresiaUpdateRequest("nonexistent", {
+        const mockUpdate = handleMembresiaUpdate as jest.MockedFunction<
+          typeof handleMembresiaUpdate
+        >;
+        mockUpdate.mockRejectedValue(
+          Object.assign(
+            new Error(
+              "DEACTIVATION_WARNING: 5 socios tienen esta membresía asignada"
+            ),
+            {
+              code: "DEACTIVATION_WARNING",
+              assignedCount: 5,
+            }
+          )
+        );
+
+        const result = await handleMembresiaUpdateRequest("1", {
           estado: "INACTIVA",
-          // No confirmarDesactivacion field
+          // No confirmarDesactivacion
         });
 
-        // The result should be either:
-        // 1. An error (if membresia not found) → code will be NOT_FOUND
-        // 2. A DEACTIVATION_WARNING (if membresia found and has socios) → code will be DEACTIVATION_WARNING
         expect("code" in result).toBe(true);
         if ("code" in result) {
-          // Accept either NOT_FOUND (membresia doesn't exist) or DEACTIVATION_WARNING (has socios)
-          expect(["NOT_FOUND", "DEACTIVATION_WARNING"]).toContain(result.code);
+          expect(result.code).toBe("DEACTIVATION_WARNING");
+          expect(result.status).toBe(400);
+          expect(result.message).toContain("5 socios");
         }
       });
 
-      it("should allow update when confirmarDesactivacion === true", async () => {
-        const result = await handleMembresiaUpdateRequest("nonexistent", {
+      it("should allow deactivation when confirmarDesactivacion === true (AC-005)", async () => {
+        const mockUpdate = handleMembresiaUpdate as jest.MockedFunction<
+          typeof handleMembresiaUpdate
+        >;
+        const deactivatedMembresia = {
+          ...mockMembresia,
+          estado: "INACTIVA" as const,
+          assignedSocioCount: 5,
+        };
+        mockUpdate.mockResolvedValue(deactivatedMembresia);
+
+        const result = await handleMembresiaUpdateRequest("1", {
           estado: "INACTIVA",
           confirmarDesactivacion: true,
         });
 
-        // Should NOT be DEACTIVATION_WARNING (warning is only shown when confirmarDesactivacion is missing/false)
-        if ("code" in result) {
-          expect(result.code).not.toBe("DEACTIVATION_WARNING");
-        }
+        expect((result as any).status).toBe(200);
+        expect((result as any).estado).toBe("INACTIVA");
+        expect((result as any).assignedSocioCount).toBe(5);
       });
 
-      it("should verify MembresiaInput supports confirmarDesactivacion field", async () => {
-        // This test simply verifies the handler accepts the field
-        const result = await handleMembresiaUpdateRequest("test-id", {
-          nombre: "Updated",
+      it("should complete full AC-005 flow: warn → reject → confirm → succeed", async () => {
+        const mockUpdate = handleMembresiaUpdate as jest.MockedFunction<
+          typeof handleMembresiaUpdate
+        >;
+
+        // Step 1: Try without confirmation → DEACTIVATION_WARNING
+        mockUpdate.mockRejectedValueOnce(
+          Object.assign(
+            new Error(
+              "DEACTIVATION_WARNING: 5 socios tienen esta membresía asignada"
+            ),
+            {
+              code: "DEACTIVATION_WARNING",
+              assignedCount: 5,
+            }
+          )
+        );
+
+        const result1 = await handleMembresiaUpdateRequest("1", {
+          estado: "INACTIVA",
+        });
+
+        expect("code" in result1).toBe(true);
+        if ("code" in result1) {
+          expect(result1.code).toBe("DEACTIVATION_WARNING");
+        }
+
+        // Step 2: Try again with confirmation → Success
+        mockUpdate.mockResolvedValueOnce({
+          ...mockMembresia,
+          estado: "INACTIVA",
+          assignedSocioCount: 5,
+        });
+
+        const result2 = await handleMembresiaUpdateRequest("1", {
+          estado: "INACTIVA",
           confirmarDesactivacion: true,
         });
 
-        // Should complete without type errors
-        expect(result).toBeDefined();
+        expect((result2 as any).status).toBe(200);
+        expect((result2 as any).estado).toBe("INACTIVA");
       });
     });
 
-    it("should return 404 for nonexistent membresia", async () => {
+    it("should update membresia successfully with valid data", async () => {
+      const mockUpdate = handleMembresiaUpdate as jest.MockedFunction<
+        typeof handleMembresiaUpdate
+      >;
+      const updatedMembresia = {
+        ...mockMembresia,
+        nombre: "Platinum",
+        precio: 25000,
+        assignedSocioCount: 0,
+      };
+      mockUpdate.mockResolvedValue(updatedMembresia);
+
+      const result = await handleMembresiaUpdateRequest("1", {
+        nombre: "Platinum",
+        precio: 25000,
+      });
+
+      expect((result as any).status).toBe(200);
+      expect((result as any).nombre).toBe("Platinum");
+      expect((result as any).precio).toBe(25000);
+    });
+
+    it("should return 404 if membresia not found", async () => {
+      const mockUpdate = handleMembresiaUpdate as jest.MockedFunction<
+        typeof handleMembresiaUpdate
+      >;
+      mockUpdate.mockRejectedValue(
+        Object.assign(new Error("NOT_FOUND: Membresía no encontrada"), {
+          code: "NOT_FOUND",
+        })
+      );
+
       const result = await handleMembresiaUpdateRequest("nonexistent", {
         nombre: "Updated",
       });
@@ -83,36 +216,86 @@ describe("Membresia [id] API Routes", () => {
 
   describe("DELETE /api/membresias/[id]", () => {
     describe("AC-006: Delete Blocking (when assigned socios > 0)", () => {
-      it("should return DELETE_BLOCKED_ASSIGNED when membresia has assigned socios", async () => {
-        // This test would require a membresia with assigned socios
-        // The DELETE handler should block deletion if assignedSocioCount > 0
-        // For now, verify the error code structure
-        const result = await handleMembresiaDeleteRequest("nonexistent");
+      it("should block deletion with DELETE_BLOCKED_ASSIGNED when socios assigned", async () => {
+        const mockDelete = handleMembresiaDelete as jest.MockedFunction<
+          typeof handleMembresiaDelete
+        >;
+        mockDelete.mockRejectedValue(
+          Object.assign(
+            new Error(
+              "DELETE_BLOCKED_ASSIGNED: No se puede eliminar: 5 socios asignados"
+            ),
+            {
+              code: "DELETE_BLOCKED_ASSIGNED",
+              assignedCount: 5,
+            }
+          )
+        );
+
+        const result = await handleMembresiaDeleteRequest("1");
 
         expect("code" in result).toBe(true);
         if ("code" in result) {
-          // Could be NOT_FOUND (if membresia doesn't exist) or DELETE_BLOCKED_ASSIGNED (if has socios)
-          expect(["NOT_FOUND", "DELETE_BLOCKED_ASSIGNED"]).toContain(result.code);
+          expect(result.code).toBe("DELETE_BLOCKED_ASSIGNED");
+          expect(result.status).toBe(409);
+          expect(result.message).toContain("5 socios");
+        }
+      });
+
+      it("should delete successfully if no socios assigned", async () => {
+        const mockDelete = handleMembresiaDelete as jest.MockedFunction<
+          typeof handleMembresiaDelete
+        >;
+        mockDelete.mockResolvedValue(undefined); // void function
+
+        const result = await handleMembresiaDeleteRequest("2");
+
+        expect((result as any).status).toBe(204);
+        expect((result as any).message).toBeDefined();
+      });
+
+      it("should show DELETE_BLOCKED_ASSIGNED error with assigned count", async () => {
+        const mockDelete = handleMembresiaDelete as jest.MockedFunction<
+          typeof handleMembresiaDelete
+        >;
+        mockDelete.mockRejectedValue(
+          Object.assign(
+            new Error(
+              "DELETE_BLOCKED_ASSIGNED: No se puede eliminar: 42 socios asignados"
+            ),
+            {
+              code: "DELETE_BLOCKED_ASSIGNED",
+              assignedCount: 42,
+            }
+          )
+        );
+
+        const result = await handleMembresiaDeleteRequest("gold");
+
+        expect("code" in result).toBe(true);
+        if ("code" in result) {
+          expect(result.code).toBe("DELETE_BLOCKED_ASSIGNED");
+          expect(result.message).toContain("42");
         }
       });
     });
 
-    it("should return 404 for nonexistent membresia", async () => {
+    it("should return 404 if membresia not found", async () => {
+      const mockDelete = handleMembresiaDelete as jest.MockedFunction<
+        typeof handleMembresiaDelete
+      >;
+      mockDelete.mockRejectedValue(
+        Object.assign(new Error("NOT_FOUND: Membresía no encontrada"), {
+          code: "NOT_FOUND",
+        })
+      );
+
       const result = await handleMembresiaDeleteRequest("nonexistent");
 
       expect("code" in result).toBe(true);
       if ("code" in result) {
         expect(result.status).toBe(404);
         expect(result.code).toBe("NOT_FOUND");
-      }
-    });
-
-    it("should return DELETE_BLOCKED_ASSIGNED status code (409) when blocking", async () => {
-      // This verifies the error mapper returns 409 for DELETE_BLOCKED_ASSIGNED
-      const result = await handleMembresiaDeleteRequest("any-id");
-
-      if ("code" in result && result.code === "DELETE_BLOCKED_ASSIGNED") {
-        expect(result.status).toBe(409);
       }
     });
   });
