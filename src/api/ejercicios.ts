@@ -1,6 +1,9 @@
 import { Ejercicio } from "@prisma/client";
 import { ejercicioRepository, EjercicioInput } from "@/domains/ejercicio/ejercicio";
 
+// Re-export types for route handlers
+export type { Ejercicio, EjercicioInput };
+
 /**
  * Handle POST /api/ejercicios
  * Creates a new ejercicio
