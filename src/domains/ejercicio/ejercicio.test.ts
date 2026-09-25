@@ -196,13 +196,42 @@ describe("Ejercicio Domain Model", () => {
       expect(Array.isArray(list)).toBe(true);
     });
 
-    it("should reject invalid data on create", async () => {
-      const invalidData = {
-        nombre: "ab", // Too short
-        grupoMuscular: "Pecho",
-      };
+     it("should reject invalid data on create", async () => {
+       const invalidData = {
+         nombre: "ab", // Too short
+         grupoMuscular: "Pecho",
+       };
 
-      await expect(repository.create(invalidData as any)).rejects.toThrow();
-    });
-  });
+       await expect(repository.create(invalidData as any)).rejects.toThrow();
+     });
+
+     it("should return null when updating non-existent ejercicio with only descripcion change", async () => {
+       // This test reproduces the P2025 bug: updating only descripcion on a non-existent ID
+       // should return null, not throw a Prisma error
+       const result = await repository.update("non-existent-id", {
+         descripcion: "Updated description only",
+       });
+
+       expect(result).toBeNull();
+     });
+
+     it("should return null when updating non-existent ejercicio regardless of fields", async () => {
+       // Additional test: verify the fix works for all field combinations
+       const resultDescOnly = await repository.update("fake-id-1", {
+         descripcion: "Only desc",
+       });
+       expect(resultDescOnly).toBeNull();
+
+       const resultNombreOnly = await repository.update("fake-id-2", {
+         nombre: "New Name",
+       });
+       expect(resultNombreOnly).toBeNull();
+
+       const resultMultiple = await repository.update("fake-id-3", {
+         nombre: "New Name",
+         descripcion: "New desc",
+       });
+       expect(resultMultiple).toBeNull();
+     });
+   });
 });

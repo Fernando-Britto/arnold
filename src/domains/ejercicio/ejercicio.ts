@@ -123,11 +123,12 @@ export class EjercicioRepository {
     id: string,
     data: Partial<EjercicioInput>
   ): Promise<Ejercicio | null> {
+    // Check existence first, regardless of which fields are being updated
+    const currentEjercicio = await this.getById(id);
+    if (!currentEjercicio) return null;
+
     // Validate only if changing nombre or grupoMuscular
     if (data.nombre || data.grupoMuscular) {
-      const currentEjercicio = await this.getById(id);
-      if (!currentEjercicio) return null;
-
       const updateData = {
         ...currentEjercicio,
         ...data,
