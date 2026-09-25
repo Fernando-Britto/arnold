@@ -50,10 +50,7 @@ export function MembresiaListPanel({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Estás seguro de que querés eliminar esta membresía?")) {
-      return;
-    }
-
+    // Confirmation is handled by MembresiaList modal — no need for window.confirm() here
     setDeleteError(null);
 
     try {

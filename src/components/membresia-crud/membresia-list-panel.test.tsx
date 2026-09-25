@@ -185,34 +185,13 @@ describe("MembresiaListPanel", () => {
   });
 
   describe("AC-006: Delete blocking", () => {
-    it("should show blocked delete message when 409 AC-006 response received", async () => {
-      const user = userEvent.setup();
+    it("should disable delete button when socios are assigned (assignedSocioCount > 0)", async () => {
       const mockFetch = global.fetch as jest.Mock;
 
-      // Use a modified membresia WITHOUT assignedSocioCount to bypass UI disable
-      // This simulates a race condition where server state changed between load and delete attempt
-      const membresiaWithoutBlocking = {
-        ...mockMembresias[0],
-        assignedSocioCount: 0,  // UI shows it's deletable
-      };
-
-      mockFetch.mockResolvedValueOnce({
+      mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => [membresiaWithoutBlocking, mockMembresias[1]],
+        json: async () => mockMembresias,
       });
-
-      // Server returns 409 when delete is attempted (AC-006: assigned at delete time)
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 409,
-        json: async () => ({
-          code: "DELETE_BLOCKED_ASSIGNED",
-          message: "5 socios asignados",
-        }),
-      });
-
-      const mockConfirm = jest.fn(() => true);
-      global.confirm = mockConfirm;
 
       render(<MembresiaListPanel />);
 
@@ -220,11 +199,83 @@ describe("MembresiaListPanel", () => {
         expect(screen.getByText("Gold")).toBeInTheDocument();
       });
 
-      // Now delete button is enabled (assignedSocioCount = 0)
-      const deleteButtons = screen.getAllByRole("button", { name: /Eliminar/i });
-      await user.click(deleteButtons[0]);  // Click "Eliminar" for Gold
+      // Find delete button for Gold (assignedSocioCount = 5)
+      const allRows = screen.getAllByRole("row");
+      let goldDeleteButton: HTMLButtonElement | null = null;
+      for (const row of allRows) {
+        if (row.textContent?.includes("Gold")) {
+          const buttons = row.querySelectorAll("button");
+          for (const btn of buttons) {
+            if (btn.textContent?.includes("Eliminar")) {
+              goldDeleteButton = btn as HTMLButtonElement;
+              break;
+            }
+          }
+          break;
+        }
+      }
 
-      // Modal appears
+      if (!goldDeleteButton) {
+        throw new Error("Gold delete button not found");
+      }
+
+      // Button should be disabled
+      expect(goldDeleteButton.disabled).toBe(true);
+
+      // Tooltip should show blocking message
+      const tooltip = goldDeleteButton.closest(".group")?.querySelector("div");
+      expect(tooltip?.textContent).toContain("Esta membresía está asignada a socios");
+    });
+
+    it("should handle 409 DELETE_BLOCKED_ASSIGNED error response", async () => {
+      const user = userEvent.setup();
+      const mockFetch = global.fetch as jest.Mock;
+
+      // Silver has 0 socios, so button is enabled
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockMembresias,
+      });
+
+      // Server returns 409 (race condition: socios got assigned between load and delete)
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          code: "DELETE_BLOCKED_ASSIGNED",
+          message: "3 socios asignados",
+        }),
+      });
+
+      render(<MembresiaListPanel />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Silver")).toBeInTheDocument();
+      });
+
+      // Find and click delete button for Silver (assignedSocioCount = 0, so enabled)
+      const allRows = screen.getAllByRole("row");
+      let silverDeleteButton: HTMLElement | null = null;
+      for (const row of allRows) {
+        if (row.textContent?.includes("Silver")) {
+          const buttons = row.querySelectorAll("button");
+          for (const btn of buttons) {
+            if (btn.textContent?.includes("Eliminar")) {
+              silverDeleteButton = btn;
+              break;
+            }
+          }
+          break;
+        }
+      }
+
+      if (!silverDeleteButton) {
+        throw new Error("Silver delete button not found");
+      }
+
+      await user.click(silverDeleteButton);
+
+      // Confirmation modal appears
       await waitFor(() => {
         expect(screen.getByText(/¿Eliminar membresía\?/i)).toBeInTheDocument();
       });
@@ -233,13 +284,14 @@ describe("MembresiaListPanel", () => {
       const acceptButton = screen.getByRole("button", { name: /Aceptar/i });
       await user.click(acceptButton);
 
-      // Server rejects with 409, panel displays error
+      // handleDelete calls API, receives 409 with DELETE_BLOCKED_ASSIGNED
+      // Error message displays
       await waitFor(() => {
-        expect(screen.getByText(/5 socios asignados/i)).toBeInTheDocument();
+        expect(screen.getByText(/3 socios asignados/i)).toBeInTheDocument();
       });
 
-      // Gold remains in list
-      expect(screen.getByText("Gold")).toBeInTheDocument();
+      // Silver remains in list (not deleted)
+      expect(screen.getByText("Silver")).toBeInTheDocument();
     });
   });
 
