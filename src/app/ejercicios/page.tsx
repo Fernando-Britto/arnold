@@ -169,12 +169,20 @@ export function EjerciciosPage() {
       {!loading && (
         <div className="flex gap-6">
           {/* Form panel - left */}
-          <div className="w-96 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <div className="border-b bg-gray-50 px-4 py-3">
-              <h2 className="font-bold text-lg">
-                {selectedEjercicio ? "Editar Ejercicio" : "Nuevo Ejercicio"}
-              </h2>
-            </div>
+           <div className="w-96 border border-gray-200 rounded-lg bg-white shadow-sm">
+             <div className="border-b bg-gray-50 px-4 py-3 flex items-center justify-between">
+               <h2 className="font-bold text-lg">
+                 {selectedEjercicio ? "Editar Ejercicio" : "Nuevo Ejercicio"}
+               </h2>
+               {selectedEjercicio && (
+                 <button
+                   onClick={() => setSelectedEjercicio(null)}
+                   className="px-3 py-1 text-sm bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                 >
+                   Cancelar
+                 </button>
+               )}
+             </div>
             <EjercicioForm
               onSave={handleSave}
               initialData={selectedEjercicio}
@@ -198,3 +206,5 @@ export function EjerciciosPage() {
     </div>
   );
 }
+
+export default EjerciciosPage;

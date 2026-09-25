@@ -23,7 +23,7 @@ jest.mock("@/api/ejercicios");
 jest.mock("@/components/ejercicio-crud/ejercicio-form", () => ({
   EjercicioForm: ({ onSave, initialData }: any) => (
     <div data-testid="ejercicio-form">
-      <button onClick={() => onSave({ nombre: "Test", grupoMuscular: "Pecho" })}>
+      <button onClick={() => onSave({ ...(initialData?.id ? { id: initialData.id } : {}), nombre: "Test", grupoMuscular: "Pecho" })}>
         Save
       </button>
     </div>
@@ -225,6 +225,44 @@ describe("Ejercicios CRUD Screen (Page)", () => {
       expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
     });
 
+    it("should update existing ejercicio when modifying and saving", async () => {
+      const user = userEvent.setup();
+      const updatedEjercicio: Ejercicio = {
+        ...mockEjercicio,
+        nombre: "Press Militar Mejorado",
+        grupoMuscular: "Espalda",
+      };
+
+      (ejercicioApi.updateEjercicio as jest.Mock).mockResolvedValue(
+        updatedEjercicio
+      );
+
+      render(<EjerciciosPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Press Militar")).toBeInTheDocument();
+      });
+
+      // Click modify to load ejercicio into form
+      const modifyButton = screen.getByRole("button", { name: /Modify/i });
+      await user.click(modifyButton);
+
+      // Click save to update
+      const saveButton = screen.getByRole("button", { name: /Save/i });
+      await user.click(saveButton);
+
+      // Verify updateEjercicio was called with the ID and updated data
+      await waitFor(() => {
+        expect(ejercicioApi.updateEjercicio).toHaveBeenCalledWith(
+          mockEjercicio.id,
+          expect.objectContaining({
+            nombre: "Test",
+            grupoMuscular: "Pecho",
+          })
+        );
+      });
+    });
+
     it("should delete ejercicio when delete is confirmed", async () => {
       const user = userEvent.setup();
       (ejercicioApi.deleteEjercicio as jest.Mock).mockResolvedValue(undefined);
@@ -353,6 +391,39 @@ describe("Ejercicios CRUD Screen (Page)", () => {
 
       // Form should show selected ejercicio data
       expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
+    });
+  });
+
+  describe("UI interactions", () => {
+    it("should show Cancel button when ejercicio is selected for editing", async () => {
+      const user = userEvent.setup();
+
+      render(<EjerciciosPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Press Militar")).toBeInTheDocument();
+      });
+
+      // Initially no Cancel button
+      expect(screen.queryByRole("button", { name: /Cancelar/i })).not.toBeInTheDocument();
+
+      // Click modify to select ejercicio
+      const modifyButton = screen.getByRole("button", { name: /Modify/i });
+      await user.click(modifyButton);
+
+      // Now Cancel button should appear
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /Cancelar/i })).toBeInTheDocument();
+      });
+
+      // Click Cancel to deselect
+      const cancelButton = screen.getByRole("button", { name: /Cancelar/i });
+      await user.click(cancelButton);
+
+      // Cancel button should disappear
+      await waitFor(() => {
+        expect(screen.queryByRole("button", { name: /Cancelar/i })).not.toBeInTheDocument();
+      });
     });
   });
 
