@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth";
 import { Membresia } from "@/domains/membresia/membresia";
@@ -10,7 +10,8 @@ import { MembresiaListPanel } from "@/components/membresia-crud/membresia-list-p
 export function MembresiasPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const [selectedMembresia, setSelectedMembresia] = React.useState<Membresia | null>(null);
+  const [selectedMembresia, setSelectedMembresia] = useState<Membresia | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Check authentication and authorization
   useEffect(() => {
@@ -50,6 +51,20 @@ export function MembresiasPage() {
     );
   }
 
+  const handleFormSuccess = (membresia: Membresia) => {
+    // Clear form selection and trigger list refresh
+    setSelectedMembresia(null);
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleFormCancel = () => {
+    setSelectedMembresia(null);
+  };
+
+  const handleEditMembresia = (membresia: Membresia & { assignedSocioCount: number }) => {
+    setSelectedMembresia(membresia as Membresia);
+  };
+
   return (
     <div className="flex flex-col gap-4 p-6">
       {/* Page title */}
@@ -60,13 +75,14 @@ export function MembresiasPage() {
         {/* Form panel - left */}
         <div className="w-96 border border-gray-200 rounded-lg bg-white shadow-sm">
           <div className="border-b bg-gray-50 px-4 py-3">
-            <h2 className="font-bold text-lg">
+            <h2 className="font-bold text-lg" data-testid="form-title">
               {selectedMembresia ? "Editar Membresía" : "Nueva Membresía"}
             </h2>
           </div>
           <MembresiaFormPanel
             initialData={selectedMembresia}
-            onCancel={() => setSelectedMembresia(null)}
+            onSuccess={handleFormSuccess}
+            onCancel={handleFormCancel}
             isEdit={!!selectedMembresia?.id}
           />
         </div>
@@ -77,7 +93,8 @@ export function MembresiasPage() {
             <h2 className="font-bold text-lg">Membresías Disponibles</h2>
           </div>
           <MembresiaListPanel
-            onEditClick={(membresia) => setSelectedMembresia(membresia as Membresia)}
+            key={`membresia-list-${refreshTrigger}`}
+            onEditClick={handleEditMembresia}
           />
         </div>
       </div>
