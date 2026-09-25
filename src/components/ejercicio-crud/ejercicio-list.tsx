@@ -75,7 +75,8 @@ export function EjercicioListPanel({
 
   const handleDelete = (ejercicio: Ejercicio) => {
     if (
-      global.confirm(
+      typeof window !== "undefined" &&
+      window.confirm(
         `¿Está seguro que desea eliminar "${ejercicio.nombre}"?`
       )
     ) {

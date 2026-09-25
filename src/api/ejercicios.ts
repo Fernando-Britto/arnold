@@ -15,17 +15,15 @@ export async function handleEjercicioCreate(data: EjercicioInput): Promise<Ejerc
 /**
  * Handle GET /api/ejercicios
  * Lists all ejercicios with optional filtering
+ * Supports combined filters: both search and muscleGroup simultaneously
  */
 export async function handleEjercicioList(options?: {
   muscleGroup?: string;
   search?: string;
 }): Promise<Ejercicio[]> {
-  if (options?.search) {
-    return ejercicioRepository.searchByName(options.search);
-  }
-
-  if (options?.muscleGroup) {
-    return ejercicioRepository.findByMuscleGroup(options.muscleGroup);
+  // Support combined filters (search + muscleGroup)
+  if (options?.search || options?.muscleGroup) {
+    return ejercicioRepository.getAll(options);
   }
 
   return ejercicioRepository.getAll();

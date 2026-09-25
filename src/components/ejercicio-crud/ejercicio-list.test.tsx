@@ -283,51 +283,43 @@ describe("EjercicioListPanel Component", () => {
       expect(onModify).toHaveBeenCalledWith(mockEjercicios[2]);
     });
 
-    it("should call onDelete with ejercicio ID when Delete button clicked and confirmed", () => {
-      const onDelete = jest.fn();
-      
-      // Mock window.confirm
-      const originalConfirm = global.confirm;
-      global.confirm = jest.fn(() => true);
-      
-      render(
-        <EjercicioListPanel
-          ejercicios={mockEjercicios}
-          onModify={jest.fn()}
-          onDelete={onDelete}
-        />
-      );
+     it("should call onDelete with ejercicio ID when Delete button clicked and confirmed", () => {
+       const onDelete = jest.fn();
+       const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
+       
+       render(
+         <EjercicioListPanel
+           ejercicios={mockEjercicios}
+           onModify={jest.fn()}
+           onDelete={onDelete}
+         />
+       );
 
-      const deleteButtons = screen.getAllByRole("button", { name: /Eliminar|Delete/i });
-      // First delete button is for the first sorted item (Press Banca, id "3")
-      fireEvent.click(deleteButtons[0]);
+       const deleteButtons = screen.getAllByRole("button", { name: /Eliminar|Delete/i });
+       fireEvent.click(deleteButtons[0]);
 
-      expect(onDelete).toHaveBeenCalledWith("3");
-      
-      global.confirm = originalConfirm;
-    });
+       expect(onDelete).toHaveBeenCalledWith("3");
+       confirmSpy.mockRestore();
+     });
 
-    it("should NOT call onDelete when delete is cancelled", () => {
-      const onDelete = jest.fn();
-      
-      const originalConfirm = global.confirm;
-      global.confirm = jest.fn(() => false);
-      
-      render(
-        <EjercicioListPanel
-          ejercicios={mockEjercicios}
-          onModify={jest.fn()}
-          onDelete={onDelete}
-        />
-      );
+     it("should NOT call onDelete when delete is cancelled", () => {
+       const onDelete = jest.fn();
+       const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(false);
+       
+       render(
+         <EjercicioListPanel
+           ejercicios={mockEjercicios}
+           onModify={jest.fn()}
+           onDelete={onDelete}
+         />
+       );
 
-      const deleteButtons = screen.getAllByRole("button", { name: /Eliminar|Delete/i });
-      fireEvent.click(deleteButtons[0]);
+       const deleteButtons = screen.getAllByRole("button", { name: /Eliminar|Delete/i });
+       fireEvent.click(deleteButtons[0]);
 
-      expect(onDelete).not.toHaveBeenCalled();
-
-      global.confirm = originalConfirm;
-    });
+       expect(onDelete).not.toHaveBeenCalled();
+       confirmSpy.mockRestore();
+     });
   });
 
   describe("Edge cases", () => {

@@ -167,17 +167,17 @@ describe("Ejercicio [id] API Routes", () => {
   });
 
   describe("DELETE /api/ejercicios/[id]", () => {
-    it("should delete ejercicio successfully", async () => {
-      const mockDelete = handleEjercicioDelete as jest.MockedFunction<
-        typeof handleEjercicioDelete
-      >;
-      mockDelete.mockResolvedValue(true);
+     it("should delete ejercicio successfully", async () => {
+       const mockDelete = handleEjercicioDelete as jest.MockedFunction<
+         typeof handleEjercicioDelete
+       >;
+       mockDelete.mockResolvedValue(true);
 
-      const result = await handleEjercicioDeleteRequest("1");
+       const result = await handleEjercicioDeleteRequest("1");
 
-      expect((result as any).status).toBe(204);
-      expect((result as any).message).toBe("Ejercicio eliminado");
-    });
+       expect((result as any).status).toBe(200);
+       expect((result as any).message).toBe("Ejercicio eliminado");
+     });
 
     it("should return 404 if ejercicio not found", async () => {
       const mockDelete = handleEjercicioDelete as jest.MockedFunction<

@@ -233,5 +233,27 @@ describe("Ejercicio Domain Model", () => {
        });
        expect(resultMultiple).toBeNull();
      });
+
+    it("should reject update when new nombre is invalid", async () => {
+      const created = await repository.create({
+        nombre: "Press Militar",
+        grupoMuscular: "Hombros",
+      });
+
+      await expect(
+        repository.update(created.id, { nombre: "ab" })
+      ).rejects.toThrow("al menos 3 caracteres");
+    });
+
+    it("should reject update when updating only descripcion exceeding 500 chars", async () => {
+      const created = await repository.create({
+        nombre: "Sentadilla",
+        grupoMuscular: "Piernas",
+      });
+
+      await expect(
+        repository.update(created.id, { descripcion: "d".repeat(501) })
+      ).rejects.toThrow("no puede exceder 500 caracteres");
+    });
    });
 });

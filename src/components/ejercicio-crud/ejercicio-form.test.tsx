@@ -322,5 +322,30 @@ describe("EjercicioForm Component", () => {
         expect(screen.getByLabelText(/Nombre/i)).toHaveValue("");
       });
     });
+
+    it("should reset form fields when switching from edit mode to create mode (initialData becomes null)", () => {
+      const onSave = jest.fn();
+      const mockEjercicio = {
+        id: "1",
+        nombre: "Press Militar",
+        grupoMuscular: "Hombros",
+        descripcion: "Levantamiento de hombros",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const { rerender } = render(
+        <EjercicioForm onSave={onSave} initialData={mockEjercicio} />
+      );
+
+      expect(screen.getByLabelText(/Nombre/i)).toHaveValue("Press Militar");
+
+      // Switch to create mode
+      rerender(<EjercicioForm onSave={onSave} initialData={null} />);
+
+      expect(screen.getByLabelText(/Nombre/i)).toHaveValue("");
+      expect(screen.getByLabelText(/Grupo Muscular/i)).toHaveValue("");
+      expect(screen.getByLabelText(/Descripción/i)).toHaveValue("");
+    });
   });
 });

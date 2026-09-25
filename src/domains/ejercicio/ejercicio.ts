@@ -104,11 +104,27 @@ export class EjercicioRepository {
   }
 
   /**
-   * Get all ejercicios
-   * @returns Array of all ejercicios
+   * Get all ejercicios with optional filtering
+   * Supports combined filters: search + muscleGroup simultaneously
+   * @param options Optional filter options { muscleGroup?: string; search?: string }
+   * @returns Array of ejercicios matching filters
    */
-  async getAll(): Promise<Ejercicio[]> {
+  async getAll(options?: { muscleGroup?: string; search?: string }): Promise<Ejercicio[]> {
+    const where: any = {};
+    
+    if (options?.muscleGroup) {
+      where.grupoMuscular = options.muscleGroup;
+    }
+    
+    if (options?.search) {
+      where.nombre = {
+        contains: options.search,
+        mode: "insensitive",
+      };
+    }
+
     return prisma.ejercicio.findMany({
+      where,
       orderBy: { nombre: "asc" },
     });
   }
@@ -127,24 +143,23 @@ export class EjercicioRepository {
     const currentEjercicio = await this.getById(id);
     if (!currentEjercicio) return null;
 
-    // Validate only if changing nombre or grupoMuscular
-    if (data.nombre || data.grupoMuscular) {
-      const updateData = {
-        ...currentEjercicio,
-        ...data,
-      };
+    // Merge current data with updates to validate complete record
+    const updateData = {
+      ...currentEjercicio,
+      ...data,
+    };
 
-      const validation = validateEjercicio(updateData);
-      if (!validation.valid) {
-        throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
-      }
+    // Validate merged data (ensures no invalid partial updates)
+    const validation = validateEjercicio(updateData);
+    if (!validation.valid) {
+      throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
     }
 
     return prisma.ejercicio.update({
       where: { id },
       data: {
-        ...(data.nombre && { nombre: data.nombre }),
-        ...(data.grupoMuscular && { grupoMuscular: data.grupoMuscular }),
+        ...(data.nombre !== undefined && { nombre: data.nombre }),
+        ...(data.grupoMuscular !== undefined && { grupoMuscular: data.grupoMuscular }),
         ...(data.descripcion !== undefined && { descripcion: data.descripcion || null }),
       },
     });

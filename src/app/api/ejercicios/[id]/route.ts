@@ -17,7 +17,7 @@ export type GetError = { code: string; message: string; status: number };
 export type UpdateSuccess = Ejercicio & { status: 200 };
 export type UpdateError = { code: string; message: string; status: number };
 
-export type DeleteSuccess = { message: string; status: 204 };
+export type DeleteSuccess = { message: string; status: 200 };
 export type DeleteError = { code: string; message: string; status: number };
 
 /**
@@ -32,7 +32,7 @@ function isUpdateSuccess(result: UpdateSuccess | UpdateError): result is UpdateS
 }
 
 function isDeleteSuccess(result: DeleteSuccess | DeleteError): result is DeleteSuccess {
-  return "message" in result && (result as any).status === 204;
+  return "message" in result && (result as any).status === 200;
 }
 
 /**
@@ -102,7 +102,7 @@ export async function handleEjercicioDeleteRequest(id: string): Promise<DeleteSu
         code: "NOT_FOUND",
       });
     }
-    return { message: "Ejercicio eliminado", status: 204 } as DeleteSuccess;
+    return { message: "Ejercicio eliminado", status: 200 } as DeleteSuccess;
   } catch (error) {
     const mapped = mapErrorToResponse(error, {
       forbiddenMessage: "Se requiere rol de administrador",
@@ -171,7 +171,7 @@ export async function DELETE(
   const result = await handleEjercicioDeleteRequest(params.id);
 
   if (isDeleteSuccess(result)) {
-    return NextResponse.json(result, { status: 204 });
+    return NextResponse.json(result, { status: 200 });
   }
 
   return NextResponse.json(

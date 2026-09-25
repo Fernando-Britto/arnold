@@ -56,9 +56,16 @@ export function EjercicioForm({
         grupoMuscular: initialData.grupoMuscular,
         descripcion: initialData.descripcion || "",
       });
-      setErrors({});
+    } else {
+      setFormData({
+        id: undefined,
+        nombre: "",
+        grupoMuscular: "",
+        descripcion: "",
+      });
     }
-  }, [initialData?.id]);
+    setErrors({});
+  }, [initialData]);
 
   const validateForm = (): boolean => {
     const newErrors: ValidationErrors = {};
@@ -145,7 +152,7 @@ export function EjercicioForm({
     setIsSubmitting(true);
     try {
       await onSave({
-        id: formData.id,
+        ...(formData.id ? { id: formData.id } : {}),
         nombre: formData.nombre.trim(),
         grupoMuscular: formData.grupoMuscular,
         descripcion: formData.descripcion.trim(),
@@ -154,6 +161,7 @@ export function EjercicioForm({
       // Clear form if in create mode (no initialData means create)
       if (!initialData) {
         setFormData({
+          id: undefined,
           nombre: "",
           grupoMuscular: "",
           descripcion: "",

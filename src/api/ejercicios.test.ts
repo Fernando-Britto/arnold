@@ -139,11 +139,31 @@ describe("Ejercicio API Routes", () => {
       expect(mockRepository.findByMuscleGroup).toHaveBeenCalledWith("Hombros");
     });
 
-    it("should support searching by name", async () => {
-      const mockSearchResults = [
+     it("should support searching by name", async () => {
+       const mockSearchResults = [
+         {
+           id: "1",
+           nombre: "Press",
+           grupoMuscular: "Hombros",
+           descripcion: null,
+           createdAt: new Date(),
+           updatedAt: new Date(),
+         },
+       ];
+
+       mockRepository.searchByName.mockResolvedValue(mockSearchResults);
+
+       const result = await handleEjercicioList({ search: "Press" });
+
+       expect(result).toEqual(mockSearchResults);
+       expect(mockRepository.searchByName).toHaveBeenCalledWith("Press");
+     });
+
+    it("should support filtering by both search and muscle group simultaneously", async () => {
+      const mockBoth = [
         {
           id: "1",
-          nombre: "Press",
+          nombre: "Press Militar",
           grupoMuscular: "Hombros",
           descripcion: null,
           createdAt: new Date(),
@@ -151,14 +171,20 @@ describe("Ejercicio API Routes", () => {
         },
       ];
 
-      mockRepository.searchByName.mockResolvedValue(mockSearchResults);
+      mockRepository.getAll.mockResolvedValue(mockBoth);
 
-      const result = await handleEjercicioList({ search: "Press" });
+      const result = await handleEjercicioList({
+        search: "Press",
+        muscleGroup: "Hombros",
+      });
 
-      expect(result).toEqual(mockSearchResults);
-      expect(mockRepository.searchByName).toHaveBeenCalledWith("Press");
+      expect(result).toEqual(mockBoth);
+      expect(mockRepository.getAll).toHaveBeenCalledWith({
+        search: "Press",
+        muscleGroup: "Hombros",
+      });
     });
-  });
+   });
 
   describe("PUT /api/ejercicios/:id (update)", () => {
     it("should update an ejercicio", async () => {
