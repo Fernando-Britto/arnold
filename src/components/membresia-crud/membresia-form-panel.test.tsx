@@ -114,16 +114,48 @@ describe("MembresiaFormPanel", () => {
   });
 
   describe("AC-005: Deactivation Warning", () => {
-    it("should have warning display structure", () => {
-      const { container } = render(
+    it("should display deactivation warning when changing estado to INACTIVA with assigned socios", async () => {
+      const user = userEvent.setup();
+      const mockFetch = global.fetch as jest.Mock;
+
+      // First response: deactivation warning
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          code: "DEACTIVATION_WARNING",
+          message: "5 socios tienen esta membresía asignada",
+        }),
+      });
+
+      render(
         <MembresiaFormPanel
           initialData={mockMembresia}
           isEdit={true}
         />
       );
 
-      // Panel has structure for warnings
-      expect(container.querySelector(".space-y-4")).toBeInTheDocument();
+      // Wait for form to render
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Nombre/i)).toBeInTheDocument();
+      });
+
+      // Change estado from ACTIVA to INACTIVA
+      const estadoSelect = screen.getByLabelText(/Estado/i) as HTMLSelectElement;
+      await user.selectOptions(estadoSelect, "INACTIVA");
+
+      // Submit
+      const saveButton = screen.getByRole("button", { name: /Guardar/i });
+      await user.click(saveButton);
+
+      // Wait for warning to appear
+      await waitFor(() => {
+        expect(screen.getByText(/5 socios/i)).toBeInTheDocument();
+      });
+
+      // Verify warning is displayed
+      expect(screen.getByText(/Advertencia de Desactivación/i)).toBeInTheDocument();
+      expect(screen.getByText(/5 socios tienen esta membresía asignada/i)).toBeInTheDocument();
     });
   });
 

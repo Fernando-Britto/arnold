@@ -91,9 +91,13 @@ export function mapErrorToResponse(
     let status = 400;
     if (errorCode === "DELETE_BLOCKED_ASSIGNED") status = 409;
     if (errorCode === "NOT_FOUND") status = 404;
+    
+    // For NOT_FOUND, use localized resourceName message instead of generic message
+    const finalMessage = errorCode === "NOT_FOUND" ? `${resourceName} no encontrado` : errorMessage;
+    
     return {
       code: errorCode,
-      message: errorMessage,
+      message: finalMessage,
       status,
     };
   }
