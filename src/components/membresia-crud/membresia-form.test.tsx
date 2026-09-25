@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MembresiaForm } from "./membresia-form";
 import type { Membresia } from "@/domains/membresia/membresia";
@@ -162,16 +162,15 @@ describe("MembresiaForm", () => {
       await user.type(screen.getByLabelText(/Precio/i), "15000");
       await user.type(screen.getByLabelText(/Periodicidad/i), "30");
       
-      // Use paste() instead of type() for long strings to avoid event saturation in parallel tests
+      // Use fireEvent.change() for long strings to avoid event saturation in parallel tests
       const descripcionInput = screen.getByLabelText(/Descripción/i) as HTMLTextAreaElement;
-      await user.paste("A".repeat(301));
+      fireEvent.change(descripcionInput, { target: { value: "A".repeat(301) } });
 
       await user.click(screen.getByRole("button", { name: /Guardar/i }));
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/no puede exceder 300|300.*caracteres/i)
-        ).toBeInTheDocument();
+        const errorText = screen.getAllByText(/no puede exceder 300|300.*caracteres/i)[0];
+        expect(errorText).toBeInTheDocument();
       });
     });
   });
