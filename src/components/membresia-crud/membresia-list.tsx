@@ -11,14 +11,25 @@ interface MembresiaListProps {
   membresias: MembresiaWithCount[];
   onEdit: (membresia: MembresiaWithCount) => void;
   onDelete: (id: string) => void;
+  sortField?: "nombre" | "precio" | "periodicidad" | "estado";
+  onSortChange?: (field: "nombre" | "precio" | "periodicidad" | "estado") => void;
 }
 
 type SortField = "nombre" | "precio" | "periodicidad" | "estado";
 type SortOrder = "asc" | "desc";
 
-export function MembresiaList({ membresias, onEdit, onDelete }: MembresiaListProps) {
-  const [sortField, setSortField] = useState<SortField>("nombre");
+export function MembresiaList({
+  membresias,
+  onEdit,
+  onDelete,
+  sortField: propSortField,
+  onSortChange,
+}: MembresiaListProps) {
+  const [localSortField, setLocalSortField] = useState<SortField>("nombre");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+
+  // Use prop sortField if provided, otherwise use local state
+  const sortField = propSortField || localSortField;
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Handle sort header click
@@ -28,7 +39,11 @@ export function MembresiaList({ membresias, onEdit, onDelete }: MembresiaListPro
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
       // New field, default to ascending
-      setSortField(field);
+      if (onSortChange) {
+        onSortChange(field); // Notify parent
+      } else {
+        setLocalSortField(field); // Use local state if no parent callback
+      }
       setSortOrder("asc");
     }
   };

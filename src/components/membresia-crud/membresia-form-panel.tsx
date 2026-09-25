@@ -23,6 +23,7 @@ export function MembresiaFormPanel({
     message: string;
     assignedCount: number;
   } | null>(null);
+  const [pendingFormData, setPendingFormData] = useState<any>(null);
 
   const handleSave = async (formData: {
     nombre: string;
@@ -34,7 +35,6 @@ export function MembresiaFormPanel({
   }) => {
     setIsLoading(true);
     setError(null);
-    setDeactivationWarning(null);
 
     try {
       const endpoint = isEdit && initialData ? `/api/membresias/${initialData.id}` : "/api/membresias";
@@ -51,6 +51,7 @@ export function MembresiaFormPanel({
       if (!response.ok) {
         // Check for deactivation warning (AC-005)
         if (data.code === "DEACTIVATION_WARNING") {
+          setPendingFormData(formData); // Save for retry with confirmation
           setDeactivationWarning({
             message: data.message,
             assignedCount: parseInt(data.message.match(/\d+/)?.[0] || "0"),
@@ -65,7 +66,9 @@ export function MembresiaFormPanel({
         return;
       }
 
-      // Success
+      // Success: clear warning state and pending data
+      setDeactivationWarning(null);
+      setPendingFormData(null);
       if (onSuccess) {
         onSuccess(data);
       }
@@ -76,12 +79,13 @@ export function MembresiaFormPanel({
     }
   };
 
-  const handleConfirmDeactivation = async (formData: any) => {
-    // User confirmed deactivation, add flag and retry
-    await handleSave({
-      ...formData,
-      confirmarDesactivacion: true,
-    });
+  const handleConfirmDeactivation = async () => {
+    if (pendingFormData) {
+      await handleSave({
+        ...pendingFormData,
+        confirmarDesactivacion: true,
+      });
+    }
   };
 
   return (
@@ -101,10 +105,8 @@ export function MembresiaFormPanel({
             Si la desactivas, estos socios dejarán de tener acceso a este plan.
           </p>
           <button
-            onClick={() => {
-              setDeactivationWarning(null);
-              // Form will handle re-submission with confirmarDesactivacion: true
-            }}
+            type="button"
+            onClick={handleConfirmDeactivation}
             className="inline-block px-3 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700"
           >
             Entendido, desactivar de todas formas
@@ -113,8 +115,9 @@ export function MembresiaFormPanel({
       )}
 
       <MembresiaForm
+        key={initialData?.id ?? "nueva"}
         initialData={initialData}
-        onSave={deactivationWarning ? handleConfirmDeactivation : handleSave}
+        onSave={handleSave}
         onCancel={onCancel || (() => {})}
         isLoading={isLoading}
       />

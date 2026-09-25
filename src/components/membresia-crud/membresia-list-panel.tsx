@@ -21,7 +21,7 @@ export function MembresiaListPanel({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"nombre" | "precio" | "estado">("nombre");
+  const [sortBy, setSortBy] = useState<"nombre" | "precio" | "periodicidad" | "estado">("nombre");
 
   // Fetch list on mount
   useEffect(() => {
@@ -83,19 +83,6 @@ export function MembresiaListPanel({
     fetchMembresias();
   };
 
-  const sortedMembresias = [...membresias].sort((a, b) => {
-    switch (sortBy) {
-      case "nombre":
-        return a.nombre.localeCompare(b.nombre);
-      case "precio":
-        return a.precio - b.precio;
-      case "estado":
-        return a.estado.localeCompare(b.estado);
-      default:
-        return 0;
-    }
-  });
-
   return (
     <div className="space-y-4">
       {error && (
@@ -149,7 +136,9 @@ export function MembresiaListPanel({
         <div className="text-center py-8 text-gray-500">No hay membresías</div>
       ) : (
         <MembresiaList
-          membresias={sortedMembresias}
+          membresias={membresias}
+          sortField={sortBy}
+          onSortChange={setSortBy}
           onEdit={onEditClick || (() => {})}
           onDelete={handleDelete}
         />

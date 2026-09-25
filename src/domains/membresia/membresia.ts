@@ -63,42 +63,53 @@ export interface ValidationResult {
  * AC-002: precio required, > 0, up to 2 decimals
  * AC-003: periodicidad required, positive integer
  * AC-004: descripcion optional, max 300 chars
+ * 
+ * @param data - Partial membresia data to validate
+ * @param options - { partial: true } to validate only fields that are defined
  */
 export function validateMembresia(
-  data: Partial<Membresia>
+  data: Partial<Membresia>,
+  options: { partial?: boolean } = {}
 ): ValidationResult {
+  const { partial = false } = options;
   const errors: string[] = [];
 
   // Validate nombre (AC-001)
-  if (!data.nombre || data.nombre.trim() === "") {
-    errors.push("El nombre de la membresía es requerido");
-  } else if (data.nombre.length < 3) {
-    errors.push("El nombre debe tener al menos 3 caracteres");
-  } else if (data.nombre.length > 50) {
-    errors.push("El nombre no puede exceder 50 caracteres");
+  if (!partial || data.nombre !== undefined) {
+    if (!data.nombre || data.nombre.trim() === "") {
+      errors.push("El nombre de la membresía es requerido");
+    } else if (data.nombre.length < 3) {
+      errors.push("El nombre debe tener al menos 3 caracteres");
+    } else if (data.nombre.length > 50) {
+      errors.push("El nombre no puede exceder 50 caracteres");
+    }
   }
 
   // Validate precio (AC-002)
-  if (data.precio === undefined || data.precio === null) {
-    errors.push("El precio es requerido");
-  } else if (typeof data.precio !== "number") {
-    errors.push("El precio debe ser un número");
-  } else if (data.precio <= 0) {
-    errors.push("El precio debe ser mayor a 0");
+  if (!partial || data.precio !== undefined) {
+    if (data.precio === undefined || data.precio === null) {
+      errors.push("El precio es requerido");
+    } else if (typeof data.precio !== "number") {
+      errors.push("El precio debe ser un número");
+    } else if (data.precio <= 0) {
+      errors.push("El precio debe ser mayor a 0");
+    }
   }
 
   // Validate periodicidad (AC-003)
-  if (
-    data.periodicidad === undefined ||
-    data.periodicidad === null
-  ) {
-    errors.push("La periodicidad es requerida");
-  } else if (typeof data.periodicidad !== "number") {
-    errors.push("La periodicidad debe ser un número");
-  } else if (!Number.isInteger(data.periodicidad)) {
-    errors.push("La periodicidad debe ser un número entero");
-  } else if (data.periodicidad <= 0) {
-    errors.push("La periodicidad debe ser mayor a 0");
+  if (!partial || data.periodicidad !== undefined) {
+    if (
+      data.periodicidad === undefined ||
+      data.periodicidad === null
+    ) {
+      errors.push("La periodicidad es requerida");
+    } else if (typeof data.periodicidad !== "number") {
+      errors.push("La periodicidad debe ser un número");
+    } else if (!Number.isInteger(data.periodicidad)) {
+      errors.push("La periodicidad debe ser un número entero");
+    } else if (data.periodicidad <= 0) {
+      errors.push("La periodicidad debe ser mayor a 0");
+    }
   }
 
   // Validate descripcion (AC-004)
@@ -110,10 +121,12 @@ export function validateMembresia(
   }
 
   // Validate estado
-  if (!data.estado) {
-    errors.push("El estado es requerido");
-  } else if (!["ACTIVA", "INACTIVA"].includes(data.estado)) {
-    errors.push("El estado debe ser ACTIVA o INACTIVA");
+  if (!partial || data.estado !== undefined) {
+    if (!data.estado) {
+      errors.push("El estado es requerido");
+    } else if (!["ACTIVA", "INACTIVA"].includes(data.estado)) {
+      errors.push("El estado debe ser ACTIVA o INACTIVA");
+    }
   }
 
   return {
@@ -177,21 +190,17 @@ export class MembresiaRepository {
     }
 
     const prisma = await this.getPrisma();
-    try {
-      const normalized = createMembresia(data);
-      const prismaResult = await prisma.membresia.create({
-        data: {
-          nombre: normalized.nombre,
-          precio: normalized.precio,
-          periodicidad: normalized.periodicidad,
-          descripcion: normalized.descripcion,
-          estado: normalized.estado,
-        },
-      });
-      return mapPrismaToMembresia(prismaResult);
-    } finally {
-      await prisma.$disconnect();
-    }
+    const normalized = createMembresia(data);
+    const prismaResult = await prisma.membresia.create({
+      data: {
+        nombre: normalized.nombre,
+        precio: normalized.precio,
+        periodicidad: normalized.periodicidad,
+        descripcion: normalized.descripcion,
+        estado: normalized.estado,
+      },
+    });
+    return mapPrismaToMembresia(prismaResult);
   }
 
   /**
@@ -199,14 +208,10 @@ export class MembresiaRepository {
    */
   async getById(id: string): Promise<Membresia | null> {
     const prisma = await this.getPrisma();
-    try {
-      const result = await prisma.membresia.findUnique({
-        where: { id },
-      });
-      return result ? mapPrismaToMembresia(result) : null;
-    } finally {
-      await prisma.$disconnect();
-    }
+    const result = await prisma.membresia.findUnique({
+      where: { id },
+    });
+    return result ? mapPrismaToMembresia(result) : null;
   }
 
   /**
@@ -214,12 +219,8 @@ export class MembresiaRepository {
    */
   async getAll(): Promise<Membresia[]> {
     const prisma = await this.getPrisma();
-    try {
-      const results = await prisma.membresia.findMany();
-      return results.map(mapPrismaToMembresia);
-    } finally {
-      await prisma.$disconnect();
-    }
+    const results = await prisma.membresia.findMany();
+    return results.map(mapPrismaToMembresia);
   }
 
   /**
@@ -227,14 +228,10 @@ export class MembresiaRepository {
    */
   async getAllActivas(): Promise<Membresia[]> {
     const prisma = await this.getPrisma();
-    try {
-      const results = await prisma.membresia.findMany({
-        where: { estado: "ACTIVA" },
-      });
-      return results.map(mapPrismaToMembresia);
-    } finally {
-      await prisma.$disconnect();
-    }
+    const results = await prisma.membresia.findMany({
+      where: { estado: "ACTIVA" },
+    });
+    return results.map(mapPrismaToMembresia);
   }
 
   /**
@@ -251,32 +248,28 @@ export class MembresiaRepository {
       estado: EstadoMembresia;
     }>
   ): Promise<Membresia> {
-    // Validate only the fields being updated
-    const validation = validateMembresia(data);
+    // Validate only the fields being updated (partial validation)
+    const validation = validateMembresia(data, { partial: true });
     if (!validation.valid) {
       throw new Error(`Validation error: ${validation.errors.join(", ")}`);
     }
 
     const prisma = await this.getPrisma();
-    try {
-      const updateData: any = {};
-      if (data.nombre !== undefined) updateData.nombre = data.nombre;
-      if (data.precio !== undefined)
-        updateData.precio = normalizePrecio(data.precio);
-      if (data.periodicidad !== undefined)
-        updateData.periodicidad = data.periodicidad;
-      if (data.descripcion !== undefined)
-        updateData.descripcion = data.descripcion;
-      if (data.estado !== undefined) updateData.estado = data.estado;
+    const updateData: any = {};
+    if (data.nombre !== undefined) updateData.nombre = data.nombre;
+    if (data.precio !== undefined)
+      updateData.precio = normalizePrecio(data.precio);
+    if (data.periodicidad !== undefined)
+      updateData.periodicidad = data.periodicidad;
+    if (data.descripcion !== undefined)
+      updateData.descripcion = data.descripcion;
+    if (data.estado !== undefined) updateData.estado = data.estado;
 
-      const prismaResult = await prisma.membresia.update({
-        where: { id },
-        data: updateData,
-      });
-      return mapPrismaToMembresia(prismaResult);
-    } finally {
-      await prisma.$disconnect();
-    }
+    const prismaResult = await prisma.membresia.update({
+      where: { id },
+      data: updateData,
+    });
+    return mapPrismaToMembresia(prismaResult);
   }
 
   /**
@@ -286,13 +279,9 @@ export class MembresiaRepository {
    */
   async delete(id: string): Promise<void> {
     const prisma = await this.getPrisma();
-    try {
-      await prisma.membresia.delete({
-        where: { id },
-      });
-    } finally {
-      await prisma.$disconnect();
-    }
+    await prisma.membresia.delete({
+      where: { id },
+    });
   }
 
   /**
@@ -301,12 +290,8 @@ export class MembresiaRepository {
    */
   async getAssignedSocioCount(membresiaId: string): Promise<number> {
     const prisma = await this.getPrisma();
-    try {
-      return await prisma.socio.count({
-        where: { membresiaAsignadaId: membresiaId },
-      });
-    } finally {
-      await prisma.$disconnect();
-    }
+    return await prisma.socio.count({
+      where: { membresiaAsignadaId: membresiaId },
+    });
   }
 }
