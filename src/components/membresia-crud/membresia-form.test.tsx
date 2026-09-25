@@ -161,7 +161,11 @@ describe("MembresiaForm", () => {
       await user.type(screen.getByLabelText(/Nombre/i), "Gold");
       await user.type(screen.getByLabelText(/Precio/i), "15000");
       await user.type(screen.getByLabelText(/Periodicidad/i), "30");
-      await user.type(screen.getByLabelText(/Descripción/i), "A".repeat(301));
+      
+      // Use paste() instead of type() for long strings to avoid event saturation in parallel tests
+      const descripcionInput = screen.getByLabelText(/Descripción/i) as HTMLTextAreaElement;
+      await user.paste("A".repeat(301));
+
       await user.click(screen.getByRole("button", { name: /Guardar/i }));
 
       await waitFor(() => {
