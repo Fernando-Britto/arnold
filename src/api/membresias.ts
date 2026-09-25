@@ -193,3 +193,53 @@ export async function fetchMembresias(): Promise<MembresiaDropdown[]> {
   const data = await response.json();
   return data;
 }
+
+/**
+ * Client-side API call: create a new membresia
+ */
+export async function createMembresia(
+  data: MembresiaInput
+): Promise<Membresia> {
+  const response = await fetch("/api/membresias", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to create membresia");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: update a membresia
+ */
+export async function updateMembresia(
+  id: string,
+  data: Partial<MembresiaInput>
+): Promise<Membresia> {
+  const response = await fetch(`/api/membresias/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to update membresia");
+  }
+  return response.json();
+}
+
+/**
+ * Client-side API call: delete a membresia
+ */
+export async function deleteMembresia(id: string): Promise<void> {
+  const response = await fetch(`/api/membresias/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to delete membresia");
+  }
+}
