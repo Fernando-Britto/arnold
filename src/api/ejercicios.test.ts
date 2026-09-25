@@ -131,12 +131,12 @@ describe("Ejercicio API Routes", () => {
         },
       ];
 
-      mockRepository.findByMuscleGroup.mockResolvedValue(mockFiltered);
+      mockRepository.getAll.mockResolvedValue(mockFiltered);
 
       const result = await handleEjercicioList({ muscleGroup: "Hombros" });
 
       expect(result).toEqual(mockFiltered);
-      expect(mockRepository.findByMuscleGroup).toHaveBeenCalledWith("Hombros");
+      expect(mockRepository.getAll).toHaveBeenCalledWith({ muscleGroup: "Hombros" });
     });
 
      it("should support searching by name", async () => {
@@ -151,12 +151,12 @@ describe("Ejercicio API Routes", () => {
          },
        ];
 
-       mockRepository.searchByName.mockResolvedValue(mockSearchResults);
+       mockRepository.getAll.mockResolvedValue(mockSearchResults);
 
        const result = await handleEjercicioList({ search: "Press" });
 
        expect(result).toEqual(mockSearchResults);
-       expect(mockRepository.searchByName).toHaveBeenCalledWith("Press");
+       expect(mockRepository.getAll).toHaveBeenCalledWith({ search: "Press" });
      });
 
     it("should support filtering by both search and muscle group simultaneously", async () => {

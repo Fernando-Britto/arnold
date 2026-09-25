@@ -194,6 +194,26 @@ describe("Ejercicio [id] API Routes", () => {
       }
     });
 
+    it("should return 409 DELETE_BLOCKED_ASSIGNED when ejercicio is in use", async () => {
+      const mockDelete = handleEjercicioDelete as jest.MockedFunction<
+        typeof handleEjercicioDelete
+      >;
+      mockDelete.mockRejectedValue(
+        Object.assign(
+          new Error("DELETE_BLOCKED_ASSIGNED: No se puede eliminar el ejercicio porque está asignado a una o más rutinas"),
+          { code: "DELETE_BLOCKED_ASSIGNED" }
+        )
+      );
+
+      const result = await handleEjercicioDeleteRequest("ej-en-uso");
+
+      expect("code" in result).toBe(true);
+      if ("code" in result) {
+        expect(result.status).toBe(409);
+        expect(result.code).toBe("DELETE_BLOCKED_ASSIGNED");
+      }
+    });
+
     it("should handle error from ejercicio delete", async () => {
       const mockDelete = handleEjercicioDelete as jest.MockedFunction<
         typeof handleEjercicioDelete

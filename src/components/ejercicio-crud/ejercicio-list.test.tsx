@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EjercicioListPanel } from "./ejercicio-list";
 import { Ejercicio } from "@prisma/client";
@@ -179,6 +179,14 @@ describe("EjercicioListPanel Component", () => {
   });
 
   describe("Search and filtering", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it("should filter by nombre substring (case-insensitive)", async () => {
       render(
         <EjercicioListPanel
@@ -191,12 +199,14 @@ describe("EjercicioListPanel Component", () => {
       const searchInput = screen.getByPlaceholderText(/Buscar/i) as HTMLInputElement;
       fireEvent.change(searchInput, { target: { value: "press" } });
       
-      // Wait for debounce to complete
-      await waitFor(() => {
-        expect(screen.getByText("Press Militar")).toBeInTheDocument();
-        expect(screen.getByText("Press Banca")).toBeInTheDocument();
-        expect(screen.queryByText("Sentadilla")).not.toBeInTheDocument();
-      }, { timeout: 500 });
+      // Advance timers past debounce (300ms)
+      act(() => {
+        jest.advanceTimersByTime(350);
+      });
+      
+      expect(screen.getByText("Press Militar")).toBeInTheDocument();
+      expect(screen.getByText("Press Banca")).toBeInTheDocument();
+      expect(screen.queryByText("Sentadilla")).not.toBeInTheDocument();
     });
 
     it("should filter by grupoMuscular substring", async () => {
@@ -211,11 +221,13 @@ describe("EjercicioListPanel Component", () => {
       const searchInput = screen.getByPlaceholderText(/Buscar/i) as HTMLInputElement;
       fireEvent.change(searchInput, { target: { value: "piern" } });
       
-      // Wait for debounce to complete
-      await waitFor(() => {
-        expect(screen.getByText("Sentadilla")).toBeInTheDocument();
-        expect(screen.queryByText("Press Militar")).not.toBeInTheDocument();
-      }, { timeout: 500 });
+      // Advance timers past debounce (300ms)
+      act(() => {
+        jest.advanceTimersByTime(350);
+      });
+      
+      expect(screen.getByText("Sentadilla")).toBeInTheDocument();
+      expect(screen.queryByText("Press Militar")).not.toBeInTheDocument();
     });
 
     it("should debounce search input (300ms)", async () => {
@@ -233,10 +245,13 @@ describe("EjercicioListPanel Component", () => {
       // Before debounce completes, all items should still show
       expect(screen.getByText("Sentadilla")).toBeInTheDocument();
 
-      // Wait for debounce to complete
-      await waitFor(() => {
-        expect(screen.queryByText("Sentadilla")).not.toBeInTheDocument();
-      }, { timeout: 500 });
+      // Advance timers past debounce (300ms)
+      act(() => {
+        jest.advanceTimersByTime(350);
+      });
+
+      // After debounce, filter should be applied
+      expect(screen.queryByText("Sentadilla")).not.toBeInTheDocument();
     });
 
     it("should clear filter when search is empty", async () => {
@@ -252,15 +267,17 @@ describe("EjercicioListPanel Component", () => {
       
       // Type a filter
       fireEvent.change(searchInput, { target: { value: "press" } });
-      await waitFor(() => {
-        expect(screen.queryByText("Sentadilla")).not.toBeInTheDocument();
-      }, { timeout: 500 });
+      act(() => {
+        jest.advanceTimersByTime(350);
+      });
+      expect(screen.queryByText("Sentadilla")).not.toBeInTheDocument();
 
       // Clear the filter
       fireEvent.change(searchInput, { target: { value: "" } });
-      await waitFor(() => {
-        expect(screen.getByText("Sentadilla")).toBeInTheDocument();
-      }, { timeout: 500 });
+      act(() => {
+        jest.advanceTimersByTime(350);
+      });
+      expect(screen.getByText("Sentadilla")).toBeInTheDocument();
     });
   });
 

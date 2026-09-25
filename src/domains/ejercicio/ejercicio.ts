@@ -40,11 +40,12 @@ export function validateEjercicio(data: any): ValidationResult {
   const errors: string[] = [];
 
   // Validate nombre
-  if (!data.nombre || typeof data.nombre !== "string") {
+  const nombre = typeof data.nombre === "string" ? data.nombre.trim() : "";
+  if (!nombre) {
     errors.push("El nombre es requerido");
-  } else if (data.nombre.length < 3) {
+  } else if (nombre.length < 3) {
     errors.push("El nombre debe tener al menos 3 caracteres");
-  } else if (data.nombre.length > 100) {
+  } else if (nombre.length > 100) {
     errors.push("El nombre no puede exceder 100 caracteres");
   }
 
@@ -169,6 +170,7 @@ export class EjercicioRepository {
    * Delete an ejercicio
    * @param id Ejercicio ID
    * @returns true if deleted, false if not found
+   * @throws Error if ejercicio is in use (DELETE_BLOCKED_ASSIGNED)
    */
   async delete(id: string): Promise<boolean> {
     try {
@@ -176,7 +178,15 @@ export class EjercicioRepository {
         where: { id },
       });
       return true;
-    } catch {
+    } catch (error: any) {
+      // P2003: Foreign key constraint failed (ejercicio is in use in EjercicioEnRutina)
+      if (error?.code === "P2003" || error?.message?.includes("foreign key")) {
+        throw Object.assign(
+          new Error("DELETE_BLOCKED_ASSIGNED: No se puede eliminar el ejercicio porque está asignado a una o más rutinas"),
+          { code: "DELETE_BLOCKED_ASSIGNED" }
+        );
+      }
+      // Other errors (e.g., record not found) return false
       return false;
     }
   }
