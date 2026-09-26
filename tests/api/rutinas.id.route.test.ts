@@ -163,4 +163,21 @@ describe("DELETE /api/rutinas/[id] — Delete specific Rutina", () => {
     const json = await result.json();
     expect(json.code).toBe("NOT_FOUND");
   });
+
+  it("should return 409 when delete is blocked by active socio assignment", async () => {
+    // handleRutinaDelete throws error with DELETE_BLOCKED_ASSIGNED which maps to 409
+    mockRutinasApi.handleRutinaDelete.mockRejectedValue(
+      new Error("DELETE_BLOCKED_ASSIGNED: Rutina asignada activamente a 2 socio(s)")
+    );
+
+    const result = await roueteHandlers.DELETE(
+      {} as any,
+      { params: Promise.resolve({ id: "rutina-assigned" }) }
+    );
+
+    expect(result.status).toBe(409);
+    const json = await result.json();
+    expect(json.code).toBe("DELETE_BLOCKED");
+    expect(json.message).toContain("2 socio(s)");
+  });
 });

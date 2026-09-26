@@ -2,6 +2,8 @@ import { Rutina } from "@prisma/client";
 import { RutinaRepository, validateRutina } from "@/domains/rutina/rutina";
 import { prisma } from "@/lib/db";
 
+export type RutinaWithCount = Rutina & { _count: { ejercicios: number } };
+
 /**
  * Rutina input type for create operations
  */
@@ -14,13 +16,23 @@ export interface RutinaInput {
   descripcion?: string;
 }
 
+export interface EjercicioEnRutinaInput {
+  ejercicioId: string;
+  series: number;
+  repeticiones: number;
+  descanso: number;
+  orden?: number;
+}
+
 /**
  * Handle POST /api/rutinas
  * Creates a new rutina with optional EjercicioEnRutina rows
  */
-export async function handleRutinaCreate(data: RutinaInput & { ejercicios?: any[] }): Promise<Rutina> {
+export async function handleRutinaCreate(
+  data: RutinaInput & { ejercicios?: EjercicioEnRutinaInput[] }
+): Promise<Rutina> {
   const rutinaRepo = new RutinaRepository();
-  return rutinaRepo.create({
+  const rutina = await rutinaRepo.create({
     nombre: data.nombre,
     frecuenciaSemanal: data.frecuenciaSemanal,
     duracionEstimada: data.duracionEstimada,
@@ -28,15 +40,29 @@ export async function handleRutinaCreate(data: RutinaInput & { ejercicios?: any[
     descripcion: data.descripcion,
     objetivoPrincipal: data.objetivoPrincipal,
   });
+
+  // Persist ejercicios if provided
+  if (data.ejercicios && data.ejercicios.length > 0) {
+    await prisma.ejercicioEnRutina.createMany({
+      data: data.ejercicios.map((ej, index) => ({
+        rutinaId: rutina.id,
+        ejercicioId: ej.ejercicioId,
+        series: Number(ej.series) || 3,
+        repeticiones: Number(ej.repeticiones) || 10,
+        descanso: Number(ej.descanso) || 60,
+        orden: typeof ej.orden === "number" ? ej.orden : index,
+      })),
+    });
+  }
+
+  return rutina;
 }
 
 /**
  * Handle GET /api/rutinas
  * Lists all rutinas with exercise count (for ListPanel)
  */
-export async function handleRutinaList(): Promise<
-  (Rutina & { _count: { ejercicios: number } })[]
-> {
+export async function handleRutinaList(): Promise<RutinaWithCount[]> {
   return prisma.rutina.findMany({
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { ejercicios: true } } },
@@ -45,24 +71,66 @@ export async function handleRutinaList(): Promise<
 
 /**
  * Handle GET /api/rutinas/:id
- * Retrieves a single rutina by ID
+ * Retrieves a single rutina by ID with exercises ordered
  */
-export async function handleRutinaGet(id: string): Promise<Rutina | null> {
+export async function handleRutinaGet(
+  id: string
+): Promise<(Rutina & { ejercicios?: any[] }) | null> {
   return prisma.rutina.findUnique({
     where: { id },
+    include: {
+      ejercicios: {
+        orderBy: {
+          orden: "asc",
+        },
+      },
+    },
   });
 }
 
 /**
  * Handle PUT /api/rutinas/:id
- * Updates a rutina
+ * Updates a rutina and synchronizes EjercicioEnRutina rows if provided
  */
 export async function handleRutinaUpdate(
   id: string,
-  data: Partial<RutinaInput>
+  data: Partial<RutinaInput> & { ejercicios?: EjercicioEnRutinaInput[] }
 ): Promise<Rutina | null> {
   const rutinaRepo = new RutinaRepository();
-  return rutinaRepo.update(id, data);
+  const rutina = await rutinaRepo.update(id, {
+    nombre: data.nombre,
+    frecuenciaSemanal: data.frecuenciaSemanal,
+    duracionEstimada: data.duracionEstimada,
+    nivelDeDificultad: data.nivelDeDificultad,
+    descripcion: data.descripcion,
+    objetivoPrincipal: data.objetivoPrincipal,
+  });
+
+  if (!rutina) return null;
+
+  // Synchronize ejercicios if provided
+  if (data.ejercicios !== undefined) {
+    // Delete existing ejercicios for this rutina
+    await prisma.ejercicioEnRutina.deleteMany({
+      where: { rutinaId: id },
+    });
+
+    // Create new ejercicios if provided
+    if (data.ejercicios.length > 0) {
+      await prisma.ejercicioEnRutina.createMany({
+        data: data.ejercicios.map((ej, index) => ({
+          rutinaId: id,
+          ejercicioId: ej.ejercicioId,
+          series: Number(ej.series) || 3,
+          repeticiones: Number(ej.repeticiones) || 10,
+          descanso: Number(ej.descanso) || 60,
+          orden: typeof ej.orden === "number" ? ej.orden : index,
+        })),
+      });
+    }
+  }
+
+  return rutina;
 }
 
 /**
@@ -81,7 +149,7 @@ export async function handleRutinaDelete(id: string): Promise<void> {
     throw new Error("NOT_FOUND");
   }
 
-  // Check if rutina is assigned to any active socio
+  // Check for active assignments
   const activeAssignments = await prisma.rutinaAsignada.count({
     where: {
       rutinaId: id,
@@ -95,14 +163,14 @@ export async function handleRutinaDelete(id: string): Promise<void> {
     );
   }
 
-  // Safe to delete: Prisma cascade will delete EjercicioEnRutina rows
+  // Delete rutina (cascade deletes ejercicios)
   await prisma.rutina.delete({ where: { id } });
 }
 
 /**
  * Client-side API call: fetch all rutinas
  */
-export async function fetchRutinas(): Promise<Rutina[]> {
+export async function fetchRutinas(): Promise<RutinaWithCount[]> {
   const response = await fetch("/api/rutinas");
   if (!response.ok) {
     const error = await response.json();
@@ -115,13 +183,14 @@ export async function fetchRutinas(): Promise<Rutina[]> {
  * Client-side API call: create a new rutina
  */
 export async function createRutina(
-  data: RutinaInput & { ejercicios?: any[] }
+  data: RutinaInput & { ejercicios?: EjercicioEnRutinaInput[] }
 ): Promise<Rutina> {
   const response = await fetch("/api/rutinas", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.message || "Failed to create rutina");
@@ -134,13 +203,14 @@ export async function createRutina(
  */
 export async function updateRutina(
   id: string,
-  data: Partial<RutinaInput> & { ejercicios?: any[] }
+  data: Partial<RutinaInput> & { ejercicios?: EjercicioEnRutinaInput[] }
 ): Promise<Rutina> {
   const response = await fetch(`/api/rutinas/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.message || "Failed to update rutina");
@@ -150,14 +220,12 @@ export async function updateRutina(
 
 /**
  * Client-side API call: delete a rutina
- *
- * Throws error with message "Rutina asignada activamente a N socio(s)"
- * if rutina is assigned to active socio(s) (409 Conflict)
  */
 export async function deleteRutina(id: string): Promise<void> {
   const response = await fetch(`/api/rutinas/${id}`, {
     method: "DELETE",
   });
+
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.message || "Failed to delete rutina");
