@@ -1,6 +1,5 @@
-import { Prisma, PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { Rutina as PrismaRutina } from "@prisma/client";
+import { prisma } from "@/lib/db";
 
 /**
  * Map Spanish difficulty level names to Prisma enum values
@@ -49,7 +48,7 @@ export function createRutina(
   objetivoPrincipal?: string
 ): Rutina {
   return {
-    id: `rutina-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `rutina-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
     nombre,
     frecuenciaSemanal,
     duracionEstimada,
@@ -119,7 +118,7 @@ export class RutinaRepository {
     nivelDeDificultad: string;
     descripcion?: string;
     objetivoPrincipal?: string;
-  }): Promise<any> {
+  }): Promise<Rutina> {
     // Validate first
     const validation = validateRutina(data);
     if (!validation.valid) {
@@ -136,16 +135,16 @@ export class RutinaRepository {
         descripcion: data.descripcion,
         objetivoPrincipal: data.objetivoPrincipal || "General",
       },
-    });
+    }) as Promise<Rutina>;
   }
 
   /**
    * Retrieve a rutina by ID
    */
-  async getById(id: string): Promise<any | null> {
+  async getById(id: string): Promise<Rutina | null> {
     return prisma.rutina.findUnique({
       where: { id },
-    });
+    }) as Promise<Rutina | null>;
   }
 
   /**
@@ -161,7 +160,7 @@ export class RutinaRepository {
       descripcion: string | null;
       objetivoPrincipal: string | null;
     }>
-  ): Promise<any | null> {
+  ): Promise<Rutina | null> {
     // Validate if updating validation fields
     if (
       data.nombre !== undefined ||
@@ -180,7 +179,7 @@ export class RutinaRepository {
     }
 
     // Map nivel de dificultad if provided and filter out undefined null values
-    const updateData: any = {};
+    const updateData: Partial<Rutina> = {};
     if (data.nombre !== undefined) updateData.nombre = data.nombre;
     if (data.frecuenciaSemanal !== undefined) updateData.frecuenciaSemanal = data.frecuenciaSemanal;
     if (data.duracionEstimada !== undefined) updateData.duracionEstimada = data.duracionEstimada;
@@ -191,15 +190,15 @@ export class RutinaRepository {
     return prisma.rutina.update({
       where: { id },
       data: updateData,
-    });
+    }) as Promise<Rutina | null>;
   }
 
   /**
    * Delete a rutina
    */
-  async delete(id: string): Promise<any> {
+  async delete(id: string): Promise<Rutina> {
     return prisma.rutina.delete({
       where: { id },
-    });
+    }) as Promise<Rutina>;
   }
 }

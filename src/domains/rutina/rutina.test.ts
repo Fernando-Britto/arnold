@@ -1,10 +1,48 @@
 import { createRutina, validateRutina, RutinaRepository } from "./rutina";
 
+let memoryRutinas: any[] = [];
+
+jest.mock("@/lib/db", () => ({
+  prisma: {
+    rutina: {
+      create: jest.fn().mockImplementation(async ({ data }) => {
+        const item = {
+          id: `rutina-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          ...data,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        memoryRutinas.push(item);
+        return item;
+      }),
+      findUnique: jest.fn().mockImplementation(async ({ where }) => {
+        return memoryRutinas.find((r) => r.id === where.id) || null;
+      }),
+      update: jest.fn().mockImplementation(async ({ where, data }) => {
+        const index = memoryRutinas.findIndex((r) => r.id === where.id);
+        if (index === -1) return null;
+        memoryRutinas[index] = { ...memoryRutinas[index], ...data };
+        return memoryRutinas[index];
+      }),
+      delete: jest.fn().mockImplementation(async ({ where }) => {
+        const index = memoryRutinas.findIndex((r) => r.id === where.id);
+        if (index === -1) return null;
+        const [deleted] = memoryRutinas.splice(index, 1);
+        return deleted;
+      }),
+    },
+  },
+}));
+
 describe("Rutina Domain Model", () => {
+  beforeEach(() => {
+    memoryRutinas = [];
+    jest.clearAllMocks();
+  });
+
   describe("Rutina creation and validation", () => {
     it("should create a rutina with required fields", () => {
       const rutina = createRutina("Full Body", 3, 60, "Intermedio");
-
       expect(rutina).toBeDefined();
       expect(rutina.nombre).toBe("Full Body");
       expect(rutina.frecuenciaSemanal).toBe(3);
@@ -19,7 +57,6 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 60,
         nivelDeDificultad: "Básico",
       });
-
       expect(validation.valid).toBe(false);
       expect(validation.errors).toContain("El nombre es requerido");
     });
@@ -31,7 +68,6 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 60,
         nivelDeDificultad: "Básico",
       });
-
       expect(validation.valid).toBe(false);
       expect(validation.errors[0]).toContain("al menos 3 caracteres");
     });
@@ -44,7 +80,6 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 60,
         nivelDeDificultad: "Básico",
       });
-
       expect(validation.valid).toBe(false);
       expect(validation.errors[0]).toContain("no puede exceder 100 caracteres");
     });
@@ -86,7 +121,6 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 0,
         nivelDeDificultad: "Básico",
       });
-
       expect(validation.valid).toBe(false);
       expect(validation.errors[0]).toContain("mayor a 0");
     });
@@ -98,10 +132,8 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 60,
         nivelDeDificultad: "InvalidLevel",
       });
-
       expect(validation.valid).toBe(false);
 
-      // Valid levels
       const validLevels = ["Básico", "Intermedio", "Avanzado"];
       for (const level of validLevels) {
         validation = validateRutina({
@@ -122,7 +154,6 @@ describe("Rutina Domain Model", () => {
         nivelDeDificultad: "Básico",
         descripcion: "d".repeat(501),
       });
-
       expect(validation.valid).toBe(false);
       expect(validation.errors[0]).toContain("no puede exceder 500 caracteres");
     });
@@ -136,7 +167,6 @@ describe("Rutina Domain Model", () => {
         descripcion: "Advanced upper body workout",
         objetivoPrincipal: "Fuerza",
       });
-
       expect(validation.valid).toBe(true);
     });
   });
@@ -155,9 +185,7 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 75,
         nivelDeDificultad: "Intermedio",
       };
-
       const created = await repository.create(data);
-
       expect(created).toBeDefined();
       expect(created.nombre).toBe("Push/Pull/Legs");
       expect(created.id).toBeDefined();
@@ -170,10 +198,8 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 60,
         nivelDeDificultad: "Básico",
       };
-
       const created = await repository.create(data);
       const retrieved = await repository.getById(created.id);
-
       expect(retrieved).toBeDefined();
       expect(retrieved?.nombre).toBe("Full Body");
     });
@@ -190,12 +216,10 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 60,
         nivelDeDificultad: "Básico",
       };
-
       const created = await repository.create(data);
       const updated = await repository.update(created.id, {
         duracionEstimada: 75,
       });
-
       expect(updated).toBeDefined();
       expect(updated?.duracionEstimada).toBe(75);
       expect(updated?.nombre).toBe("Routine");
@@ -208,10 +232,8 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 45,
         nivelDeDificultad: "Básico",
       };
-
       const created = await repository.create(data);
       await repository.delete(created.id);
-
       const retrieved = await repository.getById(created.id);
       expect(retrieved).toBeNull();
     });
@@ -223,7 +245,6 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 60,
         nivelDeDificultad: "Básico",
       };
-
       await expect(repository.create(invalidData as any)).rejects.toThrow();
     });
   });
