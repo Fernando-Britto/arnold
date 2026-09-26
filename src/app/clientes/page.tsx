@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ClienteForm } from "@/components/cliente-crud/cliente-form";
 import { ClienteList } from "@/components/cliente-crud/cliente-list";
@@ -172,6 +172,15 @@ export function ClientesPage() {
     );
   }
 
+  // Build membership labels for ClienteList display
+  const membresiaLabels = useMemo(() => {
+    const map: Record<string, string> = {};
+    membresias.forEach((m) => {
+      map[m.id] = `${m.nombre} - $${m.precio.toFixed(2)}`;
+    });
+    return map;
+  }, [membresias]);
+
   return (
     <div className="flex flex-col gap-4 p-6">
       {/* Page title */}
@@ -219,16 +228,12 @@ export function ClientesPage() {
 
       {/* Main content - two column layout */}
       {!loading && (
-        <div className="flex gap-6">
+        <div className="flex gap-6 items-start">
           {/* Form panel - left */}
-          <div className="w-96 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <div className="border-b bg-gray-50 px-4 py-3">
-              <h2 className="font-bold text-lg">
-                {selectedCliente ? "Editar Cliente" : "Nueva Cliente"}
-              </h2>
-            </div>
+          <div className="w-96">
             <ClienteForm
               onSave={handleSave}
+              onCancel={() => setSelectedCliente(null)}
               initialData={
                 selectedCliente
                   ? {
@@ -249,14 +254,12 @@ export function ClientesPage() {
           </div>
 
           {/* List panel - right */}
-          <div className="flex-1 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <div className="border-b bg-gray-50 px-4 py-3">
-              <h2 className="font-bold text-lg">Clientes Disponibles</h2>
-            </div>
+          <div className="flex-1">
             <ClienteList
               clientes={clientes}
               onModify={handleModify}
               onDelete={handleDelete}
+              membresiaLabels={membresiaLabels}
             />
           </div>
         </div>

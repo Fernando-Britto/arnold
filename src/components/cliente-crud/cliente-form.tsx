@@ -3,14 +3,21 @@ import { validateCliente, type EstadoCuenta } from "@/domains/cliente/cliente";
 
 /**
  * Format a date to DD/MM/YYYY safely without timezone issues
+ * Handles both Date objects and ISO string dates from API
  * Uses UTC components to handle ISO dates from API (which represent calendar dates, not instants)
  * A date like "2024-01-15" semantically means Jan 15 regardless of where the code runs
  */
-function formatDateDDMMYYYY(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${day}/${month}/${year}`;
+function formatDateDDMMYYYY(date: Date | string): string {
+  try {
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (!d || isNaN(d.getTime())) return "";
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    return `${day}/${month}/${year}`;
+  } catch {
+    return "";
+  }
 }
 
 export interface ClienteFormProps {
@@ -23,6 +30,7 @@ export interface ClienteFormProps {
     membresiaAsignada: string;
     estadoCuenta: EstadoCuenta;
   }) => Promise<void> | void;
+  onCancel?: () => void;
   initialData: {
     id?: string;
     nombre: string;
@@ -31,7 +39,7 @@ export interface ClienteFormProps {
     telefono?: string | null;
     membresiaAsignada: string;
     estadoCuenta: EstadoCuenta;
-    fechaAlta?: Date;
+    fechaAlta?: Date | string;
   } | null;
   availableMembresias: Array<{
     id: string;
@@ -58,6 +66,7 @@ interface ValidationErrors {
 
 export function ClienteForm({
   onSave,
+  onCancel,
   initialData,
   availableMembresias,
   isLoading = false,
@@ -72,7 +81,7 @@ export function ClienteForm({
     estadoCuenta: initialData?.estadoCuenta || "Activo",
   });
 
-  const [fechaAlta, setFechaAlta] = useState<Date | undefined>(initialData?.fechaAlta);
+  const [fechaAlta, setFechaAlta] = useState<Date | string | undefined>(initialData?.fechaAlta);
 
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -376,14 +385,26 @@ export function ClienteForm({
           )}
         </div>
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={isSubmitting || isLoading || activeMembresias.length === 0}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
-        >
-          {isSubmitting ? "Guardando..." : initialData?.id ? "Actualizar" : "Crear"}
-        </button>
+        {/* Submit & Cancel Buttons */}
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={isSubmitting || isLoading || activeMembresias.length === 0}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+          >
+            {isSubmitting ? "Guardando..." : initialData?.id ? "Actualizar" : "Crear"}
+          </button>
+          {initialData?.id && onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 font-medium disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );

@@ -352,7 +352,10 @@ describe("Cliente API Handlers", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].nombre).toBe("Ana García");
-      expect(global.fetch).toHaveBeenCalledWith("/api/clientes");
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/clientes",
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
     });
   });
 

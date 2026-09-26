@@ -77,10 +77,21 @@ export async function handleClienteDelete(id: string): Promise<void> {
  */
 
 /**
+ * B2 fix: Get Authorization headers with JWT token from localStorage
+ */
+function getAuthHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("token") || localStorage.getItem("jwt");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/**
  * Client-side API call: fetch all clientes
  */
 export async function fetchClientes(): Promise<Cliente[]> {
-  const response = await fetch("/api/clientes");
+  const response = await fetch("/api/clientes", {
+    headers: { ...getAuthHeaders() },
+  });
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.message || "Failed to fetch clientes");
@@ -99,7 +110,10 @@ export async function createCliente(
 ): Promise<{ cliente: Cliente; tempPassword: string }> {
   const response = await fetch("/api/clientes", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
     body: JSON.stringify(data),
   });
   if (!response.ok) {
@@ -132,7 +146,10 @@ export async function updateCliente(
 ): Promise<Cliente> {
   const response = await fetch(`/api/clientes/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
     body: JSON.stringify(data),
   });
   if (!response.ok) {
@@ -148,6 +165,7 @@ export async function updateCliente(
 export async function deleteCliente(id: string): Promise<void> {
   const response = await fetch(`/api/clientes/${id}`, {
     method: "DELETE",
+    headers: { ...getAuthHeaders() },
   });
   if (!response.ok) {
     const error = await response.json();

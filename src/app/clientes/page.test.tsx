@@ -384,8 +384,8 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
         expect(screen.getByText("Ana García")).toBeInTheDocument();
       });
 
-      // Form should show "Nueva Cliente" initially
-      expect(screen.getByText(/Nueva Cliente/i)).toBeInTheDocument();
+      // Form should show "Nuevo Cliente" initially (from ClienteForm component)
+      expect(screen.getByText(/Nuevo Cliente/i)).toBeInTheDocument();
 
       // Click Editar button
       const editButtons = screen.getAllByRole("button", {
