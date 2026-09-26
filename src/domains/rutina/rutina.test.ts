@@ -42,12 +42,12 @@ describe("Rutina Domain Model", () => {
 
   describe("Rutina creation and validation", () => {
     it("should create a rutina with required fields", () => {
-      const rutina = createRutina("Full Body", 3, 60, "INTERMEDIO");
+      const rutina = createRutina("Full Body", 3, 60, "Intermedio");
       expect(rutina).toBeDefined();
       expect(rutina.nombre).toBe("Full Body");
       expect(rutina.frecuenciaSemanal).toBe(3);
       expect(rutina.duracionEstimada).toBe(60);
-      expect(rutina.nivelDeDificultad).toBe("INTERMEDIO");
+      expect(rutina.nivelDeDificultad).toBe("Intermedio");
     });
 
     it("should validate required nombre", () => {
@@ -55,7 +55,7 @@ describe("Rutina Domain Model", () => {
         nombre: "",
         frecuenciaSemanal: 3,
         duracionEstimada: 60,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       });
       expect(validation.valid).toBe(false);
       expect(validation.errors).toContain("El nombre es requerido");
@@ -66,7 +66,7 @@ describe("Rutina Domain Model", () => {
         nombre: "ab",
         frecuenciaSemanal: 3,
         duracionEstimada: 60,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       });
       expect(validation.valid).toBe(false);
       expect(validation.errors[0]).toContain("al menos 3 caracteres");
@@ -78,7 +78,7 @@ describe("Rutina Domain Model", () => {
         nombre: longName,
         frecuenciaSemanal: 3,
         duracionEstimada: 60,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       });
       expect(validation.valid).toBe(false);
       expect(validation.errors[0]).toContain("no puede exceder 100 caracteres");
@@ -89,7 +89,7 @@ describe("Rutina Domain Model", () => {
         nombre: "Routine",
         frecuenciaSemanal: 0,
         duracionEstimada: 60,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       });
       expect(validation.valid).toBe(false);
 
@@ -97,7 +97,7 @@ describe("Rutina Domain Model", () => {
         nombre: "Routine",
         frecuenciaSemanal: 8,
         duracionEstimada: 60,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       });
       expect(validation.valid).toBe(false);
     });
@@ -108,7 +108,7 @@ describe("Rutina Domain Model", () => {
           nombre: "Routine",
           frecuenciaSemanal: freq,
           duracionEstimada: 60,
-          nivelDeDificultad: "BASICO",
+          nivelDeDificultad: "Básico",
         });
         expect(validation.valid).toBe(true);
       }
@@ -119,28 +119,28 @@ describe("Rutina Domain Model", () => {
         nombre: "Routine",
         frecuenciaSemanal: 3,
         duracionEstimada: 0,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       });
       expect(validation.valid).toBe(false);
       expect(validation.errors[0]).toContain("mayor a 0");
     });
 
-    it("should validate nivelDeDificultad enum", () => {
+    it("should validate nivelDeDificultad enum and spanish names", () => {
        let validation = validateRutina({
          nombre: "Routine",
          frecuenciaSemanal: 3,
          duracionEstimada: 60,
-         nivelDeDificultad: "InvalidLevel" as any,
+         nivelDeDificultad: "InvalidLevel",
        });
        expect(validation.valid).toBe(false);
 
-       const validLevels = ["BASICO", "INTERMEDIO", "AVANZADO"];
+       const validLevels = ["Básico", "Intermedio", "Avanzado", "Básico", "Intermedio", "Avanzado"];
        for (const level of validLevels) {
          validation = validateRutina({
            nombre: "Routine",
            frecuenciaSemanal: 3,
            duracionEstimada: 60,
-           nivelDeDificultad: level as any,
+           nivelDeDificultad: level,
          });
          expect(validation.valid).toBe(true);
        }
@@ -151,7 +151,7 @@ describe("Rutina Domain Model", () => {
         nombre: "Routine",
         frecuenciaSemanal: 3,
         duracionEstimada: 60,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
         descripcion: "d".repeat(501),
       });
       expect(validation.valid).toBe(false);
@@ -163,7 +163,7 @@ describe("Rutina Domain Model", () => {
         nombre: "Upper Body",
         frecuenciaSemanal: 2,
         duracionEstimada: 90,
-        nivelDeDificultad: "AVANZADO",
+        nivelDeDificultad: "Avanzado",
         descripcion: "Advanced upper body workout",
         objetivoPrincipal: "Fuerza",
       });
@@ -183,7 +183,7 @@ describe("Rutina Domain Model", () => {
         nombre: "Push/Pull/Legs",
         frecuenciaSemanal: 3,
         duracionEstimada: 75,
-        nivelDeDificultad: "INTERMEDIO",
+        nivelDeDificultad: "Intermedio",
       };
       const created = await repository.create(data);
       expect(created).toBeDefined();
@@ -196,7 +196,7 @@ describe("Rutina Domain Model", () => {
         nombre: "Full Body",
         frecuenciaSemanal: 3,
         duracionEstimada: 60,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       };
       const created = await repository.create(data);
       const retrieved = await repository.getById(created.id);
@@ -214,7 +214,7 @@ describe("Rutina Domain Model", () => {
         nombre: "Routine",
         frecuenciaSemanal: 3,
         duracionEstimada: 60,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       };
       const created = await repository.create(data);
       const updated = await repository.update(created.id, {
@@ -230,7 +230,7 @@ describe("Rutina Domain Model", () => {
         nombre: "Temporary",
         frecuenciaSemanal: 1,
         duracionEstimada: 45,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       };
       const created = await repository.create(data);
       await repository.delete(created.id);
@@ -243,7 +243,7 @@ describe("Rutina Domain Model", () => {
         nombre: "ab",
         frecuenciaSemanal: 3,
         duracionEstimada: 60,
-        nivelDeDificultad: "BASICO",
+        nivelDeDificultad: "Básico",
       };
       await expect(repository.create(invalidData as any)).rejects.toThrow();
     });

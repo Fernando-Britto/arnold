@@ -153,13 +153,7 @@ export function RutinasPage() {
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Error deleting rutina";
-
-      // Check if it's a cascade delete guard error
-      if (errorMessage.includes("asignada activamente")) {
-        setError(errorMessage);
-      } else {
-        setError(errorMessage);
-      }
+      setError(errorMessage);
     }
   };
 

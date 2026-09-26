@@ -1,16 +1,19 @@
-import { Rutina as PrismaRutina } from "@prisma/client";
+import { Rutina as PrismaRutina, NivelDeDificultad } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 /**
- * Map Spanish difficulty level names to Prisma enum values
+ * Map Spanish difficulty level names or enum values to Prisma enum
  */
-function mapNivelDeDificultad(nivel: string): "BASICO" | "INTERMEDIO" | "AVANZADO" {
-  const map: Record<string, "BASICO" | "INTERMEDIO" | "AVANZADO"> = {
-    "Básico": "BASICO",
-    "Intermedio": "INTERMEDIO",
-    "Avanzado": "AVANZADO",
+export function mapNivelDeDificultad(nivel: string): NivelDeDificultad {
+  const map: Record<string, NivelDeDificultad> = {
+    "Básico": NivelDeDificultad.BASICO,
+    "Intermedio": NivelDeDificultad.INTERMEDIO,
+    "Avanzado": NivelDeDificultad.AVANZADO,
+    "BASICO": NivelDeDificultad.BASICO,
+    "INTERMEDIO": NivelDeDificultad.INTERMEDIO,
+    "AVANZADO": NivelDeDificultad.AVANZADO,
   };
-  return map[nivel] || "BASICO";
+  return map[nivel] || NivelDeDificultad.BASICO;
 }
 
 /**
@@ -21,7 +24,7 @@ export interface Rutina {
   nombre: string;
   frecuenciaSemanal: number;
   duracionEstimada: number;
-  nivelDeDificultad: string;
+  nivelDeDificultad: NivelDeDificultad | string;
   descripcion?: string | null;
   objetivoPrincipal?: string | null;
   createdAt?: Date;
@@ -109,8 +112,8 @@ export function validateRutina(data: Partial<Rutina>): ValidationResult {
  */
 export class RutinaRepository {
   /**
-   * Create a new rutina in the database
-   */
+    * Create a new rutina in the database
+    */
   async create(data: {
     nombre: string;
     frecuenciaSemanal: number;
@@ -118,7 +121,7 @@ export class RutinaRepository {
     nivelDeDificultad: string;
     descripcion?: string;
     objetivoPrincipal?: string;
-  }): Promise<Rutina> {
+  }): Promise<PrismaRutina> {
     // Validate first
     const validation = validateRutina(data);
     if (!validation.valid) {
@@ -126,26 +129,25 @@ export class RutinaRepository {
     }
 
     // Create in database
-    const prismaRutina = await prisma.rutina.create({
+    return prisma.rutina.create({
       data: {
         nombre: data.nombre,
         frecuenciaSemanal: data.frecuenciaSemanal,
         duracionEstimada: data.duracionEstimada,
-        nivelDeDificultad: mapNivelDeDificultad(data.nivelDeDificultad) as any,
+        nivelDeDificultad: mapNivelDeDificultad(data.nivelDeDificultad),
         descripcion: data.descripcion,
         objetivoPrincipal: data.objetivoPrincipal || "General",
       },
     });
-    return prismaRutina as Rutina;
   }
 
   /**
-   * Retrieve a rutina by ID
-   */
-  async getById(id: string): Promise<Rutina | null> {
+    * Retrieve a rutina by ID
+    */
+  async getById(id: string): Promise<PrismaRutina | null> {
     return prisma.rutina.findUnique({
       where: { id },
-    }) as Promise<Rutina | null>;
+    });
   }
 
   /**
@@ -161,7 +163,7 @@ export class RutinaRepository {
       descripcion: string | null;
       objetivoPrincipal: string | null;
     }>
-  ): Promise<Rutina | null> {
+  ): Promise<PrismaRutina | null> {
     // Validate if updating validation fields
     if (
       data.nombre !== undefined ||
@@ -188,19 +190,18 @@ export class RutinaRepository {
     if (data.descripcion !== undefined) updateData.descripcion = data.descripcion;
     if (data.objetivoPrincipal !== undefined) updateData.objetivoPrincipal = data.objetivoPrincipal;
 
-    const rutina = await prisma.rutina.update({
+    return prisma.rutina.update({
       where: { id },
       data: updateData,
     });
-    return rutina || null;
   }
 
   /**
-   * Delete a rutina
-   */
-  async delete(id: string): Promise<Rutina> {
+    * Delete a rutina
+    */
+  async delete(id: string): Promise<PrismaRutina> {
     return prisma.rutina.delete({
       where: { id },
-    }) as Promise<Rutina>;
+    });
   }
 }

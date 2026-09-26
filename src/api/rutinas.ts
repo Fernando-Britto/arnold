@@ -55,7 +55,7 @@ export async function handleRutinaCreate(
     });
   }
 
-  return rutina as unknown as Rutina;
+  return rutina;
 }
 
 /**
@@ -127,11 +127,11 @@ export async function handleRutinaUpdate(
           orden: typeof ej.orden === "number" ? ej.orden : index,
         })),
       });
-    }
-  }
-
-  return rutina as unknown as Rutina;
-}
+     }
+   }
+ 
+   return rutina;
+ }
 
 /**
  * Handle DELETE /api/rutinas/:id
