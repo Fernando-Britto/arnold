@@ -7,7 +7,7 @@ import {
   type ListError,
 } from "@/app/api/clientes/route";
 
-// Mock Prisma
+// Mock Prisma (B4 fix: Include $transaction)
 jest.mock("@/lib/db", () => ({
   prisma: {
     socio: {
@@ -20,10 +20,16 @@ jest.mock("@/lib/db", () => ({
     usuario: {
       create: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     },
     membresia: {
       findUnique: jest.fn(),
     },
+    $transaction: jest.fn((ops) =>
+      Array.isArray(ops)
+        ? Promise.resolve(ops.map(() => ({})))
+        : Promise.resolve(ops({ prisma: {} }))
+    ),
   },
 }));
 

@@ -54,8 +54,8 @@ export async function handleClienteUpdateRequest(
   body: any
 ): Promise<UpdateSuccessType | UpdateErrorType> {
   try {
-    // B3 fix: AC-007: Reject attempts to edit id or fechaAlta (check !== undefined)
-    if (body.id !== undefined || body.fechaAlta !== undefined) {
+    // B3 fix: AC-007: Reject attempts to edit id or fechaAlta (check !== undefined with optional chaining)
+    if (body?.id !== undefined || body?.fechaAlta !== undefined) {
       throw new Error("VALIDATION_ERROR: id y fechaAlta son campos de solo lectura");
     }
 
