@@ -66,20 +66,28 @@ describe("Membresia API Routes", () => {
       const mockList = handleMembresiaList as jest.MockedFunction<
         typeof handleMembresiaList
       >;
-      mockList.mockResolvedValue([
-        ...mockMembresias,
-        {
-          id: "3",
-          nombre: "Bronze",
-          precio: 5000,
-          periodicidad: 30,
-          descripcion: "Plan Bronze",
-          estado: "INACTIVA" as const,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          assignedSocioCount: 0,
-        },
-      ]);
+      // Mock to return only ACTIVA when activeOnly=true
+      mockList.mockImplementation(async (options) => {
+        const allMembresias = [
+          ...mockMembresias,
+          {
+            id: "3",
+            nombre: "Bronze",
+            precio: 5000,
+            periodicidad: 30,
+            descripcion: "Plan Bronze",
+            estado: "INACTIVA" as const,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            assignedSocioCount: 0,
+          },
+        ];
+        
+        if (options?.activeOnly) {
+          return allMembresias.filter((m) => m.estado === "ACTIVA");
+        }
+        return allMembresias;
+      });
 
       const result = await handleMembresiaListRequest(true); // activeOnly=true
 
@@ -87,6 +95,7 @@ describe("Membresia API Routes", () => {
         // Should only have ACTIVA
         const allActiva = result.every((m) => m.estado === "ACTIVA");
         expect(allActiva).toBe(true);
+        expect(result.length).toBe(2); // Only 2 ACTIVA, not 3
       }
     });
 
