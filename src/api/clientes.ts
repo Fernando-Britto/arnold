@@ -90,6 +90,8 @@ export async function fetchClientes(): Promise<Cliente[]> {
 
 /**
  * Client-side API call: create a new cliente
+ * Adapts API response to standard contract: { cliente, tempPassword }
+ * Supports both wrapped format { cliente, tempPassword } and flat format { ...cliente, tempPassword }
  * @returns { cliente, tempPassword } where tempPassword is UNA SOLA VEZ
  */
 export async function createCliente(
@@ -104,7 +106,21 @@ export async function createCliente(
     const error = await response.json();
     throw new Error(error.message || "Failed to create cliente");
   }
-  return response.json();
+
+  const json = await response.json();
+
+  // B1 fix: Support both wrapped { cliente, tempPassword } and flat { ...cliente, tempPassword }
+  if (json.cliente) {
+    // Already wrapped format
+    return json;
+  }
+
+  // Flat format: extract tempPassword and status, rest is cliente data
+  const { tempPassword, status, ...clienteData } = json;
+  return {
+    cliente: clienteData as Cliente,
+    tempPassword,
+  };
 }
 
 /**

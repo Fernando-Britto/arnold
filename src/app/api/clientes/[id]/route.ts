@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleClienteGet, handleClienteUpdate, handleClienteDelete, type ClienteInput } from "@/api/clientes";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { extractUserFromAuthHeader } from "@/lib/auth";
 import type {
   GetSuccess as GetSuccessType,
   GetError as GetErrorType,
@@ -46,14 +47,15 @@ export async function handleClienteGetRequest(id: string): Promise<GetSuccessTyp
  * Core handler logic for PUT /api/clientes/:id
  * AC-007: id and fechaAlta are read-only (never editable)
  * Exported for testing without NextRequest/NextResponse mocking
+ * B3 fix: Use !== undefined instead of "in" operator to avoid false positives
  */
 export async function handleClienteUpdateRequest(
   id: string,
   body: any
 ): Promise<UpdateSuccessType | UpdateErrorType> {
   try {
-    // AC-007: Reject attempts to edit id or fechaAlta
-    if ("id" in body || "fechaAlta" in body) {
+    // B3 fix: AC-007: Reject attempts to edit id or fechaAlta (check !== undefined)
+    if (body.id !== undefined || body.fechaAlta !== undefined) {
       throw new Error("VALIDATION_ERROR: id y fechaAlta son campos de solo lectura");
     }
 
@@ -101,11 +103,32 @@ export async function handleClienteDeleteRequest(id: string): Promise<DeleteSucc
 
 /**
  * GET /api/clientes/:id - Get a specific cliente by ID
+ * Requires ADMINISTRADOR or RECEPCIONISTA role
+ * B2 fix: Add JWT auth validation
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // B2 fix: Validate JWT auth and role
+  const authHeader = request.headers.get("authorization") || undefined;
+  const user = extractUserFromAuthHeader(authHeader);
+
+  if (!user) {
+    return NextResponse.json(
+      { code: "UNAUTHORIZED", message: "Token de autenticación inválido o faltante" },
+      { status: 401 }
+    );
+  }
+
+  const allowedRoles = ["ADMINISTRADOR", "RECEPCIONISTA"];
+  if (!user.rol || !allowedRoles.includes(user.rol)) {
+    return NextResponse.json(
+      { code: "FORBIDDEN", message: "Se requiere rol de administrador o recepcionista" },
+      { status: 403 }
+    );
+  }
+
   // Await params per Next.js 16 App Router spec
   const { id } = await params;
   const result = await handleClienteGetRequest(id);
@@ -124,11 +147,32 @@ export async function GET(
 
 /**
  * PUT /api/clientes/:id - Update a specific cliente
+ * Requires ADMINISTRADOR or RECEPCIONISTA role
+ * B2 fix: Add JWT auth validation
  */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // B2 fix: Validate JWT auth and role
+  const authHeader = request.headers.get("authorization") || undefined;
+  const user = extractUserFromAuthHeader(authHeader);
+
+  if (!user) {
+    return NextResponse.json(
+      { code: "UNAUTHORIZED", message: "Token de autenticación inválido o faltante" },
+      { status: 401 }
+    );
+  }
+
+  const allowedRoles = ["ADMINISTRADOR", "RECEPCIONISTA"];
+  if (!user.rol || !allowedRoles.includes(user.rol)) {
+    return NextResponse.json(
+      { code: "FORBIDDEN", message: "Se requiere rol de administrador o recepcionista" },
+      { status: 403 }
+    );
+  }
+
   // Await params per Next.js 16 App Router spec
   const { id } = await params;
   const body = await request.json();
@@ -148,11 +192,32 @@ export async function PUT(
 
 /**
  * DELETE /api/clientes/:id - Delete a specific cliente
+ * Requires ADMINISTRADOR or RECEPCIONISTA role
+ * B2 fix: Add JWT auth validation
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // B2 fix: Validate JWT auth and role
+  const authHeader = request.headers.get("authorization") || undefined;
+  const user = extractUserFromAuthHeader(authHeader);
+
+  if (!user) {
+    return NextResponse.json(
+      { code: "UNAUTHORIZED", message: "Token de autenticación inválido o faltante" },
+      { status: 401 }
+    );
+  }
+
+  const allowedRoles = ["ADMINISTRADOR", "RECEPCIONISTA"];
+  if (!user.rol || !allowedRoles.includes(user.rol)) {
+    return NextResponse.json(
+      { code: "FORBIDDEN", message: "Se requiere rol de administrador o recepcionista" },
+      { status: 403 }
+    );
+  }
+
   // Await params per Next.js 16 App Router spec
   const { id } = await params;
   const result = await handleClienteDeleteRequest(id);

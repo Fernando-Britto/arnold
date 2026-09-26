@@ -6,6 +6,7 @@ import {
   type ClienteInput,
 } from "@/api/clientes";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { extractUserFromAuthHeader } from "@/lib/auth";
 
 /**
  * Discriminated union types for handler responses
@@ -94,8 +95,28 @@ export async function handleClienteListRequest(): Promise<ListSuccess | ListErro
 /**
  * POST /api/clientes - Create a new cliente
  * Requires ADMINISTRADOR or RECEPCIONISTA role
+ * B2 fix: Add JWT auth validation
  */
 export async function POST(request: NextRequest) {
+  // B2 fix: Validate JWT auth and role
+  const authHeader = request.headers.get("authorization") || undefined;
+  const user = extractUserFromAuthHeader(authHeader);
+
+  if (!user) {
+    return NextResponse.json(
+      { code: "UNAUTHORIZED", message: "Token de autenticación inválido o faltante" },
+      { status: 401 }
+    );
+  }
+
+  const allowedRoles = ["ADMINISTRADOR", "RECEPCIONISTA"];
+  if (!user.rol || !allowedRoles.includes(user.rol)) {
+    return NextResponse.json(
+      { code: "FORBIDDEN", message: "Se requiere rol de administrador o recepcionista" },
+      { status: 403 }
+    );
+  }
+
   const body = await request.json();
   const result = await handleClienteCreateRequest(body);
 
@@ -113,8 +134,29 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/clientes - List all clientes
+ * Requires ADMINISTRADOR or RECEPCIONISTA role
+ * B2 fix: Add JWT auth validation
  */
 export async function GET(request: NextRequest) {
+  // B2 fix: Validate JWT auth and role
+  const authHeader = request.headers.get("authorization") || undefined;
+  const user = extractUserFromAuthHeader(authHeader);
+
+  if (!user) {
+    return NextResponse.json(
+      { code: "UNAUTHORIZED", message: "Token de autenticación inválido o faltante" },
+      { status: 401 }
+    );
+  }
+
+  const allowedRoles = ["ADMINISTRADOR", "RECEPCIONISTA"];
+  if (!user.rol || !allowedRoles.includes(user.rol)) {
+    return NextResponse.json(
+      { code: "FORBIDDEN", message: "Se requiere rol de administrador o recepcionista" },
+      { status: 403 }
+    );
+  }
+
   const result = await handleClienteListRequest();
 
   // If error response
