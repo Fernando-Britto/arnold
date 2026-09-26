@@ -149,8 +149,9 @@ export function EjercicioEnRutinaList({
    */
   const handleAddFromCatalog = useCallback(
     (ejercicioIds: string[]) => {
+      const startIndex = rows.length;
       const nuevosRows = ejercicioIds
-        .map(ejercicioId => {
+        .map((ejercicioId, idx) => {
           // Check for duplicate
           if (selectedEjercicioIds.has(ejercicioId)) {
             return null;
@@ -165,6 +166,7 @@ export function EjercicioEnRutinaList({
             series: 3,
             repeticiones: 10,
             descanso: 60,
+            orden: startIndex + idx,
           };
         })
         .filter((r): r is EjercicioEnRutinaRow => r !== null);
@@ -185,7 +187,10 @@ export function EjercicioEnRutinaList({
           `¿Eliminar "${ejercicio.ejercicioNombre}" de esta rutina?`
         )
       ) {
-        onRowsChange(rows.filter((_, i) => i !== index));
+        const updated = rows
+          .filter((_, i) => i !== index)
+          .map((row, i) => ({ ...row, orden: i }));
+        onRowsChange(updated);
       }
     },
     [rows, onRowsChange]
@@ -196,18 +201,21 @@ export function EjercicioEnRutinaList({
    */
   const handleFieldChange = useCallback(
     (index: number, field: keyof EjercicioEnRutinaRow, value: unknown) => {
-      const updated = [...rows];
-      const row = updated[index];
+      const updated = rows.map((row, i) => {
+        if (i !== index) return row;
+        const newRow = { ...row };
 
-      if (field === "descanso" && typeof value === "string") {
-        // Parse descanso input (MM:SS or seconds)
-        row.descanso = parseDescansoInput(value);
-      } else if (field === "series" || field === "repeticiones") {
-        const numValue = parseInt(String(value), 10);
-        if (!isNaN(numValue) && numValue > 0) {
-          (row[field] as number) = numValue;
+        if (field === "descanso" && typeof value === "string") {
+          // Parse descanso input (MM:SS or seconds)
+          newRow.descanso = parseDescansoInput(value);
+        } else if (field === "series" || field === "repeticiones") {
+          const numValue = parseInt(String(value), 10);
+          if (!isNaN(numValue) && numValue > 0) {
+            (newRow[field] as number) = numValue;
+          }
         }
-      }
+        return newRow;
+      });
 
       onRowsChange(updated);
     },
@@ -223,15 +231,17 @@ export function EjercicioEnRutinaList({
       if (index <= 0) return; // Can't move first row up
 
       const updated = [...rows];
-      // Swap with previous row
-      [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+      const temp = updated[index - 1];
+      updated[index - 1] = updated[index];
+      updated[index] = temp;
 
       // Recalculate orden for all rows to maintain consistency
-      updated.forEach((row, i) => {
-        row.orden = i;
-      });
+      const normalized = updated.map((row, i) => ({
+        ...row,
+        orden: i,
+      }));
 
-      onRowsChange(updated);
+      onRowsChange(normalized);
     },
     [rows, onRowsChange]
   );
@@ -245,15 +255,17 @@ export function EjercicioEnRutinaList({
       if (index >= rows.length - 1) return; // Can't move last row down
 
       const updated = [...rows];
-      // Swap with next row
-      [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+      const temp = updated[index + 1];
+      updated[index + 1] = updated[index];
+      updated[index] = temp;
 
       // Recalculate orden for all rows to maintain consistency
-      updated.forEach((row, i) => {
-        row.orden = i;
-      });
+      const normalized = updated.map((row, i) => ({
+        ...row,
+        orden: i,
+      }));
 
-      onRowsChange(updated);
+      onRowsChange(normalized);
     },
     [rows, onRowsChange]
   );

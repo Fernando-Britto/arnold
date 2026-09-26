@@ -20,6 +20,18 @@ const NIVEL_OPTIONS = [
   { label: "Avanzado", value: "Avanzado" },
 ];
 
+/**
+ * Normalize nivel from Prisma (uppercase) or Spanish format to display format
+ */
+function normalizeNivel(nivel?: string | null): string {
+  if (!nivel) return "Básico";
+  const upper = nivel.toUpperCase();
+  if (upper === "BASICO" || upper === "BÁSICO") return "Básico";
+  if (upper === "INTERMEDIO") return "Intermedio";
+  if (upper === "AVANZADO") return "Avanzado";
+  return nivel;
+}
+
 export interface RutinaFormProps {
   onSave: (data: {
     id?: string;
@@ -62,7 +74,7 @@ export function RutinaForm({
     objetivoPrincipal: initialData?.objetivoPrincipal || "",
     frecuenciaSemanal: initialData?.frecuenciaSemanal || 3,
     duracionEstimada: initialData?.duracionEstimada || 60,
-    nivelDeDificultad: initialData?.nivelDeDificultad || "Básico",
+    nivelDeDificultad: normalizeNivel(initialData?.nivelDeDificultad),
     descripcion: initialData?.descripcion || "",
   });
 
@@ -72,22 +84,35 @@ export function RutinaForm({
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset form when initialData changes
+  // Sync form when initialData changes (or resets to null)
   useEffect(() => {
     if (initialData) {
       setFormData({
         id: initialData.id,
         nombre: initialData.nombre,
-        objetivoPrincipal: initialData.objetivoPrincipal,
+        objetivoPrincipal: initialData.objetivoPrincipal || "",
         frecuenciaSemanal: initialData.frecuenciaSemanal,
         duracionEstimada: initialData.duracionEstimada,
-        nivelDeDificultad: initialData.nivelDeDificultad,
+        nivelDeDificultad: normalizeNivel(initialData.nivelDeDificultad),
         descripcion: initialData.descripcion || "",
       });
       setEjercicios(initialData.ejercicios || []);
       setErrors({});
+    } else {
+      // Reset form to defaults when initialData becomes null (switching to create mode)
+      setFormData({
+        id: undefined,
+        nombre: "",
+        objetivoPrincipal: "",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+        descripcion: "",
+      });
+      setEjercicios([]);
+      setErrors({});
     }
-  }, [initialData?.id]);
+  }, [initialData]);
 
   const validateForm = (): boolean => {
     const newErrors: ValidationErrors = {};
