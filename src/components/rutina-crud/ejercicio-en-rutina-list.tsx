@@ -145,31 +145,33 @@ export function EjercicioEnRutinaList({
   const selectedEjercicioIds = new Set(rows.map(r => r.ejercicioId));
 
   /**
-   * Add selected exercises from catalog to the table with default values
-   */
+    * Add selected exercises from catalog to the table with default values
+    */
   const handleAddFromCatalog = useCallback(
     (ejercicioIds: string[]) => {
       const startIndex = rows.length;
-      const nuevosRows = ejercicioIds
-        .map((ejercicioId, idx) => {
-          // Check for duplicate
-          if (selectedEjercicioIds.has(ejercicioId)) {
-            return null;
-          }
+      const nuevosRows: EjercicioEnRutinaRow[] = [];
+      
+      for (let idx = 0; idx < ejercicioIds.length; idx++) {
+        const ejercicioId = ejercicioIds[idx];
+        
+        // Check for duplicate
+        if (selectedEjercicioIds.has(ejercicioId)) {
+          continue;
+        }
 
-          const ejercicio = availableEjercicios.find(e => e.id === ejercicioId);
-          if (!ejercicio) return null;
+        const ejercicio = availableEjercicios.find(e => e.id === ejercicioId);
+        if (!ejercicio) continue;
 
-          return {
-            ejercicioId,
-            ejercicioNombre: ejercicio.nombre,
-            series: 3,
-            repeticiones: 10,
-            descanso: 60,
-            orden: startIndex + idx,
-          };
-        })
-        .filter((r): r is EjercicioEnRutinaRow => r !== null);
+        nuevosRows.push({
+          ejercicioId,
+          ejercicioNombre: ejercicio.nombre,
+          series: 3,
+          repeticiones: 10,
+          descanso: 60,
+          orden: startIndex + nuevosRows.length,
+        });
+      }
 
       onRowsChange([...rows, ...nuevosRows]);
     },

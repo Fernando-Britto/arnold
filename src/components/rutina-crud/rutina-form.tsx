@@ -122,7 +122,7 @@ export function RutinaForm({
       nombre: formData.nombre,
       frecuenciaSemanal: formData.frecuenciaSemanal,
       duracionEstimada: formData.duracionEstimada,
-      nivelDeDificultad: formData.nivelDeDificultad,
+      nivelDeDificultad: formData.nivelDeDificultad as any,
       descripcion: formData.descripcion,
       objetivoPrincipal: formData.objetivoPrincipal,
     });

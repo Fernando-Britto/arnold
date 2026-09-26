@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { Rutina } from "@prisma/client";
+import { type RutinaWithCount } from "@/api/rutinas";
 
-type RutinaWithCount = Rutina & { _count: { ejercicios: number } };
 type SortColumn = "nombre" | "objetivo" | "frecuencia" | "duracion" | "nivel";
 type SortDirection = "asc" | "desc";
 
@@ -34,12 +33,12 @@ export function RutinaListPanel({
   const filteredAndSorted = useMemo(() => {
     let filtered = rutinas;
 
-    // Filter by search term
+    // Filter by search term with safe optional chaining
     if (debouncedSearch) {
       filtered = rutinas.filter(
         (r) =>
-          r.nombre.toLowerCase().includes(debouncedSearch) ||
-          r.objetivoPrincipal.toLowerCase().includes(debouncedSearch)
+          (r.nombre?.toLowerCase() ?? "").includes(debouncedSearch) ||
+          (r.objetivoPrincipal?.toLowerCase() ?? "").includes(debouncedSearch)
       );
     }
 
@@ -49,11 +48,11 @@ export function RutinaListPanel({
       let bValue: string | number;
 
       if (sortColumn === "nombre") {
-        aValue = a.nombre;
-        bValue = b.nombre;
+        aValue = a.nombre || "";
+        bValue = b.nombre || "";
       } else if (sortColumn === "objetivo") {
-        aValue = a.objetivoPrincipal;
-        bValue = b.objetivoPrincipal;
+        aValue = a.objetivoPrincipal || "";
+        bValue = b.objetivoPrincipal || "";
       } else if (sortColumn === "frecuencia") {
         aValue = a.frecuenciaSemanal;
         bValue = b.frecuenciaSemanal;
@@ -61,12 +60,14 @@ export function RutinaListPanel({
         aValue = a.duracionEstimada;
         bValue = b.duracionEstimada;
       } else {
-        aValue = a.nivelDeDificultad;
-        bValue = b.nivelDeDificultad;
+        aValue = a.nivelDeDificultad || "";
+        bValue = b.nivelDeDificultad || "";
       }
 
       if (typeof aValue === "string") {
-        const comparison = aValue.localeCompare(bValue as string);
+        const comparison = (aValue as string).localeCompare(
+          bValue as string
+        );
         return sortDirection === "asc" ? comparison : -comparison;
       } else {
         const comparison = (aValue as number) - (bValue as number);
@@ -176,7 +177,7 @@ export function RutinaListPanel({
                   {rutina.nombre}
                 </td>
                 <td className="px-4 py-2 border-b border-gray-200">
-                  {rutina.objetivoPrincipal}
+                  {rutina.objetivoPrincipal || "-"}
                 </td>
                 <td className="px-4 py-2 border-b border-gray-200 text-center">
                   {rutina.frecuenciaSemanal}x/sem
@@ -185,10 +186,10 @@ export function RutinaListPanel({
                   {rutina.duracionEstimada} min
                 </td>
                 <td className="px-4 py-2 border-b border-gray-200">
-                  {rutina.nivelDeDificultad}
+                  {rutina.nivelDeDificultad || "-"}
                 </td>
                 <td className="px-4 py-2 border-b border-gray-200 text-center font-semibold">
-                  {rutina._count.ejercicios}
+                  {rutina._count?.ejercicios ?? 0}
                 </td>
                 <td className="px-4 py-2 border-b border-gray-200 text-center">
                   <div className="flex gap-2 justify-center">

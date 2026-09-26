@@ -55,7 +55,7 @@ export async function handleRutinaCreate(
     });
   }
 
-  return rutina;
+  return rutina as unknown as Rutina;
 }
 
 /**
@@ -130,7 +130,7 @@ export async function handleRutinaUpdate(
     }
   }
 
-  return rutina;
+  return rutina as unknown as Rutina;
 }
 
 /**

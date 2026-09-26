@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Rutina, Ejercicio } from "@prisma/client";
+import { Ejercicio } from "@prisma/client";
 import { RutinaForm } from "@/components/rutina-crud/rutina-form";
 import { RutinaListPanel } from "@/components/rutina-crud/rutina-list";
 import { useAuth } from "@/contexts/auth";
@@ -11,10 +11,9 @@ import {
   createRutina,
   updateRutina,
   deleteRutina,
+  type RutinaWithCount,
 } from "@/api/rutinas";
 import { fetchEjercicios } from "@/api/ejercicios";
-
-type RutinaWithCount = Rutina & { _count: { ejercicios: number } };
 
 export function RutinasPage() {
   const router = useRouter();
@@ -54,7 +53,7 @@ export function RutinasPage() {
           fetchRutinas(),
           fetchEjercicios(),
         ]);
-        setRutinas(rutinasData as RutinaWithCount[]);
+        setRutinas(rutinasData);
         setEjercicios(ejerciciosData);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error loading data");
@@ -81,12 +80,11 @@ export function RutinasPage() {
     try {
       setIsSaving(true);
       setError(null);
-
-      let savedRutina: RutinaWithCount;
+      const exerciseCount = formData.ejercicios?.length ?? 0;
 
       if (formData.id) {
         // Update existing
-        savedRutina = (await updateRutina(formData.id, {
+        const updated = await updateRutina(formData.id, {
           nombre: formData.nombre,
           objetivoPrincipal: formData.objetivoPrincipal,
           frecuenciaSemanal: formData.frecuenciaSemanal,
@@ -94,7 +92,17 @@ export function RutinasPage() {
           nivelDeDificultad: formData.nivelDeDificultad,
           descripcion: formData.descripcion || undefined,
           ejercicios: formData.ejercicios,
-        })) as RutinaWithCount;
+        });
+
+        const savedRutina: RutinaWithCount = {
+          ...updated,
+          _count: {
+            ejercicios:
+              formData.ejercicios !== undefined
+                ? exerciseCount
+                : rutinas.find((r) => r.id === formData.id)?._count?.ejercicios ?? 0,
+          },
+        };
 
         // Update in list
         setRutinas((prev) =>
@@ -102,7 +110,7 @@ export function RutinasPage() {
         );
       } else {
         // Create new
-        savedRutina = (await createRutina({
+        const created = await createRutina({
           nombre: formData.nombre,
           objetivoPrincipal: formData.objetivoPrincipal,
           frecuenciaSemanal: formData.frecuenciaSemanal,
@@ -110,13 +118,15 @@ export function RutinasPage() {
           nivelDeDificultad: formData.nivelDeDificultad,
           descripcion: formData.descripcion || undefined,
           ejercicios: formData.ejercicios,
-        })) as RutinaWithCount;
+        });
 
-        // Add to list (with 0 exercises count since newly created)
-        setRutinas((prev) => [
-          ...prev,
-          { ...savedRutina, _count: { ejercicios: 0 } },
-        ]);
+        const savedRutina: RutinaWithCount = {
+          ...created,
+          _count: { ejercicios: exerciseCount },
+        };
+
+        // Add to list with accurate exercises count
+        setRutinas((prev) => [...prev, savedRutina]);
       }
 
       // Reset form
@@ -200,10 +210,19 @@ export function RutinasPage() {
         <div className="flex gap-6">
           {/* Form panel - left */}
           <div className="w-96 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <div className="border-b bg-gray-50 px-4 py-3">
+            <div className="border-b bg-gray-50 px-4 py-3 flex justify-between items-center">
               <h2 className="font-bold text-lg">
                 {selectedRutina ? "Editar Rutina" : "Nueva Rutina"}
               </h2>
+              {selectedRutina && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedRutina(null)}
+                  className="text-xs text-blue-600 hover:underline font-medium"
+                >
+                  + Nueva Rutina
+                </button>
+              )}
             </div>
             <RutinaForm
               onSave={handleSave}

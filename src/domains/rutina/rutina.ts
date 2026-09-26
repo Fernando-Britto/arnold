@@ -126,16 +126,17 @@ export class RutinaRepository {
     }
 
     // Create in database
-    return prisma.rutina.create({
+    const prismaRutina = await prisma.rutina.create({
       data: {
         nombre: data.nombre,
         frecuenciaSemanal: data.frecuenciaSemanal,
         duracionEstimada: data.duracionEstimada,
-        nivelDeDificultad: mapNivelDeDificultad(data.nivelDeDificultad),
+        nivelDeDificultad: mapNivelDeDificultad(data.nivelDeDificultad) as any,
         descripcion: data.descripcion,
         objetivoPrincipal: data.objetivoPrincipal || "General",
       },
-    }) as Promise<Rutina>;
+    });
+    return prismaRutina as Rutina;
   }
 
   /**
@@ -148,8 +149,8 @@ export class RutinaRepository {
   }
 
   /**
-   * Update a rutina
-   */
+    * Update a rutina
+    */
   async update(
     id: string,
     data: Partial<{
@@ -179,7 +180,7 @@ export class RutinaRepository {
     }
 
     // Map nivel de dificultad if provided and filter out undefined null values
-    const updateData: Partial<Rutina> = {};
+    const updateData: Record<string, any> = {};
     if (data.nombre !== undefined) updateData.nombre = data.nombre;
     if (data.frecuenciaSemanal !== undefined) updateData.frecuenciaSemanal = data.frecuenciaSemanal;
     if (data.duracionEstimada !== undefined) updateData.duracionEstimada = data.duracionEstimada;
@@ -187,10 +188,11 @@ export class RutinaRepository {
     if (data.descripcion !== undefined) updateData.descripcion = data.descripcion;
     if (data.objetivoPrincipal !== undefined) updateData.objetivoPrincipal = data.objetivoPrincipal;
 
-    return prisma.rutina.update({
+    const rutina = await prisma.rutina.update({
       where: { id },
       data: updateData,
-    }) as Promise<Rutina | null>;
+    });
+    return rutina || null;
   }
 
   /**
