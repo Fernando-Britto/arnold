@@ -61,6 +61,28 @@ describe("Membresia Domain", () => {
           expect.stringMatching(/nombre|name/)
         );
       });
+
+      it("should reject when nombre contains only whitespace", () => {
+        const result = validateMembresia({
+          nombre: "     ",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain("El nombre de la membresía es requerido");
+      });
+
+      it("should reject when nombre with padding has fewer than 3 actual characters", () => {
+        const result = validateMembresia({
+          nombre: "   Go   ",
+          precio: 15000,
+          periodicidad: 30,
+          estado: "ACTIVA",
+        });
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.includes("3 caracteres"))).toBe(true);
+      });
     });
 
     describe("precio validation (AC-002)", () => {
@@ -346,6 +368,19 @@ describe("Membresia Domain", () => {
       });
 
       expect(membresia).not.toHaveProperty("id");
+    });
+
+    it("should trim nombre and convert whitespace-only descripcion to null", () => {
+      const membresia = createMembresia({
+        nombre: "  Gold Plan  ",
+        precio: 15000,
+        periodicidad: 30,
+        descripcion: "   ",
+        estado: "ACTIVA",
+      });
+
+      expect(membresia.nombre).toBe("Gold Plan");
+      expect(membresia.descripcion).toBeNull();
     });
   });
 

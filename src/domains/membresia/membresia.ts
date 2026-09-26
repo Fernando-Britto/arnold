@@ -76,11 +76,12 @@ export function validateMembresia(
 
   // Validate nombre (AC-001)
   if (!partial || data.nombre !== undefined) {
-    if (!data.nombre || data.nombre.trim() === "") {
+    const trimmedNombre = data.nombre?.trim();
+    if (!trimmedNombre) {
       errors.push("El nombre de la membresía es requerido");
-    } else if (data.nombre.length < 3) {
+    } else if (trimmedNombre.length < 3) {
       errors.push("El nombre debe tener al menos 3 caracteres");
-    } else if (data.nombre.length > 50) {
+    } else if (trimmedNombre.length > 50) {
       errors.push("El nombre no puede exceder 50 caracteres");
     }
   }
@@ -143,14 +144,15 @@ export function createMembresia(data: {
   nombre: string;
   precio: number;
   periodicidad: number;
-  descripcion?: string;
+  descripcion?: string | null;
   estado: EstadoMembresia;
 }): Omit<Membresia, "id" | "createdAt" | "updatedAt"> {
+  const cleanDescripcion = data.descripcion ? data.descripcion.trim() : null;
   return {
-    nombre: data.nombre,
+    nombre: data.nombre.trim(),
     precio: normalizePrecio(data.precio),
     periodicidad: data.periodicidad,
-    descripcion: data.descripcion || null,
+    descripcion: cleanDescripcion || null,
     estado: data.estado,
   };
 }
@@ -230,6 +232,7 @@ export class MembresiaRepository {
     const prisma = await this.getPrisma();
     const results = await prisma.membresia.findMany({
       where: { estado: "ACTIVA" },
+      orderBy: { nombre: "asc" },
     });
     return results.map(mapPrismaToMembresia);
   }
@@ -244,7 +247,7 @@ export class MembresiaRepository {
       nombre: string;
       precio: number;
       periodicidad: number;
-      descripcion: string;
+      descripcion: string | null;
       estado: EstadoMembresia;
     }>
   ): Promise<Membresia> {
@@ -256,13 +259,15 @@ export class MembresiaRepository {
 
     const prisma = await this.getPrisma();
     const updateData: any = {};
-    if (data.nombre !== undefined) updateData.nombre = data.nombre;
+    if (data.nombre !== undefined) updateData.nombre = data.nombre.trim();
     if (data.precio !== undefined)
       updateData.precio = normalizePrecio(data.precio);
     if (data.periodicidad !== undefined)
       updateData.periodicidad = data.periodicidad;
-    if (data.descripcion !== undefined)
-      updateData.descripcion = data.descripcion;
+    if (data.descripcion !== undefined) {
+      const cleanDesc = data.descripcion ? data.descripcion.trim() : null;
+      updateData.descripcion = cleanDesc || null;
+    }
     if (data.estado !== undefined) updateData.estado = data.estado;
 
     const prismaResult = await prisma.membresia.update({
