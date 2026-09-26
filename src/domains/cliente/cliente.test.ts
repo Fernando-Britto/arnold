@@ -2,6 +2,9 @@ import {
   createCliente,
   validateCliente,
   normalizeDNI,
+  ClienteRepository,
+  mapEstadoCuentaToEstadoCuota,
+  mapEstadoCuotaToEstadoCuenta,
   type Cliente,
 } from "./cliente";
 
@@ -545,6 +548,437 @@ describe("Cliente Domain Model", () => {
 
       expect(validation.valid).toBe(true);
       expect(validation.errors).toHaveLength(0);
+    });
+  });
+});
+
+describe("ClienteRepository", () => {
+  let repository: ClienteRepository;
+  let mockPrisma: any;
+
+  beforeEach(() => {
+    // Mock Prisma
+    mockPrisma = {
+      socio: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      usuario: {
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      membresia: {
+        findUnique: jest.fn(),
+      },
+      $transaction: jest.fn((callback) => {
+        if (Array.isArray(callback)) {
+          return Promise.resolve(callback.map(() => ({})));
+        }
+        return callback(mockPrisma);
+      }),
+    };
+
+    // Mock the getPrisma method
+    repository = new ClienteRepository();
+    (repository as any).getPrisma = jest
+      .fn()
+      .mockResolvedValue(mockPrisma);
+  });
+
+  describe("create()", () => {
+    it("should create a cliente with validated fields and temporary password", async () => {
+      const mockSocio = {
+        id: "socio-123",
+        nombre: "Juan Pérez",
+        dni: "12345678",
+        telefono: "+54 9 1234 567890",
+        email: "juan@example.com",
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: {
+          id: "user-123",
+          nombre: "Juan Pérez",
+          email: "juan@example.com",
+        },
+      };
+
+      mockPrisma.socio.findUnique.mockResolvedValue(null); // No duplicate DNI
+      mockPrisma.membresia.findUnique.mockResolvedValue({ estado: "ACTIVA" }); // Valid membership
+      mockPrisma.usuario.create.mockResolvedValue({
+        id: "user-123",
+        nombre: "Juan Pérez",
+        email: "juan@example.com",
+      });
+      mockPrisma.socio.create.mockResolvedValue(mockSocio);
+
+      const result = await repository.create({
+        nombre: "Juan Pérez",
+        dni: "12.345.678",
+        email: "juan@example.com",
+        membresiaAsignada: "gold-123",
+        estadoCuenta: "Activo",
+        telefono: "+54 9 1234 567890",
+      });
+
+      expect(result.cliente.id).toBe("socio-123");
+      expect(result.cliente.nombre).toBe("Juan Pérez");
+      expect(result.cliente.email).toBe("juan@example.com");
+      expect(result.tempPassword).toMatch(/^TempPass-\w+$/);
+      expect(mockPrisma.usuario.create).toHaveBeenCalled();
+      expect(mockPrisma.socio.create).toHaveBeenCalled();
+    });
+
+    it("should throw VALIDATION_DUPLICATE_DNI if DNI already exists", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue({ id: "existing-socio" }); // Duplicate exists
+
+      await expect(
+        repository.create({
+          nombre: "Juan Pérez",
+          dni: "12.345.678",
+          email: "juan@example.com",
+          membresiaAsignada: "gold-123",
+          estadoCuenta: "Activo",
+        })
+      ).rejects.toThrow("VALIDATION_DUPLICATE_DNI");
+    });
+
+    it("should throw MEMBERSHIP_NO_LONGER_ACTIVE if membership is not ACTIVA", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue(null);
+      mockPrisma.membresia.findUnique.mockResolvedValue({
+        estado: "INACTIVA",
+      });
+
+      await expect(
+        repository.create({
+          nombre: "Juan Pérez",
+          dni: "12.345.678",
+          email: "juan@example.com",
+          membresiaAsignada: "gold-123",
+          estadoCuenta: "Activo",
+        })
+      ).rejects.toThrow("MEMBERSHIP_NO_LONGER_ACTIVE");
+    });
+  });
+
+  describe("update()", () => {
+    it("should update partial fields without validation errors", async () => {
+      const mockSocio = {
+        id: "socio-123",
+        nombre: "Juan Pérez",
+        dni: "12345678",
+        telefono: "+54 9 1234 567890",
+        email: "juan@example.com",
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: {
+          id: "user-123",
+          nombre: "Juan Pérez",
+          email: "juan@example.com",
+        },
+      };
+
+      mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
+      mockPrisma.socio.update.mockResolvedValue({
+        ...mockSocio,
+        telefono: "+54 9 9876 543210", // Updated field
+      });
+
+      const result = await repository.update("socio-123", {
+        telefono: "+54 9 9876 543210",
+      });
+
+      expect(result).not.toBeNull();
+      expect(mockPrisma.socio.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "socio-123" },
+          data: expect.objectContaining({
+            telefono: "+54 9 9876 543210",
+          }),
+        })
+      );
+    });
+
+    it("should persist estadoCuenta as estadoCuota (H2 fix)", async () => {
+      const mockSocio = {
+        id: "socio-123",
+        nombre: "Juan Pérez",
+        dni: "12345678",
+        telefono: null,
+        email: "juan@example.com",
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: {
+          id: "user-123",
+          nombre: "Juan Pérez",
+          email: "juan@example.com",
+        },
+      };
+
+      mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
+      mockPrisma.socio.update.mockResolvedValue({
+        ...mockSocio,
+        estadoCuota: "VENCIDO", // Updated to Inactivo
+      });
+
+      await repository.update("socio-123", {
+        estadoCuenta: "Inactivo",
+      });
+
+      expect(mockPrisma.socio.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            estadoCuota: "VENCIDO", // H2: mapEstadoCuentaToEstadoCuota applied
+          }),
+        })
+      );
+    });
+
+    it("should merge with mapSocioToCliente before validation (H1 fix)", async () => {
+      const mockSocio = {
+        id: "socio-123",
+        nombre: "Juan Pérez",
+        dni: "12345678",
+        telefono: "+54 9 1234 567890",
+        email: "juan@example.com",
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: {
+          id: "user-123",
+          nombre: "Juan Pérez",
+          email: "juan@example.com",
+        },
+      };
+
+      mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
+      mockPrisma.socio.update.mockResolvedValue(mockSocio);
+
+      // Update only a partial field (just nombre)
+      // This should NOT fail validation for email/membresiaAsignada/estadoCuenta
+      // because H1 uses mapSocioToCliente to get proper domain model first
+      const result = await repository.update("socio-123", {
+        nombre: "Juan Carlos Pérez",
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.nombre).toBe("Juan Pérez"); // mock returns same object
+    });
+
+    it("should throw MEMBERSHIP_NO_LONGER_ACTIVE if membership is not ACTIVA", async () => {
+      const mockSocio = {
+        id: "socio-123",
+        nombre: "Juan Pérez",
+        dni: "12345678",
+        telefono: null,
+        email: "juan@example.com",
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: {
+          id: "user-123",
+          nombre: "Juan Pérez",
+          email: "juan@example.com",
+        },
+      };
+
+      mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
+      mockPrisma.membresia.findUnique.mockResolvedValue({
+        estado: "INACTIVA",
+      });
+
+      await expect(
+        repository.update("socio-123", {
+          membresiaAsignada: "silver-456",
+        })
+      ).rejects.toThrow("MEMBERSHIP_NO_LONGER_ACTIVE");
+    });
+
+    it("should return null if cliente not found", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue(null);
+
+      const result = await repository.update("nonexistent-123", {
+        telefono: "+54 9 1234 567890",
+      });
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("delete()", () => {
+    it("should delete socio and usuario in transaction (H4 fix)", async () => {
+      const mockSocio = {
+        id: "socio-123",
+        usuarioId: "user-123",
+      };
+
+      mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
+      mockPrisma.$transaction.mockImplementation((ops: any[]) => {
+        if (Array.isArray(ops)) {
+          return Promise.resolve([{}, {}]);
+        }
+        return Promise.resolve({});
+      });
+
+      await repository.delete("socio-123");
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      // Verify that the transaction was called with two operations
+      const transactionArg = mockPrisma.$transaction.mock.calls[0][0];
+      expect(Array.isArray(transactionArg)).toBe(true);
+      expect(transactionArg.length).toBe(2);
+    });
+
+    it("should throw NOT_FOUND if socio does not exist", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue(null);
+
+      await expect(repository.delete("nonexistent-123")).rejects.toThrow(
+        "NOT_FOUND"
+      );
+    });
+  });
+
+  describe("getById()", () => {
+    it("should map Socio to Cliente correctly", async () => {
+      const mockSocio = {
+        id: "socio-123",
+        nombre: "Juan Pérez",
+        dni: "12345678",
+        telefono: "+54 9 1234 567890",
+        email: "juan@example.com",
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: {
+          id: "user-123",
+          nombre: "Juan Pérez",
+          email: "juan@example.com",
+        },
+      };
+
+      mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
+
+      const result = await repository.getById("socio-123");
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("socio-123");
+      expect(result?.nombre).toBe("Juan Pérez");
+      expect(result?.email).toBe("juan@example.com");
+      expect(result?.estadoCuenta).toBe("Activo"); // Mapped from AL_DIA
+      expect(result?.membresiaAsignada).toBe("gold-123");
+    });
+
+    it("should return null if socio not found", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue(null);
+
+      const result = await repository.getById("nonexistent-123");
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("list()", () => {
+    it("should map all Socios to Clientes correctly", async () => {
+      const mockSocios = [
+        {
+          id: "socio-123",
+          nombre: "Juan Pérez",
+          dni: "12345678",
+          telefono: "+54 9 1234 567890",
+          email: "juan@example.com",
+          membresiaAsignadaId: "gold-123",
+          estadoCuota: "AL_DIA",
+          usuarioId: "user-123",
+          fechaAlta: new Date("2024-01-01"),
+          updatedAt: new Date("2024-01-01"),
+          usuario: {
+            id: "user-123",
+            nombre: "Juan Pérez",
+            email: "juan@example.com",
+          },
+        },
+        {
+          id: "socio-456",
+          nombre: "María García",
+          dni: "87654321",
+          telefono: null,
+          email: "maria@example.com",
+          membresiaAsignadaId: "silver-456",
+          estadoCuota: "VENCIDO",
+          usuarioId: "user-456",
+          fechaAlta: new Date("2024-02-01"),
+          updatedAt: new Date("2024-02-01"),
+          usuario: {
+            id: "user-456",
+            nombre: "María García",
+            email: "maria@example.com",
+          },
+        },
+      ];
+
+      mockPrisma.socio.findMany.mockResolvedValue(mockSocios);
+
+      const result = await repository.list();
+
+      expect(result).toHaveLength(2);
+      expect(result[0].nombre).toBe("Juan Pérez");
+      expect(result[0].estadoCuenta).toBe("Activo");
+      expect(result[1].nombre).toBe("María García");
+      expect(result[1].estadoCuenta).toBe("Inactivo"); // Mapped from VENCIDO
+    });
+  });
+
+  describe("mapEstadoCuentaToEstadoCuota()", () => {
+    it("should map Activo to AL_DIA", () => {
+      expect(mapEstadoCuentaToEstadoCuota("Activo")).toBe("AL_DIA");
+    });
+
+    it("should map Inactivo to VENCIDO", () => {
+      expect(mapEstadoCuentaToEstadoCuota("Inactivo")).toBe("VENCIDO");
+    });
+
+    it("should map Bloqueado to DENEGADO", () => {
+      expect(mapEstadoCuentaToEstadoCuota("Bloqueado")).toBe("DENEGADO");
+    });
+
+    it("should default to AL_DIA for unknown values", () => {
+      expect(mapEstadoCuentaToEstadoCuota("Unknown" as any)).toBe("AL_DIA");
+    });
+  });
+
+  describe("mapEstadoCuotaToEstadoCuenta()", () => {
+    it("should map AL_DIA to Activo", () => {
+      expect(mapEstadoCuotaToEstadoCuenta("AL_DIA")).toBe("Activo");
+    });
+
+    it("should map VENCIDO to Inactivo", () => {
+      expect(mapEstadoCuotaToEstadoCuenta("VENCIDO")).toBe("Inactivo");
+    });
+
+    it("should map DENEGADO to Bloqueado", () => {
+      expect(mapEstadoCuotaToEstadoCuenta("DENEGADO")).toBe("Bloqueado");
+    });
+
+    it("should default to Activo for unknown values", () => {
+      expect(mapEstadoCuotaToEstadoCuenta("Unknown")).toBe("Activo");
     });
   });
 });

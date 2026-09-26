@@ -75,6 +75,24 @@ export function mapEstadoCuotaToEstadoCuenta(
 }
 
 /**
+ * Map Cliente.estadoCuenta to Socio.estadoCuota (inverse of mapEstadoCuotaToEstadoCuenta)
+ * Client exposes account status (Activo, Inactivo, Bloqueado)
+ * Socio tracks payment status (AL_DIA, VENCIDO, DENEGADO)
+ */
+export function mapEstadoCuentaToEstadoCuota(estado: EstadoCuenta): string {
+  switch (estado) {
+    case "Activo":
+      return "AL_DIA";
+    case "Inactivo":
+      return "VENCIDO";
+    case "Bloqueado":
+      return "DENEGADO";
+    default:
+      return "AL_DIA";
+  }
+}
+
+/**
  * Normalize DNI to digits-only format
  * Accepts both "XX.XXX.XXX" and "XXXXXXXX" formats
  */
@@ -232,7 +250,7 @@ export class ClienteRepository {
     }
     if (membresia.estado !== "ACTIVA") {
       throw new Error(
-        `VALIDATION_MEMBERSHIP_INACTIVE: La membresía seleccionada ya no está activa`
+        `MEMBERSHIP_NO_LONGER_ACTIVE: La membresía seleccionada ya no está activa`
       );
     }
 
@@ -323,7 +341,9 @@ export class ClienteRepository {
       data.membresiaAsignada !== undefined ||
       data.estadoCuenta !== undefined
     ) {
-      const merged = { ...existing, ...data, id, fechaAlta: existing.fechaAlta };
+      // Map existing Socio to Cliente domain first (H1 fix)
+      const existingCliente = this.mapSocioToCliente(existing);
+      const merged = { ...existingCliente, ...data, id, fechaAlta: existing.fechaAlta };
       const validation = validateCliente(merged);
       if (!validation.valid) {
         throw new Error(`VALIDATION_ERROR: ${validation.errors.join(", ")}`);
@@ -350,7 +370,7 @@ export class ClienteRepository {
         }
         if (membresia.estado !== "ACTIVA") {
           throw new Error(
-            `VALIDATION_MEMBERSHIP_INACTIVE: La membresía seleccionada ya no está activa`
+            `MEMBERSHIP_NO_LONGER_ACTIVE: La membresía seleccionada ya no está activa`
           );
         }
       }
@@ -364,6 +384,10 @@ export class ClienteRepository {
     if (data.email !== undefined) updateData.email = data.email;
     if (data.membresiaAsignada !== undefined)
       updateData.membresiaAsignadaId = data.membresiaAsignada;
+    // H2 fix: Persist estadoCuenta as estadoCuota in Socio
+    if (data.estadoCuenta !== undefined) {
+      updateData.estadoCuota = mapEstadoCuentaToEstadoCuota(data.estadoCuenta);
+    }
 
     // Update Usuario if needed
     if (data.nombre !== undefined || data.email !== undefined) {
@@ -388,6 +412,7 @@ export class ClienteRepository {
 
   /**
    * Delete a cliente
+   * H4 fix: Use transaction to delete Socio + Usuario together to avoid orphaned users
    */
   async delete(id: string): Promise<void> {
     const prisma = await this.getPrisma();
@@ -400,10 +425,11 @@ export class ClienteRepository {
       throw new Error("NOT_FOUND");
     }
 
-    // Delete Socio (Prisma cascade)
-    await prisma.socio.delete({
-      where: { id },
-    });
+    // Delete Socio and Usuario in transaction to free email constraint
+    await prisma.$transaction([
+      prisma.socio.delete({ where: { id } }),
+      prisma.usuario.delete({ where: { id: cliente.usuarioId } }),
+    ]);
   }
 
   /**
