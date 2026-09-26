@@ -52,9 +52,17 @@ export async function handleMembresiaCreate(
  * Server-side handler for GET /api/membresias
  * Returns list of all membresias with assigned member counts
  */
-export async function handleMembresiaList(): Promise<Membresia[]> {
+/**
+ * Server-side handler for GET /api/membresias
+ * Returns list of all membresias (or only active ones) with assigned member counts
+ */
+export async function handleMembresiaList(
+  options: { activeOnly?: boolean } = {}
+): Promise<Membresia[]> {
   const repository = new MembresiaRepository();
-  const membresias = await repository.getAll();
+  const membresias = options.activeOnly
+    ? await repository.getAllActivas()
+    : await repository.getAll();
 
   // Fetch assigned counts for each
   const withCounts = await Promise.all(

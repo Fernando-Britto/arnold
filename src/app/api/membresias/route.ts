@@ -36,13 +36,8 @@ function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateS
  */
 export async function handleMembresiaListRequest(activeOnly?: boolean): Promise<ListSuccess | ListError> {
   try {
-    let membresias = await handleMembresiaList();
-    
-    // Filter to ACTIVA only if requested (for dropdowns in T-013)
-    if (activeOnly) {
-      membresias = membresias.filter((m) => m.estado === "ACTIVA");
-    }
-    
+    // Pass activeOnly option to handler for efficient database-level filtering
+    const membresias = await handleMembresiaList({ activeOnly: activeOnly || false });
     return membresias as ListSuccess;
   } catch (error) {
     const mapped = mapErrorToResponse(error, {

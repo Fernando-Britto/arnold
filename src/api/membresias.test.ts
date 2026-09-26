@@ -59,6 +59,22 @@ describe("Membresia Business Logic", () => {
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
     });
+
+    it("should call getAllActivas when activeOnly option is true", async () => {
+      const mockList = [mockMembresia];
+      MockedRepository.prototype.getAllActivas = jest
+        .fn()
+        .mockResolvedValue(mockList);
+      MockedRepository.prototype.getAssignedSocioCount = jest
+        .fn()
+        .mockResolvedValue(2);
+
+      const result = await handleMembresiaList({ activeOnly: true });
+
+      expect(MockedRepository.prototype.getAllActivas).toHaveBeenCalled();
+      expect(MockedRepository.prototype.getAll).not.toHaveBeenCalled();
+      expect(result[0].assignedSocioCount).toBe(2);
+    });
   });
 
   describe("handleMembresiaCreate", () => {
