@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <clipPath id="clip0">
+      <rect width="1920" height="1080"/>
+    </clipPath>
+    <filter id="fx1">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.02"/>
+    </filter>
+    <clipPath id="clip2">
+      <rect width="1920" height="928"/>
+    </clipPath>
+    <clipPath id="clip3">
+      <rect width="380" height="514"/>
+    </clipPath>
+    <filter id="fx4">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.03"/>
+    </filter>
+    <clipPath id="clip5">
+      <rect width="1420" height="881"/>
+    </clipPath>
+    <clipPath id="clip6">
+      <rect width="1420" height="177"/>
+    </clipPath>
+  </defs>
+  <g>
+    <rect width="1920" height="1080" fill="#F7F7F7"/>
+    <g clip-path="url(#clip0)">
+      <g filter="url(#fx1)">
+        <rect width="1920" height="80" fill="#FFFFFF"/>
+        <g transform="translate(48, 28)">
+          <g>
+            <text x="0" y="20" font-family="Inter" font-size="20" font-weight="700" fill="#18181B">ARNOLD</text>
+          </g>
+          <g transform="translate(85, 0)">
+            <text x="0" y="20" font-family="Inter" font-size="20" font-weight="700" fill="#FC4C02">GYM</text>
+          </g>
+        </g>
+        <g transform="translate(852, 29)">
+          <g>
+            <text x="0" y="15" font-family="Inter" font-size="15" font-weight="500" fill="#FC4C02">Membresias</text>
+          </g>
+          <g transform="translate(124, 1)">
+            <g>
+              <text x="0" y="15" font-family="Inter" font-size="15" font-weight="500" fill="#71717A">Rutinas</text>
+            </g>
+          </g>
+          <g transform="translate(211, 0)">
+            <g>
+              <text x="0" y="15" font-family="Inter" font-size="15" font-weight="700" fill="#71717A">Ejercicios</text>
+            </g>
+            <g transform="translate(24.58, 18)">
+              <rect width="24" height="2" rx="1" ry="1" fill="#FC4C02"/>
+            </g>
+          </g>
+          <g transform="translate(316.16, 1)">
+            <text x="0" y="15" font-family="Inter" font-size="15" font-weight="500" fill="#71717A">Clientes</text>
+          </g>
+        </g>
+        <g transform="translate(1796, 24)">
+          <g>
+            <rect width="32" height="32" rx="16" ry="16" fill="#F4F4F5"/>
+            <g transform="translate(7, 7)">
+              <path d="M7.7 15.75C7.97 16.22 8.46 16.5 9 16.5C9.54 16.5 10.03 16.22 10.3 15.75M2.45 11.49C2.25 11.71 2.19 12.03 2.31 12.3C2.43 12.57 2.7 12.75 3 12.75L15 12.75C15.29 12.75 15.56 12.57 15.68 12.3C15.8 12.03 15.75 11.72 15.55 11.5C14.56 10.47 13.5 9.37 13.5 6C13.5 3.51 11.49 1.5 9 1.5C6.51 1.5 4.5 3.51 4.5 6C4.5 9.37 3.44 10.47 2.45 11.49" fill="none" stroke="#6B7280" stroke-width="1.5"/>
+            </g>
+          </g>
+          <g transform="translate(44, 0)">
+            <rect width="32" height="32" rx="16" ry="16" fill="#E4E4E7"/>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(0, 80)">
+        <g transform="translate(48, 27.5)">
+          <g>
+            <text x="0" y="14" font-family="Inter" font-size="14" fill="#999999">Gestión</text>
+          </g>
+          <g transform="translate(59, 1.5)">
+            <path d="M5.25 10.5L8.75 7L5.25 3.5" fill="none" stroke="#999999" stroke-width="1.17"/>
+          </g>
+          <g transform="translate(81, 0)">
+            <text x="0" y="14" font-family="Inter" font-size="14" font-weight="500" fill="#333333">Ejercicios</text>
+          </g>
+        </g>
+        <g transform="translate(1507, 19.5)">
+          <g>
+            <rect width="103" height="33" rx="8" ry="8" fill="#FFFFFF" stroke="#E5E5E5" stroke-width="1"/>
+            <g transform="translate(16, 8.5)">
+              <path d="M14 14L11.11 11.11" fill="none" stroke="#333333" stroke-width="1.33"/>
+              <path d="M2 7.33C2 9.24 3.02 11 4.67 11.95C6.32 12.9 8.35 12.9 10 11.95C11.65 11 12.67 9.24 12.67 7.33C12.67 5.42 11.65 3.66 10 2.71C8.35 1.76 6.32 1.76 4.67 2.71C3.02 3.66 2 5.42 2 7.33" fill="none" stroke="#333333" stroke-width="1.33"/>
+            </g>
+            <g transform="translate(40, 8)">
+              <text x="0" y="14" font-family="Inter" font-size="14" font-weight="500" fill="#333333">Buscar</text>
+            </g>
+          </g>
+          <g transform="translate(119, 0)">
+            <rect width="120" height="33" rx="8" ry="8" fill="#FFFFFF" stroke="#E5E5E5" stroke-width="1"/>
+            <g transform="translate(16, 8.5)">
+              <path d="M14.12 4.54C14.85 3.81 14.85 2.61 14.12 1.88C13.39 1.15 12.19 1.15 11.46 1.88L2.56 10.78C2.41 10.94 2.29 11.13 2.23 11.34L1.35 14.24C1.32 14.36 1.35 14.48 1.43 14.57C1.52 14.65 1.64 14.68 1.76 14.65L4.66 13.77C4.87 13.71 5.06 13.59 5.22 13.44L14.12 4.54Z" fill="none" stroke="#FC4C02" stroke-width="1.33"/>
+            </g>
+            <g transform="translate(40, 8)">
+              <text x="0" y="14" font-family="Inter" font-size="14" font-weight="500" fill="#FC4C02">Modificar</text>
+            </g>
+          </g>
+          <g transform="translate(255, 0)">
+            <rect width="110" height="33" rx="8" ry="8" fill="#FFFFFF" stroke="#E5E5E5" stroke-width="1"/>
+            <g transform="translate(16, 8.5)">
+              <path d="M6.67 7.33L6.67 11.33M9.33 7.33L9.33 11.33M12.67 4L12.67 13.33C12.67 13.69 12.53 14.03 12.28 14.28C12.03 14.53 11.69 14.67 11.33 14.67L4.67 14.67C4.31 14.67 3.97 14.53 3.72 14.28C3.47 14.03 3.33 13.69 3.33 13.33L3.33 4M2 4L14 4M5.33 4L5.33 2.67C5.33 2.31 5.47 1.97 5.72 1.72C5.97 1.47 6.31 1.33 6.67 1.33L9.33 1.33C9.69 1.33 10.03 1.47 10.28 1.72C10.53 1.97 10.67 2.31 10.67 2.67L10.67 4" fill="none" stroke="#FC4C02" stroke-width="1.33"/>
+            </g>
+            <g transform="translate(40, 8)">
+              <text x="0" y="14" font-family="Inter" font-size="14" font-weight="500" fill="#FC4C02">Eliminar</text>
+            </g>
+          </g>
+        </g>
+      </g>
+      <g transform="translate(0, 152)">
+        <g clip-path="url(#clip2)">
+          <g transform="translate(48, 0)">
+            <rect width="380" height="514" rx="12" ry="12" fill="#FFFFFF"/>
+            <g clip-path="url(#clip3)">
+              <g>
+                <rect width="3" height="514" fill="#FC4C02"/>
+                <g transform="translate(3, 0)">
+                  <g transform="translate(24, 24)">
+                    <text x="0" y="18" font-family="Inter" font-size="18" font-weight="700" fill="#333333">Nuevo Ejercicio</text>
+                  </g>
+                  <g transform="translate(24, 70)">
+                    <g>
+                      <g>
+                        <text x="0" y="13" font-family="Inter" font-size="13" font-weight="500" fill="#666666">Nombre*</text>
+                      </g>
+                      <g transform="translate(0, 24)">
+                        <rect width="329" height="40" rx="8" ry="8" fill="#FFFFFF" stroke="#E5E5E5" stroke-width="1"/>
+                        <g transform="translate(12, 11.5)">
+                          <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Prensa de Piernas</text>
+                        </g>
+                      </g>
+                    </g>
+                    <g transform="translate(0, 80)">
+                      <g>
+                        <text x="0" y="13" font-family="Inter" font-size="13" font-weight="500" fill="#999999">ID (Autogenerado)</text>
+                      </g>
+                      <g transform="translate(0, 24)">
+                        <rect width="329" height="40" rx="8" ry="8" fill="#F5F5F5" stroke="#E5E5E5" stroke-width="1"/>
+                        <g transform="translate(12, 11.5)">
+                          <text x="0" y="14" font-family="Inter" font-size="14" fill="#999999">EX-007</text>
+                        </g>
+                      </g>
+                    </g>
+                    <g transform="translate(0, 160)">
+                      <g>
+                        <text x="0" y="13" font-family="Inter" font-size="13" font-weight="500" fill="#666666">Grupo muscular*</text>
+                      </g>
+                      <g transform="translate(0, 24)">
+                        <rect width="329" height="40" rx="8" ry="8" fill="#FFFFFF" stroke="#E5E5E5" stroke-width="1"/>
+                        <g transform="translate(12, 11.5)">
+                          <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Piernas / Cuádriceps</text>
+                        </g>
+                        <g transform="translate(301, 12)">
+                          <path d="M4 6L8 10L12 6" fill="none" stroke="#666666" stroke-width="1.33"/>
+                        </g>
+                      </g>
+                    </g>
+                    <g transform="translate(0, 240)">
+                      <g>
+                        <text x="0" y="13" font-family="Inter" font-size="13" font-weight="500" fill="#666666">Descripción</text>
+                      </g>
+                      <g transform="translate(0, 24)">
+                        <rect width="329" height="80" rx="8" ry="8" fill="#FFFFFF" stroke="#E5E5E5" stroke-width="1"/>
+                        <g transform="translate(12, 12)">
+                          <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Ejercicio de empuje de fuerza para el tren inferior...</text>
+                        </g>
+                      </g>
+                    </g>
+                  </g>
+                  <g transform="translate(24, 438)">
+                    <g transform="translate(0, 8)">
+                      <rect width="105.67" height="44" rx="8" ry="8" fill="#F2F2F2"/>
+                      <g transform="translate(27.33, 13.5)">
+                        <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#666666">Limpiar</text>
+                      </g>
+                    </g>
+                    <g transform="translate(117.67, 8)">
+                      <rect width="211.33" height="44" rx="8" ry="8" fill="#FC4C02"/>
+                      <g transform="translate(45.67, 13.5)">
+                        <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#FFFFFF">Guardar Ejercicio</text>
+                      </g>
+                    </g>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+          <g transform="translate(452, 0)" filter="url(#fx4)">
+            <rect width="1420" height="881" rx="12" ry="12" fill="#FFFFFF" stroke="#E4E4E7" stroke-width="1"/>
+            <g clip-path="url(#clip5)">
+              <g>
+                <g>
+                  <path d="M8 0L1412 0A8 8 0 0 1 1420 8L1420 52L0 52L0 8A8 8 0 0 1 8 0Z" fill="#F4F4F5" stroke="#E4E4E7" stroke-width="1"/>
+                  <g transform="translate(16, 18)">
+                    <text x="0" y="13" font-family="Inter" font-size="13" font-weight="700" fill="#666666">ID</text>
+                  </g>
+                  <g transform="translate(116, 18)">
+                    <text x="0" y="13" font-family="Inter" font-size="13" font-weight="700" fill="#666666">Nombre</text>
+                  </g>
+                  <g transform="translate(1096, 18)">
+                    <text x="0" y="13" font-family="Inter" font-size="13" font-weight="700" fill="#666666">Grupo</text>
+                  </g>
+                  <g transform="translate(1214, 18)">
+                    <text x="0" y="13" font-family="Inter" font-size="13" font-weight="700" fill="#666666">Estado</text>
+                  </g>
+                  <g transform="translate(1316, -26)"/>
+                </g>
+                <g transform="translate(0, 52)">
+                  <g>
+                    <rect width="1420" height="177" fill="#FC4C02"/>
+                    <g clip-path="url(#clip6)">
+                      <g>
+                        <g transform="translate(16, 19.5)">
+                          <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#FC4C02">EX-001</text>
+                        </g>
+                        <g transform="translate(116, 19.5)">
+                          <text x="0" y="14" font-family="Inter" font-size="14" font-weight="700" fill="#333333">Prensa de Piernas</text>
+                        </g>
+                        <g transform="translate(1086, 19.5)">
+                          <text x="0" y="14" font-family="Inter" font-size="14" fill="#666666">Piernas / Cuádriceps</text>
+                        </g>
+                        <g transform="translate(1258, 16.5)">
+                          <rect width="58" height="23" rx="4" ry="4" fill="#DEF7EC"/>
+                          <g transform="translate(10, 4)">
+                            <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#03543F">Activo</text>
+                          </g>
+                        </g>
+                        <g transform="translate(1356, 18)">
+                          <g transform="translate(10, 0)">
+                            <path d="M15 12.5L10 7.5L5 12.5" fill="none" stroke="#FC4C02" stroke-width="1.67"/>
+                          </g>
+                        </g>
+                      </g>
+                      <g transform="translate(0, 56)">
+                        <g transform="translate(48, 0)">
+                          <rect width="1276" height="1" fill="#FC4C02"/>
+                        </g>
+                        <g transform="translate(48, 17)">
+                          <g>
+                            <g>
+                              <text x="0" y="11" font-family="Inter" font-size="11" font-weight="700" fill="#999999">Descripción Completa</text>
+                            </g>
+                            <g transform="translate(0, 22)">
+                              <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Máquina de prensa inclinada a 45 grados. Ideal para desarrollo de fuerza en cuádriceps y glúteos. Se recomienda mantener 
+la espalda apoyada firmemente contra el respaldo y los pies a la anchura de los hombros.</text>
+                            </g>
+                          </g>
+                          <g transform="translate(1036, 0)">
+                            <g transform="translate(-48.91, 0)">
+                              <g>
+                                <text x="0" y="11" font-family="Inter" font-size="11" font-weight="700" fill="#999999">Última Modificación</text>
+                              </g>
+                              <g transform="translate(0, 18)">
+                                <text x="0" y="11" font-family="Inter" font-size="11" font-weight="700" fill="#999999">Usuario</text>
+                              </g>
+                              <g transform="translate(0, 36)">
+                                <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Admin (Juan Pérez)</text>
+                              </g>
+                              <g transform="translate(0, 57)">
+                                <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">14 Oct 2023 - 10:24 AM</text>
+                              </g>
+                            </g>
+                          </g>
+                        </g>
+                      </g>
+                    </g>
+                  </g>
+                  <g transform="translate(0, 177.5)">
+                    <rect width="1420" height="56" fill="none" stroke="#E4E4E7" stroke-width="1"/>
+                    <g transform="translate(16, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">EX-002</text>
+                    </g>
+                    <g transform="translate(116, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Sentadilla con Barra</text>
+                    </g>
+                    <g transform="translate(253, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#666666">Piernas / Cuádriceps</text>
+                    </g>
+                    <g transform="translate(1258, 16.5)">
+                      <rect width="58" height="23" rx="4" ry="4" fill="#DEF7EC"/>
+                      <g transform="translate(10, 4)">
+                        <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#03543F">Activo</text>
+                      </g>
+                    </g>
+                    <g transform="translate(1356, 18)">
+                      <g transform="translate(10, 0)">
+                        <path d="M5 7.5L10 12.5L15 7.5" fill="none" stroke="#CCCCCC" stroke-width="1.67"/>
+                      </g>
+                    </g>
+                  </g>
+                  <g transform="translate(0, 234)">
+                    <rect width="1420" height="56" fill="none" stroke="#E4E4E7" stroke-width="1"/>
+                    <g transform="translate(16, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">EX-003</text>
+                    </g>
+                    <g transform="translate(116, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Press de Banca</text>
+                    </g>
+                    <g transform="translate(226, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#666666">Tren Superior / Pecho</text>
+                    </g>
+                    <g transform="translate(1258, 16.5)">
+                      <rect width="58" height="23" rx="4" ry="4" fill="#DEF7EC"/>
+                      <g transform="translate(10, 4)">
+                        <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#03543F">Activo</text>
+                      </g>
+                    </g>
+                    <g transform="translate(1356, 18)">
+                      <g transform="translate(10, 0)">
+                        <path d="M5 7.5L10 12.5L15 7.5" fill="none" stroke="#CCCCCC" stroke-width="1.67"/>
+                      </g>
+                    </g>
+                  </g>
+                  <g transform="translate(0, 290.5)">
+                    <rect width="1420" height="56" fill="none" stroke="#E4E4E7" stroke-width="1"/>
+                    <g transform="translate(16, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">EX-004</text>
+                    </g>
+                    <g transform="translate(116, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Remo con Barra</text>
+                    </g>
+                    <g transform="translate(226, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#666666">Tren Superior / Espalda</text>
+                    </g>
+                    <g transform="translate(1258, 16.5)">
+                      <rect width="58" height="23" rx="4" ry="4" fill="#DEF7EC"/>
+                      <g transform="translate(10, 4)">
+                        <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#03543F">Activo</text>
+                      </g>
+                    </g>
+                    <g transform="translate(1356, 18)">
+                      <g transform="translate(10, 0)">
+                        <path d="M5 7.5L10 12.5L15 7.5" fill="none" stroke="#CCCCCC" stroke-width="1.67"/>
+                      </g>
+                    </g>
+                  </g>
+                  <g transform="translate(0, 347)">
+                    <rect width="1420" height="56" fill="none" stroke="#E4E4E7" stroke-width="1"/>
+                    <g transform="translate(16, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">EX-005</text>
+                    </g>
+                    <g transform="translate(116, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Press Militar</text>
+                    </g>
+                    <g transform="translate(226, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#666666">Tren Superior / Hombros</text>
+                    </g>
+                    <g transform="translate(1258, 16.5)">
+                      <rect width="58" height="23" rx="4" ry="4" fill="#DEF7EC"/>
+                      <g transform="translate(10, 4)">
+                        <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#03543F">Activo</text>
+                      </g>
+                    </g>
+                    <g transform="translate(1356, 18)">
+                      <g transform="translate(10, 0)">
+                        <path d="M5 7.5L10 12.5L15 7.5" fill="none" stroke="#CCCCCC" stroke-width="1.67"/>
+                      </g>
+                    </g>
+                  </g>
+                  <g transform="translate(0, 403.5)">
+                    <rect width="1420" height="56" fill="none" stroke="#E4E4E7" stroke-width="1"/>
+                    <g transform="translate(16, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">EX-006</text>
+                    </g>
+                    <g transform="translate(116, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#333333">Peso Muerto</text>
+                    </g>
+                    <g transform="translate(226, 19.5)">
+                      <text x="0" y="14" font-family="Inter" font-size="14" fill="#666666">Tren Posterior</text>
+                    </g>
+                    <g transform="translate(1258, 16.5)">
+                      <rect width="58" height="23" rx="4" ry="4" fill="#DEF7EC"/>
+                      <g transform="translate(10, 4)">
+                        <text x="0" y="12" font-family="Inter" font-size="12" font-weight="700" fill="#03543F">Activo</text>
+                      </g>
+                    </g>
+                    <g transform="translate(1356, 18)">
+                      <g transform="translate(10, 0)">
+                        <path d="M5 7.5L10 12.5L15 7.5" fill="none" stroke="#CCCCCC" stroke-width="1.67"/>
+                      </g>
+                    </g>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
