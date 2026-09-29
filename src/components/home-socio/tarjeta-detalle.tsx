@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { Dumbbell, Wrench } from "lucide-react";
 
 /**
  * Tarjeta_Detalle — Current Exercise Display
@@ -149,23 +150,25 @@ export function TarjetaDetalle({
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 p-6">
-      <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase">
-        EJERCICIO ACTUAL
-      </p>
+    <div className="flex flex-col rounded-3xl border border-zinc-200 bg-white p-5">
+      <p className="text-[11px] font-bold text-[#FC4C02]">EJERCICIO ACTUAL</p>
 
-      <div className="mt-3 flex items-center gap-3">
+      <div className="mt-5 flex flex-col items-center gap-4">
         <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xl"
+          className="flex h-20 w-20 items-center justify-center rounded-full bg-[#FC4C02] text-white"
           aria-hidden="true"
         >
-          {ejercicio.icon ?? "🏋️"}
+          {ejercicio.icon ? (
+            <span className="text-3xl">{ejercicio.icon}</span>
+          ) : (
+            <Dumbbell className="h-10 w-10" />
+          )}
         </div>
-        <div>
+        <div className="flex flex-col items-center gap-1">
           <button
             type="button"
             onClick={handleNameClick}
-            className="text-left text-lg font-semibold text-gray-900 hover:underline"
+            className="text-[17px] font-bold text-gray-900 hover:underline"
           >
             {ejercicio.nombre}
           </button>
@@ -173,32 +176,35 @@ export function TarjetaDetalle({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-md bg-gray-50 p-2">
-          <p className="text-xs text-gray-500">Series×Reps</p>
-          <p className="font-semibold text-gray-900">
+      <div className="mt-6 flex justify-between border border-gray-200 py-4">
+        <div className="flex flex-1 flex-col items-center gap-1">
+          <p className="text-[11px] font-medium text-gray-500">Series×Reps</p>
+          <p className="text-sm font-bold text-gray-900">
             {formatSeriesReps(ejercicioEnRutina.series, ejercicioEnRutina.repeticiones)}
           </p>
         </div>
-        <div className="rounded-md bg-gray-50 p-2">
-          <p className="text-xs text-gray-500">Descanso</p>
-          <p className="font-semibold text-gray-900">
+        <div className="h-8 w-px bg-gray-200" />
+        <div className="flex flex-1 flex-col items-center gap-1">
+          <p className="text-[11px] font-medium text-gray-500">Descanso</p>
+          <p className="text-sm font-bold text-gray-900">
             {formatDescansoLabel(ejercicioEnRutina.descanso)}
           </p>
         </div>
-        {/* AC-003: Objetivo uses the highlighted brand-fill styling */}
-        <div className="rounded-md bg-blue-600 p-2 text-white">
-          <p className="text-xs text-blue-100">Objetivo</p>
-          <p className="font-semibold">{objetivo ?? "—"}</p>
+        <div className="h-8 w-px bg-gray-200" />
+        {/* AC-003: Objetivo uses the highlighted brand color */}
+        <div className="flex flex-1 flex-col items-center gap-1">
+          <p className="text-[11px] font-medium text-gray-500">Objetivo</p>
+          <p className="text-sm font-bold text-[#FC4C02]">{objetivo ?? "—"}</p>
         </div>
       </div>
 
       {ejercicio.descripcion && (
-        <p className="mt-4 text-sm text-gray-600">{ejercicio.descripcion}</p>
+        <p className="mt-5 grow text-[13px] text-gray-600">{ejercicio.descripcion}</p>
       )}
 
-      <div className="mt-4 border-t border-gray-100 pt-3 text-sm text-gray-500">
-        {getMachineAvailabilityMessage(maquina)}
+      <div className="mt-5 flex items-center justify-center gap-2 border-t border-gray-200 pt-5 text-[13px] font-bold text-[#FC4C02]">
+        <Wrench className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>{getMachineAvailabilityMessage(maquina)}</span>
       </div>
 
       {isModalOpen && (

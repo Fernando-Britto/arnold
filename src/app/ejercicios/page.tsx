@@ -7,6 +7,7 @@ import { EjercicioForm } from "@/components/ejercicio-crud/ejercicio-form";
 import { EjercicioListPanel } from "@/components/ejercicio-crud/ejercicio-list";
 import { useAuth } from "@/contexts/auth";
 import { fetchEjercicios, createEjercicio, updateEjercicio, deleteEjercicio } from "@/api/ejercicios";
+import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
 
 export function EjerciciosPage() {
   const router = useRouter();
@@ -147,63 +148,52 @@ export function EjerciciosPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-6">
-      {/* Page title */}
-      <h1 className="text-3xl font-bold">Ejercicios</h1>
+    <>
+      {/* Título accesible: el diseño no repite un h1 grande, la sección ya se ve en el TopNav/breadcrumb */}
+      <h1 className="sr-only">Ejercicios</h1>
 
-      {/* Error message */}
-      {error && (
-        <div className="rounded-md bg-red-50 p-4 border border-red-200">
-          <p className="text-red-700">{error}</p>
-        </div>
-      )}
-
-      {/* Loading state */}
-      {loading && (
-        <div className="flex items-center justify-center py-8">
-          <p className="text-gray-500">Cargando ejercicios...</p>
-        </div>
-      )}
-
-      {/* Main content - two column layout */}
-      {!loading && (
-        <div className="flex gap-6">
-          {/* Form panel - left */}
-           <div className="w-96 border border-gray-200 rounded-lg bg-white shadow-sm">
-             <div className="border-b bg-gray-50 px-4 py-3 flex items-center justify-between">
-               <h2 className="font-bold text-lg">
-                 {selectedEjercicio ? "Editar Ejercicio" : "Nuevo Ejercicio"}
-               </h2>
-               {selectedEjercicio && (
-                 <button
-                   onClick={() => setSelectedEjercicio(null)}
-                   className="px-3 py-1 text-sm bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
-                 >
-                   Cancelar
-                 </button>
-               )}
-             </div>
+      <CrudPageLayout
+        section="ejercicios"
+        breadcrumb="Ejercicios"
+        error={error}
+        formPanel={
+          <FormPanelShell
+            title={selectedEjercicio ? "Editar Ejercicio" : "Nuevo Ejercicio"}
+            headerAction={
+              selectedEjercicio && (
+                <button
+                  onClick={() => setSelectedEjercicio(null)}
+                  className="rounded-md bg-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+              )
+            }
+          >
             <EjercicioForm
               onSave={handleSave}
               initialData={selectedEjercicio}
               isLoading={isSaving}
             />
-          </div>
-
-          {/* List panel - right */}
-          <div className="flex-1 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <div className="border-b bg-gray-50 px-4 py-3">
-              <h2 className="font-bold text-lg">Ejercicios Disponibles</h2>
-            </div>
-            <EjercicioListPanel
-              ejercicios={ejercicios}
-              onModify={handleModify}
-              onDelete={handleDelete}
-            />
-          </div>
-        </div>
-      )}
-    </div>
+          </FormPanelShell>
+        }
+        listPanel={
+          <ListPanelShell>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-gray-500">Cargando ejercicios...</p>
+              </div>
+            ) : (
+              <EjercicioListPanel
+                ejercicios={ejercicios}
+                onModify={handleModify}
+                onDelete={handleDelete}
+              />
+            )}
+          </ListPanelShell>
+        }
+      />
+    </>
   );
 }
 
