@@ -4,8 +4,13 @@ import React from "react";
 import { Bell, Search } from "lucide-react";
 
 /**
- * TopNav — shared top navigation bar for the Socio-facing app.
+ * TopNav — top navigation bar for the Socio-facing app (Home_Socio y afines).
  * Matches Home_Socio_1x design.
+ *
+ * Nota: la nav de las pantallas de gestión (Ejercicios/Rutinas/Membresías/
+ * Clientes) es un componente distinto, `AdminTopNav` (./admin-top-nav.tsx),
+ * porque son dos diseños de nav distintos (Home_Socio_1x vs los mockups de
+ * gestión). `CrudPageLayout` usa `AdminTopNav`, no este.
  *
  * SCOPE GAP (documented): only /home-socio exists today. "Mi rutina",
  * "Mi membresía" and "Mi progreso" have no routes yet, so those links call
@@ -14,15 +19,8 @@ import { Bell, Search } from "lucide-react";
  */
 export type TopNavLink = "inicio" | "rutina" | "membresia" | "progreso";
 
-/**
- * Alias for backwards compatibility with crud-page-layout.
- * Accepts any string to support CRUD sections like "ejercicios", "clientes", etc.
- */
-export type NavSection = string;
-
 export interface TopNavProps {
   active?: TopNavLink;
-  activeSection?: NavSection; // backwards compatibility alias
   onNavigate?: (link: TopNavLink) => void;
   onSearchClick?: () => void;
   onNotificationsClick?: () => void;
@@ -37,17 +35,12 @@ const LINKS: { key: TopNavLink; label: string }[] = [
 ];
 
 export function TopNav({
-  active,
-  activeSection,
+  active = "inicio",
   onNavigate,
   onSearchClick,
   onNotificationsClick,
   onAvatarClick,
-}: TopNavProps) {
-  // Support both 'active' and 'activeSection' for backwards compatibility
-  const activeLink = active || activeSection || "inicio";
-
-  return (
+}: TopNavProps) {  return (
     <div className="flex h-20 items-center justify-between bg-white px-12 shadow-[0px_1px_2px_rgba(0,0,0,0.051)]">
       <div className="flex items-center">
         <p className="text-xl font-bold text-zinc-900">ARNOLD</p>
@@ -56,7 +49,7 @@ export function TopNav({
 
       <div className="flex items-center gap-8">
         {LINKS.map((link) => {
-          const isActive = link.key === activeLink;
+          const isActive = link.key === active;
           return (
             <button
               key={link.key}

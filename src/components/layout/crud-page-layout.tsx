@@ -1,5 +1,5 @@
 import React from "react";
-import { TopNav, type NavSection } from "./top-nav";
+import { AdminTopNav, type NavSection } from "./admin-top-nav";
 import { ActionBar } from "./action-bar";
 
 interface CrudPageLayoutProps {
@@ -21,7 +21,7 @@ export function CrudPageLayout({
 }: CrudPageLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col bg-[#F7F7F8]">
-      <TopNav activeSection={section} />
+      <AdminTopNav activeSection={section} />
       <ActionBar breadcrumb={breadcrumb}>{actions}</ActionBar>
 
       {error && (
