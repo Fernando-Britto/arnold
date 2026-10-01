@@ -131,3 +131,136 @@ export function filterActivityFeed(events: ActivityEvent[], hoy: Date): Activity
     .filter((e) => hoy.getTime() - e.fecha.getTime() <= 24 * 60 * 60 * 1000)
     .sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
 }
+
+// ---------------------------------------------------------------------------
+// T-021a — Row_Hoy / Row_Operacion aggregation
+// ---------------------------------------------------------------------------
+
+/** Only `periodoGracia = 0` is documented by the spec as a fallback. The other
+ * two are assumptions: capacidadMaxima 0 renders "Aforo no configurado" rather
+ * than inventing a capacity, and diasInactividad 15 is the spec's own example. */
+const CONFIG_DEFAULTS = { capacidadMaxima: 0, periodoGracia: 0, diasInactividad: 15 };
+
+export interface AforoResult {
+  ocupacionActual: number;
+  capacidadMaxima: number;
+  porcentaje: number;
+}
+
+/** AC-003. Percentage is capped at 100 for display but the true count is kept
+ * (manual overrides can push occupancy over capacity). Never divides by zero. */
+export function computeAforo(asistenciasActivas: number, capacidadMaxima: number | null): AforoResult {
+  const capacidad = capacidadMaxima && capacidadMaxima > 0 ? capacidadMaxima : 0;
+  const porcentaje =
+    capacidad === 0 ? 0 : Math.min(100, Math.round((asistenciasActivas / capacidad) * 100));
+  return { ocupacionActual: asistenciasActivas, capacidadMaxima: capacidad, porcentaje };
+}
+
+export interface CuotaPorVencer {
+  socioId: string;
+  socioNombre: string;
+  fechaVencimiento: Date;
+}
+
+export interface AlertaVencimiento {
+  socioId: string;
+  texto: string;
+  detalle: string;
+}
+
+const MS_PER_HOUR = 60 * 60 * 1000;
+
+/** AC-002 / RN-02: a "Vencimiento" alert exists when the cuota expires within
+ * the next 24h, or is already past due but still inside `periodoGracia` days.
+ * Most overdue first. */
+export function computeAlertasVencimiento(
+  cuotas: CuotaPorVencer[],
+  periodoGracia: number | null,
+  hoy: Date
+): AlertaVencimiento[] {
+  const gracia = periodoGracia ?? CONFIG_DEFAULTS.periodoGracia;
+  const desde = hoy.getTime() - gracia * MS_PER_DAY;
+  const hasta = hoy.getTime() + 24 * MS_PER_HOUR;
+
+  return cuotas
+    .filter((c) => c.fechaVencimiento.getTime() >= desde && c.fechaVencimiento.getTime() <= hasta)
+    .sort((a, b) => a.fechaVencimiento.getTime() - b.fechaVencimiento.getTime())
+    .map((c) => {
+      const diff = c.fechaVencimiento.getTime() - hoy.getTime();
+      const dias = Math.floor(-diff / MS_PER_DAY);
+      const detalle =
+        diff >= 0
+          ? `Vence en ${Math.ceil(diff / MS_PER_HOUR)} h`
+          : dias === 0
+            ? "Venció hoy"
+            : `Venció hace ${dias} ${dias === 1 ? "día" : "días"}`;
+      return { socioId: c.socioId, texto: `Vencimiento · ${c.socioNombre}`, detalle };
+    });
+}
+
+export interface PersonalResult {
+  cantidad: number;
+  footer: string;
+}
+
+/** "Personal en turno": INSTRUCTOR counts as entrenador, everyone else as staff. */
+export function computePersonalEnTurno(
+  personal: { rol: "ADMINISTRADOR" | "INSTRUCTOR" | "RECEPCIONISTA" }[]
+): PersonalResult {
+  if (personal.length === 0) return { cantidad: 0, footer: "Sin personal registrado" };
+  const entrenadores = personal.filter((p) => p.rol === "INSTRUCTOR").length;
+  const staff = personal.length - entrenadores;
+  return {
+    cantidad: personal.length,
+    footer: `${entrenadores} ${entrenadores === 1 ? "entrenador" : "entrenadores"}, ${staff} staff`,
+  };
+}
+
+export interface HomeInternoPart1Raw {
+  config: { capacidadMaxima: number | null; periodoGracia: number | null; diasInactividad: number | null };
+  maquinas: { estado: EstadoMaquina }[];
+  pagos: Pago[];
+  cuotas: CuotaPorVencer[];
+  ultimasAsistencias: (Date | null)[];
+  aforo: { asistenciasActivas: number; horas: { hora: number; ocupacion: number }[]; horaActual: number };
+  personal: { rol: "ADMINISTRADOR" | "INSTRUCTOR" | "RECEPCIONISTA" }[];
+}
+
+export interface OperationCardView {
+  metric: string;
+  footer: string;
+}
+
+export interface HomeInternoPart1ViewModel {
+  alertas: AlertaVencimiento[];
+  aforo: AforoResult & { horas: { hora: number; ocupacion: number }[]; horaActual: number };
+  caja: CajaHoyResult;
+  equipos: OperationCardView;
+  personal: OperationCardView;
+  inactivos: OperationCardView;
+}
+
+/** Composes the Row_Hoy + Row_Operacion derivations. `hoy` is the server's
+ * "now" so every card is computed against the same instant. */
+export function aggregateHomeInternoPart1(
+  raw: HomeInternoPart1Raw,
+  hoy: Date
+): HomeInternoPart1ViewModel {
+  const diasInactividad = raw.config.diasInactividad ?? CONFIG_DEFAULTS.diasInactividad;
+  const equipos = computeEstadoEquipos(raw.maquinas);
+  const personal = computePersonalEnTurno(raw.personal);
+  const inactivos = computeSociosInactivos(raw.ultimasAsistencias, diasInactividad, hoy);
+
+  return {
+    alertas: computeAlertasVencimiento(raw.cuotas, raw.config.periodoGracia, hoy),
+    aforo: {
+      ...computeAforo(raw.aforo.asistenciasActivas, raw.config.capacidadMaxima),
+      horas: raw.aforo.horas,
+      horaActual: raw.aforo.horaActual,
+    },
+    caja: computeCajaHoy(raw.pagos, hoy),
+    equipos: { metric: `${equipos.porcentaje}%`, footer: `${equipos.enMantenimiento} en mantenimiento` },
+    personal: { metric: String(personal.cantidad), footer: personal.footer },
+    inactivos: { metric: String(inactivos.cantidad), footer: inactivos.footer },
+  };
+}
