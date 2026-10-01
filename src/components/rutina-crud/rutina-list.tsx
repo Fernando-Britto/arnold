@@ -1,8 +1,15 @@
 import React, { useState, useMemo } from "react";
 import { type RutinaWithCount } from "@/api/rutinas";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 type SortColumn = "nombre" | "objetivo" | "frecuencia" | "duracion" | "nivel";
 type SortDirection = "asc" | "desc";
+
+const NIVEL_BADGE: Record<string, string> = {
+  BASICO: "bg-zinc-100 text-gray-500",
+  INTERMEDIO: "bg-blue-100 text-blue-700",
+  AVANZADO: "bg-amber-100 text-amber-800",
+};
 
 export interface RutinaListPanelProps {
   rutinas: RutinaWithCount[];
@@ -19,6 +26,19 @@ export function RutinaListPanel({
   const [sortColumn, setSortColumn] = useState<SortColumn>("nombre");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Debounce search input
   React.useEffect(() => {
@@ -165,14 +185,15 @@ export function RutinaListPanel({
                 Ejercicios
               </th>
               <th className="px-4 py-2 text-center font-semibold">Acciones</th>
+              <th className="w-10 px-2 py-2" />
             </tr>
           </thead>
           <tbody>
-            {filteredAndSorted.map((rutina, idx) => (
-              <tr
-                key={rutina.id}
-                className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
-              >
+            {filteredAndSorted.map((rutina, idx) => {
+              const isExpanded = expandedIds.has(rutina.id);
+              return (
+                <React.Fragment key={rutina.id}>
+                  <tr className={isExpanded ? "bg-[#FDEDE4]" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                 <td className="px-4 py-2 border-b border-gray-200">
                   {rutina.nombre}
                 </td>
@@ -186,7 +207,17 @@ export function RutinaListPanel({
                   {rutina.duracionEstimada} min
                 </td>
                 <td className="px-4 py-2 border-b border-gray-200">
-                  {rutina.nivelDeDificultad || "-"}
+                  {rutina.nivelDeDificultad ? (
+                    <span
+                      className={`inline-flex items-center rounded-sm px-2.5 py-1 text-xs font-bold ${
+                        NIVEL_BADGE[rutina.nivelDeDificultad] ?? "bg-zinc-100 text-gray-500"
+                      }`}
+                    >
+                      {rutina.nivelDeDificultad}
+                    </span>
+                  ) : (
+                    "-"
+                  )}
                 </td>
                 <td className="px-4 py-2 border-b border-gray-200 text-center font-semibold">
                   {rutina._count?.ejercicios ?? 0}
@@ -195,22 +226,43 @@ export function RutinaListPanel({
                   <div className="flex gap-2 justify-center">
                     <button
                       onClick={() => onModify(rutina)}
-                      className="px-3 py-1 text-blue-600 hover:bg-blue-50 rounded-md text-sm font-medium"
+                      className="px-3 py-1 text-[#C13D00] hover:bg-orange-50 rounded-md text-sm font-medium"
                       aria-label="editar"
                     >
                       Editar
                     </button>
                     <button
                       onClick={() => handleDelete(rutina)}
-                      className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-md text-sm font-medium"
+                      className="px-3 py-1 text-[#C13D00] hover:bg-orange-50 rounded-md text-sm font-medium"
                       aria-label="eliminar"
                     >
                       Eliminar
                     </button>
                   </div>
                 </td>
+                <td className="border-b border-gray-200 text-center">
+                  <button
+                    type="button"
+                    aria-label={`Ver detalle de ${rutina.nombre}`}
+                    aria-expanded={isExpanded}
+                    onClick={() => toggleExpanded(rutina.id)}
+                    className="text-zinc-400"
+                  >
+                    {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </button>
+                </td>
               </tr>
-            ))}
+              {isExpanded && (
+                <tr className="bg-[#FDEDE4]">
+                  <td colSpan={8} className="px-6 py-3 border-b border-gray-200">
+                    <p className="text-[11px] font-bold text-zinc-400">DESCRIPCIÓN</p>
+                    <p className="text-sm text-zinc-900">{rutina.descripcion || "-"}</p>
+                  </td>
+                </tr>
+              )}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

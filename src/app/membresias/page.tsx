@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth";
 import { Membresia } from "@/domains/membresia/membresia";
 import { MembresiaFormPanel } from "@/components/membresia-crud/membresia-form-panel";
 import { MembresiaListPanel } from "@/components/membresia-crud/membresia-list-panel";
+import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
 
 export function MembresiasPage() {
   const router = useRouter();
@@ -66,39 +67,35 @@ export function MembresiasPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 p-6">
-      {/* Page title */}
-      <h1 className="text-3xl font-bold">Membresías</h1>
+    <>
+      <h1 className="sr-only">Membresías</h1>
 
-      {/* Main content - two column layout */}
-      <div className="flex gap-6">
-        {/* Form panel - left */}
-        <div className="w-96 border border-gray-200 rounded-lg bg-white shadow-sm">
-          <div className="border-b bg-gray-50 px-4 py-3">
-            <h2 className="font-bold text-lg" data-testid="form-title">
-              {selectedMembresia ? "Editar Membresía" : "Nueva Membresía"}
-            </h2>
-          </div>
-          <MembresiaFormPanel
-            initialData={selectedMembresia}
-            onSuccess={handleFormSuccess}
-            onCancel={handleFormCancel}
-            isEdit={!!selectedMembresia?.id}
-          />
-        </div>
-
-        {/* List panel - right */}
-        <div className="flex-1 border border-gray-200 rounded-lg bg-white shadow-sm">
-          <div className="border-b bg-gray-50 px-4 py-3">
-            <h2 className="font-bold text-lg">Membresías Disponibles</h2>
-          </div>
-          <MembresiaListPanel
-            key={`membresia-list-${refreshTrigger}`}
-            onEditClick={handleEditMembresia}
-          />
-        </div>
-      </div>
-    </div>
+      <CrudPageLayout
+        section="membresias"
+        breadcrumb="Membresías"
+        formPanel={
+          <FormPanelShell
+            title={selectedMembresia ? "Editar Membresía" : "Nueva Membresía"}
+            titleTestId="form-title"
+          >
+            <MembresiaFormPanel
+              initialData={selectedMembresia}
+              onSuccess={handleFormSuccess}
+              onCancel={handleFormCancel}
+              isEdit={!!selectedMembresia?.id}
+            />
+          </FormPanelShell>
+        }
+        listPanel={
+          <ListPanelShell>
+            <MembresiaListPanel
+              key={`membresia-list-${refreshTrigger}`}
+              onEditClick={handleEditMembresia}
+            />
+          </ListPanelShell>
+        }
+      />
+    </>
   );
 }
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MembresiaList } from "./membresia-list";
 import type { Membresia } from "@/domains/membresia/membresia";
@@ -157,10 +157,10 @@ describe("MembresiaList", () => {
       );
 
       // Find the edit button for Gold row
-      const goldRow = screen.getByText("Gold").closest("tr");
-      const editButton = goldRow?.querySelector('button[class*="bg-blue"]');
-      
-      await user.click(editButton as HTMLElement);
+      const goldRow = screen.getByText("Gold").closest("tr") as HTMLElement;
+      const editButton = within(goldRow).getByRole("button", { name: /editar/i });
+
+      await user.click(editButton);
 
       expect(mockOnEdit).toHaveBeenCalledWith(mockMembresias[0]);
     });
@@ -176,10 +176,10 @@ describe("MembresiaList", () => {
       );
 
       // Find the delete button for Silver (0 assigned, so it's enabled)
-      const silverRow = screen.getByText("Silver").closest("tr");
-      const deleteButton = silverRow?.querySelector('button[class*="bg-red"]');
-      
-      await user.click(deleteButton as HTMLElement);
+      const silverRow = screen.getByText("Silver").closest("tr") as HTMLElement;
+      const deleteButton = within(silverRow).getByRole("button", { name: /eliminar/i });
+
+      await user.click(deleteButton);
 
       // Should show confirmation modal
       await waitFor(() => {
@@ -200,10 +200,10 @@ describe("MembresiaList", () => {
       );
 
       // Find the delete button for Silver (0 assigned, so it's enabled)
-      const silverRow = screen.getByText("Silver").closest("tr");
-      const deleteButton = silverRow?.querySelector('button[class*="bg-red"]');
-      
-      await user.click(deleteButton as HTMLElement);
+      const silverRow = screen.getByText("Silver").closest("tr") as HTMLElement;
+      const deleteButton = within(silverRow).getByRole("button", { name: /eliminar/i });
+
+      await user.click(deleteButton);
 
       // Confirm deletion
       await waitFor(() => {
@@ -228,10 +228,10 @@ describe("MembresiaList", () => {
       );
 
       // Find the delete button for Silver (0 assigned, so it's enabled)
-      const silverRow = screen.getByText("Silver").closest("tr");
-      const deleteButton = silverRow?.querySelector('button[class*="bg-red"]');
-      
-      await user.click(deleteButton as HTMLElement);
+      const silverRow = screen.getByText("Silver").closest("tr") as HTMLElement;
+      const deleteButton = within(silverRow).getByRole("button", { name: /eliminar/i });
+
+      await user.click(deleteButton);
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /cancelar/i }));

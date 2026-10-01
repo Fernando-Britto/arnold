@@ -199,7 +199,9 @@ export function ClienteForm({
   );
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-200 w-full max-w-md">
+    <div className="flex bg-white rounded-lg shadow-sm border border-gray-200 w-full max-w-md overflow-hidden">
+      <div className="w-[3px] shrink-0 bg-[#FC4C02]" />
+      <div className="flex-1 p-6">
       <h2 className="text-lg font-semibold mb-4">
         {initialData?.id ? "Editar Cliente" : "Nuevo Cliente"}
       </h2>
@@ -406,6 +408,7 @@ export function ClienteForm({
           )}
         </div>
       </form>
+      </div>
     </div>
   );
 }

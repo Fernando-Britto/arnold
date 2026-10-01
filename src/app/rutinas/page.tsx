@@ -14,6 +14,7 @@ import {
   type RutinaWithCount,
 } from "@/api/rutinas";
 import { fetchEjercicios } from "@/api/ejercicios";
+import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
 
 export function RutinasPage() {
   const router = useRouter();
@@ -181,65 +182,53 @@ export function RutinasPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-6">
-      {/* Page title */}
-      <h1 className="text-3xl font-bold">Rutinas</h1>
+    <>
+      <h1 className="sr-only">Rutinas</h1>
 
-      {/* Error message */}
-      {error && (
-        <div className="rounded-md bg-red-50 p-4 border border-red-200">
-          <p className="text-red-700">{error}</p>
-        </div>
-      )}
-
-      {/* Loading state */}
-      {loading && (
-        <div className="flex items-center justify-center py-8">
-          <p className="text-gray-500">Cargando rutinas...</p>
-        </div>
-      )}
-
-      {/* Main content - two column layout */}
-      {!loading && (
-        <div className="flex gap-6">
-          {/* Form panel - left */}
-          <div className="w-96 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <div className="border-b bg-gray-50 px-4 py-3 flex justify-between items-center">
-              <h2 className="font-bold text-lg">
-                {selectedRutina ? "Editar Rutina" : "Nueva Rutina"}
-              </h2>
-              {selectedRutina && (
+      <CrudPageLayout
+        section="rutinas"
+        breadcrumb="Rutinas"
+        error={error}
+        formPanel={
+          <FormPanelShell
+            title={selectedRutina ? "Editar Rutina" : "Nueva Rutina"}
+            headerAction={
+              selectedRutina && (
                 <button
                   type="button"
                   onClick={() => setSelectedRutina(null)}
-                  className="text-xs text-blue-600 hover:underline font-medium"
+                  className="text-xs font-medium text-[#C13D00] hover:underline"
                 >
                   + Nueva Rutina
                 </button>
-              )}
-            </div>
+              )
+            }
+          >
             <RutinaForm
               onSave={handleSave}
               initialData={selectedRutina}
               availableEjercicios={ejercicios}
               isLoading={isSaving}
             />
-          </div>
-
-          {/* List panel - right */}
-          <div className="flex-1 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <div className="border-b bg-gray-50 px-4 py-3">
-              <h2 className="font-bold text-lg">Rutinas Disponibles</h2>
-            </div>
-            <RutinaListPanel
-              rutinas={rutinas}
-              onModify={handleModify}
-              onDelete={handleDelete}
-            />
-          </div>
-        </div>
-      )}
-    </div>
+          </FormPanelShell>
+        }
+        listPanel={
+          <ListPanelShell>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-gray-500">Cargando rutinas...</p>
+              </div>
+            ) : (
+              <RutinaListPanel
+                rutinas={rutinas}
+                onModify={handleModify}
+                onDelete={handleDelete}
+              />
+            )}
+          </ListPanelShell>
+        }
+      />
+    </>
   );
 }
 

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { type EstadoCuenta } from "@/domains/cliente/cliente";
+import { Badge, type BadgeVariant } from "@/components/ui/badge";
 
 export interface ClienteListProps {
   clientes: Array<{
@@ -20,16 +21,16 @@ export interface ClienteListProps {
 
 type SortField = "nombre" | "dni" | "email" | "membresiaAsignada" | "estadoCuenta";
 
-function getEstadoCuentaBadgeClass(estado: EstadoCuenta): string {
+function getEstadoCuentaBadgeVariant(estado: EstadoCuenta): BadgeVariant {
   switch (estado) {
     case "Activo":
-      return "bg-green-100 text-green-800";
+      return "success";
     case "Inactivo":
-      return "bg-yellow-100 text-yellow-800";
+      return "warning";
     case "Bloqueado":
-      return "bg-red-100 text-red-800";
+      return "danger";
     default:
-      return "bg-gray-100 text-gray-800";
+      return "neutral";
   }
 }
 
@@ -112,7 +113,9 @@ export function ClienteList({
   };
 
   return (
-    <div className="flex-1 p-6 bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="flex flex-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="w-[3px] shrink-0 bg-[#FC4C02]" />
+      <div className="flex-1 p-6">
       <div className="mb-4">
         <h2 className="text-lg font-semibold mb-3">Clientes</h2>
         <input
@@ -209,18 +212,14 @@ export function ClienteList({
                       cliente.membresiaAsignada}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getEstadoCuentaBadgeClass(
-                        cliente.estadoCuenta
-                      )}`}
-                    >
+                    <Badge variant={getEstadoCuentaBadgeVariant(cliente.estadoCuenta)}>
                       {cliente.estadoCuenta}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => onModify(cliente)}
-                      className="text-blue-600 hover:text-blue-800 font-medium text-sm mr-3"
+                      className="text-[#C13D00] hover:underline font-medium text-sm mr-3 disabled:text-gray-400"
                       disabled={deletingId === cliente.id}
                     >
                       Editar
@@ -228,7 +227,7 @@ export function ClienteList({
                     <button
                       onClick={() => handleDelete(cliente.id)}
                       disabled={deletingId === cliente.id}
-                      className="text-red-600 hover:text-red-800 font-medium text-sm disabled:text-gray-400"
+                      className="text-[#C13D00] hover:underline font-medium text-sm disabled:text-gray-400"
                     >
                       {deletingId === cliente.id ? "Eliminando..." : "Eliminar"}
                     </button>
@@ -239,6 +238,7 @@ export function ClienteList({
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

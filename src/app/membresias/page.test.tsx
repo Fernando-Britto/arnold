@@ -104,7 +104,7 @@ describe("Membresias CRUD Screen - T-017", () => {
     it("should render title, form panel, and list panel", async () => {
       render(<MembresiasPage />);
       await waitFor(() => {
-        expect(screen.getByText("Membresías")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Membresías" })).toBeInTheDocument();
         expect(screen.getByTestId("membresia-form-panel")).toBeInTheDocument();
         expect(screen.getByTestId("membresia-list-panel")).toBeInTheDocument();
         expect(screen.getByText("Nueva Membresía")).toBeInTheDocument();

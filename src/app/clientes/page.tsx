@@ -14,6 +14,7 @@ import {
 } from "@/api/clientes";
 import { fetchMembresias, type MembresiaDropdown } from "@/api/membresias";
 import { Cliente } from "@/domains/cliente/cliente";
+import { CrudPageLayout } from "@/components/layout/crud-page-layout";
 
 export function ClientesPage() {
   const router = useRouter();
@@ -182,23 +183,8 @@ export function ClientesPage() {
   }, [membresias]);
 
   return (
-    <div className="flex flex-col gap-4 p-6">
-      {/* Page title */}
-      <h1 className="text-3xl font-bold">Clientes</h1>
-
-      {/* Error message */}
-      {error && (
-        <div className="rounded-md bg-red-50 p-4 border border-red-200">
-          <p className="text-red-700">{error}</p>
-        </div>
-      )}
-
-      {/* Loading state */}
-      {loading && (
-        <div className="flex items-center justify-center py-8">
-          <p className="text-gray-500">Cargando clientes...</p>
-        </div>
-      )}
+    <>
+      <h1 className="sr-only">Clientes</h1>
 
       {/* Temp password modal */}
       {tempPasswordModal.visible && (
@@ -218,7 +204,7 @@ export function ClientesPage() {
               onClick={() =>
                 setTempPasswordModal({ visible: false, password: "" })
               }
-              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+              className="w-full bg-[#FC4C02] text-white py-2 rounded hover:bg-[#C13D00]"
             >
               Aceptar
             </button>
@@ -226,11 +212,12 @@ export function ClientesPage() {
         </div>
       )}
 
-      {/* Main content - two column layout */}
-      {!loading && (
-        <div className="flex gap-6 items-start">
-          {/* Form panel - left */}
-          <div className="w-96">
+      <CrudPageLayout
+        section="clientes"
+        breadcrumb="Clientes"
+        error={error}
+        formPanel={
+          loading ? null : (
             <ClienteForm
               onSave={handleSave}
               onCancel={() => setSelectedCliente(null)}
@@ -251,20 +238,24 @@ export function ClientesPage() {
               availableMembresias={membresias}
               isLoading={isSaving}
             />
-          </div>
-
-          {/* List panel - right */}
-          <div className="flex-1">
+          )
+        }
+        listPanel={
+          loading ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-gray-500">Cargando clientes...</p>
+            </div>
+          ) : (
             <ClienteList
               clientes={clientes}
               onModify={handleModify}
               onDelete={handleDelete}
               membresiaLabels={membresiaLabels}
             />
-          </div>
-        </div>
-      )}
-    </div>
+          )
+        }
+      />
+    </>
   );
 }
 

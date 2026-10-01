@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import type { Membresia } from "@/domains/membresia/membresia";
+import { Badge } from "@/components/ui/badge";
 
 interface MembresiaWithCount extends Membresia {
   assignedSocioCount: number;
@@ -146,15 +147,9 @@ export function MembresiaList({
                     {membresia.descripcion || "-"}
                   </td>
                   <td className="border border-gray-200 px-4 py-2">
-                    <span
-                      className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                        membresia.estado === "ACTIVA"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
+                    <Badge variant={membresia.estado === "ACTIVA" ? "success" : "danger"}>
                       {membresia.estado === "ACTIVA" ? "Activa" : "Inactiva"}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="border border-gray-200 px-4 py-2 text-center">
                     {membresia.assignedSocioCount}
@@ -162,7 +157,7 @@ export function MembresiaList({
                   <td className="border border-gray-200 px-4 py-2 text-center space-x-2 flex justify-center">
                     <button
                       onClick={() => onEdit(membresia)}
-                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                      className="px-3 py-1 rounded text-sm font-medium text-[#C13D00] hover:bg-orange-50 border border-zinc-200"
                     >
                       Editar
                     </button>
@@ -174,10 +169,10 @@ export function MembresiaList({
                           }
                         }}
                         disabled={isDeleteDisabled}
-                        className={`px-3 py-1 rounded text-sm ${
+                        className={`px-3 py-1 rounded text-sm font-medium border border-zinc-200 ${
                           isDeleteDisabled
-                            ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                            : "bg-red-600 text-white hover:bg-red-700"
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : "text-[#C13D00] hover:bg-orange-50"
                         }`}
                       >
                         Eliminar

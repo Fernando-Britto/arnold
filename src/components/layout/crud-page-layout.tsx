@@ -40,18 +40,19 @@ export function CrudPageLayout({
 
 interface FormPanelShellProps {
   title: string;
+  titleTestId?: string;
   headerAction?: React.ReactNode;
   children: React.ReactNode;
 }
 
 /** Panel izquierdo: tarjeta blanca con línea de acento naranja de la marca. */
-export function FormPanelShell({ title, headerAction, children }: FormPanelShellProps) {
+export function FormPanelShell({ title, titleTestId, headerAction, children }: FormPanelShellProps) {
   return (
     <section className="flex h-fit w-96 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-white">
       <div data-testid="accent-line" className="w-[3px] shrink-0 bg-[#FC4C02]" />
       <div className="flex grow flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-zinc-900">{title}</h2>
+          <h2 data-testid={titleTestId} className="text-lg font-bold text-zinc-900">{title}</h2>
           {headerAction}
         </div>
         {children}

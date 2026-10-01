@@ -49,6 +49,15 @@ describe("FormPanelShell", () => {
     expect(screen.getByText("contenido")).toBeInTheDocument();
     expect(container.querySelector('[data-testid="accent-line"]')).toHaveClass("bg-[#FC4C02]");
   });
+
+  it("acepta un titleTestId opcional para el título (compat con tests existentes)", () => {
+    render(
+      <FormPanelShell title="Nueva Membresía" titleTestId="form-title">
+        <p>contenido</p>
+      </FormPanelShell>
+    );
+    expect(screen.getByTestId("form-title")).toHaveTextContent("Nueva Membresía");
+  });
 });
 
 describe("ListPanelShell", () => {
