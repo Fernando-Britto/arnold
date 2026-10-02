@@ -52,8 +52,6 @@ export function HomeSocioPage() {
     if (!isAuthenticated || !isMember) return;
 
     let cancelled = false;
-    setLoading(true);
-    setError(null);
 
     fetchHomeSocioData()
       .then((result) => {
