@@ -59,7 +59,7 @@ export function computeSociosInactivos(
   return { cantidad, footer: `Sin visita > ${diasInactividad} días` };
 }
 
-export type MetodoPago = "EFECTIVO" | "TRANSFERENCIA";
+export type MetodoPago = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA";
 
 export interface Pago {
   monto: number;
@@ -71,28 +71,31 @@ export interface Pago {
 export interface CajaHoyResult {
   efectivo: number;
   transferencia: number;
+  tarjeta: number;
   total: number;
 }
 
+/** "Today" is a calendar day at the gym, not in UTC: a payment at 21:30 ART is
+ * already the next day in UTC. */
+export const GYM_TIME_ZONE = "America/Argentina/Buenos_Aires";
+
+const diaEnGimnasio = (d: Date) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: GYM_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+
 function esMismoDia(a: Date, b: Date): boolean {
-  return (
-    a.getUTCFullYear() === b.getUTCFullYear() &&
-    a.getUTCMonth() === b.getUTCMonth() &&
-    a.getUTCDate() === b.getUTCDate()
-  );
+  return diaEnGimnasio(a) === diaEnGimnasio(b);
 }
 
 /** AC-004: sum of confirmed Pago.monto for today, grouped by metodoPago. */
 export function computeCajaHoy(pagos: Pago[], hoy: Date): CajaHoyResult {
   const deHoy = pagos.filter((p) => p.estado === "CONFIRMADO" && esMismoDia(p.fecha, hoy));
-  const efectivo = deHoy
-    .filter((p) => p.metodoPago === "EFECTIVO")
-    .reduce((sum, p) => sum + p.monto, 0);
-  const transferencia = deHoy
-    .filter((p) => p.metodoPago === "TRANSFERENCIA")
-    .reduce((sum, p) => sum + p.monto, 0);
+  const sumar = (metodo: MetodoPago) =>
+    deHoy.filter((p) => p.metodoPago === metodo).reduce((sum, p) => sum + p.monto, 0);
+  const efectivo = sumar("EFECTIVO");
+  const transferencia = sumar("TRANSFERENCIA");
+  const tarjeta = sumar("TARJETA");
 
-  return { efectivo, transferencia, total: efectivo + transferencia };
+  return { efectivo, transferencia, tarjeta, total: efectivo + transferencia + tarjeta };
 }
 
 export type ActivityEventType =

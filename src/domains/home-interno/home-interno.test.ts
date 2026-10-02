@@ -86,6 +86,22 @@ describe("computeCajaHoy (AC-004: sum of confirmed Pago.monto for today, grouped
     expect(computeCajaHoy(pagos, hoy).total).toBe(0);
   });
 
+  it("includes TARJETA payments in their own bucket and in the total (schema has 3 MetodoPago)", () => {
+    const pagos = [
+      { monto: 50, metodoPago: "EFECTIVO" as const, estado: "CONFIRMADO" as const, fecha: hoy },
+      { monto: 30, metodoPago: "TARJETA" as const, estado: "CONFIRMADO" as const, fecha: hoy },
+    ];
+    expect(computeCajaHoy(pagos, hoy)).toEqual({ efectivo: 50, transferencia: 0, tarjeta: 30, total: 80 });
+  });
+
+  it("counts 'today' in the gym's timezone (ART, UTC-3), not UTC", () => {
+    // 21:30 ART on 30/09 is already 01/10 in UTC: must still count as today.
+    const tardeEnArgentina = { monto: 100, metodoPago: "EFECTIVO" as const, estado: "CONFIRMADO" as const, fecha: new Date("2026-10-01T00:30:00Z") };
+    // 23:30 ART on 29/09 is already 30/09 in UTC: must NOT count as today.
+    const ayerEnArgentina = { monto: 70, metodoPago: "EFECTIVO" as const, estado: "CONFIRMADO" as const, fecha: new Date("2026-09-30T02:30:00Z") };
+    expect(computeCajaHoy([tardeEnArgentina, ayerEnArgentina], hoy).total).toBe(100);
+  });
+
   it("ignores payments from a different day", () => {
     const pagos = [
       { monto: 100, metodoPago: "EFECTIVO" as const, estado: "CONFIRMADO" as const, fecha: new Date("2026-09-29T09:00:00Z") },
@@ -229,7 +245,7 @@ describe("aggregateHomeInternoPart1 (composes Row_Hoy + Row_Operacion from raw d
   it("matches the spec's data scenarios end to end", () => {
     const vm = aggregateHomeInternoPart1(raw, hoy);
     expect(vm.aforo).toMatchObject({ ocupacionActual: 87, capacidadMaxima: 100, porcentaje: 87 });
-    expect(vm.caja).toEqual({ efectivo: 150, transferencia: 200, total: 350 });
+    expect(vm.caja).toEqual({ efectivo: 150, transferencia: 200, tarjeta: 0, total: 350 });
     expect(vm.equipos).toEqual({ metric: "90%", footer: "2 en mantenimiento" });
     expect(vm.inactivos).toEqual({ metric: "42", footer: "Sin visita > 15 días" });
     expect(vm.personal).toEqual({ metric: "2", footer: "1 entrenador, 1 staff" });

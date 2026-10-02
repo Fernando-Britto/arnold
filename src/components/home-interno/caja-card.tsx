@@ -3,20 +3,21 @@
 import React from "react";
 
 /**
- * Row_Hoy · Caja (AC-004). Totals come from computeCajaHoy. The "Cierre de
+ * Row_Hoy · Caja (AC-004). Totals come from computeCajaHoy (Efectivo + Transferencia + Tarjeta). The "Cierre de
  * Caja" flow itself (creates CierreDeCaja on confirm) is NOT part of T-021a —
  * this card only exposes the trigger.
  */
 export interface CajaCardProps {
   efectivo: number;
   transferencia: number;
+  tarjeta: number;
   total: number;
   onCierreDeCaja: () => void;
 }
 
 const money = (n: number) => `$${n.toFixed(2)}`;
 
-export function CajaCard({ efectivo, transferencia, total, onCierreDeCaja }: CajaCardProps) {
+export function CajaCard({ efectivo, transferencia, tarjeta, total, onCierreDeCaja }: CajaCardProps) {
   return (
     <div className="flex flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-6">
       <p className="text-sm font-medium text-zinc-500">Caja de hoy</p>
@@ -30,6 +31,10 @@ export function CajaCard({ efectivo, transferencia, total, onCierreDeCaja }: Caj
       <div className="flex justify-between text-xs text-zinc-500">
         <span>Transferencia</span>
         <span>{money(transferencia)}</span>
+      </div>
+      <div className="flex justify-between text-xs text-zinc-500">
+        <span>Tarjeta</span>
+        <span>{money(tarjeta)}</span>
       </div>
       <button
         type="button"

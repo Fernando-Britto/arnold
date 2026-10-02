@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Dumbbell, UserX, Users } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { fetchHomeInternoPart1, type HomeInternoPart1Data } from "@/api/home-interno";
-import { aggregateHomeInternoPart1 } from "@/domains/home-interno/home-interno";
+import { aggregateHomeInternoPart1, GYM_TIME_ZONE } from "@/domains/home-interno/home-interno";
 import { AdminTopNav } from "@/components/layout/admin-top-nav";
 import { QuickActions, type QuickAction } from "@/components/home-interno/quick-actions";
 import { AlertasCard } from "@/components/home-interno/alertas-card";
@@ -45,7 +45,7 @@ function formatFechaHeader(fecha: Date): string {
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: "America/Argentina/Buenos_Aires",
+    timeZone: GYM_TIME_ZONE,
   })
     .format(fecha)
     .replace(/(^|\s)(\p{L}{3,})/gu, (_, sp, w: string) => sp + w[0].toUpperCase() + w.slice(1));
