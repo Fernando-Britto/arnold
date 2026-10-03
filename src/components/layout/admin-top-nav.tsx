@@ -23,7 +23,8 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 interface TopNavProps {
-  activeSection: NavSection;
+  /** Omitted on pages that aren't one of the CRUD sections (e.g. Home_Interno). */
+  activeSection?: NavSection;
 }
 
 export function AdminTopNav({ activeSection }: TopNavProps) {

@@ -19,6 +19,13 @@ describe("AdminTopNav", () => {
     expect(screen.getByText("GYM")).toBeInTheDocument();
   });
 
+  it("sin activeSection (ej. Home_Interno) no marca ningún link como activo", () => {
+    mockUseAuth.mockReturnValue(userWithRole("ADMINISTRADOR"));
+    render(<AdminTopNav />);
+    expect(screen.getAllByRole("link")).toHaveLength(4);
+    screen.getAllByRole("link").forEach((link) => expect(link).not.toHaveAttribute("aria-current"));
+  });
+
   it("ADMINISTRADOR ve los 4 links con sus rutas", () => {
     mockUseAuth.mockReturnValue(userWithRole("ADMINISTRADOR"));
     render(<AdminTopNav activeSection="ejercicios" />);

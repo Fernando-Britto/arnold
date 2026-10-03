@@ -1,128 +1,52 @@
-# 🎯 Arnold Project Status - Snapshot
+# Arnold — Estado del proyecto
 
-## 📊 Módulos Completados al 100%
+**Actualizado**: 2026-10-02 · **Plan**: `openspec/sdd-tasks-tdd.md` · **Modo**: Strict TDD
 
-### ✅ T-001/T-002: Máquinas (Ejercicios)
-- Estado: **PRODUCCIÓN LISTA**
-- Tests: 110 ✅
-- Bugs: 5 arreglados (validación, DELETE, filtering)
-- Commit: 505cdb4, 43d4b0d, 6c8b677
+## Tareas
 
-### ✅ T-014/T-015: Membresías
-- Estado: **PRODUCCIÓN LISTA**
-- Tests: 115 ✅
-- Bugs: 6 arreglados (sanitización, validación, ordering, filtering)
-- Commit: a7e9f62, 6c8b677
+| Tarea | Qué | Estado |
+|---|---|---|
+| T-001 | Schema Prisma | ✅ |
+| T-022 | Role gating (middleware + contexto) | ✅ |
+| T-023a | Auth infra (JWT, DB singleton, rate limit, fine-grained) | ✅ |
+| T-002 – T-005 | Ejercicios (dominio, UI, API, pantalla) | ✅ |
+| T-025 | Override manual de acceso (`/api/socios/[id]/access-override`) | ✅ |
+| T-006 – T-009 | Rutinas | ✅ |
+| T-010 – T-013 | Clientes | ✅ |
+| T-014 – T-017 | Membresías | ✅ |
+| T-018, T-019 | Home_Socio (Tarjeta_Detalle + página) | ✅ |
+| T-020 | Home_Interno: `OperationCard`, `ActivityColumn` + dominio | ✅ |
+| T-021a | Home_Interno Parte 1 (Row_Acciones, Row_Hoy, Row_Operacion) | ✅ ver abajo |
+| T-021b | Home_Interno Parte 2 (Row_Gestion, Col_Actividad + integración) | ⏳ siguiente |
+| T-023b | Utilidades UI (validación, formato, errores) | ⏳ `src/utils/` no existe |
+| T-024 | Fixtures y factories | ⏳ `tests/factories/` no existe |
 
-### ✅ T-010: Cliente Domain Model + Repository
-- Estado: **ACEPTACIÓN COMPLETA**
-- Tests: 69 (↑21 nuevos) ✅
-- Bugs: 5 arreglados (H1-H5)
-  - ✅ H1: Type mismatch en update() merge
-  - ✅ H2: estadoCuenta nunca persiste
-  - ✅ H3: Error code inconsistente
-  - ✅ H4: Usuario huérfano delete
-  - ✅ H5: Test gap ClienteRepository
-- Commit: 5001b53, 08a7342
+### T-021a — cómo quedó
+El plan la estimaba en 250 LOC, pero T-020 no había cubierto Row_Acciones, Alertas, Aforo (staff) ni Caja. Se partió en 3 PRs encadenados (≤400 LOC):
+- **PR-009-A1** dominio: `computeAforo`, `computeAlertasVencimiento`, `computePersonalEnTurno`, `aggregateHomeInternoPart1`.
+- **PR-009-A2** componentes: `QuickActions`, `AlertasCard`, `AforoHoyCard`, `CajaCard`.
+- **PR-009-A3** `src/api/home-interno.ts` + `src/app/home-interno/page.tsx`.
+- **Fix** (T-020): `computeCajaHoy` ahora suma `TARJETA`; "hoy" se calcula en `America/Argentina/Buenos_Aires` (antes UTC).
 
-### ✅ T-011: Cliente FormPanel + ListPanel
-- Estado: **ACEPTACIÓN COMPLETA**
-- Tests: 34 ✅
-- AC Verification: 100%
-  - ✅ AC-004: Dropdown membresías activas
-  - ✅ AC-006: Badge accesibilidad
-  - ✅ AC-007: ID/fechaAlta read-only
-  - ✅ Búsqueda (nombre, DNI, email)
-  - ✅ Ordenamiento (toggle + precedencia)
-  - ✅ Confirmación delete con window.confirm
-- Commit: 2db2326
+## Límites de alcance conocidos (documentados, no ocultos)
 
----
+- `/api/home-socio` y `/api/home-interno` **no existen**: ambas páginas se construyeron contra fetch mockeado. Falta la capa de repositorio/agregación (Asistencia, Pago, Cuota, Máquina, Empleado, ConfiguracionDelSistema).
+- Botones de Home_Interno sin destino (no-ops): Registrar Pago, Asignar Rutina (modal: `openspec/asignar-rutina-flowspec.md`), Control Acceso, Cierre de Caja. Las cards de Equipos y Personal tampoco tienen lista filtrada.
+- Solo se renderiza la alerta "Vencimiento" (la spec no define las otras dos del diseño). Se omite "+12% vs ayer" de Caja (sin fuente de datos).
+- Defaults asumidos (la spec solo documenta `periodoGracia = 0`): `diasInactividad = 15`; `capacidadMaxima` ausente → "Aforo no configurado".
+- Recuperación `AGGREGATION_TIMEOUT` (valores cacheados + indicador) sin implementar.
 
-## 🚀 Módulos Listos para Comenzar
+## Huecos de autenticación (observados, sin resolver)
 
-### ⏳ T-012: Cliente API Route
-- Dependencia: T-010 ✅ CUMPLIDA
-- Status: **PUEDE COMENZAR**
-- Spec: clientes-crud/spec.md (RN-01 cascading)
-- Endpoints: GET/POST/PUT/DELETE
+- No hay página `/login` ni rutas `/api/auth/*`, pero ambas homes redirigen a `/login` y el middleware las referencia.
+- `AuthProvider` no está montado en `layout.tsx`; `logout` es un stub.
+- El `matcher` de `src/middleware.ts` cubre `/api/*` y `/dashboard/*`, no `/home-interno` ni `/home-socio`: hoy esas páginas solo se protegen del lado cliente.
 
-### ⏳ T-013: Cliente CRUD Screen + Membresía Integration
-- Dependencia: T-011 ✅ CUMPLIDA, T-012 (pending)
-- Status: **PUEDE COMENZAR CUANDO T-012 TERMINE**
-- Spec: clientes-crud/spec.md (RN-06 gating)
-- Features: Page /clientes, role gating, membresía population
+## Calidad
 
----
+- Tests: la suite corre con `npm test`. `src/domains/ejercicio/ejercicio.test.ts` depende de una DB real (falla sin ella).
+- Lint: los archivos de T-021a están limpios, pero `npx eslint src` reporta ~160 problemas preexistentes (118 errores) en el resto del código. El ítem "`npm run lint` clean" del checklist TDD **no se cumple a nivel repo**.
+- Próximo paso: T-021b (extender el contrato de `/api/home-interno` con contadores y eventos de actividad).
 
-## 📈 Estadísticas Generales
-
-```
-Total Tests:        158+ ✅
-  - Ejercicios:     110 ✅
-  - Membresías:     115 ✅
-  - Cliente Domain: 69 ✅
-  - Cliente UI:     34 ✅
-
-TypeScript Errors:  0 ✅
-Code Coverage:      ~85%
-Production Ready:   4/8 modules ✅
-```
-
----
-
-## 🎯 Próximas Tareas
-
-### Inmediato
-1. **T-012**: Cliente API Route
-   - Estimated LOC: 270 (160 impl + 110 tests)
-   - Risk: Medium
-   - Blocker: None (T-010 ✅)
-
-2. **T-018**: Tarjeta_Detalle (si prefieres cambiar)
-   - Estimated LOC: Variable
-   - Risk: Unknown (no spec review yet)
-   - Blocker: None
-
-### Siguiente
-3. **T-013**: Cliente CRUD Screen
-   - Depends: T-012
-   - LOC: 300 (190 impl + 110 tests)
-
-4. **T-021a**: Home_Interno Page Layout Part 1
-   - Estimated LOC: Variable
-   - Risk: Medium
-
----
-
-## 📋 Documentación Creada
-
-- ✅ T-010-011-012-013_BUGS.md - Análisis detallado de 5 bugs críticos
-- ✅ T-010-013-FIXES-SUMMARY.md - Resumen de implementación H1-H5
-- ✅ T-011-AC-CHECKLIST.md - Verificación exhaustiva de AC
-
----
-
-## 🔄 Últimos Commits
-
-```
-2db2326 Verification: T-011 AC (Cliente FormPanel + ListPanel) COMPLETE
-08a7342 Doc: Resumen de T-010/T-013 fixes
-5001b53 Fix: T-010/T-013 4 Critical bugs in ClienteRepository
-bcc22da Discovery: 5 Critical bugs in T-010/011/012/013 Cliente module
-6c8b677 T-015A+B: Membresia API activeOnly filtering optimized
-43d4b0d T-014: Membresia sanitization (trim + null normalization)
-505cdb4 T-002/T-003: Ejercicios validation + DELETE P2003 handling
-```
-
----
-
-## ✨ Resumen Ejecutivo
-
-**Hito**: Módulo Cliente/Socio completado y verificado al 100%
-**Bugs**: 5 críticos arreglados (H1-H5)
-**Tests**: 69 dominio + 34 UI = 103 tests Cliente module
-**Status**: ✅ Producción lista para T-010, T-011
-**Siguiente**: T-012 (API Route) o T-018 según prioridad
-
-**Recomendación**: Continuar con T-012 para cerrar Cliente/Socio completamente, o cambiar a T-018 si hay urgencia en otra área.
+## Documentación relacionada
+`T-007a-PROPOSAL.md`, `T-010-011-012-013_BUGS.md`, `T-010-013-FIXES-SUMMARY.md`, `T-011-AC-CHECKLIST.md`, `T-012-CRITICAL-ISSUES.md`, `T-016_HALLAZGOS.md`.
