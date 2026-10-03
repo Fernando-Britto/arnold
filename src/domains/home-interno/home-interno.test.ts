@@ -6,9 +6,9 @@ import {
   computeAforo,
   computeAlertasVencimiento,
   computePersonalEnTurno,
-  aggregateHomeInternoPart1,
+  aggregateHomeInterno,
   type ActivityEvent,
-  type HomeInternoPart1Raw,
+  type HomeInternoRaw,
 } from "./home-interno";
 
 describe("computeEstadoEquipos (RN-05, AC-005: excludes Fuera de Servicio / Inactiva from the numerator)", () => {
@@ -224,9 +224,9 @@ describe("computePersonalEnTurno (spec edge case: no staff -> 0 / 'Sin personal 
   });
 });
 
-describe("aggregateHomeInternoPart1 (composes Row_Hoy + Row_Operacion from raw data)", () => {
+describe("aggregateHomeInterno (composes Row_Hoy + Row_Operacion from raw data)", () => {
   const hoy = new Date("2026-09-30T18:00:00Z");
-  const raw: HomeInternoPart1Raw = {
+  const raw: HomeInternoRaw = {
     config: { capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15 },
     maquinas: [
       ...Array(2).fill({ estado: "FUERA_DE_SERVICIO" as const }),
@@ -240,10 +240,17 @@ describe("aggregateHomeInternoPart1 (composes Row_Hoy + Row_Operacion from raw d
     ultimasAsistencias: Array(42).fill(new Date("2026-09-01T00:00:00Z")),
     aforo: { asistenciasActivas: 87, horas: [{ hora: 18, ocupacion: 87 }], horaActual: 18 },
     personal: [{ rol: "INSTRUCTOR" }, { rol: "RECEPCIONISTA" }],
+    contadores: { rutinas: 124, ejercicios: 342, clientes: 892, membresias: 0 },
+    eventos: [
+      { tipo: "PAGO", nombre: "Ana López", descripcion: "Pago de membresía Pro", fecha: new Date("2026-09-30T17:45:00Z") },
+      { tipo: "ALTA_SOCIO", nombre: "Carlos Mendez", descripcion: "Alta de nuevo socio", fecha: new Date("2026-09-30T16:00:00Z") },
+      { tipo: "INGRESO", nombre: "Lucía Paz", descripcion: "Ingreso al gimnasio", fecha: new Date("2026-09-30T17:50:00Z") },
+      { tipo: "PAGO", nombre: "Viejo Pago", descripcion: "Pago de membresía Basic", fecha: new Date("2026-09-29T10:00:00Z") },
+    ],
   };
 
   it("matches the spec's data scenarios end to end", () => {
-    const vm = aggregateHomeInternoPart1(raw, hoy);
+    const vm = aggregateHomeInterno(raw, hoy);
     expect(vm.aforo).toMatchObject({ ocupacionActual: 87, capacidadMaxima: 100, porcentaje: 87 });
     expect(vm.caja).toEqual({ efectivo: 150, transferencia: 200, tarjeta: 0, total: 350 });
     expect(vm.equipos).toEqual({ metric: "90%", footer: "2 en mantenimiento" });
@@ -253,11 +260,31 @@ describe("aggregateHomeInternoPart1 (composes Row_Hoy + Row_Operacion from raw d
   });
 
   it("falls back to defaults when ConfiguracionDelSistema values are null, without crashing", () => {
-    const vm = aggregateHomeInternoPart1(
+    const vm = aggregateHomeInterno(
       { ...raw, config: { capacidadMaxima: null, periodoGracia: null, diasInactividad: null } },
       hoy
     );
     expect(vm.aforo.porcentaje).toBe(0);
     expect(vm.inactivos.footer).toBe("Sin visita > 15 días");
+  });
+
+  it("Row_Gestion: exposes the 4 live counts as display strings (zero stays '0')", () => {
+    expect(aggregateHomeInterno(raw, hoy).gestion).toEqual({
+      rutinas: "124",
+      ejercicios: "342",
+      clientes: "892",
+      membresias: "0",
+    });
+  });
+
+  it("Col_Actividad: drops check-ins and >24h events, newest first, formatted 'Hace X'", () => {
+    expect(aggregateHomeInterno(raw, hoy).actividad).toEqual([
+      { nombre: "Ana López", descripcion: "Pago de membresía Pro", haceTexto: "Hace 15 min" },
+      { nombre: "Carlos Mendez", descripcion: "Alta de nuevo socio", haceTexto: "Hace 2 horas" },
+    ]);
+  });
+
+  it("Col_Actividad: empty list when nothing qualifies (the card renders the empty state)", () => {
+    expect(aggregateHomeInterno({ ...raw, eventos: [] }, hoy).actividad).toEqual([]);
   });
 });

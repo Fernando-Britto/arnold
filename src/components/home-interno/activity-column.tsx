@@ -1,34 +1,22 @@
 "use client";
 
 import React from "react";
+import { formatHaceTiempo, type ActivityItemView } from "@/domains/home-interno/home-interno";
+
+// Kept as re-exports: both used to live here (T-020) and callers import them from this module.
+export { formatHaceTiempo };
+export type { ActivityItemView };
 
 /**
  * Col_Actividad — recent activity feed for Home_Interno.
  * Matches Home_Interno design. Expects already-filtered/formatted items —
  * the filtering rule (5 event types, no check-ins, last 24h) lives in
  * filterActivityFeed (src/domains/home-interno/home-interno.ts), and the
- * "Hace X" formatting lives in formatHaceTiempo below, so the caller
- * (T-021b page) composes both before passing items here.
+ * "Hace X" formatting lives in formatHaceTiempo (same module); both are composed
+ * by aggregateHomeInterno before items reach this component.
  */
-export interface ActivityItemView {
-  nombre: string;
-  descripcion: string;
-  haceTexto: string;
-}
-
 export interface ActivityColumnProps {
   items: ActivityItemView[];
-}
-
-/** Renders a Date as "Hace N min" / "Hace 1 hora" / "Hace N horas" /
- * "Hace unos segundos", relative to `hoy`. */
-export function formatHaceTiempo(fecha: Date, hoy: Date): string {
-  const segundos = Math.floor((hoy.getTime() - fecha.getTime()) / 1000);
-  if (segundos < 60) return "Hace unos segundos";
-  const minutos = Math.floor(segundos / 60);
-  if (minutos < 60) return `Hace ${minutos} min`;
-  const horas = Math.floor(minutos / 60);
-  return horas === 1 ? "Hace 1 hora" : `Hace ${horas} horas`;
 }
 
 export function ActivityColumn({ items }: ActivityColumnProps) {

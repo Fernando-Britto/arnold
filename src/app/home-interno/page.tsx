@@ -4,18 +4,21 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dumbbell, UserX, Users } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
-import { fetchHomeInternoPart1, type HomeInternoPart1Data } from "@/api/home-interno";
-import { aggregateHomeInternoPart1, GYM_TIME_ZONE } from "@/domains/home-interno/home-interno";
+import { fetchHomeInternoData, type HomeInternoData } from "@/api/home-interno";
+import { aggregateHomeInterno, GYM_TIME_ZONE } from "@/domains/home-interno/home-interno";
 import { AdminTopNav } from "@/components/layout/admin-top-nav";
 import { QuickActions, type QuickAction } from "@/components/home-interno/quick-actions";
 import { AlertasCard } from "@/components/home-interno/alertas-card";
 import { AforoHoyCard } from "@/components/home-interno/aforo-hoy-card";
 import { CajaCard } from "@/components/home-interno/caja-card";
 import { OperationCard } from "@/components/home-interno/operation-card";
+import { CounterCard } from "@/components/home-interno/counter-card";
+import { ActivityColumn } from "@/components/home-interno/activity-column";
+import { ROLE_GATE_MATRIX } from "@/middleware/role-gating";
 
 /**
- * Home_Interno — T-021a Part 1 (Row_Acciones, Row_Hoy, Row_Operacion),
- * matching openspec/Home_Interno.svg. T-021b adds Row_Gestion + Col_Actividad.
+ * Home_Interno — all five zones (Row_Acciones, Row_Hoy, Row_Operacion from
+ * T-021a; Row_Gestion, Col_Actividad from T-021b), matching openspec/Home_Interno.svg.
  *
  * SCOPE BOUNDARY (documented, not hidden):
  * - `/api/home-interno` doesn't exist yet — see src/api/home-interno.ts.
@@ -51,6 +54,13 @@ function formatFechaHeader(fecha: Date): string {
     .replace(/(^|\s)(\p{L}{3,})/gu, (_, sp, w: string) => sp + w[0].toUpperCase() + w.slice(1));
 }
 
+const GESTION_CARDS = [
+  { key: "rutinas", label: "Rutinas", ruta: "/rutinas" },
+  { key: "ejercicios", label: "Ejercicios", ruta: "/ejercicios" },
+  { key: "clientes", label: "Clientes", ruta: "/clientes" },
+  { key: "membresias", label: "Membresías", ruta: "/membresias" },
+] as const;
+
 const SectionLabel = ({ children }: { children: string }) => (
   <p className="text-[11px] font-bold tracking-wider text-zinc-500">{children}</p>
 );
@@ -59,7 +69,7 @@ export function HomeInternoPage() {
   const router = useRouter();
   const { isAuthenticated, isMember, user } = useAuth();
 
-  const [data, setData] = useState<HomeInternoPart1Data | null>(null);
+  const [data, setData] = useState<HomeInternoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +86,7 @@ export function HomeInternoPage() {
 
     let cancelled = false;
 
-    fetchHomeInternoPart1()
+    fetchHomeInternoData()
       .then((result) => {
         if (!cancelled) setData(result);
       })
@@ -92,7 +102,7 @@ export function HomeInternoPage() {
     };
   }, [isAuthenticated, isMember]);
 
-  const vm = useMemo(() => (data ? aggregateHomeInternoPart1(data, data.ahora) : null), [data]);
+  const vm = useMemo(() => (data ? aggregateHomeInterno(data, data.ahora) : null), [data]);
 
   if (!isAuthenticated || isMember) return null;
 
@@ -106,6 +116,9 @@ export function HomeInternoPage() {
     if (action === "nuevo-socio") router.push("/clientes");
     // registrar-pago / asignar-rutina / control-acceso: no destination yet (see header note).
   };
+
+  const puedeAbrir = (ruta: string) =>
+    (ROLE_GATE_MATRIX[ruta] as string[] | undefined)?.includes(user?.rol ?? "") ?? false;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F1F3F5]">
@@ -135,6 +148,22 @@ export function HomeInternoPage() {
             onClick={() => router.push("/clientes")}
           />
         </div>
+
+        <SectionLabel>GESTIÓN</SectionLabel>
+        <div className="grid gap-6 lg:grid-cols-4">
+          {GESTION_CARDS.map(({ key, label, ruta }) => (
+            <CounterCard
+              key={key}
+              label={label}
+              metric={vm.gestion[key]}
+              disabled={!puedeAbrir(ruta)}
+              onClick={() => router.push(ruta)}
+            />
+          ))}
+        </div>
+
+        <SectionLabel>ACTIVIDAD RECIENTE</SectionLabel>
+        <ActivityColumn items={vm.actividad} />
       </main>
     </div>
   );
