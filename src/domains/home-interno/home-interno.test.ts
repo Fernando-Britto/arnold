@@ -240,6 +240,13 @@ describe("aggregateHomeInterno (composes Row_Hoy + Row_Operacion from raw data)"
     ultimasAsistencias: Array(42).fill(new Date("2026-09-01T00:00:00Z")),
     aforo: { asistenciasActivas: 87, horas: [{ hora: 18, ocupacion: 87 }], horaActual: 18 },
     personal: [{ rol: "INSTRUCTOR" }, { rol: "RECEPCIONISTA" }],
+    contadores: { rutinas: 124, ejercicios: 342, clientes: 892, membresias: 0 },
+    eventos: [
+      { tipo: "PAGO", nombre: "Ana López", descripcion: "Pago de membresía Pro", fecha: new Date("2026-09-30T17:45:00Z") },
+      { tipo: "ALTA_SOCIO", nombre: "Carlos Mendez", descripcion: "Alta de nuevo socio", fecha: new Date("2026-09-30T16:00:00Z") },
+      { tipo: "INGRESO", nombre: "Lucía Paz", descripcion: "Ingreso al gimnasio", fecha: new Date("2026-09-30T17:50:00Z") },
+      { tipo: "PAGO", nombre: "Viejo Pago", descripcion: "Pago de membresía Basic", fecha: new Date("2026-09-29T10:00:00Z") },
+    ],
   };
 
   it("matches the spec's data scenarios end to end", () => {
@@ -259,5 +266,25 @@ describe("aggregateHomeInterno (composes Row_Hoy + Row_Operacion from raw data)"
     );
     expect(vm.aforo.porcentaje).toBe(0);
     expect(vm.inactivos.footer).toBe("Sin visita > 15 días");
+  });
+
+  it("Row_Gestion: exposes the 4 live counts as display strings (zero stays '0')", () => {
+    expect(aggregateHomeInterno(raw, hoy).gestion).toEqual({
+      rutinas: "124",
+      ejercicios: "342",
+      clientes: "892",
+      membresias: "0",
+    });
+  });
+
+  it("Col_Actividad: drops check-ins and >24h events, newest first, formatted 'Hace X'", () => {
+    expect(aggregateHomeInterno(raw, hoy).actividad).toEqual([
+      { nombre: "Ana López", descripcion: "Pago de membresía Pro", haceTexto: "Hace 15 min" },
+      { nombre: "Carlos Mendez", descripcion: "Alta de nuevo socio", haceTexto: "Hace 2 horas" },
+    ]);
+  });
+
+  it("Col_Actividad: empty list when nothing qualifies (the card renders the empty state)", () => {
+    expect(aggregateHomeInterno({ ...raw, eventos: [] }, hoy).actividad).toEqual([]);
   });
 });

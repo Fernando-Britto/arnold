@@ -17,6 +17,8 @@ describe("fetchHomeInternoData", () => {
         ultimasAsistencias: ["2026-09-01T00:00:00.000Z", null],
         aforo: { asistenciasActivas: 87, horas: [], horaActual: 18 },
         personal: [{ rol: "INSTRUCTOR" }],
+        contadores: { rutinas: 1, ejercicios: 2, clientes: 3, membresias: 4 },
+        eventos: [{ tipo: "PAGO", nombre: "Ana López", descripcion: "Pago de membresía Pro", fecha: "2026-09-30T17:45:00.000Z" }],
       }),
     });
 
@@ -28,6 +30,8 @@ describe("fetchHomeInternoData", () => {
     expect(result.cuotas[0].fechaVencimiento).toBeInstanceOf(Date);
     expect(result.ultimasAsistencias[0]).toBeInstanceOf(Date);
     expect(result.ultimasAsistencias[1]).toBeNull();
+    expect(result.eventos[0].fecha).toEqual(new Date("2026-09-30T17:45:00.000Z"));
+    expect(result.contadores).toEqual({ rutinas: 1, ejercicios: 2, clientes: 3, membresias: 4 });
   });
 
   it("throws a descriptive error when the request fails", async () => {

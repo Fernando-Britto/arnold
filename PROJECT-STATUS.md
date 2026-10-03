@@ -1,6 +1,6 @@
 # Arnold — Estado del proyecto
 
-**Actualizado**: 2026-10-02 · **Plan**: `openspec/sdd-tasks-tdd.md` · **Modo**: Strict TDD
+**Actualizado**: 2026-10-03 · **Plan**: `openspec/sdd-tasks-tdd.md` · **Modo**: Strict TDD
 
 ## Tareas
 
@@ -17,7 +17,7 @@
 | T-018, T-019 | Home_Socio (Tarjeta_Detalle + página) | ✅ |
 | T-020 | Home_Interno: `OperationCard`, `ActivityColumn` + dominio | ✅ |
 | T-021a | Home_Interno Parte 1 (Row_Acciones, Row_Hoy, Row_Operacion) | ✅ ver abajo |
-| T-021b | Home_Interno Parte 2 (Row_Gestion, Col_Actividad + integración) | ⏳ siguiente |
+| T-021b | Home_Interno Parte 2 (Row_Gestion, Col_Actividad + integración) | ✅ ver abajo |
 | T-023b | Utilidades UI (validación, formato, errores) | ⏳ `src/utils/` no existe |
 | T-024 | Fixtures y factories | ⏳ `tests/factories/` no existe |
 
@@ -28,12 +28,19 @@ El plan la estimaba en 250 LOC, pero T-020 no había cubierto Row_Acciones, Aler
 - **PR-009-A3** `src/api/home-interno.ts` + `src/app/home-interno/page.tsx`.
 - **Fix** (T-020): `computeCajaHoy` ahora suma `TARJETA`; "hoy" se calcula en `America/Argentina/Buenos_Aires` (antes UTC).
 
+### T-021b — cómo quedó
+- **Row_Gestion**: 4 `CounterCard` (Rutinas, Ejercicios, Clientes, Membresías) con el conteo en vivo, navegan a su CRUD. Se renderizan siempre (la spec lo exige), pero la card cuyo destino no permite el rol (`ROLE_GATE_MATRIX`) queda **deshabilitada**: p. ej. un INSTRUCTOR no puede abrir Clientes ni Membresías.
+- **Col_Actividad**: reusa `ActivityColumn` + `filterActivityFeed` (5 tipos, sin check-ins, 24h, más nuevo primero), compuestos dentro de `aggregateHomeInterno`. `formatHaceTiempo` se movió al dominio (se re-exporta desde el componente).
+- **Contrato**: `fetchHomeInternoData` / `HomeInternoData` (antes `...Part1`) ahora incluye `contadores` y `eventos`.
+- **Fixture compartido** `tests/fixtures/home-interno-data.ts` (adelanto de T-024, que sigue pendiente).
+
 ## Límites de alcance conocidos (documentados, no ocultos)
 
 - `/api/home-socio` y `/api/home-interno` **no existen**: ambas páginas se construyeron contra fetch mockeado. Falta la capa de repositorio/agregación (Asistencia, Pago, Cuota, Máquina, Empleado, ConfiguracionDelSistema).
 - Botones de Home_Interno sin destino (no-ops): Registrar Pago, Asignar Rutina (modal: `openspec/asignar-rutina-flowspec.md`), Control Acceso, Cierre de Caja. Las cards de Equipos y Personal tampoco tienen lista filtrada.
 - Solo se renderiza la alerta "Vencimiento" (la spec no define las otras dos del diseño). Se omite "+12% vs ayer" de Caja (sin fuente de datos).
 - Defaults asumidos (la spec solo documenta `periodoGracia = 0`): `diasInactividad = 15`; `capacidadMaxima` ausente → "Aforo no configurado".
+- Los botones de Row_Acciones, "Ver" de Alertas y la card Socios inactivos apuntan a `/clientes`, que un INSTRUCTOR no puede abrir (ADMIN y RECEPCIONISTA sí). Solo las cards de Row_Gestion respetan hoy el rol.
 - Recuperación `AGGREGATION_TIMEOUT` (valores cacheados + indicador) sin implementar.
 
 ## Huecos de autenticación (observados, sin resolver)
@@ -46,7 +53,7 @@ El plan la estimaba en 250 LOC, pero T-020 no había cubierto Row_Acciones, Aler
 
 - Tests: la suite corre con `npm test`. `src/domains/ejercicio/ejercicio.test.ts` depende de una DB real (falla sin ella).
 - Lint: los archivos de T-021a están limpios, pero `npx eslint src` reporta ~160 problemas preexistentes (118 errores) en el resto del código. El ítem "`npm run lint` clean" del checklist TDD **no se cumple a nivel repo**.
-- Próximo paso: T-021b (extender el contrato de `/api/home-interno` con contadores y eventos de actividad).
+- Próximo paso: auth (login + middleware) o T-023b/T-024; ver "Huecos de autenticación".
 
 ## Documentación relacionada
 `T-007a-PROPOSAL.md`, `T-010-011-012-013_BUGS.md`, `T-010-013-FIXES-SUMMARY.md`, `T-011-AC-CHECKLIST.md`, `T-012-CRITICAL-ISSUES.md`, `T-016_HALLAZGOS.md`.

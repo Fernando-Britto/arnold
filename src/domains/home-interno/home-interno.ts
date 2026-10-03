@@ -219,6 +219,23 @@ export function computePersonalEnTurno(
   };
 }
 
+export interface ActivityItemView {
+  nombre: string;
+  descripcion: string;
+  haceTexto: string;
+}
+
+/** Renders a Date as "Hace N min" / "Hace 1 hora" / "Hace N horas" /
+ * "Hace unos segundos", relative to `hoy`. */
+export function formatHaceTiempo(fecha: Date, hoy: Date): string {
+  const segundos = Math.floor((hoy.getTime() - fecha.getTime()) / 1000);
+  if (segundos < 60) return "Hace unos segundos";
+  const minutos = Math.floor(segundos / 60);
+  if (minutos < 60) return `Hace ${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  return horas === 1 ? "Hace 1 hora" : `Hace ${horas} horas`;
+}
+
 export interface HomeInternoRaw {
   config: { capacidadMaxima: number | null; periodoGracia: number | null; diasInactividad: number | null };
   maquinas: { estado: EstadoMaquina }[];
@@ -227,6 +244,10 @@ export interface HomeInternoRaw {
   ultimasAsistencias: (Date | null)[];
   aforo: { asistenciasActivas: number; horas: { hora: number; ocupacion: number }[]; horaActual: number };
   personal: { rol: "ADMINISTRADOR" | "INSTRUCTOR" | "RECEPCIONISTA" }[];
+  /** Live COUNT(*) per table (Row_Gestion, AC-006). */
+  contadores: { rutinas: number; ejercicios: number; clientes: number; membresias: number };
+  /** Unfiltered candidate events; the feed rules are applied in aggregateHomeInterno. */
+  eventos: ActivityEvent[];
 }
 
 export interface OperationCardView {
@@ -241,9 +262,11 @@ export interface HomeInternoViewModel {
   equipos: OperationCardView;
   personal: OperationCardView;
   inactivos: OperationCardView;
+  gestion: { rutinas: string; ejercicios: string; clientes: string; membresias: string };
+  actividad: ActivityItemView[];
 }
 
-/** Composes the Row_Hoy + Row_Operacion derivations. `hoy` is the server's
+/** Composes every zone's derivations (Hoy, Operación, Gestión, Actividad). `hoy` is the server's
  * "now" so every card is computed against the same instant. */
 export function aggregateHomeInterno(
   raw: HomeInternoRaw,
@@ -265,5 +288,16 @@ export function aggregateHomeInterno(
     equipos: { metric: `${equipos.porcentaje}%`, footer: `${equipos.enMantenimiento} en mantenimiento` },
     personal: { metric: String(personal.cantidad), footer: personal.footer },
     inactivos: { metric: String(inactivos.cantidad), footer: inactivos.footer },
+    gestion: {
+      rutinas: String(raw.contadores.rutinas),
+      ejercicios: String(raw.contadores.ejercicios),
+      clientes: String(raw.contadores.clientes),
+      membresias: String(raw.contadores.membresias),
+    },
+    actividad: filterActivityFeed(raw.eventos, hoy).map((e) => ({
+      nombre: e.nombre,
+      descripcion: e.descripcion,
+      haceTexto: formatHaceTiempo(e.fecha, hoy),
+    })),
   };
 }

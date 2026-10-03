@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { HomeInternoPage } from "./page";
 import { useAuth } from "@/contexts/auth";
 import * as api from "@/api/home-interno";
+import { buildHomeInternoData } from "../../../tests/fixtures/home-interno-data";
 
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
@@ -23,22 +24,7 @@ const staff = {
   user: { nombre: "Ana", rol: "ADMINISTRADOR" },
 };
 
-const data: Awaited<ReturnType<typeof api.fetchHomeInternoData>> = {
-  ahora: new Date("2026-09-30T18:00:00Z"),
-  config: { capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15 },
-  maquinas: [
-    ...Array(2).fill({ estado: "FUERA_DE_SERVICIO" as const }),
-    ...Array(18).fill({ estado: "DISPONIBLE" as const }),
-  ],
-  pagos: [
-    ...Array(3).fill({ monto: 50, metodoPago: "EFECTIVO" as const, estado: "CONFIRMADO", fecha: new Date("2026-09-30T10:00:00Z") }),
-    ...Array(2).fill({ monto: 100, metodoPago: "TRANSFERENCIA" as const, estado: "CONFIRMADO", fecha: new Date("2026-09-30T11:00:00Z") }),
-  ],
-  cuotas: [{ socioId: "s1", socioNombre: "Marta G.", fechaVencimiento: new Date("2026-10-01T00:00:00Z") }],
-  ultimasAsistencias: Array(42).fill(new Date("2026-09-01T00:00:00Z")),
-  aforo: { asistenciasActivas: 87, horas: [{ hora: 18, ocupacion: 87 }], horaActual: 18 },
-  personal: [{ rol: "INSTRUCTOR" }, { rol: "RECEPCIONISTA" }],
-};
+const data = buildHomeInternoData();
 
 const loaded = () => waitFor(() => expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument());
 
