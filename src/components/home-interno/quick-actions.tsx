@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { SIN_ACCESO_TITLE } from "./sin-acceso";
 import { ClipboardList, CreditCard, DoorOpen, UserPlus, type LucideIcon } from "lucide-react";
 
 /**
@@ -16,7 +17,13 @@ const ACTIONS: { key: QuickAction; label: string; icon: LucideIcon }[] = [
   { key: "control-acceso", label: "Control Acceso", icon: DoorOpen },
 ];
 
-export function QuickActions({ onAction }: { onAction: (action: QuickAction) => void }) {
+export interface QuickActionsProps {
+  onAction: (action: QuickAction) => void;
+  /** Actions the role cannot use: still rendered (AC-001) but disabled. */
+  disabledActions?: QuickAction[];
+}
+
+export function QuickActions({ onAction, disabledActions = [] }: QuickActionsProps) {
   return (
     <div className="grid grid-cols-4 gap-6">
       {ACTIONS.map(({ key, label, icon: Icon }) => (
@@ -24,7 +31,9 @@ export function QuickActions({ onAction }: { onAction: (action: QuickAction) => 
           key={key}
           type="button"
           onClick={() => onAction(key)}
-          className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-bold text-zinc-900 hover:bg-zinc-50"
+          disabled={disabledActions.includes(key)}
+          title={disabledActions.includes(key) ? SIN_ACCESO_TITLE : undefined}
+          className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-bold text-zinc-900 enabled:hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Icon className="h-4 w-4" aria-hidden="true" />
           {label}

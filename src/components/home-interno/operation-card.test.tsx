@@ -47,4 +47,16 @@ describe("OperationCard (matches Home_Interno §Row_Operacion, reused for the 3 
     expect(screen.getByText("0")).toBeInTheDocument();
     expect(screen.getByText("Sin personal registrado")).toBeInTheDocument();
   });
+
+  it("is disabled with a tooltip and does not fire onClick when the role has no access", async () => {
+    const onClick = jest.fn();
+    render(
+      <OperationCard label="Socios inactivos" metric="42" footer="x" icon={Dumbbell} onClick={onClick} disabled />
+    );
+    const button = screen.getByRole("button");
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("title", "Sin acceso con tu rol");
+    await userEvent.setup().click(button);
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });

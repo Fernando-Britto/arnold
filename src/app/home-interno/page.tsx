@@ -29,6 +29,9 @@ import { ROLE_GATE_MATRIX } from "@/middleware/role-gating";
  * - Row_Operacion cards should open FILTERED lists (machines, staff,
  *   inactive socios); none exist. "Socios inactivos" goes to the unfiltered
  *   /clientes list; the other two are no-ops.
+ * - Controls that lead to /clientes (Nuevo Socio, Alertas "Ver", Socios
+ *   inactivos) and the Row_Gestion cards render for every staff role but are
+ *   disabled when ROLE_GATE_MATRIX says the role cannot open the destination.
  * - AGGREGATION_TIMEOUT recovery (cached last-known values + staleness
  *   indicator) isn't implemented; failures show the spec's error message.
  * - The design's "+12% vs ayer" under Caja has no spec/data source: omitted.
@@ -120,6 +123,9 @@ export function HomeInternoPage() {
   const puedeAbrir = (ruta: string) =>
     (ROLE_GATE_MATRIX[ruta] as string[] | undefined)?.includes(user?.rol ?? "") ?? false;
 
+  // /clientes is the destination of Nuevo Socio, Alertas "Ver" and Socios inactivos.
+  const sinClientes = !puedeAbrir("/clientes");
+
   return (
     <div className="flex min-h-screen flex-col bg-[#F1F3F5]">
       <AdminTopNav />
@@ -128,11 +134,11 @@ export function HomeInternoPage() {
       </div>
 
       <main className="flex flex-col gap-6 p-12">
-        <QuickActions onAction={handleAction} />
+        <QuickActions onAction={handleAction} disabledActions={sinClientes ? ["nuevo-socio"] : []} />
 
         <SectionLabel>HOY</SectionLabel>
         <div className="grid gap-6 lg:grid-cols-[860fr_438fr_438fr]">
-          <AlertasCard items={vm.alertas} onVer={() => router.push("/clientes")} />
+          <AlertasCard items={vm.alertas} onVer={() => router.push("/clientes")} verDisabled={sinClientes} />
           <AforoHoyCard {...vm.aforo} />
           <CajaCard {...vm.caja} onCierreDeCaja={() => {}} />
         </div>
@@ -145,6 +151,7 @@ export function HomeInternoPage() {
             label="Socios inactivos"
             {...vm.inactivos}
             icon={UserX}
+            disabled={sinClientes}
             onClick={() => router.push("/clientes")}
           />
         </div>
