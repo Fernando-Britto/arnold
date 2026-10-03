@@ -4,8 +4,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dumbbell, UserX, Users } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
-import { fetchHomeInternoPart1, type HomeInternoPart1Data } from "@/api/home-interno";
-import { aggregateHomeInternoPart1, GYM_TIME_ZONE } from "@/domains/home-interno/home-interno";
+import { fetchHomeInternoData, type HomeInternoData } from "@/api/home-interno";
+import { aggregateHomeInterno, GYM_TIME_ZONE } from "@/domains/home-interno/home-interno";
 import { AdminTopNav } from "@/components/layout/admin-top-nav";
 import { QuickActions, type QuickAction } from "@/components/home-interno/quick-actions";
 import { AlertasCard } from "@/components/home-interno/alertas-card";
@@ -59,7 +59,7 @@ export function HomeInternoPage() {
   const router = useRouter();
   const { isAuthenticated, isMember, user } = useAuth();
 
-  const [data, setData] = useState<HomeInternoPart1Data | null>(null);
+  const [data, setData] = useState<HomeInternoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +76,7 @@ export function HomeInternoPage() {
 
     let cancelled = false;
 
-    fetchHomeInternoPart1()
+    fetchHomeInternoData()
       .then((result) => {
         if (!cancelled) setData(result);
       })
@@ -92,7 +92,7 @@ export function HomeInternoPage() {
     };
   }, [isAuthenticated, isMember]);
 
-  const vm = useMemo(() => (data ? aggregateHomeInternoPart1(data, data.ahora) : null), [data]);
+  const vm = useMemo(() => (data ? aggregateHomeInterno(data, data.ahora) : null), [data]);
 
   if (!isAuthenticated || isMember) return null;
 

@@ -11,10 +11,10 @@ jest.mock("next/navigation", () => ({
   usePathname: () => "/home-interno",
 }));
 jest.mock("@/contexts/auth");
-jest.mock("@/api/home-interno", () => ({ fetchHomeInternoPart1: jest.fn() }));
+jest.mock("@/api/home-interno", () => ({ fetchHomeInternoData: jest.fn() }));
 
 const mockAuth = useAuth as jest.Mock;
-const mockFetch = api.fetchHomeInternoPart1 as jest.MockedFunction<typeof api.fetchHomeInternoPart1>;
+const mockFetch = api.fetchHomeInternoData as jest.MockedFunction<typeof api.fetchHomeInternoData>;
 
 const staff = {
   isAuthenticated: true,
@@ -23,7 +23,7 @@ const staff = {
   user: { nombre: "Ana", rol: "ADMINISTRADOR" },
 };
 
-const data: Awaited<ReturnType<typeof api.fetchHomeInternoPart1>> = {
+const data: Awaited<ReturnType<typeof api.fetchHomeInternoData>> = {
   ahora: new Date("2026-09-30T18:00:00Z"),
   config: { capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15 },
   maquinas: [

@@ -219,7 +219,7 @@ export function computePersonalEnTurno(
   };
 }
 
-export interface HomeInternoPart1Raw {
+export interface HomeInternoRaw {
   config: { capacidadMaxima: number | null; periodoGracia: number | null; diasInactividad: number | null };
   maquinas: { estado: EstadoMaquina }[];
   pagos: Pago[];
@@ -234,7 +234,7 @@ export interface OperationCardView {
   footer: string;
 }
 
-export interface HomeInternoPart1ViewModel {
+export interface HomeInternoViewModel {
   alertas: AlertaVencimiento[];
   aforo: AforoResult & { horas: { hora: number; ocupacion: number }[]; horaActual: number };
   caja: CajaHoyResult;
@@ -245,10 +245,10 @@ export interface HomeInternoPart1ViewModel {
 
 /** Composes the Row_Hoy + Row_Operacion derivations. `hoy` is the server's
  * "now" so every card is computed against the same instant. */
-export function aggregateHomeInternoPart1(
-  raw: HomeInternoPart1Raw,
+export function aggregateHomeInterno(
+  raw: HomeInternoRaw,
   hoy: Date
-): HomeInternoPart1ViewModel {
+): HomeInternoViewModel {
   const diasInactividad = raw.config.diasInactividad ?? CONFIG_DEFAULTS.diasInactividad;
   const equipos = computeEstadoEquipos(raw.maquinas);
   const personal = computePersonalEnTurno(raw.personal);

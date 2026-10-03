@@ -1,6 +1,6 @@
-import { fetchHomeInternoPart1 } from "./home-interno";
+import { fetchHomeInternoData } from "./home-interno";
 
-describe("fetchHomeInternoPart1", () => {
+describe("fetchHomeInternoData", () => {
   beforeEach(() => {
     global.fetch = jest.fn();
   });
@@ -20,7 +20,7 @@ describe("fetchHomeInternoPart1", () => {
       }),
     });
 
-    const result = await fetchHomeInternoPart1();
+    const result = await fetchHomeInternoData();
 
     expect(global.fetch).toHaveBeenCalledWith("/api/home-interno");
     expect(result.ahora).toEqual(new Date("2026-09-30T18:00:00.000Z"));
@@ -32,7 +32,7 @@ describe("fetchHomeInternoPart1", () => {
 
   it("throws a descriptive error when the request fails", async () => {
     (global.fetch as jest.Mock).mockResolvedValue({ ok: false, statusText: "Internal Server Error" });
-    await expect(fetchHomeInternoPart1()).rejects.toThrow(
+    await expect(fetchHomeInternoData()).rejects.toThrow(
       "Failed to fetch home-interno data: Internal Server Error"
     );
   });
