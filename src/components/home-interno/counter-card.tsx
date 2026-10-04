@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { SIN_ACCESO_TITLE } from "./sin-acceso";
 
 /**
  * Row_Gestion counter card: label + live count (24px bold), clickable to the
@@ -21,7 +22,7 @@ export function CounterCard({ label, metric, onClick, disabled = false }: Counte
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={disabled ? "Sin acceso con tu rol" : undefined}
+      title={disabled ? SIN_ACCESO_TITLE : undefined}
       className="flex w-full flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-5 text-left enabled:hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
     >
       <span className="text-sm font-medium text-zinc-500">{label}</span>

@@ -29,4 +29,16 @@ describe("AlertasCard (Row_Hoy · Alertas)", () => {
     expect(screen.getByText("Sin alertas por ahora.")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
+
+  it("disables 'Ver' when the role cannot open the destination", async () => {
+    const onVer = jest.fn();
+    render(<AlertasCard items={items} onVer={onVer} verDisabled />);
+    const botones = screen.getAllByRole("button", { name: /ver/i });
+    botones.forEach((b) => {
+      expect(b).toBeDisabled();
+      expect(b).toHaveAttribute("title", "Sin acceso con tu rol");
+    });
+    await userEvent.setup().click(botones[0]);
+    expect(onVer).not.toHaveBeenCalled();
+  });
 });

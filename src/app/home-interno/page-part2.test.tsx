@@ -117,4 +117,30 @@ describe("HomeInternoPage Part 2 (Row_Gestion, Col_Actividad, full integration)"
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
+
+  it("INSTRUCTOR: every entry point to /clientes is disabled (Nuevo Socio, Ver, Socios inactivos)", async () => {
+    mockAuth.mockReturnValue(asRol("INSTRUCTOR"));
+    render(<HomeInternoPage />);
+    await loaded();
+    const user = userEvent.setup();
+    const puertas = [
+      screen.getByRole("button", { name: "Nuevo Socio" }),
+      screen.getByRole("button", { name: /ver/i }),
+      screen.getByRole("button", { name: /socios inactivos/i }),
+    ];
+    for (const puerta of puertas) {
+      expect(puerta).toBeDisabled();
+      await user.click(puerta);
+    }
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("RECEPCIONISTA can reach /clientes from all three entry points", async () => {
+    mockAuth.mockReturnValue(asRol("RECEPCIONISTA"));
+    render(<HomeInternoPage />);
+    await loaded();
+    expect(screen.getByRole("button", { name: "Nuevo Socio" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /ver/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /socios inactivos/i })).toBeEnabled();
+  });
 });

@@ -40,7 +40,7 @@ El plan la estimaba en 250 LOC, pero T-020 no había cubierto Row_Acciones, Aler
 - Botones de Home_Interno sin destino (no-ops): Registrar Pago, Asignar Rutina (modal: `openspec/asignar-rutina-flowspec.md`), Control Acceso, Cierre de Caja. Las cards de Equipos y Personal tampoco tienen lista filtrada.
 - Solo se renderiza la alerta "Vencimiento" (la spec no define las otras dos del diseño). Se omite "+12% vs ayer" de Caja (sin fuente de datos).
 - Defaults asumidos (la spec solo documenta `periodoGracia = 0`): `diasInactividad = 15`; `capacidadMaxima` ausente → "Aforo no configurado".
-- Los botones de Row_Acciones, "Ver" de Alertas y la card Socios inactivos apuntan a `/clientes`, que un INSTRUCTOR no puede abrir (ADMIN y RECEPCIONISTA sí). Solo las cards de Row_Gestion respetan hoy el rol.
+- Los controles que llevan a `/clientes` (Nuevo Socio, "Ver" de Alertas, Socios inactivos) y las cards de Row_Gestion se renderizan para todo el staff pero quedan **deshabilitados** (tooltip "Sin acceso con tu rol") cuando `ROLE_GATE_MATRIX` no deja abrir el destino.
 - Recuperación `AGGREGATION_TIMEOUT` (valores cacheados + indicador) sin implementar.
 
 ## Huecos de autenticación (observados, sin resolver)

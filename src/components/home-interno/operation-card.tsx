@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { LucideIcon } from "lucide-react";
+import { SIN_ACCESO_TITLE } from "./sin-acceso";
 
 /**
  * OperationCard — reusable status card for Row_Operacion (Estado de
@@ -17,14 +18,18 @@ export interface OperationCardProps {
   footer: string;
   icon: LucideIcon;
   onClick?: () => void;
+  /** The role cannot open the destination. */
+  disabled?: boolean;
 }
 
-export function OperationCard({ label, metric, footer, icon: Icon, onClick }: OperationCardProps) {
+export function OperationCard({ label, metric, footer, icon: Icon, onClick, disabled = false }: OperationCardProps) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-5 text-left"
+      disabled={disabled}
+      title={disabled ? SIN_ACCESO_TITLE : undefined}
+      className="flex w-full flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-5 text-left disabled:cursor-not-allowed disabled:opacity-60"
     >
       <div className="flex justify-between">
         <div className="flex flex-col gap-1">

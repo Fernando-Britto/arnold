@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { SIN_ACCESO_TITLE } from "./sin-acceso";
 
 /**
  * Row_Hoy · Alertas (860px column). Items are already derived by
@@ -16,9 +17,11 @@ export interface AlertaItemView {
 export interface AlertasCardProps {
   items: AlertaItemView[];
   onVer: (socioId: string) => void;
+  /** The role cannot open the destination of "Ver". */
+  verDisabled?: boolean;
 }
 
-export function AlertasCard({ items, onVer }: AlertasCardProps) {
+export function AlertasCard({ items, onVer, verDisabled = false }: AlertasCardProps) {
   return (
     <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-6">
       <p className="text-base font-bold text-zinc-900">Alertas críticas</p>
@@ -36,7 +39,9 @@ export function AlertasCard({ items, onVer }: AlertasCardProps) {
               <button
                 type="button"
                 onClick={() => onVer(item.socioId)}
-                className="text-sm font-medium text-blue-600"
+                disabled={verDisabled}
+                title={verDisabled ? SIN_ACCESO_TITLE : undefined}
+                className="text-sm font-medium text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Ver →
               </button>
