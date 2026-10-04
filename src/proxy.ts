@@ -7,7 +7,7 @@ import { prisma } from '@/lib/db';
 
 const PUBLIC_AUTH_ROUTES = ['/api/auth/login', '/api/auth/register'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const method = request.method as HttpMethod;
 
