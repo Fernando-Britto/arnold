@@ -36,10 +36,13 @@ El plan la estimaba en 250 LOC, pero T-020 no había cubierto Row_Acciones, Aler
 
 ## Límites de alcance conocidos (documentados, no ocultos)
 
-- `/api/home-socio` y `/api/home-interno` **no existen**: ambas páginas se construyeron contra fetch mockeado. Falta la capa de repositorio/agregación (Asistencia, Pago, Cuota, Máquina, Empleado, ConfiguracionDelSistema).
+- `/api/home-socio` **no existe**: Home_Socio sigue construida contra fetch mockeado.
+- `/api/home-interno` existe (`src/api/home-interno-data.ts` + `src/app/api/home-interno/route.ts`): junta datos crudos con Prisma y las reglas de negocio siguen en el dominio (`aggregateHomeInterno`). Sus consultas se probaron con Prisma simulado y contra `schema.prisma`, **no** contra una base real: validar a mano con datos reales.
+- Recepcionista lee solo `/api/membresias/activas` (dropdown de Clientes, AC-004); el resto de Membresías sigue siendo solo de Admin (RN-06).
 - Botones de Home_Interno sin destino (no-ops): Registrar Pago, Asignar Rutina (modal: `openspec/asignar-rutina-flowspec.md`), Control Acceso, Cierre de Caja. Las cards de Equipos y Personal tampoco tienen lista filtrada.
 - Solo se renderiza la alerta "Vencimiento" (la spec no define las otras dos del diseño). Se omite "+12% vs ayer" de Caja (sin fuente de datos).
 - Defaults asumidos (la spec solo documenta `periodoGracia = 0`): `diasInactividad = 15`; `capacidadMaxima` ausente → "Aforo no configurado".
+- Supuestos de `/api/home-interno` que la spec no define: turnos Mañana 06–14 / Tarde 14–22 / Noche 22–06 (hora argentina); barras de aforo = franjas de 2 h entre 06 y 22 con las entradas PERMITIDAS de hoy; "activo" = entrada dentro de `ventanaAforoMinutos` (Asistencia no tiene salida); "baja de socio" = Usuario SOCIO con `deletedAt` en las últimas 24 h.
 - Los controles que llevan a `/clientes` (Nuevo Socio, "Ver" de Alertas, Socios inactivos) y las cards de Row_Gestion se renderizan para todo el staff pero quedan **deshabilitados** (tooltip "Sin acceso con tu rol") cuando `ROLE_GATE_MATRIX` no deja abrir el destino.
 - Recuperación `AGGREGATION_TIMEOUT` (valores cacheados + indicador) sin implementar.
 
