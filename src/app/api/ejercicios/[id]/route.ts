@@ -123,9 +123,9 @@ export async function handleEjercicioDeleteRequest(id: string): Promise<DeleteSu
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await handleEjercicioGetRequest(params.id);
+  const result = await handleEjercicioGetRequest((await params).id);
 
   if (isGetSuccess(result)) {
     return NextResponse.json(result, { status: 200 });
@@ -144,10 +144,10 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const body = await request.json();
-  const result = await handleEjercicioUpdateRequest(params.id, body);
+  const result = await handleEjercicioUpdateRequest((await params).id, body);
 
   if (isUpdateSuccess(result)) {
     return NextResponse.json(result, { status: 200 });
@@ -166,9 +166,9 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await handleEjercicioDeleteRequest(params.id);
+  const result = await handleEjercicioDeleteRequest((await params).id);
 
   if (isDeleteSuccess(result)) {
     return NextResponse.json(result, { status: 200 });
