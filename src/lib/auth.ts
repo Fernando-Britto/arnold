@@ -1,9 +1,18 @@
 import bcryptjs from 'bcryptjs';
-import jwt, { SignOptions, VerifyOptions } from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { type UserRole } from '@/lib/authorization';
+import { randomUUID } from 'crypto';
 
-const JWT_SECRET: string = process.env.JWT_SECRET || 'dev-secret-key-change-in-production';
 const SALT_ROUNDS = 10;
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be set in production');
+  }
+  return 'dev-secret-key-change-in-production';
+}
 
 /**
  * Hash a plain-text password using bcryptjs
@@ -33,6 +42,9 @@ export interface JWTPayload {
   rol?: string; // user role (ADMINISTRADOR, INSTRUCTOR, RECEPCIONISTA, SOCIO)
   email?: string;
   nombre?: string;
+  jti?: string; // unique token ID
+  iat?: number; // issued at
+  exp?: number; // expires at
 }
 
 /**
@@ -47,7 +59,10 @@ export function createJWT(
   expiresIn: string | number = '7d',
   payload?: Partial<JWTPayload>
 ): string {
-  return jwt.sign({ sub: userId, ...payload }, JWT_SECRET, { expiresIn } as SignOptions);
+  return jwt.sign({ sub: userId, ...payload }, getJwtSecret(), {
+    expiresIn,
+    jwtid: randomUUID(),
+  } as SignOptions);
 }
 
 /**
@@ -57,7 +72,7 @@ export function createJWT(
  */
 export function verifyJWT(token: string): JWTPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const decoded = jwt.verify(token, getJwtSecret()) as JWTPayload;
     return decoded;
   } catch {
     // Invalid, expired, or tampered token
@@ -100,7 +115,7 @@ export interface RequestWithUser {
     nombre: string;
     rol: UserRole;  // Typed as UserRole enum (SOCIO | INSTRUCTOR | RECEPCIONISTA | ADMINISTRADOR)
   } | null;
-  body?: any; // Request body (parsed JSON or form data)
+  body?: unknown; // Request body (parsed JSON or form data)
   ip?: string; // Client IP address
   headers?: Record<string, string | string[]>; // Request headers
 }

@@ -181,4 +181,26 @@ describe("Auth Library", () => {
       expect(user).toBeNull();
     });
   });
+
+  describe("createJWT jti", () => {
+    it("incluye un jti único por token", () => {
+      const a = verifyJWT(createJWT("u1"))!;
+      const b = verifyJWT(createJWT("u1"))!;
+      expect(a.jti).toBeDefined();
+      expect(a.jti).not.toBe(b.jti);
+    });
+  });
+
+  describe("JWT_SECRET en producción", () => {
+    const env = process.env as Record<string, string | undefined>;
+    const prev = { node: env.NODE_ENV, secret: env.JWT_SECRET };
+    const restore = (k: string, v?: string) => (v === undefined ? delete env[k] : (env[k] = v));
+    afterEach(() => { restore("NODE_ENV", prev.node); restore("JWT_SECRET", prev.secret); });
+
+    it("lanza si falta JWT_SECRET", () => {
+      env.NODE_ENV = "production";
+      delete env.JWT_SECRET;
+      expect(() => createJWT("u1")).toThrow(/JWT_SECRET/);
+    });
+  });
 });
