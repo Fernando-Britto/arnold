@@ -1,4 +1,11 @@
-import { hasRouteAccess } from "./authorization";
+import { hasRouteAccess, homeRouteForRole } from "./authorization";
+
+describe("homeRouteForRole", () => {
+  it("homeRouteForRole", () => {
+    expect(homeRouteForRole("SOCIO")).toBe("/home-socio");
+    expect(homeRouteForRole("ADMINISTRADOR")).toBe("/home-interno");
+  });
+});
 
 describe("Authorization Matrix", () => {
   describe("SOCIO role", () => {

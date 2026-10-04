@@ -1,18 +1,26 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode } from "react";
-import { Rol, Usuario } from "@prisma/client";
+import { Rol } from "@prisma/client";
 import { isAdmin as isAdminUtil, isStaff as isStaffUtil } from "@/middleware/role-gating";
+import { navigateTo } from "@/lib/navigation";
+
+export interface SessionUser {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: Rol;
+}
 
 interface AuthContextType {
-  user: (Usuario & { rol: Rol }) | null;
+  user: SessionUser | null;
   userRole: Rol | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isStaff: boolean;
   isMember: boolean;
   hasRole: (role: Rol | Rol[]) => boolean;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,7 +29,7 @@ export { AuthContext };
 
 interface AuthProviderProps {
   children: ReactNode;
-  initialUser?: (Usuario & { rol: Rol }) | null;
+  initialUser?: SessionUser | null;
 }
 
 export function AuthProvider({ children, initialUser = null }: AuthProviderProps) {
@@ -37,9 +45,14 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
     return roles.includes(user.rol);
   };
 
-  const logout = () => {
-    // This will be implemented in a future phase with actual session management
-    console.log("Logout called");
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // sin red: igual salimos de la pantalla actual
+    } finally {
+      navigateTo("/login");
+    }
   };
 
   const value: AuthContextType = {

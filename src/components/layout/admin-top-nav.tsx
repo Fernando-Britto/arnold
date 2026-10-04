@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 
 export type NavSection = "membresias" | "rutinas" | "ejercicios" | "clientes";
@@ -28,7 +28,7 @@ interface TopNavProps {
 }
 
 export function AdminTopNav({ activeSection }: TopNavProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const items = user ? NAV_ITEMS.filter((item) => item.roles.includes(user.rol)) : [];
 
   return (
@@ -64,6 +64,10 @@ export function AdminTopNav({ activeSection }: TopNavProps) {
           className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100"
         >
           <Bell size={18} className="text-gray-500" />
+        </button>
+        <button type="button" aria-label="Cerrar sesión" onClick={() => void logout()}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 hover:bg-zinc-200">
+          <LogOut size={18} className="text-gray-500" />
         </button>
         {user?.nombre && (
           <div

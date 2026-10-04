@@ -108,3 +108,7 @@ export function hasRouteAccess(
     basePath: matchingPath,
   };
 }
+
+export function homeRouteForRole(rol: UserRole): string {
+  return rol === 'SOCIO' ? '/home-socio' : '/home-interno';
+}
