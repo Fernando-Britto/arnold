@@ -1,86 +1,77 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { ipAddress } from '@vercel/functions';
-import { verifyJWT } from '@/lib/auth';
-import { checkRateLimit, cleanupRateLimitLogsIfNeeded } from '@/lib/rateLimit';
-import { hasRouteAccess, type HttpMethod } from '@/lib/authorization';
-import { prisma } from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
+import { ipAddress } from "@vercel/functions";
+import { verifyJWT } from "@/lib/auth";
+import { checkRateLimit, cleanupRateLimitLogsIfNeeded } from "@/lib/rateLimit";
+import { hasRouteAccess, type HttpMethod, type UserRole } from "@/lib/authorization";
+import { decideAccess, isPublicPath, type SessionState } from "@/lib/access-decision";
+import { AUTH_COOKIE_NAME } from "@/api/auth";
+import { prisma } from "@/lib/db";
 
-const PUBLIC_AUTH_ROUTES = ['/api/auth/login', '/api/auth/register'];
+const RATE_LIMITED_AUTH = ["/api/auth/login", "/api/auth/register"];
 
 export async function proxy(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
   const method = request.method as HttpMethod;
 
-  // Trigger cleanup (1:50 chance)
   await cleanupRateLimitLogsIfNeeded();
 
-  // Public auth routes: rate limit by IP (8 req/min for brute force protection)
-  // Use pathname directly for login (no dynamic segments, won't cause grouping issues)
-  if (PUBLIC_AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
-    const clientIP = ipAddress(request) || 'unknown';
-    const allowed = await checkRateLimit(clientIP, pathname, 8);
-
-    if (!allowed) {
+  // Login/registro: límite por IP contra fuerza bruta (8 por minuto)
+  if (RATE_LIMITED_AUTH.some((r) => pathname.startsWith(r))) {
+    const ip = ipAddress(request) || "unknown";
+    if (!(await checkRateLimit(ip, pathname, 8))) {
       return NextResponse.json(
-        { error: 'Too many login attempts. Try again in 1 minute.' },
+        { code: "RATE_LIMITED", message: "Demasiados intentos. Probá de nuevo en un minuto." },
         { status: 429 }
       );
     }
-
     return NextResponse.next();
   }
 
-  // Protected routes: validate JWT + rate limit by user
-  const token = request.cookies.get('authToken')?.value;
-  if (!token) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (isPublicPath(pathname)) return NextResponse.next();
+
+  // 1. Autenticación
+  let session: SessionState = "none";
+  let userId = "";
+  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  if (token) {
+    const payload = verifyJWT(token);
+    const user = payload ? await prisma.usuario.findUnique({ where: { id: payload.sub } }) : null;
+    if (user && user.estado === "ACTIVO" && !user.deletedAt) {
+      session = { rol: user.rol as UserRole };
+      userId = user.id;
+    } else {
+      session = "invalid";
+    }
   }
 
-  const payload = verifyJWT(token);
-  if (!payload) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  // 2. Autorización
+  const decision = decideAccess({ pathname, method, session });
+  if (decision.type === "redirect") {
+    return NextResponse.redirect(new URL(decision.to, request.url));
+  }
+  if (decision.type === "json") {
+    return NextResponse.json({ code: decision.code, message: decision.message }, { status: decision.status });
   }
 
-  const userId = payload.sub;
-
-  // Fetch user from DB to verify active status + get role
-  const user = await prisma.usuario.findUnique({
-    where: { id: userId },
-  });
-
-  if (!user || user.estado !== 'ACTIVO') {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // Role-based access control: check if role can perform this method on this path
-  // hasRouteAccess returns both allowed status AND basePath for rate limit grouping
-  const access = hasRouteAccess(user.rol as any, pathname, method);
-  if (!access.allowed) {
-    return NextResponse.json(
-      { error: 'Forbidden' },
-      { status: 403 }
-    );
-  }
-
-  // Rate limit check (100 req/min per user for authenticated endpoints)
-  // Use basePath (not pathname) so all requests to /api/socios/* group under /api/socios
-  const rateLimitKey = access.basePath || pathname; // fallback to pathname if no match (shouldn't happen if access.allowed)
-  const rateLimitAllowed = await checkRateLimit(userId, rateLimitKey, 100);
-  if (!rateLimitAllowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded' },
-      { status: 429 }
-    );
-  }
-
-  // Pass user context to route handler
+  // 3. Rate limit por usuario, solo en la API (los prefetch de páginas no cuentan)
   const response = NextResponse.next();
-  response.headers.set('x-user-id', userId);
-  response.headers.set('x-user-rol', user.rol);
-
+  if (typeof session === "object") {
+    if (pathname.startsWith("/api/")) {
+      const key = hasRouteAccess(session.rol, pathname, method).basePath || pathname;
+      if (!(await checkRateLimit(userId, key, 100))) {
+        return NextResponse.json(
+          { code: "RATE_LIMITED", message: "Demasiadas solicitudes. Probá de nuevo en un minuto." },
+          { status: 429 }
+        );
+      }
+    }
+    response.headers.set("x-user-id", userId);
+    response.headers.set("x-user-rol", session.rol);
+  }
   return response;
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/dashboard/:path*'],
+  // Todas las rutas salvo internas de Next y archivos estáticos
+  matcher: ["/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };
