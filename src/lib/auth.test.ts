@@ -4,6 +4,8 @@ import {
   createJWT,
   verifyJWT,
   extractUserFromAuthHeader,
+  extractUserFromRequest,
+  AUTH_COOKIE_NAME,
 } from "./auth";
 
 describe("Auth Library", () => {
@@ -202,5 +204,39 @@ describe("Auth Library", () => {
       delete env.JWT_SECRET;
       expect(() => createJWT("u1")).toThrow(/JWT_SECRET/);
     });
+  });
+});
+
+describe("extractUserFromRequest", () => {
+  const token = () => createJWT("u1", 3600, { rol: "RECEPCIONISTA" });
+  const req = (headers: Record<string, string> = {}, cookie?: string) => ({
+    headers: { get: (n: string) => headers[n.toLowerCase()] ?? null },
+    cookies: {
+      get: (n: string) => (n === AUTH_COOKIE_NAME && cookie ? { value: cookie } : undefined),
+    },
+  });
+
+  it("lee el header Bearer", () => {
+    expect(extractUserFromRequest(req({ authorization: `Bearer ${token()}` }))).toEqual({
+      id: "u1",
+      rol: "RECEPCIONISTA",
+    });
+  });
+  it("lee la cookie de sesión", () => {
+    expect(extractUserFromRequest(req({}, token()))).toEqual({ id: "u1", rol: "RECEPCIONISTA" });
+  });
+  it("sin credenciales → null", () => {
+    expect(extractUserFromRequest(req())).toBeNull();
+  });
+  it("cookie con token inválido → null", () => {
+    expect(extractUserFromRequest(req({}, "basura"))).toBeNull();
+  });
+  it("cookie con token expirado → null", () => {
+    expect(extractUserFromRequest(req({}, createJWT("u1", -10, { rol: "SOCIO" })))).toBeNull();
+  });
+  it("no confía en headers x-user-* falsificados", () => {
+    expect(
+      extractUserFromRequest(req({ "x-user-id": "u9", "x-user-rol": "ADMINISTRADOR" }))
+    ).toBeNull();
   });
 });

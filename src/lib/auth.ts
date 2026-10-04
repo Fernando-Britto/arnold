@@ -104,6 +104,25 @@ export function extractUserFromAuthHeader(authHeader?: string): { id: string; ro
   };
 }
 
+export const AUTH_COOKIE_NAME = 'authToken';
+
+export interface RequestLike {
+  headers: { get(name: string): string | null };
+  cookies?: { get(name: string): { value: string } | undefined };
+}
+
+/** Identidad de la petición: header Bearer o cookie de sesión. Nunca headers x-user-*. */
+export function extractUserFromRequest(
+  request: RequestLike
+): { id: string; rol?: UserRole } | null {
+  const fromHeader = extractUserFromAuthHeader(request.headers.get('authorization') ?? undefined);
+  if (fromHeader) return fromHeader;
+
+  const token = request.cookies?.get(AUTH_COOKIE_NAME)?.value;
+  const payload = token ? verifyJWT(token) : null;
+  return payload ? { id: payload.sub, rol: payload.rol as UserRole | undefined } : null;
+}
+
 /**
  * Request object with user attached (from JWT verification)
  * Used by API handlers to pass user context, body, and request metadata

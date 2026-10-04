@@ -2,7 +2,7 @@ import { Rol } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { comparePassword, createJWT, hashPassword } from '@/lib/auth';
 
-export const AUTH_COOKIE_NAME = 'authToken';
+export { AUTH_COOKIE_NAME } from '@/lib/auth';
 export const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24h (spec)
 
 export function authCookieOptions(maxAge: number) {

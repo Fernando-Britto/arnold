@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleClienteGet, handleClienteUpdate, handleClienteDelete, type ClienteInput } from "@/api/clientes";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
-import { extractUserFromAuthHeader } from "@/lib/auth";
+import { extractUserFromRequest } from "@/lib/auth";
 import type {
   GetSuccess as GetSuccessType,
   GetError as GetErrorType,
@@ -111,8 +111,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // B2 fix: Validate JWT auth and role
-  const authHeader = request.headers.get("authorization") || undefined;
-  const user = extractUserFromAuthHeader(authHeader);
+  const user = extractUserFromRequest(request);
 
   if (!user) {
     return NextResponse.json(
@@ -155,8 +154,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // B2 fix: Validate JWT auth and role
-  const authHeader = request.headers.get("authorization") || undefined;
-  const user = extractUserFromAuthHeader(authHeader);
+  const user = extractUserFromRequest(request);
 
   if (!user) {
     return NextResponse.json(
@@ -200,8 +198,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // B2 fix: Validate JWT auth and role
-  const authHeader = request.headers.get("authorization") || undefined;
-  const user = extractUserFromAuthHeader(authHeader);
+  const user = extractUserFromRequest(request);
 
   if (!user) {
     return NextResponse.json(

@@ -6,7 +6,7 @@ import {
   type ClienteInput,
 } from "@/api/clientes";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
-import { extractUserFromAuthHeader } from "@/lib/auth";
+import { extractUserFromRequest } from "@/lib/auth";
 
 /**
  * Discriminated union types for handler responses
@@ -99,8 +99,7 @@ export async function handleClienteListRequest(): Promise<ListSuccess | ListErro
  */
 export async function POST(request: NextRequest) {
   // B2 fix: Validate JWT auth and role
-  const authHeader = request.headers.get("authorization") || undefined;
-  const user = extractUserFromAuthHeader(authHeader);
+  const user = extractUserFromRequest(request);
 
   if (!user) {
     return NextResponse.json(
@@ -139,8 +138,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   // B2 fix: Validate JWT auth and role
-  const authHeader = request.headers.get("authorization") || undefined;
-  const user = extractUserFromAuthHeader(authHeader);
+  const user = extractUserFromRequest(request);
 
   if (!user) {
     return NextResponse.json(

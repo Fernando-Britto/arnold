@@ -65,8 +65,6 @@ export async function proxy(request: NextRequest) {
         );
       }
     }
-    response.headers.set("x-user-id", userId);
-    response.headers.set("x-user-rol", session.rol);
   }
   return response;
 }
