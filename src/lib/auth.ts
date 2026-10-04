@@ -115,12 +115,12 @@ export interface RequestLike {
 export function extractUserFromRequest(
   request: RequestLike
 ): { id: string; rol?: UserRole } | null {
-  const fromHeader = extractUserFromAuthHeader(request.headers.get('authorization') ?? undefined);
-  if (fromHeader) return fromHeader;
-
+  // La cookie va primero: es la identidad que validó el proxy (estado ACTIVO en DB)
   const token = request.cookies?.get(AUTH_COOKIE_NAME)?.value;
   const payload = token ? verifyJWT(token) : null;
-  return payload ? { id: payload.sub, rol: payload.rol as UserRole | undefined } : null;
+  if (payload) return { id: payload.sub, rol: payload.rol as UserRole | undefined };
+
+  return extractUserFromAuthHeader(request.headers.get('authorization') ?? undefined);
 }
 
 /**

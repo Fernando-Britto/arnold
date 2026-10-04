@@ -225,6 +225,13 @@ describe("extractUserFromRequest", () => {
   it("lee la cookie de sesión", () => {
     expect(extractUserFromRequest(req({}, token()))).toEqual({ id: "u1", rol: "RECEPCIONISTA" });
   });
+  it("si hay cookie y Bearer, gana la cookie (la identidad que validó el proxy)", () => {
+  const cookieToken = createJWT("u-cookie", 3600, { rol: "RECEPCIONISTA" });
+  const bearer = createJWT("u-header", 3600, { rol: "ADMINISTRADOR" });
+  expect(
+    extractUserFromRequest(req({ authorization: `Bearer ${bearer}` }, cookieToken))
+  ).toEqual({ id: "u-cookie", rol: "RECEPCIONISTA" });
+});
   it("sin credenciales → null", () => {
     expect(extractUserFromRequest(req())).toBeNull();
   });
