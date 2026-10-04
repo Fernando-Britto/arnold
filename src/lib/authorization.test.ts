@@ -20,10 +20,10 @@ describe("Authorization Matrix", () => {
       expect(result.allowed).toBe(false);
     });
 
-    it("should allow SOCIO to GET /api/rutinas", () => {
-      const result = hasRouteAccess("SOCIO", "/api/rutinas", "GET");
-      expect(result.allowed).toBe(true);
-    });
+    it("should deny SOCIO to GET /api/rutinas (RN-06: Rutinas solo Admin/Instructor)", () => {
+  const result = hasRouteAccess("SOCIO", "/api/rutinas", "GET");
+  expect(result.allowed).toBe(false);
+});
 
     it("should deny SOCIO to POST /api/rutinas", () => {
       const result = hasRouteAccess("SOCIO", "/api/rutinas", "POST");

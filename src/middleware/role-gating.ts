@@ -6,15 +6,18 @@ import { RequestWithUser } from "@/lib/auth";
  * Defines which roles can access which protected routes
  */
 export const ROLE_GATE_MATRIX: Record<string, Rol[]> = {
-  "/ejercicios": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
+  "/ejercicios": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/rutinas": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/clientes": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA],
   "/membresias": [Rol.ADMINISTRADOR],
   "/home-interno": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
-  "/api/ejercicios": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
+  "/home-socio": [Rol.ADMINISTRADOR, Rol.SOCIO],
+  "/api/ejercicios": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/api/rutinas": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/api/clientes": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA],
   "/api/membresias": [Rol.ADMINISTRADOR],
+  "/api/home-interno": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
+  "/api/home-socio": [Rol.ADMINISTRADOR, Rol.SOCIO],
 };
 
 /**

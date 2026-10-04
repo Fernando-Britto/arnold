@@ -22,31 +22,42 @@ export interface RouteAccessResult {
  */
 const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
   SOCIO: {
-    paths: {
-      '/api/socios': ['GET'], // self-only filtering in handler
-      '/api/rutinas': ['GET'], // assigned only, filtering in handler
-      '/api/pagos': ['GET'], // self-only filtering in handler
-      '/api/sesiones': ['GET', 'POST'], // GET own sessions, POST own training session
-      '/api/auth/logout': ['POST'],
-    },
+  paths: {
+    '/home-socio': ['GET'],
+    '/api/home-socio': ['GET'],
+    '/api/socios': ['GET'],
+    // se quitó '/api/rutinas' GET: RN-06 limita Rutinas a Admin/Instructor;
+    // el Socio ve su rutina vía /api/home-socio
+    '/api/pagos': ['GET'],
+    '/api/sesiones': ['GET', 'POST'],
+    '/api/auth/logout': ['POST'],
   },
-  INSTRUCTOR: {
-    paths: {
-      '/api/socios': ['GET'], // see all socios
-      '/api/ejercicios': ['GET', 'POST', 'PUT', 'DELETE'], // full CRUD on ejercicios
-      '/api/rutinas': ['GET', 'POST', 'PUT', 'DELETE'], // full CRUD on rutinas
-      '/api/sesiones': ['GET', 'PUT'], // view and update training sessions
-      '/api/auth/logout': ['POST'],
-    },
+},
+INSTRUCTOR: {
+  paths: {
+    '/home-interno': ['GET'],
+    '/api/home-interno': ['GET'],
+    '/ejercicios': ['GET'],
+    '/rutinas': ['GET'],
+    '/api/socios': ['GET'],
+    '/api/ejercicios': ['GET', 'POST', 'PUT', 'DELETE'],
+    '/api/rutinas': ['GET', 'POST', 'PUT', 'DELETE'],
+    '/api/sesiones': ['GET', 'PUT'],
+    '/api/auth/logout': ['POST'],
   },
-  RECEPCIONISTA: {
-    paths: {
-      '/api/socios': ['GET', 'POST', 'PUT'], // view, create, and edit socios
-      '/api/pagos': ['GET', 'POST'], // view and create payments
-      '/api/cierres': ['GET', 'POST'], // view and create cash closures
-      '/api/auth/logout': ['POST'],
-    },
+},
+RECEPCIONISTA: {
+  paths: {
+    '/home-interno': ['GET'],
+    '/api/home-interno': ['GET'],
+    '/clientes': ['GET'],
+    '/api/clientes': ['GET', 'POST', 'PUT', 'DELETE'],
+    '/api/socios': ['GET', 'POST', 'PUT'],
+    '/api/pagos': ['GET', 'POST'],
+    '/api/cierres': ['GET', 'POST'],
+    '/api/auth/logout': ['POST'],
   },
+},
   ADMINISTRADOR: {
     paths: {
       '*': ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // wildcard: all methods on all routes

@@ -4,7 +4,7 @@ import { Rol } from "@prisma/client";
 
 describe("roleGatingMiddleware", () => {
   describe("Route protection", () => {
-    it("should allow ADMINISTRADOR to access /ejercicios", () => {
+it("should deny RECEPCIONISTA access to /ejercicios (RN-06: solo Admin/Instructor)", () => {
       const req = {
         user: { id: "1", rol: Rol.ADMINISTRADOR },
       } as unknown as RequestWithUser;
@@ -28,7 +28,7 @@ describe("roleGatingMiddleware", () => {
       } as unknown as RequestWithUser;
 
       const result = roleGatingMiddleware(req, "/ejercicios");
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
     it("should deny SOCIO access to /ejercicios", () => {
