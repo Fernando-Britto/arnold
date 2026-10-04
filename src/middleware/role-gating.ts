@@ -16,6 +16,7 @@ export const ROLE_GATE_MATRIX: Record<string, Rol[]> = {
   "/api/rutinas": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/api/clientes": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA],
   "/api/membresias": [Rol.ADMINISTRADOR],
+  "/api/membresias/activas": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // dropdown de Clientes (AC-004), lectura mínima
   "/api/home-interno": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
   "/api/home-socio": [Rol.ADMINISTRADOR, Rol.SOCIO],
 };

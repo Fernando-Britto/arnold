@@ -12,6 +12,8 @@ import {
   handleMembresiaGetById,
   handleMembresiaUpdate,
   handleMembresiaDelete,
+  handleMembresiasActivas,
+  fetchMembresias,
 } from "./membresias";
 import { MembresiaRepository } from "@/domains/membresia/membresia";
 
@@ -391,5 +393,52 @@ describe("Membresia Business Logic", () => {
         expect((error as any).code).toBe("NOT_FOUND");
       }
     });
+  });
+});
+
+describe("handleMembresiasActivas (dropdown de Clientes: lectura mínima para Recepcionista)", () => {
+  const activa = {
+    id: "m1",
+    nombre: "Gold",
+    precio: 15000,
+    periodicidad: 30,
+    descripcion: "Plan Gold",
+    estado: "ACTIVA" as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it("devuelve solo id/nombre/precio/estado de las ACTIVAS, sin datos de gestión", async () => {
+    MockedRepository.prototype.getAllActivas = jest.fn().mockResolvedValue([activa]);
+    MockedRepository.prototype.getAssignedSocioCount = jest.fn();
+
+    const result = await handleMembresiasActivas();
+
+    expect(result).toEqual([{ id: "m1", nombre: "Gold", precio: 15000, estado: "ACTIVA" }]);
+    expect(MockedRepository.prototype.getAssignedSocioCount).not.toHaveBeenCalled();
+  });
+
+  it("devuelve lista vacía cuando no hay membresías activas", async () => {
+    MockedRepository.prototype.getAllActivas = jest.fn().mockResolvedValue([]);
+    expect(await handleMembresiasActivas()).toEqual([]);
+  });
+});
+
+describe("fetchMembresias (cliente: alimenta el dropdown de Clientes)", () => {
+  beforeEach(() => {
+    global.fetch = jest.fn();
+  });
+
+  it("pide /api/membresias/activas, el endpoint que el Recepcionista sí puede leer", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => [{ id: "m1" }] });
+    await expect(fetchMembresias()).resolves.toEqual([{ id: "m1" }]);
+    expect(global.fetch).toHaveBeenCalledWith("/api/membresias/activas");
+  });
+
+  it("falla con un mensaje claro si la API responde error", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: false, statusText: "Forbidden" });
+    await expect(fetchMembresias()).rejects.toThrow("Failed to fetch membresias: Forbidden");
   });
 });

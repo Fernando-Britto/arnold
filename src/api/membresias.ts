@@ -76,6 +76,19 @@ export async function handleMembresiaList(
 }
 
 /**
+ * Server-side handler for GET /api/membresias/activas
+ * Read-only lookup for the Clientes "Membresía asignada" dropdown (AC-004).
+ * Deliberately separate from /api/membresias so the Recepcionista can read the
+ * active plans without gaining access to Membresías management (RN-06): no
+ * description, no periodicity, no assigned-member counts.
+ */
+export async function handleMembresiasActivas(): Promise<MembresiaDropdown[]> {
+  const repository = new MembresiaRepository();
+  const activas = await repository.getAllActivas();
+  return activas.map(({ id, nombre, precio, estado }) => ({ id, nombre, precio, estado }));
+}
+
+/**
  * Server-side handler for GET /api/membresias/[id]
  * Returns single membresia with assigned member count
  */
@@ -194,7 +207,7 @@ export interface MembresiaDropdown {
 }
 
 export async function fetchMembresias(): Promise<MembresiaDropdown[]> {
-  const response = await fetch("/api/membresias?activeOnly=true");
+  const response = await fetch("/api/membresias/activas");
   if (!response.ok) {
     throw new Error(`Failed to fetch membresias: ${response.statusText}`);
   }

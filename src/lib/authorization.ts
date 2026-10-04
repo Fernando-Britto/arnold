@@ -52,6 +52,7 @@ RECEPCIONISTA: {
     '/api/home-interno': ['GET'],
     '/clientes': ['GET'],
     '/api/clientes': ['GET', 'POST', 'PUT', 'DELETE'],
+    '/api/membresias/activas': ['GET'], // solo el dropdown de Clientes (AC-004); la gestión sigue siendo de Admin (RN-06)
     '/api/socios': ['GET', 'POST', 'PUT'],
     '/api/pagos': ['GET', 'POST'],
     '/api/cierres': ['GET', 'POST'],
