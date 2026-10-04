@@ -112,15 +112,19 @@ export interface RequestLike {
 }
 
 /** Identidad de la petición: header Bearer o cookie de sesión. Nunca headers x-user-*. */
+/** Header Authorization equivalente a las credenciales de la petición. La cookie va primero:
+ *  es la identidad que validó el proxy (estado ACTIVO en DB). */
+export function authHeaderFromRequest(request: RequestLike): string | undefined {
+  const token = request.cookies?.get(AUTH_COOKIE_NAME)?.value;
+  if (token) return `Bearer ${token}`;
+  return request.headers.get('authorization') ?? undefined;
+}
+
+/** Identidad de la petición: cookie de sesión o header Bearer. Nunca headers x-user-*. */
 export function extractUserFromRequest(
   request: RequestLike
 ): { id: string; rol?: UserRole } | null {
-  // La cookie va primero: es la identidad que validó el proxy (estado ACTIVO en DB)
-  const token = request.cookies?.get(AUTH_COOKIE_NAME)?.value;
-  const payload = token ? verifyJWT(token) : null;
-  if (payload) return { id: payload.sub, rol: payload.rol as UserRole | undefined };
-
-  return extractUserFromAuthHeader(request.headers.get('authorization') ?? undefined);
+  return extractUserFromAuthHeader(authHeaderFromRequest(request));
 }
 
 /**

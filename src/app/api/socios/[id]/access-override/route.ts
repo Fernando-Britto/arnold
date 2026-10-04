@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleAccessOverride } from "@/api/socios/access-override";
-import { extractUserFromAuthHeader, RequestWithUser } from "@/lib/auth";
+import { extractUserFromAuthHeader, RequestWithUser, authHeaderFromRequest } from "@/lib/auth";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 
 /**
@@ -69,7 +69,7 @@ export async function handleAccessOverrideRequest(
  * Requires ADMINISTRADOR role
  * Spec: manual-override-authorization/spec.md
  *
- * Auth: Bearer token in Authorization header
+ * Auth: cookie de sesión o Bearer
  */
 export async function POST(
   request: NextRequest,
@@ -78,7 +78,7 @@ export async function POST(
   // Await params per Next.js 16 App Router spec
   const { id: socioId } = await params;
 
-  const authHeader = request.headers.get("Authorization") || undefined;
+  const authHeader = authHeaderFromRequest(request);
   const body = await request.json();
 
   const result = await handleAccessOverrideRequest(authHeader, body, socioId);

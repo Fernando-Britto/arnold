@@ -6,6 +6,7 @@ import {
   extractUserFromAuthHeader,
   extractUserFromRequest,
   AUTH_COOKIE_NAME,
+  authHeaderFromRequest,
 } from "./auth";
 
 describe("Auth Library", () => {
@@ -245,5 +246,26 @@ describe("extractUserFromRequest", () => {
     expect(
       extractUserFromRequest(req({ "x-user-id": "u9", "x-user-rol": "ADMINISTRADOR" }))
     ).toBeNull();
+  });
+});
+describe("authHeaderFromRequest", () => {
+  const req = (headers: Record<string, string> = {}, cookie?: string) => ({
+    headers: { get: (n: string) => headers[n.toLowerCase()] ?? null },
+    cookies: {
+      get: (n: string) => (n === AUTH_COOKIE_NAME && cookie ? { value: cookie } : undefined),
+    },
+  });
+
+  it("cookie → Bearer con el token de la cookie", () => {
+    expect(authHeaderFromRequest(req({}, "tok-cookie"))).toBe("Bearer tok-cookie");
+  });
+  it("solo header → el mismo header", () => {
+    expect(authHeaderFromRequest(req({ authorization: "Bearer tok-h" }))).toBe("Bearer tok-h");
+  });
+  it("cookie y header → gana la cookie", () => {
+    expect(authHeaderFromRequest(req({ authorization: "Bearer tok-h" }, "tok-c"))).toBe("Bearer tok-c");
+  });
+  it("sin credenciales → undefined", () => {
+    expect(authHeaderFromRequest(req())).toBeUndefined();
   });
 });
