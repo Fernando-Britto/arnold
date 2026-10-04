@@ -17,7 +17,7 @@ import type { HomeInternoRaw } from "@/domains/home-interno/home-interno";
  */
 export type HomeInternoData = HomeInternoRaw & { ahora: Date };
 
-interface HomeInternoDTO
+export interface HomeInternoDTO
   extends Omit<HomeInternoRaw, "pagos" | "cuotas" | "ultimasAsistencias" | "eventos"> {
   ahora: string;
   pagos: (Omit<HomeInternoRaw["pagos"][number], "fecha"> & { fecha: string })[];
