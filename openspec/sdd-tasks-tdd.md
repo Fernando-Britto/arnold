@@ -1,16 +1,19 @@
 # SDD Tasks: ARNOLD MVP Core (TDD Mode)
 
-**Status**: APPROVED FOR EXECUTION  
-**Date**: 2026-09-12  
+**Status**: IN EXECUTION — T-001 … T-021c and T-026 done; T-023b and T-024 pending  
+**Date**: 2026-09-12 (approved) · Updated 2026-10-05  
 **Mode**: Strict TDD (strict_tdd: true)  
-**Delivery**: Auto-chain (28 PRs, ≤400 LOC each)  
-**Total LOC**: 7,885 (code + tests)
+**Delivery**: Chained PRs (≤400 LOC each) — 28 planned + additions (see [Scope changes during apply](#scope-changes-during-apply))  
+**Total LOC**: 7,885 planned baseline · actuals are tracked per task below  
+**Companion docs**: [`decisions.md`](./decisions.md) (why we deviated) · [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md) (current state & open items)
 
 ---
 
 ## Overview
 
 28 implementation tasks split across 28 chained PRs (T-021 split into T-021a + T-021b for risk management, T-023 split into T-023a + T-023b for scope separation, T-025 added for /access-override endpoint). Each task pairs implementation with corresponding test file(s). Test-first discipline enforced: tests written before implementation (red-green-refactor).
+
+> **Update 2026-10-05**: 4 tasks were added during apply (T-021c, T-026a/b/c) and T-021 grew well past its estimate. See [Execution Status](#execution-status) and [Scope changes during apply](#scope-changes-during-apply).
 
 **Key metrics**:
 - Domain models: 4 (Ejercicio, Rutina, Cliente, Membresía)
@@ -21,11 +24,57 @@
 - Test files: ~45 .test.ts / .test.tsx files
 - Est. execution time: 8–12 weeks (with parallel review)
 
+## Execution Status
+
+Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original plan).  
+"Actual LOC" = lines added, tests and docs included, measured from git; "—" = not measured.
+
+| Task | Status | PR | Actual LOC | Note |
+|------|--------|----|-----------|------|
+| T-001 Prisma schema | ✅ | PR-001-A | — | |
+| T-022 Role gating | ✅ | PR-001-B | — | Matrix later unified in T-026c |
+| T-023a Auth infrastructure | ✅ | PR-001-C | — | |
+| T-002 – T-005 Ejercicio | ✅ | PR-002-A … PR-003-A | — | |
+| T-025 Manual override | ✅ | PR-003-B | — | |
+| T-006 – T-009 Rutina | ✅ | PR-003-C … PR-005-A | — | |
+| T-010 – T-013 Cliente | ✅ | PR-005-B … PR-006-B | — | FX-08, FX-09 fixed later |
+| T-014 – T-017 Membresía | ✅ | PR-006-C … PR-007-C | — | |
+| T-018, T-019 Home_Socio | ✅ | PR-008-A, PR-008-B | — | `/api/home-socio` still missing (P-05) |
+| T-020 Home_Interno components | ✅ | PR-008-C | — | FX-01, FX-02 fixed in T-021a |
+| T-021a Home_Interno Part 1 | ✅ | PR-009-A1/A2/A3 | 934 (est. 250) | Scope grew, see D-01 |
+| T-021b Home_Interno Part 2 | ✅ | PR-009-B | 336 (est. 150) | +31 LOC rename refactor |
+| T-021c Home_Interno data API | ✅ ➕ | PR-009-C1/C2/C3 | 505 | Not in plan, see D-01, D-02, D-10 |
+| T-026a Login/logout API | ✅ ➕ | PR-011-A | 259 | By Fernando, see D-08 |
+| T-026b Login page + SessionUser | ✅ ➕ | PR-011-B | 290 | By Fernando |
+| T-026c Proxy + RBAC + cookie-first | ✅ ➕ | PR-011-C | 381 | By Fernando, see D-07 |
+| T-023b UI utilities | ⏳ | PR-009-D (was PR-009-C) | — | Renumbered, see D-15 |
+| T-024 Test fixtures | ⏳ | PR-010-A | — | `tests/fixtures/home-interno-data.ts` anticipates part of it (D-16) |
+
+## Scope changes during apply
+
+Rationale for each item lives in [`decisions.md`](./decisions.md); this is the index.
+
+1. **T-021 grew from 400 to 1,806 LOC** (+4.5×) and was split into 7 PRs to respect the 400-LOC cap — D-01.
+   Cause: T-020 only built `OperationCard` and `ActivityColumn`; four components, the domain derivations and the
+   data API were never assigned to any task.
+2. **New tasks**: T-021c (Home_Interno data API) and T-026a/b/c (authentication) — D-15.
+3. **PR renumbering**: `PR-009-C` was used by T-021c, so **T-023b moves to `PR-009-D`** — D-15.
+4. **Spec vs design**: the spec wins where the SVG disagrees (one alert type, no "+12% vs ayer") — D-03, D-04.
+5. **RN-06 vs AC-004 conflict** (Recepcionista needs the active-membership dropdown but Membresías is Admin-only)
+   resolved with a dedicated read-only endpoint, not by loosening RN-06 — D-09.
+6. **Role-aware controls**: controls whose destination a role cannot open render disabled with a tooltip — D-06.
+7. **T-021b depended on T-024** (fixtures), which is not done: a shared `tests/fixtures/home-interno-data.ts`
+   stands in — D-16.
+8. **Lint criterion** reinterpreted as "no new errors in touched files" because the repo carries 115 pre-existing
+   errors — D-14.
+9. **Ten defects fixed** along the way (FX-01 … FX-10); register in `decisions.md` §2.
+
 ---
 
 ## Complete Task List (Execution Order)
 
 ### T-001: Prisma Schema + Models
+- **Status**: ✅ Done
 - **Spec**: sdd-design.md §1.4, requirements.md
 - **What**: Define all entities in prisma/schema.prisma
 - **LOC**: 120 (schema only, no paired tests)
@@ -35,6 +84,7 @@
 - **Dependencies**: None
 
 ### T-022: Role Gating Middleware + Auth Context Updates
+- **Status**: ✅ Done
 - **Spec**: RN-06 (role-based access control)
 - **What**: Middleware for /ejercicios, /rutinas, /clientes, /membresias + React Context role state
 - **Test file**: src/middleware/role-gating.test.ts, src/contexts/auth.test.tsx
@@ -45,6 +95,7 @@
 - **Dependencies**: T-001
 
 ### T-023a: Auth Infrastructure (JWT, DB Singleton, Rate Limiting)
+- **Status**: ✅ Done
 - **Spec**: T-022 design (auth + rate limiting), sdd-design.md §1.2–1.3
 - **What**: auth.ts (hashPassword, comparePassword, createJWT, verifyJWT) + db.ts (Prisma singleton) + rateLimit.ts (checkRateLimit, cleanupRateLimitLogsIfNeeded) + fine-grained-auth.ts (canApproveAccessOverride, canAccessSocioData, etc.)
 - **Test file**: src/lib/auth.test.ts, src/lib/rateLimit.test.ts, src/lib/fine-grained-auth.test.ts
@@ -55,6 +106,7 @@
 - **Dependencies**: T-001 (Prisma schema)
 
 ### T-002: Ejercicio Domain Model + Repository
+- **Status**: ✅ Done
 - **Spec**: ejercicios-crud/spec.md
 - **What**: Domain model + validation + Prisma repository
 - **Test file**: src/domains/ejercicio/ejercicio.test.ts
@@ -65,6 +117,7 @@
 - **Dependencies**: T-001
 
 ### T-003: Ejercicio FormPanel + ListPanel Components
+- **Status**: ✅ Done
 - **Spec**: ejercicios-crud/spec.md
 - **What**: React controlled form + table with Modify/Delete
 - **Test files**: src/components/ejercicio-crud/ejercicio-form.test.tsx, ejercicio-list.test.tsx
@@ -75,6 +128,7 @@
 - **Dependencies**: T-002
 
 ### T-004: Ejercicio API Route
+- **Status**: ✅ Done
 - **Spec**: ejercicios-crud/spec.md
 - **What**: POST/PUT/DELETE endpoints → Ejercicio repo + Next.js route.ts with JWT auth
 - **Test file**: src/api/ejercicios.test.ts, tests/api/ejercicios.route.test.ts
@@ -86,6 +140,7 @@
 - **Dependencies**: T-002
 
 ### T-005: Ejercicio CRUD Screen + Role Gating
+- **Status**: ✅ Done
 - **Spec**: ejercicios-crud/spec.md (RN-06 gating)
 - **What**: Page /ejercicios with FormPanel + ListPanel + auth
 - **Test file**: src/app/ejercicios/page.test.tsx
@@ -96,6 +151,7 @@
 - **Dependencies**: T-003, T-004, T-022 (role gating)
 
 ### T-025: Manual Override Authorization (Admin-Only)
+- **Status**: ✅ Done
 - **Spec**: manual-override-authorization/spec.md, rbac-middleware/spec.md, access-audit-logging/spec.md
 - **What**: POST /api/socios/{id}/access-override endpoint with ADMIN-only validation + Asistencia override logic + Next.js route.ts with JWT auth
 - **Test file**: src/api/socios/access-override.test.ts, tests/api/socios-access-override.route.test.ts
@@ -107,6 +163,7 @@
 - **Dependencies**: T-022 (auth middleware), T-005 (Socio endpoint pattern)
 
 ### T-006: Rutina Domain Model + Repository
+- **Status**: ✅ Done
 - **Spec**: rutinas-crud/spec.md
 - **What**: Domain model + validation (frecuencia 1–7, duracion ≥1, nivelDeDificultad enum)
 - **Test file**: src/domains/rutina/rutina.test.ts
@@ -117,6 +174,7 @@
 - **Dependencies**: T-001
 
 ### T-007a: Rutina FormPanel + EjercicioEnRutina Basic
+- **Status**: ✅ Done
 - **Spec**: rutinas-crud/spec.md
 - **What**: Form for Rutina + nested table for EjercicioEnRutina (add rows)
 - **Test file**: src/components/rutina-crud/rutina-form.test.tsx
@@ -127,6 +185,7 @@
 - **Dependencies**: T-006, T-002 (Ejercicio dropdown)
 
 ### T-007b: EjercicioEnRutina Advanced (Row Editing, Reordering)
+- **Status**: ✅ Done
 - **Spec**: rutinas-crud/spec.md
 - **What**: Edit/delete/reorder rows in nested table
 - **Test file**: src/components/rutina-crud/ejercicio-en-rutina-list.test.tsx
@@ -137,6 +196,7 @@
 - **Dependencies**: T-007a
 
 ### T-008: Rutina API Route
+- **Status**: ✅ Done
 - **Spec**: rutinas-crud/spec.md
 - **What**: CRUD endpoints + cascade logic for EjercicioEnRutina + Next.js route.ts with JWT auth
 - **Test file**: src/api/rutinas.test.ts
@@ -148,6 +208,7 @@
 - **Dependencies**: T-006
 
 ### T-009: Rutina CRUD Screen + Role Gating
+- **Status**: ✅ Done
 - **Spec**: rutinas-crud/spec.md (RN-06 gating)
 - **What**: Page /rutinas with form, list, nested editing
 - **Test file**: src/app/rutinas/page.test.tsx
@@ -158,6 +219,7 @@
 - **Dependencies**: T-007b, T-008, T-022 (role gating)
 
 ### T-010: Cliente Domain Model + Repository
+- **Status**: ✅ Done
 - **Spec**: clientes-crud/spec.md
 - **What**: Domain model (nombre, dni, telefono, email, membresiaAsignada, estadoCuenta)
 - **Test file**: src/domains/cliente/cliente.test.ts
@@ -168,6 +230,7 @@
 - **Dependencies**: T-001
 
 ### T-011: Cliente FormPanel + ListPanel (Membresía dropdown)
+- **Status**: ✅ Done
 - **Spec**: clientes-crud/spec.md
 - **What**: Form + table with membresía dropdown, estado transitions
 - **Test file**: src/components/cliente-crud/cliente-form.test.tsx, cliente-list.test.tsx
@@ -178,6 +241,7 @@
 - **Dependencies**: T-010
 
 ### T-012: Cliente API Route
+- **Status**: ✅ Done
 - **Spec**: clientes-crud/spec.md (RN-01 cascading)
 - **What**: CRUD endpoints + Membresía assignment effects + Next.js route.ts with JWT auth
 - **Test file**: src/api/clientes.test.ts
@@ -189,6 +253,7 @@
 - **Dependencies**: T-010
 
 ### T-013: Cliente CRUD Screen + Membresía Integration
+- **Status**: ✅ Done
 - **Spec**: clientes-crud/spec.md (RN-06 gating)
 - **What**: Page /clientes with form, list, membresía population
 - **Test file**: src/app/clientes/page.test.tsx
@@ -199,6 +264,7 @@
 - **Dependencies**: T-011, T-012, T-022 (role gating)
 
 ### T-014: Membresía Domain Model + Repository
+- **Status**: ✅ Done
 - **Spec**: membresias-crud/spec.md
 - **What**: Domain model (nombre, precio, periodicidad, descripcion, estado)
 - **Test file**: src/domains/membresia/membresia.test.ts
@@ -209,6 +275,7 @@
 - **Dependencies**: T-001
 
 ### T-015: Membresía FormPanel + ListPanel
+- **Status**: ✅ Done
 - **Spec**: membresias-crud/spec.md
 - **What**: Form + table with estado dropdown, delete confirmation
 - **Test file**: src/components/membresia-crud/membresia-form.test.tsx, membresia-list.test.tsx
@@ -219,6 +286,7 @@
 - **Dependencies**: T-014
 
 ### T-016: Membresía API Route
+- **Status**: ✅ Done
 - **Spec**: membresias-crud/spec.md
 - **What**: CRUD endpoints, prevent deletion if Clientes reference + Next.js route.ts with JWT auth
 - **Test file**: src/api/membresias.test.ts
@@ -230,6 +298,7 @@
 - **Dependencies**: T-014
 
 ### T-017: Membresía CRUD Screen + Role Gating
+- **Status**: ✅ Done
 - **Spec**: membresias-crud/spec.md (RN-06 gating)
 - **What**: Page /membresias with form, list
 - **Test file**: src/app/membresias/page.test.tsx
@@ -240,6 +309,7 @@
 - **Dependencies**: T-015, T-016, T-022 (role gating)
 
 ### T-018: Tarjeta_Detalle + Supporting Components
+- **Status**: ✅ Done
 - **Spec**: home-socio-portal/spec.md §3.2
 - **What**: Exercise detail card (nombre, grupoMuscular, icon, descripcion, series/reps/descanso)
 - **Test file**: src/components/home-socio/tarjeta-detalle.test.tsx
@@ -250,6 +320,7 @@
 - **Dependencies**: T-002, T-006 (Ejercicio + Rutina data)
 
 ### T-019: Home_Socio Page Layout (Fila1, Fila2, Fila3)
+- **Status**: ✅ Done
 - **Spec**: home-socio-portal/spec.md §2–3
 - **What**: Layout orchestration + data binding (Progreso, Aforo, Tarjeta_Rutina, Tarjeta_Detalle, Racha, Membresía)
 - **Test file**: src/app/home-socio/page.test.tsx
@@ -260,6 +331,7 @@
 - **Dependencies**: T-018, T-022 (auth context)
 
 ### T-020: Home_Interno Components (Operation + Activity)
+- **Status**: ✅ Done
 - **Spec**: home-interno-dashboard/spec.md §3–4
 - **What**: Operation card (machines + occupancy) + Activity column (event stream)
 - **Test file**: src/components/home-interno/operation-card.test.tsx, activity-column.test.tsx
@@ -270,6 +342,7 @@
 - **Dependencies**: T-002 (Máquina), T-010 (Cliente)
 
 ### T-021a: Home_Interno Page Layout — Part 1 (Rows 1–3)
+- **Status**: ✅ Done — actual 934 LOC over PR-009-A1/A2/A3 (estimate below is the original plan)
 - **Spec**: home-interno-dashboard/spec.md §2–3
 - **What**: Layout for Row_Acciones (quick actions buttons), Row_Hoy (Alertas, Aforo, Caja), Row_Operacion (3 status cards) + initial data binding
 - **Test file**: src/app/home-interno/page-part1.test.tsx
@@ -278,8 +351,15 @@
 - **PR**: PR-009-A
 - **Risk**: High (aggregation queries, operational data)
 - **Dependencies**: T-020, T-022 (auth context)
+- **Scope change (D-01)**: the 250-LOC estimate assumed the zone components already existed. They did not, so the work
+  became three PRs: **PR-009-A1** domain (`computeAforo`, `computeAlertasVencimiento`, `computePersonalEnTurno`,
+  `aggregateHomeInterno`; 260 LOC), **PR-009-A2** components (`QuickActions`, `AlertasCard`, `AforoHoyCard`, `CajaCard`;
+  309 LOC), **PR-009-A3** API contract + page (365 LOC).
+- **Deviations from the spec/design**: only the "Vencimiento" alert (D-03); no "+12% vs ayer"; "Cierre de Caja" is only
+  a trigger; unmapped buttons (Registrar Pago, Asignar Rutina, Control Acceso) are documented no-ops.
 
 ### T-021b: Home_Interno Page Layout — Part 2 (Rows 4–5 + Integration)
+- **Status**: ✅ Done — actual 336 LOC (+31 rename refactor) in PR-009-B (estimate below is the original plan)
 - **Spec**: home-interno-dashboard/spec.md §4–5
 - **What**: Layout for Row_Gestion (4 counter cards), Col_Actividad (event stream) + complete page integration and data flow
 - **Test file**: src/app/home-interno/page-part2.test.tsx
@@ -288,18 +368,60 @@
 - **PR**: PR-009-B
 - **Risk**: High (event stream, counter aggregations, multi-source integration)
 - **Dependencies**: T-021a, T-024 (fixtures for consistent test data)
+- **Scope change**: actual 336 LOC. Adds `CounterCard` (OperationCard requires icon + footer, counters have neither),
+  moves `formatHaceTiempo` to the domain layer, extends the contract with `contadores` + `eventos`. Cards whose
+  destination the role cannot open are disabled (D-06). T-024 was not available, so a shared fixture was created (D-16).
+
+### T-021c: Home_Interno Data API (added during apply)
+- **Status**: ✅ Done
+- **Spec**: home-interno-dashboard/spec.md §2–5 (data scenarios)
+- **What**: `GET /api/home-interno` collects raw facts with Prisma (machines, payments, roster with last cuota and last
+  attendance, today's check-ins, on-shift staff, counters, 24h events). Business rules stay in the domain layer (D-02).
+- **Files**: `src/lib/gym-time.ts`, `src/api/home-interno-data.ts`, `src/app/api/home-interno/route.ts` (+ tests,
+  including a server → client → domain contract test)
+- **LOC**: 505 actual (54 + 389 + 62) — not in the original plan
+- **PR**: PR-009-C1 / PR-009-C2 / PR-009-C3
+- **Why added**: the T-021a page called `/api/home-interno`, which nobody had planned. Home_Interno answered 404 and
+  never loaded (found in `next dev` logs).
+- **Risk**: High — Prisma queries could not be run in the assistant's environment; verified with mocked Prisma, a
+  schema-field script (41 checks) and a 200 response from the author's dev database. Numbers vs real data: open (P-02).
+- **Dependencies**: T-021a, T-021b, T-026 (the proxy enforces who can call it)
+
+### T-026a: Auth Login/Logout API (added during apply, by Fernando)
+- **Status**: ✅ Done
+- **Spec**: authentication-login/spec.md — with deviations (D-08)
+- **What**: `POST /api/auth/login` and `/logout`; JWT with `jti`; httpOnly cookie `authToken` (24h, SameSite=Strict);
+  `JWT_SECRET` required in production (FX-10); simulated hash to equalise response time; account status checked
+  after the password.
+- **LOC**: 259 actual · **PR**: PR-011-A · **Dependencies**: T-023a
+
+### T-026b: Login Page + SessionUser (added during apply, by Fernando)
+- **Status**: ✅ Done
+- **What**: `/login` page, client-safe `SessionUser` (never carries the password hash), real logout,
+  `AuthProvider` mounted in the root layout from the session cookie.
+- **LOC**: 290 actual · **PR**: PR-011-B · **Dependencies**: T-026a
+
+### T-026c: Proxy, Unified RBAC, Cookie-first Handlers (added during apply, by Fernando)
+- **Status**: ✅ Done
+- **What**: `middleware.ts` → `proxy.ts` on the Node runtime (D-07, FX-05); permission matrix unified per RN-06 with
+  consistency and RN-06 spec tests; pure `decideAccess`; `await params` for Next 16 (FX-06); `extractUserFromRequest`
+  and cookie priority over `Bearer` (FX-07).
+- **LOC**: 381 actual (7 commits) · **PR**: PR-011-C · **Dependencies**: T-026a, T-026b
+- **Known gaps**: no token revocation or refresh (D-08, P-06); the proxy queries the DB on every page navigation (P-11).
 
 ### T-023b: UI Utilities (Validation, Formatting, Error Handling)
+- **Status**: ⏳ Pending
 - **Spec**: Cross-cutting concerns (email, DNI, phone formats; API error handling)
 - **What**: validateEmail, formatDNI, formatPhone, handleApiError, notification context
 - **Test file**: src/utils/validation.test.ts, src/utils/formatting.test.ts
 - **LOC**: 130 (util) + 110 (tests) = 240
 - **Acceptance**: `npm test -- src/utils/` passes (all utility + error handling tests)
-- **PR**: PR-009-C
+- **PR**: PR-009-D (was PR-009-C; renumbered, D-15)
 - **Risk**: Low (unit tests, isolated)
 - **Dependencies**: None (independent utilities)
 
 ### T-024: Test Fixtures & Factories
+- **Status**: ⏳ Pending
 - **Spec**: Test infrastructure (data generation)
 - **What**: Factories for Ejercicio, Rutina, Cliente, Membresía, Usuario, EjercicioEnRutina
 - **Test file**: tests/factories/*.ts (with light integration tests)
@@ -335,6 +457,19 @@
 - UI utilities tests: ~110 LOC (validation + formatting)
 - **Total test LOC: ~2,640**
 
+### Added during apply (actuals)
+
+| Item | Actual LOC | vs plan |
+|------|-----------|---------|
+| T-021a + T-021b (planned 250 + 150) | 1,270 (934 + 336) | +870 |
+| Rename refactor `Part1` → neutral names | 31 | not planned |
+| T-021c Home_Interno data API | 505 | not planned |
+| T-026a / T-026b / T-026c (authentication) | 930 (259 + 290 + 381) | not planned |
+| **T-021 family (a + b + c + refactor)** | **1,806** | planned 400 → **4.5×** |
+
+Defect fixes (FX-01 … FX-10) are small and tracked separately in `decisions.md` §2.
+
+
 ---
 
 ## Chained PR Strategy (28 PRs, ≤400 LOC each)
@@ -365,12 +500,14 @@
 22. **PR-008-A**: T-018 (270 LOC) — Tarjeta_Detalle + supporting components
 23. **PR-008-B**: T-019 (360 LOC) — Home_Socio page layout
 24. **PR-008-C**: T-020 (330 LOC) — Home_Interno components
-25. **PR-009-A**: T-021a (250 LOC) — Home_Interno page layout (Part 1: Rows 1–3)
-26. **PR-009-B**: T-021b (150 LOC) — Home_Interno page layout (Part 2: Rows 4–5 + integration)
-27. **PR-009-C**: T-023b (240 LOC) — UI utilities (validation, formatting, error handling)
+25. **PR-009-A1 / A2 / A3**: T-021a (planned 250 LOC as one PR; **actual 260 + 309 + 365**) — Home_Interno page layout (Part 1: Rows 1–3), split into domain / components / page
+26. **PR-009-B**: T-021b (planned 150 LOC; **actual 336**) — Home_Interno page layout (Part 2: Rows 4–5 + integration)
+    - **PR-009-C1 / C2 / C3**: T-021c ➕ (**actual 54 + 389 + 62**) — Home_Interno data API (`gym-time`, payload builder, route)
+    - **PR-011-A / B / C**: T-026a/b/c ➕ (**actual 259 + 290 + 381**) — authentication (login API, login page, proxy + RBAC)
+27. **PR-009-D**: T-023b (240 LOC) — UI utilities (validation, formatting, error handling). *Renumbered from PR-009-C (D-15)*
 28. **PR-010-A**: T-024 (240 LOC) — Test Fixtures & Factories
 
-**Total**: 7,885 LOC across 28 PRs (each ≤400 LOC)
+**Total (original plan)**: 7,885 LOC across 28 PRs (each ≤400 LOC). The additions above bring the PR count past 28; every added PR also stayed ≤400 LOC.
 
 **Each PR**:
 - ≤400 LOC (hard limit, verified)
@@ -401,7 +538,8 @@ T-001 (Prisma) →
 ├─ T-010 (Cliente Domain) → T-011 (Cliente UI) → T-012 (API) → T-013 (Screen + Gate)
 ├─ T-014 (Membresía Domain) → T-015 (UI) → T-016 (API) → T-017 (Screen + Gate)
 ├─ T-018 (Tarjeta_Detalle) → T-019 (Home_Socio)
-├─ T-020 (Home_Interno Components) → T-021a (Home_Interno Part 1) → T-021b (Home_Interno Part 2)
+├─ T-020 (Home_Interno Components) → T-021a (Home_Interno Part 1) → T-021b (Home_Interno Part 2) → T-021c (Home_Interno Data API, added)
+├─ T-023a → T-026a (Login API, added) → T-026b (Login page, added) → T-026c (Proxy + RBAC, added)
 ├─ T-023b (UI Utilities: Validation, Formatting)
 └─ T-024 (Test Fixtures)
 ```
@@ -416,7 +554,7 @@ T-001 (Prisma) →
 - [ ] Tests fail (red phase)
 - [ ] Implementation added (green phase)
 - [ ] All tests pass: `npm test -- <path>`
-- [ ] No type errors: `npm run lint` clean
+- [ ] No type errors (`npx tsc --noEmit`) and **no new lint errors in touched files** (repo-wide `npm run lint` is not clean: 115 pre-existing errors, see D-14)
 - [ ] Coverage ≥60% for new code
 - [ ] Rollback boundary documented
 - [ ] Commit message follows Conventional Commits
@@ -444,17 +582,35 @@ npm test -- src/middleware/role-gating
 
 5. **Test Data Consistency** (T-024): Factories must exactly match Prisma schema. Schema changes require factory updates. Document factory API clearly.
 
+6. **Estimate by walking the mockup** (T-021): every card in the SVG needs an owner task. The plan skipped four components
+   and the data API, so T-021 ran 4.5× over (L-01, D-01).
+
+7. **Specs collide** (RN-06 vs AC-004): when a screen consumes a resource owned by a different role, cross-check both
+   specs before touching permissions (L-02, D-09).
+
+8. **Permissive mocks hide model drift** (FX-09): mocks shaped like the old model plus `objectContaining` let an
+   editing bug through. Add guards driven by `prisma/schema.prisma` (L-03).
+
+9. **Unit tests do not run the proxy** (FX-05, FX-07): after touching authentication do a manual smoke test
+   (login → screen → API) (L-05).
+
+10. **Reserve PR ids in the plan** before using them in a commit; `PR-009-C` was assigned twice (L-04).
+
+11. **The author's `next dev` logs are the best bug report**: FX-08 and FX-09 were found there, not in the test suite (L-06).
+
 ---
 
-## Next Phase: sdd-apply
+## Next Phase: sdd-apply — current state
 
-Once approved:
-1. Load `sdd-apply` skill
-2. Execute tasks in order: T-001 → T-022 → T-023a → T-002 → T-003 → T-004 → T-005 → T-025 → T-006 → ... → T-021b → T-023b → T-024
-3. For each task: write tests first (red), implement (green), verify (npm test)
-4. Group commits by PR boundary (e.g., T-002 + tests = PR-001-C commit)
-5. Create chained PRs: PR-001-A → PR-001-B → PR-001-C → PR-002-A → ... → PR-010-A
-6. Review & merge in order (dependencies enforce proper sequence)
-7. Note: T-021a and T-021b execute sequentially (T-021b depends on T-021a), but each has its own PR (PR-008-B and PR-008-C) for clear review boundaries
+Executed so far: T-001 → … → T-021c and T-026a/b/c (see [Execution Status](#execution-status)).
 
-**Ready to proceed?** Confirm and we'll start sdd-apply.
+Suggested order for what is left (details and severities in `decisions.md` §3 and `PROJECT-STATUS.md`):
+
+1. **Verify before building more**: run `npx tsc --noEmit` locally (P-01) and compare `/api/home-interno` numbers with
+   real data (P-02). Check the clients that were edited while FX-09 was open.
+2. **P-03** Clientes screen: show the list even if the membership dropdown fails (`Promise.allSettled`).
+3. **P-04** Make `ClienteRepository.create()` atomic (Usuario + Socio).
+4. **T-023b** (PR-009-D) and **T-024** (PR-010-A), as planned.
+5. **P-05** `/api/home-socio`, **P-08** user seed script, **P-06** token revocation (needs a migration).
+
+Workflow (D-13): one branch per task from an up-to-date `main`, tests first, ≤400 LOC per PR, `npm test` green before merging.

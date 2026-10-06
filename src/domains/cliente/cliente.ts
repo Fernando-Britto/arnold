@@ -376,12 +376,17 @@ export class ClienteRepository {
       }
     }
 
-    // Build update data
+    // Build update data.
+    // `nombre` y `email` son columnas de Usuario, NO de Socio: mandarlas a socio.update
+    // hacía que Prisma rechazara el argumento (500 en toda edición). Van como escritura
+    // anidada de `usuario`, así ambas tablas cambian en UNA sola sentencia atómica y no
+    // queda un cliente a medias si falla la parte del Socio.
+    // (`any` a propósito: el input de Prisma no admite mezclar membresiaAsignadaId con
+    // `usuario` anidado; la guarda con schema.prisma en cliente.test.ts cubre los nombres.)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: any = {};
-    if (data.nombre !== undefined) updateData.nombre = data.nombre;
     if (data.dni !== undefined) updateData.dni = normalizeDNI(data.dni);
     if (data.telefono !== undefined) updateData.telefono = data.telefono;
-    if (data.email !== undefined) updateData.email = data.email;
     if (data.membresiaAsignada !== undefined)
       updateData.membresiaAsignadaId = data.membresiaAsignada;
     // H2 fix: Persist estadoCuenta as estadoCuota in Socio
@@ -389,18 +394,13 @@ export class ClienteRepository {
       updateData.estadoCuota = mapEstadoCuentaToEstadoCuota(data.estadoCuenta);
     }
 
-    // Update Usuario if needed
-    if (data.nombre !== undefined || data.email !== undefined) {
-      await prisma.usuario.update({
-        where: { id: existing.usuarioId },
-        data: {
-          nombre: data.nombre ?? existing.usuario.nombre,
-          email: data.email ?? existing.usuario.email,
-        },
-      });
+    const usuarioChanges: { nombre?: string; email?: string } = {};
+    if (data.nombre !== undefined) usuarioChanges.nombre = data.nombre;
+    if (data.email !== undefined) usuarioChanges.email = data.email;
+    if (Object.keys(usuarioChanges).length > 0) {
+      updateData.usuario = { update: usuarioChanges };
     }
 
-    // Update Socio
     const updated = await prisma.socio.update({
       where: { id },
       data: updateData,

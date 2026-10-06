@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Arnold
 
-## Getting Started
+Sistema de gestión para un gimnasio: socios, membresías, rutinas, ejercicios, pagos y control de acceso.
+Trabajo final desarrollado con Spec-Driven Development (SDD) en modo Strict TDD.
 
-First, run the development server:
+**Stack**: Next.js 16 (Turbopack) · React 19 · TypeScript · Prisma 6 + PostgreSQL · Jest + Testing Library.
+
+> Este Next.js tiene cambios respecto de versiones anteriores (por ejemplo `proxy.ts` reemplaza a `middleware.ts` y
+> `params` es asíncrono). Ver `AGENTS.md` y la documentación en `node_modules/next/dist/docs/`.
+
+## Puesta en marcha
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env        # completar DATABASE_URL y JWT_SECRET
+npx prisma generate
+npx prisma migrate deploy   # aplica las migraciones a la base
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Variable | Para qué |
+|---|---|
+| `DATABASE_URL` | Conexión a PostgreSQL |
+| `JWT_SECRET` | Firma de la cookie de sesión. **Obligatoria en producción** |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+No hay script de seed todavía (pendiente P-08): los usuarios se crean a mano.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Comandos
 
-## Learn More
+| Comando | Qué hace |
+|---|---|
+| `npm run dev` | Servidor de desarrollo |
+| `npm test` | Todos los tests (`ejercicio.test.ts` necesita la base de datos) |
+| `npm test -- <ruta>` | Tests de una carpeta o archivo |
+| `npx tsc --noEmit` | Chequeo de tipos |
+| `npx eslint <rutas>` | Lint. El repo arrastra deuda preexistente; ver `PROJECT-STATUS.md` |
+| `npm run build` | Build de producción |
 
-To learn more about Next.js, take a look at the following resources:
+## Roles
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`ADMINISTRADOR` (todo) · `INSTRUCTOR` (ejercicios y rutinas) · `RECEPCIONISTA` (clientes y pagos) · `SOCIO`
+(su propio portal). La matriz exacta está en `PROJECT-STATUS.md` y en `src/lib/authorization.ts`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estructura
 
-## Deploy on Vercel
+```
+src/app/          Páginas y rutas de API (App Router) + src/proxy.ts (sesión y permisos)
+src/domains/      Reglas de negocio puras y repositorios
+src/api/          Handlers de servidor y funciones de cliente
+src/components/   Componentes por área
+src/lib/          Auth, base de datos, permisos, hora del gimnasio
+tests/            Tests de rutas y fixtures compartidos
+openspec/         Specs, plan de tareas, decisiones y maquetas
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Documentación del proyecto
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Estado actual y pendientes**: [`PROJECT-STATUS.md`](PROJECT-STATUS.md)
+- **Plan de tareas**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md)
+- **Decisiones, defectos corregidos y lecciones**: [`openspec/decisions.md`](openspec/decisions.md)
+
+## Flujo de trabajo
+
+Una rama por tarea creada desde `main` actualizado · tests primero (rojo → verde) · PR de ≤400 líneas ·
+`npm test` en verde antes de mergear · commits con Conventional Commits y la referencia `(T-xxx, PR-xxx)`.

@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import { join } from "path";
 import {
   createCliente,
   validateCliente,
@@ -668,6 +670,98 @@ describe("ClienteRepository", () => {
   });
 
   describe("update()", () => {
+    describe("edición completa desde el formulario (nombre/email viven en Usuario, no en Socio)", () => {
+      const socioExistente = {
+        id: "socio-123",
+        dni: "12345678",
+        telefono: "+54 9 1234 567890",
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: { id: "user-123", nombre: "Juan Pérez", email: "juan@example.com" },
+      };
+
+      const llamadaASocioUpdate = () => mockPrisma.socio.update.mock.calls[0][0];
+
+      beforeEach(() => {
+        // Forma REAL del modelo: nombre y email solo existen en usuario (los mocks viejos los ponían en el socio).
+        mockPrisma.socio.findUnique.mockImplementation(async ({ where }: { where: { id?: string; dni?: string } }) =>
+          where.id ? socioExistente : null
+        );
+        mockPrisma.membresia.findUnique.mockResolvedValue({ estado: "ACTIVA" });
+        mockPrisma.socio.update.mockResolvedValue(socioExistente);
+      });
+
+      it("manda nombre y email como escritura anidada de Usuario, nunca como columnas de Socio", async () => {
+        await repository.update("socio-123", { nombre: "Juan P.", email: "juan.p@example.com", telefono: "+54 9 9876 543210" });
+
+        const { data } = llamadaASocioUpdate();
+        expect(data).not.toHaveProperty("nombre");
+        expect(data).not.toHaveProperty("email");
+        expect(data.telefono).toBe("+54 9 9876 543210");
+        expect(data.usuario).toEqual({ update: { nombre: "Juan P.", email: "juan.p@example.com" } });
+      });
+
+      it("es una sola escritura atómica: no hace un usuario.update aparte que quede guardado si falla la del socio", async () => {
+        await repository.update("socio-123", { nombre: "Juan P." });
+        expect(mockPrisma.usuario.update).not.toHaveBeenCalled();
+        expect(mockPrisma.socio.update).toHaveBeenCalledTimes(1);
+      });
+
+      it("manda al usuario solo lo que cambió (no pisa el email si solo se editó el nombre)", async () => {
+        await repository.update("socio-123", { nombre: "Juan P." });
+        expect(llamadaASocioUpdate().data.usuario).toEqual({ update: { nombre: "Juan P." } });
+      });
+
+      it("si no cambian nombre ni email, no toca Usuario", async () => {
+        await repository.update("socio-123", { telefono: "+54 9 9876 543210" });
+        expect(llamadaASocioUpdate().data).not.toHaveProperty("usuario");
+      });
+
+      it("el formulario completo se traduce a campos válidos de Socio", async () => {
+        await repository.update("socio-123", {
+          nombre: "Juan P.",
+          dni: "12.345.679",
+          telefono: "+54 9 9876 543210",
+          email: "juan.p@example.com",
+          membresiaAsignada: "gold-123",
+          estadoCuenta: "Activo",
+        });
+
+        expect(llamadaASocioUpdate().data).toMatchObject({
+          dni: "12345679",
+          telefono: "+54 9 9876 543210",
+          membresiaAsignadaId: "gold-123",
+          estadoCuota: "AL_DIA",
+        });
+      });
+
+      it("GUARDA: toda clave enviada a socio.update existe en el modelo Socio de schema.prisma", async () => {
+        const schema = readFileSync(join(process.cwd(), "prisma", "schema.prisma"), "utf8");
+        const modelo = schema.match(/^model Socio \{([\s\S]*?)^\}/m)![1];
+        const camposDeSocio = modelo
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l && !l.startsWith("//") && !l.startsWith("@@"))
+          .map((l) => l.split(/\s+/)[0]);
+
+        await repository.update("socio-123", {
+          nombre: "Juan P.",
+          dni: "12.345.679",
+          telefono: "+54 9 9876 543210",
+          email: "juan.p@example.com",
+          membresiaAsignada: "gold-123",
+          estadoCuenta: "Inactivo",
+        });
+
+        const clavesEnviadas = Object.keys(llamadaASocioUpdate().data);
+        const inexistentes = clavesEnviadas.filter((k) => !camposDeSocio.includes(k));
+        expect(inexistentes).toEqual([]);
+      });
+    });
+
     it("should update partial fields without validation errors", async () => {
       const mockSocio = {
         id: "socio-123",
