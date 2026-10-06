@@ -1,62 +1,113 @@
 # Arnold — Estado del proyecto
 
-**Actualizado**: 2026-10-03 · **Plan**: `openspec/sdd-tasks-tdd.md` · **Modo**: Strict TDD
+**Actualizado**: 2026-10-05 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
+**Decisiones y defectos**: [`openspec/decisions.md`](openspec/decisions.md) · **Modo**: Strict TDD
+
+Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19, Prisma 6 sobre PostgreSQL, Jest.
+
+## Resumen
+
+- Hechos: los 4 CRUD (Ejercicios, Rutinas, Clientes, Membresías), Home_Socio, **Home_Interno completo (interfaz y API de
+  datos)**, y la autenticación (login, logout, proxy con permisos por rol).
+- Pendiente del plan: **T-023b** (utilidades de UI) y **T-024** (fixtures y factories).
+- Lo más urgente no es construir más: es **verificar** lo hecho (ver [Antes de seguir](#antes-de-seguir)).
 
 ## Tareas
 
 | Tarea | Qué | Estado |
 |---|---|---|
 | T-001 | Schema Prisma | ✅ |
-| T-022 | Role gating (middleware + contexto) | ✅ |
-| T-023a | Auth infra (JWT, DB singleton, rate limit, fine-grained) | ✅ |
-| T-002 – T-005 | Ejercicios (dominio, UI, API, pantalla) | ✅ |
-| T-025 | Override manual de acceso (`/api/socios/[id]/access-override`) | ✅ |
+| T-022, T-023a | Role gating y auth infra (JWT, DB, rate limit) | ✅ |
+| T-002 – T-005 | Ejercicios | ✅ |
+| T-025 | Override manual de acceso | ✅ |
 | T-006 – T-009 | Rutinas | ✅ |
 | T-010 – T-013 | Clientes | ✅ |
 | T-014 – T-017 | Membresías | ✅ |
-| T-018, T-019 | Home_Socio (Tarjeta_Detalle + página) | ✅ |
-| T-020 | Home_Interno: `OperationCard`, `ActivityColumn` + dominio | ✅ |
-| T-021a | Home_Interno Parte 1 (Row_Acciones, Row_Hoy, Row_Operacion) | ✅ ver abajo |
-| T-021b | Home_Interno Parte 2 (Row_Gestion, Col_Actividad + integración) | ✅ ver abajo |
-| T-023b | Utilidades UI (validación, formato, errores) | ⏳ `src/utils/` no existe |
-| T-024 | Fixtures y factories | ⏳ `tests/factories/` no existe |
+| T-018, T-019 | Home_Socio | ✅ (sin `/api/home-socio`) |
+| T-020 | Home_Interno: componentes base | ✅ |
+| T-021a | Home_Interno Parte 1 (acciones, hoy, operación) | ✅ 934 LOC (estimado 250) |
+| T-021b | Home_Interno Parte 2 (gestión, actividad) | ✅ 336 LOC (estimado 150) |
+| T-021c ➕ | `GET /api/home-interno` | ✅ 505 LOC |
+| T-026a/b/c ➕ | Login/logout, página `/login`, proxy + RBAC | ✅ (de Fernando) |
+| T-023b | Utilidades de UI | ⏳ → `PR-009-D` |
+| T-024 | Fixtures y factories | ⏳ |
 
-### T-021a — cómo quedó
-El plan la estimaba en 250 LOC, pero T-020 no había cubierto Row_Acciones, Alertas, Aforo (staff) ni Caja. Se partió en 3 PRs encadenados (≤400 LOC):
-- **PR-009-A1** dominio: `computeAforo`, `computeAlertasVencimiento`, `computePersonalEnTurno`, `aggregateHomeInternoPart1`.
-- **PR-009-A2** componentes: `QuickActions`, `AlertasCard`, `AforoHoyCard`, `CajaCard`.
-- **PR-009-A3** `src/api/home-interno.ts` + `src/app/home-interno/page.tsx`.
-- **Fix** (T-020): `computeCajaHoy` ahora suma `TARJETA`; "hoy" se calcula en `America/Argentina/Buenos_Aires` (antes UTC).
+➕ = agregada durante la ejecución, no estaba en el plan. El detalle de por qué T-021 pasó de 400 a 1.806 LOC y se
+partió en 7 PRs está en `decisions.md` (D-01).
 
-### T-021b — cómo quedó
-- **Row_Gestion**: 4 `CounterCard` (Rutinas, Ejercicios, Clientes, Membresías) con el conteo en vivo, navegan a su CRUD. Se renderizan siempre (la spec lo exige), pero la card cuyo destino no permite el rol (`ROLE_GATE_MATRIX`) queda **deshabilitada**: p. ej. un INSTRUCTOR no puede abrir Clientes ni Membresías.
-- **Col_Actividad**: reusa `ActivityColumn` + `filterActivityFeed` (5 tipos, sin check-ins, 24h, más nuevo primero), compuestos dentro de `aggregateHomeInterno`. `formatHaceTiempo` se movió al dominio (se re-exporta desde el componente).
-- **Contrato**: `fetchHomeInternoData` / `HomeInternoData` (antes `...Part1`) ahora incluye `contadores` y `eventos`.
-- **Fixture compartido** `tests/fixtures/home-interno-data.ts` (adelanto de T-024, que sigue pendiente).
+## Qué se verificó y qué no
 
-## Límites de alcance conocidos (documentados, no ocultos)
+**Verificado con evidencia**
+- Logs de `next dev` de Fernando: login `200`; `/home-interno` y `GET /api/home-interno` `200`; Clientes carga para
+  Administrador y Recepcionista; `GET /api/membresias/activas` `200`.
+- Tests: **76 de 77 suites, 1.066 tests** en el entorno del asistente. La que falta, `ejercicio.test.ts`, necesita una
+  base de datos real. En la máquina de Fernando daba 64/64 suites al cerrar T-021b.
+- Los nombres de modelo, campo, relación y enum usados por `/api/home-interno` existen en `schema.prisma` (41 de 41).
 
-- `/api/home-socio` **no existe**: Home_Socio sigue construida contra fetch mockeado.
-- `/api/home-interno` existe (`src/api/home-interno-data.ts` + `src/app/api/home-interno/route.ts`): junta datos crudos con Prisma y las reglas de negocio siguen en el dominio (`aggregateHomeInterno`). Sus consultas se probaron con Prisma simulado y contra `schema.prisma`, **no** contra una base real: validar a mano con datos reales.
-- Recepcionista lee solo `/api/membresias/activas` (dropdown de Clientes, AC-004); el resto de Membresías sigue siendo solo de Admin (RN-06).
-- Botones de Home_Interno sin destino (no-ops): Registrar Pago, Asignar Rutina (modal: `openspec/asignar-rutina-flowspec.md`), Control Acceso, Cierre de Caja. Las cards de Equipos y Personal tampoco tienen lista filtrada.
-- Solo se renderiza la alerta "Vencimiento" (la spec no define las otras dos del diseño). Se omite "+12% vs ayer" de Caja (sin fuente de datos).
-- Defaults asumidos (la spec solo documenta `periodoGracia = 0`): `diasInactividad = 15`; `capacidadMaxima` ausente → "Aforo no configurado".
-- Supuestos de `/api/home-interno` que la spec no define: turnos Mañana 06–14 / Tarde 14–22 / Noche 22–06 (hora argentina); barras de aforo = franjas de 2 h entre 06 y 22 con las entradas PERMITIDAS de hoy; "activo" = entrada dentro de `ventanaAforoMinutos` (Asistencia no tiene salida); "baja de socio" = Usuario SOCIO con `deletedAt` en las últimas 24 h.
-- Los controles que llevan a `/clientes` (Nuevo Socio, "Ver" de Alertas, Socios inactivos) y las cards de Row_Gestion se renderizan para todo el staff pero quedan **deshabilitados** (tooltip "Sin acceso con tu rol") cuando `ROLE_GATE_MATRIX` no deja abrir el destino.
-- Recuperación `AGGREGATION_TIMEOUT` (valores cacheados + indicador) sin implementar.
+**No verificado**
+- Que los números de Home_Interno coincidan con los datos reales (turnos, franjas y "activo" son supuestos).
+- Que la edición de clientes ya funcione de punta a punta contra la base real (el arreglo FX-09 pasó tests con Prisma
+  simulado, pero **no se probó contra la base**).
+- `npx tsc --noEmit` en la máquina de Fernando (el asistente no puede generar el cliente de Prisma).
 
-## Huecos de autenticación (observados, sin resolver)
+## Roles y acceso
 
-- No hay página `/login` ni rutas `/api/auth/*`, pero ambas homes redirigen a `/login` y el middleware las referencia.
-- `AuthProvider` no está montado en `layout.tsx`; `logout` es un stub.
-- El `matcher` de `src/middleware.ts` cubre `/api/*` y `/dashboard/*`, no `/home-interno` ni `/home-socio`: hoy esas páginas solo se protegen del lado cliente.
+Lo decide el proxy con la matriz de `src/lib/authorization.ts`, alineada por test con `src/middleware/role-gating.ts`.
+
+| Rol | Pantallas | API |
+|---|---|---|
+| **Administrador** | Todo | Todo |
+| **Instructor** | Home_Interno, Ejercicios, Rutinas | `ejercicios`, `rutinas` (CRUD), `socios` (lectura), `sesiones` |
+| **Recepcionista** | Home_Interno, Clientes | `clientes` (CRUD), `membresias/activas` (solo lectura), `socios`, `pagos`, `cierres` |
+| **Socio** | Home_Socio | `home-socio`, `socios` (lectura), `pagos` (lectura), `sesiones` |
+
+Membresías es **solo de Administrador** (RN-06). El Recepcionista únicamente lee las membresías activas para el
+desplegable de Clientes (D-09). En Home_Interno, los controles cuyo destino el rol no puede abrir se muestran
+deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
+
+## Antes de seguir
+
+1. `npx tsc --noEmit` en la máquina local y confirmar que no hay errores en `home-interno-data.ts` (P-01).
+2. **Editar un cliente** como Administrador y como Recepcionista: cambiar nombre, email, teléfono y membresía, guardar,
+   recargar y confirmar que se persistió (FX-09).
+3. **Revisar los clientes que se intentaron editar mientras el error estaba abierto**: cada intento fallido guardó
+   igual el nuevo nombre y email del usuario (FX-09).
+4. Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos (P-02).
+
+## Pendientes principales
+
+Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pendientes-abiertos).
+
+| # | Pendiente | Severidad |
+|---|---|---|
+| P-01 | `tsc` local | Alta |
+| P-02 | Contrastar Home_Interno con datos reales | Alta |
+| P-03 | Clientes se cae entero si falla el desplegable de membresías (`Promise.all`) | Media |
+| P-04 | `ClienteRepository.create()` no es atómico (puede quedar un `Usuario` huérfano) | Media |
+| P-05 | `/api/home-socio` no existe | Media |
+| P-06 | Sin revocación de tokens: el logout solo borra la cookie | Media |
+| P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |
+| P-08 | No hay script de seed de usuarios | Media |
+
+## Supuestos que la spec no define
+
+Corregirlos es un cambio de una línea cada uno (detalle en `decisions.md` §4):
+turnos Mañana 06–14 / Tarde 14–22 / Noche 22–06 · franjas de aforo de 2 h entre 06 y 22 · `diasInactividad = 15` ·
+"baja de socio" = usuario socio con `deletedAt` en las últimas 24 h · "activo" = entrada dentro de `ventanaAforoMinutos`.
 
 ## Calidad
 
-- Tests: la suite corre con `npm test`. `src/domains/ejercicio/ejercicio.test.ts` depende de una DB real (falla sin ella).
-- Lint: los archivos de T-021a están limpios, pero `npx eslint src` reporta ~160 problemas preexistentes (118 errores) en el resto del código. El ítem "`npm run lint` clean" del checklist TDD **no se cumple a nivel repo**.
-- Próximo paso: auth (login + middleware) o T-023b/T-024; ver "Huecos de autenticación".
+- Los archivos de cada PR de esta etapa están sin errores nuevos de lint. El repositorio arrastra **115 errores y 41
+  warnings en 52 archivos** (deuda preexistente): el ítem "`npm run lint` limpio" del checklist TDD se interpreta
+  como "sin errores nuevos en lo tocado" (D-14).
+- Tamaño de PR: todos ≤400 LOC (el mayor, 389).
 
-## Documentación relacionada
-`T-007a-PROPOSAL.md`, `T-010-011-012-013_BUGS.md`, `T-010-013-FIXES-SUMMARY.md`, `T-011-AC-CHECKLIST.md`, `T-012-CRITICAL-ISSUES.md`, `T-016_HALLAZGOS.md`.
+## Documentación
+
+| Archivo | Para qué |
+|---|---|
+| `openspec/sdd-tasks-tdd.md` | Plan de tareas, estado por tarea, cambios de alcance |
+| `openspec/decisions.md` | Decisiones (D-xx), defectos corregidos (FX-xx), pendientes (P-xx), lecciones |
+| `openspec/specs/*/spec.md` | Specs de cada área |
+| `openspec/*.svg`, `*.png` | Maquetas |
+| `README.md` | Cómo instalar y correr el proyecto |
