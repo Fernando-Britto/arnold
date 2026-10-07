@@ -1,0 +1,88 @@
+diff --git a/src/api/clientes.test.ts b/src/api/clientes.test.ts
+index 9e6fdf2..461341a 100644
+--- a/src/api/clientes.test.ts
++++ b/src/api/clientes.test.ts
+@@ -33,7 +33,7 @@ jest.mock("@/lib/db", () => ({
+     $transaction: jest.fn((ops) =>
+       Array.isArray(ops)
+         ? Promise.resolve(ops.map(() => ({})))
+-        : Promise.resolve(ops({ prisma: {} }))
++        : Promise.resolve(ops(jest.requireMock("@/lib/db").prisma))
+     ),
+   },
+ }));
+diff --git a/src/domains/cliente/cliente.test.ts b/src/domains/cliente/cliente.test.ts
+index 4b3a046..7f34d0f 100644
+--- a/src/domains/cliente/cliente.test.ts
++++ b/src/domains/cliente/cliente.test.ts
+@@ -694,32 +694,64 @@ describe("ClienteRepository", () => {
+         mockPrisma.socio.update.mockResolvedValue(socioExistente);
+       });
+ 
+-      it("manda nombre y email como escritura anidada de Usuario, nunca como columnas de Socio", async () => {
+-        await repository.update("socio-123", { nombre: "Juan P.", email: "juan.p@example.com", telefono: "+54 9 9876 543210" });
++      const llamadaAUsuarioUpdate = () => mockPrisma.usuario.update.mock.calls[0][0];
+ 
++      it("manda nombre y email a usuario.update, nunca como columnas de Socio", async () => {
++        await repository.update("socio-123", { nombre: "Juan P.", email: "Juan.P@Example.com", telefono: "+54 9 9876 543210" });
++
++        expect(llamadaAUsuarioUpdate()).toEqual({
++          where: { id: "user-123" },
++          data: { nombre: "Juan P.", email: "juan.p@example.com" },
++        });
+         const { data } = llamadaASocioUpdate();
+         expect(data).not.toHaveProperty("nombre");
+         expect(data).not.toHaveProperty("email");
++        expect(data).not.toHaveProperty("usuario");
+         expect(data.telefono).toBe("+54 9 9876 543210");
+-        expect(data.usuario).toEqual({ update: { nombre: "Juan P.", email: "juan.p@example.com" } });
+       });
+ 
+-      it("es una sola escritura atómica: no hace un usuario.update aparte que quede guardado si falla la del socio", async () => {
++      it("es atómico: ambas escrituras van dentro de UNA sola transacción, usuario primero", async () => {
+         await repository.update("socio-123", { nombre: "Juan P." });
+-        expect(mockPrisma.usuario.update).not.toHaveBeenCalled();
++        expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
++        expect(mockPrisma.usuario.update).toHaveBeenCalledTimes(1);
+         expect(mockPrisma.socio.update).toHaveBeenCalledTimes(1);
++        expect(mockPrisma.usuario.update.mock.invocationCallOrder[0]).toBeLessThan(
++          mockPrisma.socio.update.mock.invocationCallOrder[0]
++        );
++      });
++
++      it("caso del 500: nombre + membresía a la vez no mezcla `usuario` anidado con membresiaAsignadaId", async () => {
++        await repository.update("socio-123", { nombre: "Juan P.", membresiaAsignada: "gold-123" });
++
++        expect(llamadaAUsuarioUpdate().data).toEqual({ nombre: "Juan P." });
++        const { data } = llamadaASocioUpdate();
++        expect(data).toEqual({ membresiaAsignadaId: "gold-123" });
++        expect(data).not.toHaveProperty("usuario");
+       });
+ 
+       it("manda al usuario solo lo que cambió (no pisa el email si solo se editó el nombre)", async () => {
+         await repository.update("socio-123", { nombre: "Juan P." });
+-        expect(llamadaASocioUpdate().data.usuario).toEqual({ update: { nombre: "Juan P." } });
++        expect(llamadaAUsuarioUpdate().data).toEqual({ nombre: "Juan P." });
+       });
+ 
+       it("si no cambian nombre ni email, no toca Usuario", async () => {
+         await repository.update("socio-123", { telefono: "+54 9 9876 543210" });
++        expect(mockPrisma.usuario.update).not.toHaveBeenCalled();
+         expect(llamadaASocioUpdate().data).not.toHaveProperty("usuario");
+       });
+ 
++      it("email duplicado (P2002) se traduce a VALIDATION_DUPLICATE_EMAIL, no a un 500", async () => {
++        mockPrisma.usuario.update.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002" }));
++        await expect(repository.update("socio-123", { email: "otro@example.com" })).rejects.toThrow(
++          "VALIDATION_DUPLICATE_EMAIL"
++        );
++      });
++
++      it("si falla la escritura del Socio el error se propaga (la transacción revierte el Usuario)", async () => {
++        mockPrisma.socio.update.mockRejectedValue(new Error("db down"));
++        await expect(repository.update("socio-123", { nombre: "Juan P." })).rejects.toThrow("db down");
++      });
++
+       it("el formulario completo se traduce a campos válidos de Socio", async () => {
+         await repository.update("socio-123", {
+           nombre: "Juan P.",

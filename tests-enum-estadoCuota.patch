@@ -1,0 +1,125 @@
+diff --git a/src/domains/cliente/cliente-gaps.test.ts b/src/domains/cliente/cliente-gaps.test.ts
+index 8b7cc8a..ff3a84e 100644
+--- a/src/domains/cliente/cliente-gaps.test.ts
++++ b/src/domains/cliente/cliente-gaps.test.ts
+@@ -118,29 +118,29 @@ describe("GAP 2: Stale membership cache - INACTIVA membership accepted", () => {
+ describe("GAP 3: estadoCuenta hardcoded to 'Activo'", () => {
+   it("should document that mapSocioToCliente hardcodes estadoCuenta", () => {
+     // mapSocioToCliente currently returns estadoCuenta: "Activo" always
+-    // But Socio has estadoCuota: AL_DIA | VENCIDO | DENEGADO
++    // But Socio has estadoCuota: AL_DIA | VENCIDA | PENDIENTE
+     // There's no mapping between these concepts
+     
+     // Example:
+-    // - Socio.estadoCuota = "VENCIDO" (user has overdue payment)
++    // - Socio.estadoCuota = "VENCIDA" (user has overdue payment)
+     // - mapSocioToCliente returns estadoCuenta: "Activo" (lies to frontend)
+     // - Frontend shows user as active even though payment is overdue
+     
+     console.log("❌ GAP 3: estadoCuota is always mapped to 'Activo'");
+-    console.log("   Real Socio.estadoCuota values: AL_DIA | VENCIDO | DENEGADO");
++    console.log("   Real Socio.estadoCuota values: AL_DIA | VENCIDA | PENDIENTE");
+     console.log("   Frontend expects Cliente.estadoCuenta: Activo | Inactivo | Bloqueado");
+     console.log("   Mapping strategy needed:");
+     console.log("     - AL_DIA → Activo");
+-    console.log("     - VENCIDO → Inactivo");
+-    console.log("     - DENEGADO → Bloqueado");
++    console.log("     - VENCIDA → Inactivo");
++    console.log("     - PENDIENTE → Bloqueado");
+   });
+ 
+   it("should properly map estadoCuota to estadoCuenta", () => {
+     // After fix, mapEstadoCuotaToEstadoCuenta handles the mapping
+     
+     expect(mapEstadoCuotaToEstadoCuenta("AL_DIA")).toBe("Activo");
+-    expect(mapEstadoCuotaToEstadoCuenta("VENCIDO")).toBe("Inactivo");
+-    expect(mapEstadoCuotaToEstadoCuenta("DENEGADO")).toBe("Bloqueado");
++    expect(mapEstadoCuotaToEstadoCuenta("VENCIDA")).toBe("Inactivo");
++    expect(mapEstadoCuotaToEstadoCuenta("PENDIENTE")).toBe("Bloqueado");
+     expect(mapEstadoCuotaToEstadoCuenta("UNKNOWN")).toBe("Activo"); // Fallback
+   });
+ 
+@@ -150,7 +150,7 @@ describe("GAP 3: estadoCuenta hardcoded to 'Activo'", () => {
+     
+     console.log("✅ GAP 3 FIX: mapSocioToCliente now maps real estadoCuota");
+     console.log("   AL_DIA → Activo");
+-    console.log("   VENCIDO → Inactivo");
+-    console.log("   DENEGADO → Bloqueado");
++    console.log("   VENCIDA → Inactivo");
++    console.log("   PENDIENTE → Bloqueado");
+   });
+ });
+diff --git a/src/domains/cliente/cliente.test.ts b/src/domains/cliente/cliente.test.ts
+index 4b3a046..4454d15 100644
+--- a/src/domains/cliente/cliente.test.ts
++++ b/src/domains/cliente/cliente.test.ts
+@@ -824,7 +824,7 @@ describe("ClienteRepository", () => {
+       mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
+       mockPrisma.socio.update.mockResolvedValue({
+         ...mockSocio,
+-        estadoCuota: "VENCIDO", // Updated to Inactivo
++        estadoCuota: "VENCIDA", // Updated to Inactivo
+       });
+ 
+       await repository.update("socio-123", {
+@@ -834,7 +834,7 @@ describe("ClienteRepository", () => {
+       expect(mockPrisma.socio.update).toHaveBeenCalledWith(
+         expect.objectContaining({
+           data: expect.objectContaining({
+-            estadoCuota: "VENCIDO", // H2: mapEstadoCuentaToEstadoCuota applied
++            estadoCuota: "VENCIDA", // H2: mapEstadoCuentaToEstadoCuota applied
+           }),
+         })
+       );
+@@ -1016,7 +1016,7 @@ describe("ClienteRepository", () => {
+           telefono: null,
+           email: "maria@example.com",
+           membresiaAsignadaId: "silver-456",
+-          estadoCuota: "VENCIDO",
++          estadoCuota: "VENCIDA",
+           usuarioId: "user-456",
+           fechaAlta: new Date("2024-02-01"),
+           updatedAt: new Date("2024-02-01"),
+@@ -1036,7 +1036,7 @@ describe("ClienteRepository", () => {
+       expect(result[0].nombre).toBe("Juan Pérez");
+       expect(result[0].estadoCuenta).toBe("Activo");
+       expect(result[1].nombre).toBe("María García");
+-      expect(result[1].estadoCuenta).toBe("Inactivo"); // Mapped from VENCIDO
++      expect(result[1].estadoCuenta).toBe("Inactivo"); // Mapped from VENCIDA
+     });
+   });
+ 
+@@ -1045,12 +1045,12 @@ describe("ClienteRepository", () => {
+       expect(mapEstadoCuentaToEstadoCuota("Activo")).toBe("AL_DIA");
+     });
+ 
+-    it("should map Inactivo to VENCIDO", () => {
+-      expect(mapEstadoCuentaToEstadoCuota("Inactivo")).toBe("VENCIDO");
++    it("should map Inactivo to VENCIDA", () => {
++      expect(mapEstadoCuentaToEstadoCuota("Inactivo")).toBe("VENCIDA");
+     });
+ 
+-    it("should map Bloqueado to DENEGADO", () => {
+-      expect(mapEstadoCuentaToEstadoCuota("Bloqueado")).toBe("DENEGADO");
++    it("should map Bloqueado to PENDIENTE", () => {
++      expect(mapEstadoCuentaToEstadoCuota("Bloqueado")).toBe("PENDIENTE");
+     });
+ 
+     it("should default to AL_DIA for unknown values", () => {
+@@ -1063,12 +1063,12 @@ describe("ClienteRepository", () => {
+       expect(mapEstadoCuotaToEstadoCuenta("AL_DIA")).toBe("Activo");
+     });
+ 
+-    it("should map VENCIDO to Inactivo", () => {
+-      expect(mapEstadoCuotaToEstadoCuenta("VENCIDO")).toBe("Inactivo");
++    it("should map VENCIDA to Inactivo", () => {
++      expect(mapEstadoCuotaToEstadoCuenta("VENCIDA")).toBe("Inactivo");
+     });
+ 
+-    it("should map DENEGADO to Bloqueado", () => {
+-      expect(mapEstadoCuotaToEstadoCuenta("DENEGADO")).toBe("Bloqueado");
++    it("should map PENDIENTE to Bloqueado", () => {
++      expect(mapEstadoCuotaToEstadoCuenta("PENDIENTE")).toBe("Bloqueado");
+     });
+ 
+     it("should default to Activo for unknown values", () => {
