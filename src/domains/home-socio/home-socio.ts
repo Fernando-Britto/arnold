@@ -3,15 +3,9 @@
  * Spec: openspec/specs/home-socio-portal/spec.md
  *
  * These functions intentionally take already-fetched data (arrays of dates,
- * raw counts) rather than querying Prisma directly. Reasoning: Asistencia,
- * RegistroDeProgreso, SesionDeEntrenamiento, Cuota and ConfiguracionDelSistema
- * exist in prisma/schema.prisma but have no domain/repository layer yet
- * (unlike Ejercicio/Rutina/Cliente/Membresía). Wiring a real
- * `/api/home-socio` endpoint against those models is a separate, sizeable
- * slice of work — this module keeps the *business rules* honest and fully
- * tested now, and the page consumes them through a mockable
- * `fetchHomeSocioData` (see src/api/home-socio.ts) until that endpoint
- * exists.
+ * raw counts) rather than querying Prisma directly: they stay pure and fully
+ * unit-tested. The Prisma queries live in src/api/home-socio-data.ts, which
+ * feeds them (T-028, GET /api/home-socio).
  */
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

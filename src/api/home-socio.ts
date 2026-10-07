@@ -5,13 +5,9 @@
  * progression with PR + suggested next session, hourly occupancy chart,
  * weekly streak, and a 28-day attendance grid.
  *
- * NOTE — scope boundary (documented, not hidden): `/api/home-socio` does
- * NOT exist yet. Building it for real needs a repository/aggregation layer
- * over Asistencia (by hour, by day), RegistroDeProgreso (per exercise, with
- * a next-session suggestion algorithm), SesionDeEntrenamiento,
- * RutinaAsignada and Cuota — none of which have a domain layer today. This
- * module exists so the page can be built and fully tested now against a
- * mocked `fetchHomeSocioData`.
+ * The server side lives in src/api/home-socio-data.ts (payload from Prisma) and
+ * src/app/api/home-socio/route.ts (GET /api/home-socio, T-028 / D-29). This
+ * module is the wire contract plus the client-side fetch.
  */
 
 export interface PuntoProgresoDTO {

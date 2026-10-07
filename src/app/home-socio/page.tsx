@@ -19,8 +19,8 @@ import { MembresiaCard } from "@/components/home-socio/membresia-card";
  * (Racha Semanal + Membresía).
  *
  * SCOPE BOUNDARY (documented, not hidden):
- * - `/api/home-socio` doesn't exist yet — built and tested against a
- *   mocked `fetchHomeSocioData` (see src/api/home-socio.ts).
+ * - Data comes from `GET /api/home-socio` (T-028); the page tests mock
+ *   `fetchHomeSocioData` (see src/api/home-socio.ts).
  * - "Seguir rutina" only updates local UI state (starts the session, then
  *   advances the current exercise); there's no SesionDeEntrenamiento API to
  *   persist it against yet.

@@ -309,6 +309,21 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   con `Number()` al validar, así un campo vacío cae en la validación existente ("Debe estar entre 1 y 7" / "Debe ser
   mayor a 0"). Ver FX-15.
 
+### D-29 · `GET /api/home-socio` (T-028, cierra P-05)
+- **Origen**: Claude; Fernando pidió empezar por P-05.
+- **Decisión**: tres piezas, cada una con su commit: reglas nuevas en `src/domains/home-socio` (`computeProgresoActual`) y
+  `toGymWallClock` en `src/lib/gym-time.ts`; `src/api/home-socio-data.ts` arma el payload desde Prisma para UN socio; la ruta
+  `src/app/api/home-socio/route.ts` solo autentica y delega.
+- **Identidad**: sale siempre de la cookie/Bearer (`extractUserFromRequest`), nunca de la URL: un socio no puede pedir datos
+  de otro. Solo rol `SOCIO` (403 para el resto, aunque el Administrador pase el proxy); 404 `SOCIO_NOT_FOUND` si el usuario
+  no tiene fila en `Socio`; 500 genérico con el detalle en el log del servidor.
+- **Hora del gimnasio**: las funciones de racha/semana usan `getUTC*`; para que "día" signifique día argentino, el builder les
+  pasa fechas corridas -3 h (`toGymWallClock`). Sin eso, una entrada a las 22:30 contaría como el día siguiente.
+- **AC-005**: el aforo reutiliza `buildAforoHoras` y la misma ventana `ventanaAforoMinutos` que Home_Interno.
+- **Supuestos sin confirmar**: ver §4, puntos 8 a 11.
+- **Límite conocido**: el footer de máquina de `Tarjeta_Detalle` (RN-05) no tiene datos: `Ejercicio` no se relaciona con
+  `Maquina` en el schema. El payload no trae estado de máquina.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -346,7 +361,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-02 | Contrastar a mano los números de `/api/home-interno` y los turnos/franjas (D-10) | Alta | Responde 200, pero nadie comparó contra datos reales |
 | P-03 | La pantalla de Clientes se cae entera si falla el desplegable de membresías | Media | `Promise.all`; usar `Promise.allSettled` con la lista visible y el desplegable deshabilitado con un aviso |
 | P-04 | `ClienteRepository.create()` no es atómico | Media | Crea `Usuario` y luego `Socio`; si el segundo falla (p. ej. DNI duplicado en una carrera) queda un `Usuario` huérfano |
-| P-05 | `/api/home-socio` no existe | Media | Home_Socio sigue contra datos simulados (propuesta T-028) |
+| P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
 | P-06 | Sin revocación de tokens ni refresh (D-08, D-23) | Media | Requiere migración de `TokenRevocation` (propuesta T-027); el logout solo borra la cookie. Ver también P-20 |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | Los logs muestran 2,1–3,5 s de `application-code` y ~0,4 s por consulta simple en otros endpoints: la base parece tener latencia alta. Son 14 consultas; revisar cuántas pueden fusionarse |
 | P-08 | No hay script de seed de usuarios | Media | Hoy los usuarios se crean a mano |
@@ -379,6 +394,12 @@ Estos puntos los decidió el asistente porque ninguna spec los define. Corregirl
 5. "Activo" en el aforo = entrada dentro de `ventanaAforoMinutos` (no hay hora de salida).
 6. Si el fallo de `middleware.ts` en Edge se reprodujo o solo se identificó por lectura (D-07, P-23).
 7. `Bloqueado → PENDIENTE` e `Inactivo → VENCIDA` en el estado de cuota (D-27); lo define el enum, no `clientes-crud`.
+8. Progreso (Home_Socio): ejercicio = el del registro más reciente de las últimas 4 semanas; un punto por día con la mayor
+   carga; `deltaEsteMes` = último − primero de la ventana (`src/domains/home-socio/home-socio.ts`).
+9. Próxima sesión sugerida = marca actual + `incrementoSugerido` de la primera `ReglaDeProgresion` LINEAL, o 2,5 kg si no hay.
+10. Sesión en progreso = `SesionDeEntrenamiento` sin `horaFin` iniciada hoy; `indiceActual` siempre 0 (no se guarda en qué
+    ejercicio va la sesión).
+11. La racha mira hasta 53 semanas de asistencias PERMITIDO del socio (tope).
 
 ---
 

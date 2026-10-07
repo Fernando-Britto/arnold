@@ -23,7 +23,8 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-006 – T-009 | Rutinas | ✅ |
 | T-010 – T-013 | Clientes | ✅ |
 | T-014 – T-017 | Membresías | ✅ |
-| T-018, T-019 | Home_Socio | ✅ (sin `/api/home-socio`) |
+| T-018, T-019 | Home_Socio | ✅ |
+| T-028 ➕ | `GET /api/home-socio` (datos reales de Home_Socio) | ✅ sin probar con un socio real (P-05, D-29) |
 | T-020 | Home_Interno: componentes base | ✅ |
 | T-021a | Home_Interno Parte 1 (acciones, hoy, operación) | ✅ 934 LOC (estimado 250) |
 | T-021b | Home_Interno Parte 2 (gestión, actividad) | ✅ 336 LOC (estimado 150) |
@@ -86,7 +87,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-02 | Contrastar Home_Interno con datos reales | Alta |
 | P-03 | Clientes se cae entero si falla el desplegable de membresías (`Promise.all`) | Media |
 | P-04 | `ClienteRepository.create()` no es atómico (puede quedar un `Usuario` huérfano) | Media |
-| P-05 | `/api/home-socio` no existe | Media |
+| P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real | Baja |
 | P-06 | Sin revocación de tokens: el logout solo borra la cookie | Media |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |
 | P-08 | No hay script de seed de usuarios | Media |

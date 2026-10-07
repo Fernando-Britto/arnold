@@ -39,7 +39,8 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-006 – T-009 Rutina | ✅ | PR-003-C … PR-005-A | — | |
 | T-010 – T-013 Cliente | ✅ | PR-005-B … PR-006-B | — | FX-08, FX-09 fixed later; FX-13, FX-14 follow-up fixes (D-26, D-27) |
 | T-014 – T-017 Membresía | ✅ | PR-006-C … PR-007-C | — | |
-| T-018, T-019 Home_Socio | ✅ | PR-008-A, PR-008-B | — | `/api/home-socio` still missing (P-05) |
+| T-018, T-019 Home_Socio | ✅ | PR-008-A, PR-008-B | — | Data endpoint added later as T-028 |
+| T-028 ➕ `GET /api/home-socio` | ✅ | PR-012-A/B/C | — | Domain + Prisma payload + route; D-29 |
 | T-020 Home_Interno components | ✅ | PR-008-C | — | FX-01, FX-02 fixed in T-021a |
 | T-021a Home_Interno Part 1 | ✅ | PR-009-A1/A2/A3 | 934 (est. 250) | Scope grew, see D-01 |
 | T-021b Home_Interno Part 2 | ✅ | PR-009-B | 336 (est. 150) | +31 LOC rename refactor |
