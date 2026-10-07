@@ -127,9 +127,29 @@ export function mapErrorToResponse(
     };
   }
 
+  // Error inesperado: al cliente va un mensaje genérico, pero el detalle real se
+  // deja en el log del servidor (si no, un 500 no se puede diagnosticar).
+  console.error(
+    "[SERVER_ERROR]",
+    describeUnexpectedError(error)
+  );
+
   return {
     code: "SERVER_ERROR",
     message: "No se pudo procesar la solicitud",
     status: 500,
   };
+}
+
+/**
+ * Texto de log para un error inesperado: mensaje, `code` y `meta` (Prisma) y stack.
+ */
+function describeUnexpectedError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const { code, meta } = error as { code?: unknown; meta?: unknown };
+  const parts = [error.message];
+  if (code !== undefined) parts.push(`code=${String(code)}`);
+  if (meta !== undefined) parts.push(`meta=${JSON.stringify(meta)}`);
+  if (error.stack) parts.push(error.stack);
+  return parts.join(" | ");
 }
