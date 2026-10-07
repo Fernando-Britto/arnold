@@ -1,5 +1,15 @@
 # Authentication & Login Specification
 
+> **Aviso de revisión (2026-10-07).** Este spec conserva los escenarios del diseño original y **todavía no fue
+> reescrito** (P-22). La implementación (T-026) difiere así; el detalle y los motivos están en
+> `openspec/decisions.md` (D-23, D-18, §6):
+> - La cookie se llama `authToken` (no `Authorization`): `HttpOnly`, `SameSite=Strict`, `Max-Age=86400`, `Secure` solo en producción.
+> - La página de login es `/login` (no `/auth/login`). Los **Socios también inician sesión**.
+> - La respuesta de `POST /api/auth/login` es `{ success: true, role }`; el cliente elige el destino (Socio → `/home-socio`, resto → `/home-interno`).
+> - Errores en español con el sobre `{ code, message, recoverable }`; cuenta distinta de `ACTIVO` → `AUTH_DISABLED` (403), evaluada **después** de la contraseña.
+> - **DEFERRED (T-027):** refresh token con rotación y revocación (`TokenRevocation`); hoy el JWT dura 24 h y el logout solo borra la cookie.
+> - Los handlers leen la identidad de la cookie primero y del Bearer como respaldo (D-18).
+
 ## Purpose
 
 Enable staff (Recepcionista, Instructor, Administrador) to authenticate using email and password, with secure JWT token storage in httpOnly cookies and automatic session refresh.

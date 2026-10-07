@@ -37,7 +37,7 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-002 – T-005 Ejercicio | ✅ | PR-002-A … PR-003-A | — | |
 | T-025 Manual override | ✅ | PR-003-B | — | |
 | T-006 – T-009 Rutina | ✅ | PR-003-C … PR-005-A | — | |
-| T-010 – T-013 Cliente | ✅ | PR-005-B … PR-006-B | — | FX-08, FX-09 fixed later |
+| T-010 – T-013 Cliente | ✅ | PR-005-B … PR-006-B | — | FX-08, FX-09 fixed later; FX-13, FX-14 follow-up fixes (D-26, D-27) |
 | T-014 – T-017 Membresía | ✅ | PR-006-C … PR-007-C | — | |
 | T-018, T-019 Home_Socio | ✅ | PR-008-A, PR-008-B | — | `/api/home-socio` still missing (P-05) |
 | T-020 Home_Interno components | ✅ | PR-008-C | — | FX-01, FX-02 fixed in T-021a |
@@ -556,6 +556,8 @@ T-001 (Prisma) →
 - [ ] All tests pass: `npm test -- <path>`
 - [ ] No type errors (`npx tsc --noEmit`) and **no new lint errors in touched files** (repo-wide `npm run lint` is not clean: 115 pre-existing errors, see D-14)
 - [ ] Coverage ≥60% for new code
+- [ ] **Smoke test** (`npm run dev` + `curl`/browser) for any task that touches routing, auth, proxy or API routes (D-21)
+- [ ] Run the **full** `npm test` before the PR, not only the touched folders (L-10)
 - [ ] Rollback boundary documented
 - [ ] Commit message follows Conventional Commits
 
@@ -598,6 +600,16 @@ npm test -- src/middleware/role-gating
 
 11. **The author's `next dev` logs are the best bug report**: FX-08 and FX-09 were found there, not in the test suite (L-06).
 
+12. **A utility layer is not a feature** (T-023a, T-022): JWT helpers and a role matrix do not give a login; the task that
+    issues the session (T-026) was missing from the plan (L-07, D-24).
+
+13. **Specs go stale too**: update the spec in the same PR that deviates from it (L-08, `decisions.md` §6).
+
+14. **An `any` that silences the compiler hides the bug** (FX-13, FX-14): removing it exposed both the Prisma input-shape
+    conflict and invalid enum values (L-09).
+
+15. **Run the full suite before the PR**: a DB-backed test timed out only with all suites in parallel (FX-16, L-10).
+
 ---
 
 ## Next Phase: sdd-apply — current state
@@ -606,11 +618,15 @@ Executed so far: T-001 → … → T-021c and T-026a/b/c (see [Execution Status]
 
 Suggested order for what is left (details and severities in `decisions.md` §3 and `PROJECT-STATUS.md`):
 
-1. **Verify before building more**: run `npx tsc --noEmit` locally (P-01) and compare `/api/home-interno` numbers with
-   real data (P-02). Check the clients that were edited while FX-09 was open.
+1. **Verify before building more**: run `npx tsc --noEmit` locally (P-01), compare `/api/home-interno` numbers with
+   real data (P-02), edit a client (name + membership + status) against the real database (P-21) and check the clients
+   that were edited while FX-09 was open.
 2. **P-03** Clientes screen: show the list even if the membership dropdown fails (`Promise.allSettled`).
 3. **P-04** Make `ClienteRepository.create()` atomic (Usuario + Socio).
 4. **T-023b** (PR-009-D) and **T-024** (PR-010-A), as planned.
-5. **P-05** `/api/home-socio`, **P-08** user seed script, **P-06** token revocation (needs a migration).
+5. **P-05** `/api/home-socio` (proposed T-028), **P-08** user seed script, **P-06 / P-20** token revocation and refresh
+   (proposed T-027, needs a migration).
+6. **P-15** log denied access to `AuditoriaAcceso` (proposed T-029); **P-16** rate-limit key outside Vercel;
+   **P-22** rewrite the `authentication-login` spec.
 
 Workflow (D-13): one branch per task from an up-to-date `main`, tests first, ≤400 LOC per PR, `npm test` green before merging.
