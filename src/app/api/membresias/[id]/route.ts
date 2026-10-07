@@ -157,7 +157,8 @@ export async function DELETE(
   const result = await handleMembresiaDeleteRequest((await params).id);
 
   if (isDeleteSuccess(result)) {
-    return NextResponse.json(result, { status: 204 });
+    // 204 No Content no admite cuerpo: NextResponse.json lo rechaza (TypeError -> 500 sin JSON)
+    return new NextResponse(null, { status: 204 });
   }
 
   return NextResponse.json(
