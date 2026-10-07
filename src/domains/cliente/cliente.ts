@@ -2,7 +2,7 @@
  * Cliente domain model
  * Represents a Socio (member/client) with membership and account status
  */
-
+import type { Prisma } from "@prisma/client";
 import { hashPassword } from "@/lib/auth";
 
 /**
@@ -59,18 +59,16 @@ export function generateTemporaryPassword(): string {
  * Socio tracks payment status (AL_DIA, VENCIDO, DENEGADO)
  * Cliente exposes account status (Activo, Inactivo, Bloqueado)
  */
-export function mapEstadoCuotaToEstadoCuenta(
-  estadoCuota: string
-): EstadoCuenta {
+export function mapEstadoCuotaToEstadoCuenta(estadoCuota: string): EstadoCuenta {
   switch (estadoCuota) {
     case "AL_DIA":
       return "Activo";
-    case "VENCIDO":
+    case "VENCIDA":
       return "Inactivo";
-    case "DENEGADO":
+    case "PENDIENTE":
       return "Bloqueado";
     default:
-      return "Activo"; // Fallback
+      return "Activo";
   }
 }
 
@@ -79,14 +77,16 @@ export function mapEstadoCuotaToEstadoCuenta(
  * Client exposes account status (Activo, Inactivo, Bloqueado)
  * Socio tracks payment status (AL_DIA, VENCIDO, DENEGADO)
  */
-export function mapEstadoCuentaToEstadoCuota(estado: EstadoCuenta): string {
+export function mapEstadoCuentaToEstadoCuota(
+  estado: EstadoCuenta
+): "AL_DIA" | "VENCIDA" | "PENDIENTE" {
   switch (estado) {
     case "Activo":
       return "AL_DIA";
     case "Inactivo":
-      return "VENCIDO";
+      return "VENCIDA";
     case "Bloqueado":
-      return "DENEGADO";
+      return "PENDIENTE";
     default:
       return "AL_DIA";
   }
@@ -376,36 +376,43 @@ export class ClienteRepository {
       }
     }
 
-    // Build update data.
-    // `nombre` y `email` son columnas de Usuario, NO de Socio: mandarlas a socio.update
-    // hacía que Prisma rechazara el argumento (500 en toda edición). Van como escritura
-    // anidada de `usuario`, así ambas tablas cambian en UNA sola sentencia atómica y no
-    // queda un cliente a medias si falla la parte del Socio.
-    // (`any` a propósito: el input de Prisma no admite mezclar membresiaAsignadaId con
-    // `usuario` anidado; la guarda con schema.prisma en cliente.test.ts cubre los nombres.)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: any = {};
+        // `nombre` y `email` son columnas de Usuario, no de Socio. Se escriben en una
+    // transacción: Prisma no deja mezclar `usuario` anidado con `membresiaAsignadaId`.
+    const updateData: Prisma.SocioUncheckedUpdateInput = {};
     if (data.dni !== undefined) updateData.dni = normalizeDNI(data.dni);
     if (data.telefono !== undefined) updateData.telefono = data.telefono;
     if (data.membresiaAsignada !== undefined)
       updateData.membresiaAsignadaId = data.membresiaAsignada;
-    // H2 fix: Persist estadoCuenta as estadoCuota in Socio
     if (data.estadoCuenta !== undefined) {
       updateData.estadoCuota = mapEstadoCuentaToEstadoCuota(data.estadoCuenta);
     }
 
-    const usuarioChanges: { nombre?: string; email?: string } = {};
+    const usuarioChanges: Prisma.UsuarioUpdateInput = {};
     if (data.nombre !== undefined) usuarioChanges.nombre = data.nombre;
-    if (data.email !== undefined) usuarioChanges.email = data.email;
-    if (Object.keys(usuarioChanges).length > 0) {
-      updateData.usuario = { update: usuarioChanges };
-    }
+    if (data.email !== undefined)
+      usuarioChanges.email = data.email.trim().toLowerCase();
 
-    const updated = await prisma.socio.update({
-      where: { id },
-      data: updateData,
-      include: { usuario: true },
-    });
+    let updated;
+    try {
+      updated = await prisma.$transaction(async (tx) => {
+        if (Object.keys(usuarioChanges).length > 0) {
+          await tx.usuario.update({
+            where: { id: existing.usuarioId },
+            data: usuarioChanges,
+          });
+        }
+        return tx.socio.update({
+          where: { id },
+          data: updateData,
+          include: { usuario: true },
+        });
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code === "P2002") {
+        throw new Error("VALIDATION_DUPLICATE_EMAIL: Email ya registrado");
+      }
+      throw e;
+    }
 
     return this.mapSocioToCliente(updated);
   }

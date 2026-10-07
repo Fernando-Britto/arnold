@@ -33,7 +33,7 @@ jest.mock("@/lib/db", () => ({
     $transaction: jest.fn((ops) =>
       Array.isArray(ops)
         ? Promise.resolve(ops.map(() => ({})))
-        : Promise.resolve(ops({ prisma: {} }))
+        : Promise.resolve(ops(jest.requireMock("@/lib/db").prisma))
     ),
   },
 }));

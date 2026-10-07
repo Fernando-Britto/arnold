@@ -120,8 +120,8 @@ export function RutinaForm({
     // Use domain validation for rutina fields
     const validation = validateRutina({
       nombre: formData.nombre,
-      frecuenciaSemanal: formData.frecuenciaSemanal,
-      duracionEstimada: formData.duracionEstimada,
+      frecuenciaSemanal: Number(formData.frecuenciaSemanal),
+duracionEstimada: Number(formData.duracionEstimada),
       nivelDeDificultad: formData.nivelDeDificultad,
       descripcion: formData.descripcion,
       objetivoPrincipal: formData.objetivoPrincipal,
@@ -360,7 +360,10 @@ export function RutinaForm({
             max="7"
             value={formData.frecuenciaSemanal}
             onChange={e =>
-              handleFieldChange("frecuenciaSemanal", parseInt(e.target.value))
+              handleFieldChange(
+  "frecuenciaSemanal",
+  e.target.value === "" ? "" : parseInt(e.target.value, 10)
+)
             }
             onBlur={() => handleBlur("frecuenciaSemanal")}
             disabled={isDisabled}

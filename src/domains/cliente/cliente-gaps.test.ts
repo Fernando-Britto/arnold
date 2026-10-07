@@ -118,29 +118,29 @@ describe("GAP 2: Stale membership cache - INACTIVA membership accepted", () => {
 describe("GAP 3: estadoCuenta hardcoded to 'Activo'", () => {
   it("should document that mapSocioToCliente hardcodes estadoCuenta", () => {
     // mapSocioToCliente currently returns estadoCuenta: "Activo" always
-    // But Socio has estadoCuota: AL_DIA | VENCIDO | DENEGADO
+    // But Socio has estadoCuota: AL_DIA | VENCIDA | PENDIENTE
     // There's no mapping between these concepts
     
     // Example:
-    // - Socio.estadoCuota = "VENCIDO" (user has overdue payment)
+    // - Socio.estadoCuota = "VENCIDA" (user has overdue payment)
     // - mapSocioToCliente returns estadoCuenta: "Activo" (lies to frontend)
     // - Frontend shows user as active even though payment is overdue
     
     console.log("❌ GAP 3: estadoCuota is always mapped to 'Activo'");
-    console.log("   Real Socio.estadoCuota values: AL_DIA | VENCIDO | DENEGADO");
+    console.log("   Real Socio.estadoCuota values: AL_DIA | VENCIDA | PENDIENTE");
     console.log("   Frontend expects Cliente.estadoCuenta: Activo | Inactivo | Bloqueado");
     console.log("   Mapping strategy needed:");
     console.log("     - AL_DIA → Activo");
-    console.log("     - VENCIDO → Inactivo");
-    console.log("     - DENEGADO → Bloqueado");
+    console.log("     - VENCIDA → Inactivo");
+    console.log("     - PENDIENTE → Bloqueado");
   });
 
   it("should properly map estadoCuota to estadoCuenta", () => {
     // After fix, mapEstadoCuotaToEstadoCuenta handles the mapping
     
     expect(mapEstadoCuotaToEstadoCuenta("AL_DIA")).toBe("Activo");
-    expect(mapEstadoCuotaToEstadoCuenta("VENCIDO")).toBe("Inactivo");
-    expect(mapEstadoCuotaToEstadoCuenta("DENEGADO")).toBe("Bloqueado");
+    expect(mapEstadoCuotaToEstadoCuenta("VENCIDA")).toBe("Inactivo");
+    expect(mapEstadoCuotaToEstadoCuenta("PENDIENTE")).toBe("Bloqueado");
     expect(mapEstadoCuotaToEstadoCuenta("UNKNOWN")).toBe("Activo"); // Fallback
   });
 
@@ -150,7 +150,7 @@ describe("GAP 3: estadoCuenta hardcoded to 'Activo'", () => {
     
     console.log("✅ GAP 3 FIX: mapSocioToCliente now maps real estadoCuota");
     console.log("   AL_DIA → Activo");
-    console.log("   VENCIDO → Inactivo");
-    console.log("   DENEGADO → Bloqueado");
+    console.log("   VENCIDA → Inactivo");
+    console.log("   PENDIENTE → Bloqueado");
   });
 });

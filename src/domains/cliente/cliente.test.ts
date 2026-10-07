@@ -694,30 +694,62 @@ describe("ClienteRepository", () => {
         mockPrisma.socio.update.mockResolvedValue(socioExistente);
       });
 
-      it("manda nombre y email como escritura anidada de Usuario, nunca como columnas de Socio", async () => {
-        await repository.update("socio-123", { nombre: "Juan P.", email: "juan.p@example.com", telefono: "+54 9 9876 543210" });
+      const llamadaAUsuarioUpdate = () => mockPrisma.usuario.update.mock.calls[0][0];
 
+      it("manda nombre y email a usuario.update, nunca como columnas de Socio", async () => {
+        await repository.update("socio-123", { nombre: "Juan P.", email: "Juan.P@Example.com", telefono: "+54 9 9876 543210" });
+
+        expect(llamadaAUsuarioUpdate()).toEqual({
+          where: { id: "user-123" },
+          data: { nombre: "Juan P.", email: "juan.p@example.com" },
+        });
         const { data } = llamadaASocioUpdate();
         expect(data).not.toHaveProperty("nombre");
         expect(data).not.toHaveProperty("email");
+        expect(data).not.toHaveProperty("usuario");
         expect(data.telefono).toBe("+54 9 9876 543210");
-        expect(data.usuario).toEqual({ update: { nombre: "Juan P.", email: "juan.p@example.com" } });
       });
 
-      it("es una sola escritura atómica: no hace un usuario.update aparte que quede guardado si falla la del socio", async () => {
+      it("es atómico: ambas escrituras van dentro de UNA sola transacción, usuario primero", async () => {
         await repository.update("socio-123", { nombre: "Juan P." });
-        expect(mockPrisma.usuario.update).not.toHaveBeenCalled();
+        expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+        expect(mockPrisma.usuario.update).toHaveBeenCalledTimes(1);
         expect(mockPrisma.socio.update).toHaveBeenCalledTimes(1);
+        expect(mockPrisma.usuario.update.mock.invocationCallOrder[0]).toBeLessThan(
+          mockPrisma.socio.update.mock.invocationCallOrder[0]
+        );
+      });
+
+      it("caso del 500: nombre + membresía a la vez no mezcla `usuario` anidado con membresiaAsignadaId", async () => {
+        await repository.update("socio-123", { nombre: "Juan P.", membresiaAsignada: "gold-123" });
+
+        expect(llamadaAUsuarioUpdate().data).toEqual({ nombre: "Juan P." });
+        const { data } = llamadaASocioUpdate();
+        expect(data).toEqual({ membresiaAsignadaId: "gold-123" });
+        expect(data).not.toHaveProperty("usuario");
       });
 
       it("manda al usuario solo lo que cambió (no pisa el email si solo se editó el nombre)", async () => {
         await repository.update("socio-123", { nombre: "Juan P." });
-        expect(llamadaASocioUpdate().data.usuario).toEqual({ update: { nombre: "Juan P." } });
+        expect(llamadaAUsuarioUpdate().data).toEqual({ nombre: "Juan P." });
       });
 
       it("si no cambian nombre ni email, no toca Usuario", async () => {
         await repository.update("socio-123", { telefono: "+54 9 9876 543210" });
+        expect(mockPrisma.usuario.update).not.toHaveBeenCalled();
         expect(llamadaASocioUpdate().data).not.toHaveProperty("usuario");
+      });
+
+      it("email duplicado (P2002) se traduce a VALIDATION_DUPLICATE_EMAIL, no a un 500", async () => {
+        mockPrisma.usuario.update.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002" }));
+        await expect(repository.update("socio-123", { email: "otro@example.com" })).rejects.toThrow(
+          "VALIDATION_DUPLICATE_EMAIL"
+        );
+      });
+
+      it("si falla la escritura del Socio el error se propaga (la transacción revierte el Usuario)", async () => {
+        mockPrisma.socio.update.mockRejectedValue(new Error("db down"));
+        await expect(repository.update("socio-123", { nombre: "Juan P." })).rejects.toThrow("db down");
       });
 
       it("el formulario completo se traduce a campos válidos de Socio", async () => {
@@ -824,7 +856,7 @@ describe("ClienteRepository", () => {
       mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
       mockPrisma.socio.update.mockResolvedValue({
         ...mockSocio,
-        estadoCuota: "VENCIDO", // Updated to Inactivo
+        estadoCuota: "VENCIDA", // Updated to Inactivo
       });
 
       await repository.update("socio-123", {
@@ -834,7 +866,7 @@ describe("ClienteRepository", () => {
       expect(mockPrisma.socio.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            estadoCuota: "VENCIDO", // H2: mapEstadoCuentaToEstadoCuota applied
+            estadoCuota: "VENCIDA", // H2: mapEstadoCuentaToEstadoCuota applied
           }),
         })
       );
@@ -1016,7 +1048,7 @@ describe("ClienteRepository", () => {
           telefono: null,
           email: "maria@example.com",
           membresiaAsignadaId: "silver-456",
-          estadoCuota: "VENCIDO",
+          estadoCuota: "VENCIDA",
           usuarioId: "user-456",
           fechaAlta: new Date("2024-02-01"),
           updatedAt: new Date("2024-02-01"),
@@ -1036,7 +1068,7 @@ describe("ClienteRepository", () => {
       expect(result[0].nombre).toBe("Juan Pérez");
       expect(result[0].estadoCuenta).toBe("Activo");
       expect(result[1].nombre).toBe("María García");
-      expect(result[1].estadoCuenta).toBe("Inactivo"); // Mapped from VENCIDO
+      expect(result[1].estadoCuenta).toBe("Inactivo"); // Mapped from VENCIDA
     });
   });
 
@@ -1045,12 +1077,12 @@ describe("ClienteRepository", () => {
       expect(mapEstadoCuentaToEstadoCuota("Activo")).toBe("AL_DIA");
     });
 
-    it("should map Inactivo to VENCIDO", () => {
-      expect(mapEstadoCuentaToEstadoCuota("Inactivo")).toBe("VENCIDO");
+    it("should map Inactivo to VENCIDA", () => {
+      expect(mapEstadoCuentaToEstadoCuota("Inactivo")).toBe("VENCIDA");
     });
 
-    it("should map Bloqueado to DENEGADO", () => {
-      expect(mapEstadoCuentaToEstadoCuota("Bloqueado")).toBe("DENEGADO");
+    it("should map Bloqueado to PENDIENTE", () => {
+      expect(mapEstadoCuentaToEstadoCuota("Bloqueado")).toBe("PENDIENTE");
     });
 
     it("should default to AL_DIA for unknown values", () => {
@@ -1063,12 +1095,12 @@ describe("ClienteRepository", () => {
       expect(mapEstadoCuotaToEstadoCuenta("AL_DIA")).toBe("Activo");
     });
 
-    it("should map VENCIDO to Inactivo", () => {
-      expect(mapEstadoCuotaToEstadoCuenta("VENCIDO")).toBe("Inactivo");
+    it("should map VENCIDA to Inactivo", () => {
+      expect(mapEstadoCuotaToEstadoCuenta("VENCIDA")).toBe("Inactivo");
     });
 
-    it("should map DENEGADO to Bloqueado", () => {
-      expect(mapEstadoCuotaToEstadoCuenta("DENEGADO")).toBe("Bloqueado");
+    it("should map PENDIENTE to Bloqueado", () => {
+      expect(mapEstadoCuotaToEstadoCuenta("PENDIENTE")).toBe("Bloqueado");
     });
 
     it("should default to Activo for unknown values", () => {
