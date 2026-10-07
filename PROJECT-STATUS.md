@@ -40,14 +40,15 @@ partió en 7 PRs está en `decisions.md` (D-01).
 **Verificado con evidencia**
 - Logs de `next dev` de Fernando: login `200`; `/home-interno` y `GET /api/home-interno` `200`; Clientes carga para
   Administrador y Recepcionista; `GET /api/membresias/activas` `200`.
-- Tests: **76 de 77 suites, 1.066 tests** en el entorno del asistente. La que falta, `ejercicio.test.ts`, necesita una
-  base de datos real. En la máquina de Fernando daba 64/64 suites al cerrar T-021b.
+- Tests en la máquina de Fernando (2026-10-07, `npm test`): **76 de 77 suites; 1.079 de 1.081 tests pasan** (1 `todo`).
+  El fallo fue un timeout de `ejercicio.test.ts`, que usa la base real (FX-16, P-19); se subió el timeout y falta
+  confirmar la corrida completa.
 - Los nombres de modelo, campo, relación y enum usados por `/api/home-interno` existen en `schema.prisma` (41 de 41).
 
 **No verificado**
 - Que los números de Home_Interno coincidan con los datos reales (turnos, franjas y "activo" son supuestos).
-- Que la edición de clientes ya funcione de punta a punta contra la base real (el arreglo FX-09 pasó tests con Prisma
-  simulado, pero **no se probó contra la base**).
+- Que la edición de clientes funcione de punta a punta contra la base real. FX-09 y su corrección FX-13/FX-14 (transacción
+  y mapeo del enum de cuota) pasaron tests con Prisma simulado, pero **no se probaron contra la base** (P-21).
 - `npx tsc --noEmit` en la máquina de Fernando (el asistente no puede generar el cliente de Prisma).
 
 ## Roles y acceso
@@ -68,10 +69,11 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 ## Antes de seguir
 
 1. `npx tsc --noEmit` en la máquina local y confirmar que no hay errores en `home-interno-data.ts` (P-01).
-2. **Editar un cliente** como Administrador y como Recepcionista: cambiar nombre, email, teléfono y membresía, guardar,
-   recargar y confirmar que se persistió (FX-09).
+2. **Editar un cliente** como Administrador y como Recepcionista: cambiar a la vez nombre, email, teléfono y membresía,
+   y también el estado de cuenta (Inactivo/Bloqueado); guardar, recargar y confirmar que se persistió (FX-13, FX-14).
 3. **Revisar los clientes que se intentaron editar mientras el error estaba abierto**: cada intento fallido guardó
    igual el nuevo nombre y email del usuario (FX-09).
+5. Confirmar con el negocio que **Bloqueado → `PENDIENTE`** e **Inactivo → `VENCIDA`** es el mapeo deseado (D-27).
 4. Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos (P-02).
 
 ## Pendientes principales
@@ -88,10 +90,25 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-06 | Sin revocación de tokens: el logout solo borra la cookie | Media |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |
 | P-08 | No hay script de seed de usuarios | Media |
+| P-15 | Accesos denegados sin registrar en `AuditoriaAcceso` | Media |
+| P-16 | Rate limit del login: fuera de Vercel todos comparten la IP `unknown` | Media |
+| P-20 | Refresh token con rotación (junto con P-06) | Media |
+| P-21 | Probar la edición de clientes contra la base y confirmar el mapeo de estado | Alta |
+| P-22 | Reescribir el spec `authentication-login` | Media |
+
+## Cambios recientes (2026-10-07)
+
+- **Clientes**: editar nombre/email y membresía en una sola transacción, sin `any` (FX-13, D-26); mapeo de estado de
+  cuota alineado con el enum de Prisma (FX-14, D-27).
+- **Rutinas**: campos numéricos vacíos ya no quedan en `NaN` (FX-15, D-28).
+- **Tests**: timeout de `ejercicio.test.ts` ampliado (FX-16).
+- **Documentación unificada**: `decisions.md` incorpora el registro del segundo desarrollador (D-17…D-25, FX-11/12,
+  P-15…P-20, §6 desvíos de specs, §7 concordancia ADR); `rbac-middleware` reescrito y `authentication-login` con aviso
+  de revisión.
 
 ## Supuestos que la spec no define
 
-Corregirlos es un cambio de una línea cada uno (detalle en `decisions.md` §4):
+Corregirlos es un cambio de una línea cada uno (detalle en `decisions.md` §4; incluye el mapeo `Bloqueado → PENDIENTE`, D-27):
 turnos Mañana 06–14 / Tarde 14–22 / Noche 22–06 · franjas de aforo de 2 h entre 06 y 22 · `diasInactividad = 15` ·
 "baja de socio" = usuario socio con `deletedAt` en las últimas 24 h · "activo" = entrada dentro de `ventanaAforoMinutos`.
 

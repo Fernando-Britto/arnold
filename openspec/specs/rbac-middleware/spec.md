@@ -1,125 +1,171 @@
-# Role-Based Access Control (RBAC) Middleware Specification
+# Role-Based Access Control (RBAC) Proxy Specification
+
+> **Revision 2026-10-05.** Aligned with the implementation (T-026). The original text described routes that do not exist (`/recepcion/check-in`, `/admin/*`, `/instructor/*`, `/socio/*`, `/api/audit-logs`) and used `ADMIN` for the role. The real application uses the routes below and `ADMINISTRADOR`. Differences and reasons are in `openspec/decisions.md`. **DEFERRED** marks requirements not implemented yet.
 
 ## Purpose
 
-Protect routes based on user role. Recepcionista can access check-in interfaces; Administrador can access audit logs; Instructor manages routines; Socio (members) access personal dashboard only (Phase 3).
+Protect every page and API route by role (RN-06). Administrador has access to everything; Recepcionista manages Clientes and the staff home; Instructor manages Ejercicios and Rutinas and sees the staff home; Socio (member) reaches only the member home and its own data.
+
+## Implementation notes
+
+- Runs in `src/proxy.ts` (Next 16, **Node.js runtime**; the former `middleware.ts` ran on the Edge runtime, where Prisma and `jsonwebtoken` do not work).
+- The decision logic is the pure function `decideAccess` (`src/lib/access-decision.ts`); the access matrix lives in `src/lib/authorization.ts` (`ROLE_PERMISSIONS`, `hasRouteAccess`) and is the **single source of truth**. The table in this document mirrors it as of 2026-10-05; if they differ, the code is right and this table must be updated.
+- `ROLE_GATE_MATRIX` (`src/middleware/role-gating.ts`) is kept aligned for UI use (e.g. disabling Home_Interno controls). `matrix-consistency.test.ts` verifies both matrices agree and `rn06-spec.test.ts` verifies they match this specification.
 
 ## Requirements
 
 ### Requirement: Route Protection by Role
 
-The system **MUST** enforce role-based access control via middleware that validates user role before allowing route access.
+The system **MUST** validate the session and the role before allowing access to any route that is not public.
 
-#### Scenario: Recepcionista accesses check-in route
+#### Scenario: Authorized role gets through
 
-- GIVEN a logged-in user with role=RECEPCIONISTA
-- WHEN accessing `/recepcion/check-in`
-- THEN middleware validates token, extracts role from JWT
-- AND role matches route requirement → allows access
-- AND route handler renders CheckIn interface
+- GIVEN a logged-in Usuario whose role is allowed for the method and path (per the table below)
+- WHEN the request reaches the proxy
+- THEN the proxy lets it continue to the page or route handler
 
-#### Scenario: Non-Recepcionista blocked from check-in
+#### Scenario: Role not allowed — API route
 
-- GIVEN a logged-in user with role=INSTRUCTOR
-- WHEN accessing `/recepcion/check-in`
-- THEN middleware validates token, extracts role from JWT
-- AND role does NOT match required role → returns HTTP 403
-- AND returns `{ code: "FORBIDDEN", message: "Recepcionista role required" }`
+- GIVEN a logged-in Usuario whose role is not allowed for the method and path
+- WHEN the request targets an API route (for example a Socio calling `GET /api/clientes`)
+- THEN the proxy returns HTTP 403 `{ "code": "FORBIDDEN", "message": "No tenés permiso para esta acción" }`
+- AND the message does **not** name the roles that would be allowed
 
-#### Scenario: Unauthenticated user redirected to login
+#### Scenario: Role not allowed — page
 
-- GIVEN a request with no valid Authorization cookie
-- WHEN accessing `/recepcion/check-in`
-- THEN middleware detects missing/invalid token
-- AND returns HTTP 302 redirect to `/auth/login?from=/recepcion/check-in`
+- GIVEN a logged-in Usuario whose role is not allowed for the page
+- WHEN the request targets a page (for example a Recepcionista opening `/ejercicios`, or an Instructor opening `/membresias`)
+- THEN the proxy redirects to the home of the role: `/home-socio` for SOCIO, `/home-interno` for the other roles
+
+#### Scenario: Unauthenticated request
+
+- GIVEN a request with no `authToken` cookie
+- WHEN it targets an API route → HTTP 401 `{ "code": "UNAUTHENTICATED", "message": "Iniciá sesión para continuar" }`
+- WHEN it targets a page → redirect (HTTP 307) to `/login?from=<encoded path>`; for `/` the redirect is to `/login` without `from`
+
+#### Scenario: Invalid session
+
+- GIVEN a token that is invalid or expired, or whose Usuario no longer exists, is not `ACTIVO` or has `deletedAt` set
+- WHEN it targets an API route → HTTP 401 `{ "code": "TOKEN_INVALID", "message": "Tu sesión no es válida. Iniciá sesión de nuevo" }`
+- WHEN it targets a page → redirect to `/login?from=<encoded path>`
+
+#### Scenario: Public routes
+
+- GIVEN a request to `/login`, `/api/auth/login`, `/api/auth/register` (reserved) or `/api/auth/logout`
+- THEN the proxy lets it through without a session (public routes also prevent redirect loops). `/api/auth/login` and `/api/auth/register` are rate limited by IP.
+
+#### Scenario: Root route
+
+- GIVEN a logged-in Usuario requests `/`
+- THEN the proxy lets it through and the page redirects to the home of the role (see `authentication-login`)
 
 ### Requirement: Role Configuration and Route Mapping
 
-The system **MUST** define which roles can access which routes via a centralized mapping.
+The system **MUST** define which roles can access which routes through one centralized mapping (`src/lib/authorization.ts`). Matching is by path prefix (`startsWith`) and HTTP method. Administrador has a wildcard. Fine-grained rules (for example "only the Administrador may approve an access override" or "a Socio sees only their own data") are enforced **inside the handler**, not in the proxy.
 
-#### Scenario: Admin dashboard accessible to ADMIN only
+#### Scenario: Recepcionista blocked from Ejercicios
 
-- GIVEN role mapping: `/admin/dashboard` → [ADMIN]
-- WHEN a request to `/admin/dashboard` is made
-- THEN middleware checks JWT role against [ADMIN]
-- AND ADMIN role → access granted
-- AND other roles (RECEPCIONISTA, INSTRUCTOR, SOCIO) → 403 Forbidden
+- GIVEN role mapping `/ejercicios` → [ADMINISTRADOR, INSTRUCTOR] (ejercicios-crud AC-007)
+- WHEN a Recepcionista opens `/ejercicios`
+- THEN the proxy redirects to `/home-interno`
 
-#### Scenario: Audit log view restricted to ADMIN
+#### Scenario: Socio cannot read Rutinas templates
 
-- GIVEN role mapping: `/admin/audit-log` → [ADMIN]
-- WHEN a RECEPCIONISTA accesses `/admin/audit-log`
-- THEN middleware returns 403; redirects to `/recepcion/check-in` (role's default dashboard)
-
-#### Scenario: Member portal (Socio) requires future role
-
-- GIVEN role mapping: `/socio/profile` → [SOCIO] (Phase 3)
-- WHEN role mapping is defined but feature not yet implemented
-- THEN middleware applies the rule; if accessed, returns 403 until Phase 3 implements Socio authentication
-
-### Requirement: Role-Based Route Redirects
-
-The system **SHOULD** redirect authenticated users to their role-appropriate dashboard instead of home on login.
-
-#### Scenario: Recepcionista redirected to check-in
-
-- GIVEN successful login with role=RECEPCIONISTA
-- WHEN POST `/api/auth/login` completes
-- THEN the system sets cookie, returns `{ redirectTo: "/recepcion/check-in" }`
-- AND frontend navigates to Recepcionista dashboard
-
-#### Scenario: Admin redirected to admin dashboard
-
-- GIVEN successful login with role=ADMIN
-- WHEN POST `/api/auth/login` completes
-- THEN the system sets cookie, returns `{ redirectTo: "/admin/dashboard" }`
-- AND frontend navigates to Admin dashboard
-
-## Middleware Implementation
+- GIVEN role mapping `/api/rutinas` → [ADMINISTRADOR, INSTRUCTOR] (rutinas-crud RN-06)
+- WHEN a Socio calls `GET /api/rutinas`
+- THEN the proxy returns HTTP 403 `FORBIDDEN`; the Socio's own routine is delivered by `GET /api/home-socio`
 
 ### Requirement: Middleware Chain Order
 
-The system **MUST** execute middleware in correct order: authentication → authorization → rate limiting.
+The system **MUST** execute: authentication → authorization → rate limiting.
 
 #### Scenario: Authentication validates before authorization
 
-- GIVEN middleware stack: [auth, rbac, rateLimit]
-- WHEN a request enters the stack
-- THEN auth middleware runs first, validates JWT, extracts user
-- AND rbac middleware runs next, checks role against route requirement
-- AND rateLimit runs last, checks request count
-- AND if auth fails, request stops; rbac is never evaluated
+- GIVEN a request enters the proxy
+- THEN the session is validated first (cookie, JWT signature, expiration, Usuario `ACTIVO` in the database)
+- AND only then is the role checked against the matrix (`decideAccess`)
+- AND only then is the rate limit checked
+- AND if authentication fails, authorization is never evaluated
 
-## Route-to-Role Mapping
+#### Scenario: Rate limits
 
-| Route | Method | Allowed Roles | Purpose |
-|-------|--------|---------------|---------|
-| `/api/auth/login` | POST | Public | Login endpoint |
-| `/api/auth/logout` | POST | Authenticated | Logout endpoint |
-| `/api/auth/refresh` | POST | Authenticated | Token refresh |
-| `/recepcion/check-in` | GET | RECEPCIONISTA | Check-in interface |
-| `/api/socios/{id}/check-in-status` | GET | RECEPCIONISTA | Verify member |
-| `/api/socios/{id}/access-override` | POST | ADMIN | Manual override |
-| `/admin/dashboard` | GET | ADMIN | Admin dashboard |
-| `/admin/audit-log` | GET | ADMIN | Access log viewer |
-| `/api/audit-logs` | GET | ADMIN | Audit log API |
-| `/socio/profile` | GET | SOCIO | Member profile (Phase 3) |
-| `/instructor/routines` | GET | INSTRUCTOR | Routine management (Phase 3) |
+- GIVEN `/api/auth/login` and `/api/auth/register` → limit 8 requests per minute **per IP**; exceeded → HTTP 429 `{ "code": "RATE_LIMITED", "message": "Demasiados intentos. Probá de nuevo en un minuto." }`
+- GIVEN any other authenticated **API** route → limit 100 requests per minute **per user**, grouped by base path (all `/api/clientes/*` count together); exceeded → HTTP 429 `RATE_LIMITED`
+- GIVEN page navigations → no rate limit (page prefetching must not consume the quota)
+
+### Requirement: Role-Based Landing
+
+The system **SHOULD** send each authenticated user to the home of their role. The login endpoint returns `{ success, role }` and the client chooses the destination: SOCIO → `/home-socio`; ADMINISTRADOR, INSTRUCTOR, RECEPCIONISTA → `/home-interno`. (The original spec returned `{ redirectTo }`.)
+
+### Requirement: Identity Seen by Route Handlers
+
+Route handlers **MUST** obtain the identity from the session cookie (Bearer header only as fallback) and **MUST NOT** trust `x-user-*` headers. See `authentication-login`.
+
+### Requirement: Denied-Access Audit Log — **DEFERRED (T-029)**
+
+Failed authentication and denied authorization **SHOULD** be written to `AuditoriaAcceso` with `ACTION=DENIED` (see `access-audit-logging`). Not implemented.
+
+## Route-to-Role Mapping (as of 2026-10-05)
+
+`A` = ADMINISTRADOR (wildcard, every method), `I` = INSTRUCTOR, `R` = RECEPCIONISTA, `S` = SOCIO. `—` = not allowed.
+
+### Public routes
+
+| Route | Method | Notes |
+|-------|--------|-------|
+| `/login` | GET | Login page |
+| `/api/auth/login` | POST | Rate limited by IP |
+| `/api/auth/logout` | POST | Clears the cookie; no session needed |
+
+### Pages (GET)
+
+| Route | A | I | R | S | Source |
+|-------|---|---|---|---|--------|
+| `/` | ✔ | ✔ | ✔ | ✔ | Redirects to the home of the role |
+| `/home-interno` | ✔ | ✔ | ✔ | — | home-interno-dashboard (AC-008: Socio is sent to Home_Socio) |
+| `/home-socio` | ✔ | — | — | ✔ | home-socio-portal |
+| `/ejercicios` | ✔ | ✔ | — | — | ejercicios-crud AC-007 |
+| `/rutinas` | ✔ | ✔ | — | — | rutinas-crud RN-06 |
+| `/clientes` | ✔ | — | ✔ | — | clientes-crud AC-008 |
+| `/membresias` | ✔ | — | — | — | membresias-crud AC-008 |
+
+### API routes
+
+| Route | Method | A | I | R | S | Notes |
+|-------|--------|---|---|---|---|-------|
+| `/api/home-interno` | GET | ✔ | ✔ | ✔ | — | |
+| `/api/home-socio` | GET | ✔ | — | — | ✔ | Endpoint not implemented yet (T-028) |
+| `/api/ejercicios` | GET, POST, PUT, DELETE | ✔ | ✔ | — | — | |
+| `/api/rutinas` | GET, POST, PUT, DELETE | ✔ | ✔ | — | — | Socio gets their routine via `/api/home-socio` |
+| `/api/clientes` | GET, POST, PUT, DELETE | ✔ | — | ✔ | — | |
+| `/api/membresias` | GET, POST, PUT, DELETE | ✔ | — | — | — | Management is Administrador-only (RN-06) |
+| `/api/membresias/activas` | GET | ✔ | — | ✔ | — | Read-only list of **active** membresías for the Clientes form dropdown (membresias-crud AC-004); added by fix `ebeec5d` |
+| `/api/socios` | GET | ✔ | ✔ | ✔ | ✔ | Socio: own record only (handler filter). R also POST, PUT |
+| `/api/socios/{id}/access-override` | POST | ✔ | — | — | — | The proxy lets R through `/api/socios` (POST); the handler then **requires ADMINISTRADOR** |
+| `/api/pagos` | GET | ✔ | — | ✔ | ✔ | Socio: own payments (handler filter). R also POST |
+| `/api/sesiones` | GET, POST / GET, PUT | ✔ | GET, PUT | — | GET, POST | I: view and update sessions; S: own sessions |
+| `/api/cierres` | GET, POST | ✔ | — | ✔ | — | |
 
 ## Error Responses
 
-| Scenario | Code | HTTP | Message |
-|----------|------|------|---------|
-| No token | UNAUTHENTICATED | 302 | Redirect to login |
-| Invalid/expired token | TOKEN_INVALID | 401 | Re-login required |
-| Role not allowed | FORBIDDEN | 403 | Role insufficient |
-| Token revoked | SESSION_EXPIRED | 401 | Session ended |
+| Scenario | Code | HTTP | Behavior |
+|----------|------|------|----------|
+| No cookie, API | UNAUTHENTICATED | 401 | JSON |
+| No cookie, page | — | 307 | Redirect to `/login?from=<path>` |
+| Invalid/expired token or inactive Usuario, API | TOKEN_INVALID | 401 | JSON |
+| Invalid/expired token or inactive Usuario, page | — | 307 | Redirect to `/login?from=<path>` |
+| Role not allowed, API | FORBIDDEN | 403 | JSON, generic message |
+| Role not allowed, page | — | 307 | Redirect to the home of the role |
+| Rate limit exceeded | RATE_LIMITED | 429 | JSON |
+| Token revoked | SESSION_EXPIRED / TOKEN_REVOKED | 401 | **Deferred (T-027)** |
 
 ## Security Properties
 
-- ✅ Every protected route validates JWT before checking role
-- ✅ Role extracted from JWT; cannot be modified client-side
-- ✅ Middleware executes on every request (cannot bypass)
-- ✅ Failed auth/authz logged to AuditoriaAcceso with ACTION=DENIED
-- ✅ Redirect loops prevented (login page is public)
-- ✅ No sensitive data in error messages (does not leak role requirements)
+- ✅ Every protected route validates the JWT and the Usuario's `estado` before checking the role
+- ✅ The role is read from the database record of the validated Usuario, not from client input
+- ✅ The proxy runs on every page and API route (matcher excludes only `_next`, `favicon.ico` and static images)
+- ✅ Redirect loops prevented (`/login` and the auth endpoints are public)
+- ✅ Error messages do not reveal which roles are required
+- ✅ Handlers resolve identity from the same credential the proxy validated (cookie first)
+- ⏳ Failed auth/authz logged to `AuditoriaAcceso` (T-029)
+- ⏳ Revoked tokens rejected (T-027)
