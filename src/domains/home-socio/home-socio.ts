@@ -210,3 +210,65 @@ export function selectRutinaActiva(
   );
   return { rutinaAsignada: sorted[0], isAnomaly: true };
 }
+
+/** Incremento de carga sugerido si no hay una ReglaDeProgresion configurada (supuesto, ver decisions.md). */
+export const DEFAULT_INCREMENTO_KG = 2.5;
+
+const VENTANA_PROGRESO_DIAS = 28;
+const GYM_OFFSET_MS = -3 * 60 * 60 * 1000;
+
+export interface RegistroProgresoRef {
+  ejercicioId: string;
+  ejercicioNombre: string;
+  /** kg */
+  carga: number;
+  fecha: Date;
+}
+
+export interface ProgresoActualResult {
+  ejercicioNombre: string;
+  marcaActual: number;
+  deltaEsteMes: number;
+  progresionCarga: { fecha: string; carga: number }[];
+  proximaSesionSugerida: number;
+}
+
+/**
+ * ProgresoSection: progresión de UN ejercicio en las últimas 4 semanas.
+ * Reglas (la spec no las fija; son supuestos documentados en decisions.md):
+ * - ejercicio = el del registro más reciente de la ventana;
+ * - un punto por día (hora del gimnasio) con la mayor carga de ese día;
+ * - marcaActual = carga del último punto; deltaEsteMes = último − primero de la ventana;
+ * - próxima sesión sugerida = marcaActual + incremento (ReglaDeProgresion o DEFAULT_INCREMENTO_KG).
+ * Sin registros en la ventana → null (estado vacío, la spec lo pide).
+ */
+export function computeProgresoActual(
+  registros: RegistroProgresoRef[],
+  hoy: Date,
+  incrementoSugerido: number
+): ProgresoActualResult | null {
+  const desde = hoy.getTime() - VENTANA_PROGRESO_DIAS * MS_PER_DAY;
+  const enVentana = registros.filter((r) => r.fecha.getTime() >= desde);
+  if (enVentana.length === 0) return null;
+
+  const ultimo = enVentana.reduce((a, b) => (b.fecha > a.fecha ? b : a));
+  const mejorPorDia = new Map<string, number>();
+  for (const r of enVentana) {
+    if (r.ejercicioId !== ultimo.ejercicioId) continue;
+    const dia = new Date(r.fecha.getTime() + GYM_OFFSET_MS).toISOString().slice(0, 10);
+    mejorPorDia.set(dia, Math.max(mejorPorDia.get(dia) ?? -Infinity, r.carga));
+  }
+
+  const progresionCarga = [...mejorPorDia.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([fecha, carga]) => ({ fecha, carga }));
+  const marcaActual = progresionCarga[progresionCarga.length - 1].carga;
+
+  return {
+    ejercicioNombre: ultimo.ejercicioNombre,
+    marcaActual,
+    deltaEsteMes: marcaActual - progresionCarga[0].carga,
+    progresionCarga,
+    proximaSesionSugerida: marcaActual + incrementoSugerido,
+  };
+}

@@ -25,3 +25,14 @@ export function startOfGymDay(now: Date): Date {
   const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: GYM_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
   return new Date(`${ymd}T00:00:00-03:00`);
 }
+
+const GYM_UTC_OFFSET_MS = -3 * 60 * 60 * 1000;
+
+/**
+ * Desplaza un instante a la "hora de pared" del gimnasio (UTC-3, sin DST) para poder usar
+ * los getters `getUTC*` y obtener día/hora locales. Las funciones puras de Home_Socio
+ * trabajan con getUTC*, así que se les pasan fechas ya corridas con esta función.
+ */
+export function toGymWallClock(d: Date): Date {
+  return new Date(d.getTime() + GYM_UTC_OFFSET_MS);
+}
