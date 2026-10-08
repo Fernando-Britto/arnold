@@ -22,6 +22,17 @@ const req = (body: unknown) =>
 describe('POST /api/auth/login', () => {
   beforeEach(() => mockLogin.mockReset());
 
+  it('le pasa al handler el cuerpo y el contexto (IP y user-agent) para la auditoría', async () => {
+    mockLogin.mockResolvedValue({ status: 401, body: { code: 'AUTH_INVALID', message: 'x', recoverable: true } });
+    const request = new NextRequest('http://localhost:3000/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'a@b.c', password: 'x' }),
+      headers: { 'user-agent': 'UA-test', 'x-forwarded-for': '7.7.7.7' },
+    });
+    await loginPOST(request);
+    expect(mockLogin).toHaveBeenCalledWith({ email: 'a@b.c', password: 'x' }, { ip: '7.7.7.7', userAgent: 'UA-test' });
+  });
+
   it('200: setea la cookie de sesión con los flags del spec', async () => {
     mockLogin.mockResolvedValue({ status: 200, token: 'jwt-x', body: { success: true, role: 'RECEPCIONISTA' } });
     const res = await loginPOST(req({ email: 'a@b.c', password: 'x' }));
@@ -52,7 +63,7 @@ describe('POST /api/auth/login', () => {
     mockLogin.mockResolvedValue({ status: 400, body: { code: 'VALIDATION_ERROR', message: 'm', recoverable: true } });
     const bad = new NextRequest('http://localhost:3000/api/auth/login', { method: 'POST', body: 'no-json' });
     const res = await loginPOST(bad);
-    expect(mockLogin).toHaveBeenCalledWith(null);
+    expect(mockLogin).toHaveBeenCalledWith(null, expect.objectContaining({ ip: expect.any(String), userAgent: expect.any(String) }));
     expect(res.status).toBe(400);
   });
 });

@@ -489,6 +489,7 @@ enum AccionAcceso {
   CHECK_IN
   OVERRIDE_GRANT
   MANUAL_DENY
+  ACCESS_DENIED // acceso a una ruta/acción sin permiso (RBAC), con sesión válida
 }
 
 enum ResultadoAcceso {

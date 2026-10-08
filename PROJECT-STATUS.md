@@ -25,6 +25,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-014 – T-017 | Membresías | ✅ |
 | T-018, T-019 | Home_Socio | ✅ |
 | T-028 ➕ | `GET /api/home-socio` (datos reales de Home_Socio) | ✅ sin probar con un socio real (P-05, D-29) |
+| T-029 ➕ | Auditoría de accesos: login y accesos denegados en `AuditoriaAcceso` | ✅ requiere aplicar la migración (P-15, D-32) |
 | T-020 | Home_Interno: componentes base | ✅ |
 | T-021a | Home_Interno Parte 1 (acciones, hoy, operación) | ✅ 934 LOC (estimado 250) |
 | T-021b | Home_Interno Parte 2 (gestión, actividad) | ✅ 336 LOC (estimado 150) |
@@ -91,7 +92,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-06 | Sin revocación de tokens: el logout solo borra la cookie | Media |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto (`npm run seed`, D-30); falta correrlo contra la base | Baja |
-| P-15 | Accesos denegados sin registrar en `AuditoriaAcceso` | Media |
+| P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto (T-029, D-32); falta aplicar la migración y probarlo | Baja |
 | P-16 | Rate limit del login: fuera de Vercel todos comparten la IP `unknown` | Media |
 | P-20 | Refresh token con rotación (junto con P-06) | Media |
 | P-21 | Probar la edición de clientes contra la base y confirmar el mapeo de estado | Alta |

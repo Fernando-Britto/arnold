@@ -1,6 +1,7 @@
 import { Rol } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { comparePassword, createJWT, hashPassword } from '@/lib/auth';
+import { recordAccessAttempt, type AuditContext } from '@/lib/audit';
 
 export { AUTH_COOKIE_NAME } from '@/lib/auth';
 export const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24h (spec)
@@ -35,7 +36,9 @@ function fail(code: ErrorCode): LoginResult {
 let dummyHash: Promise<string> | null = null;
 const getDummyHash = () => (dummyHash ??= hashPassword('arnold-dummy-password'));
 
-export async function handleLoginRequest(body: unknown): Promise<LoginResult> {
+const UNKNOWN_CONTEXT: AuditContext = { ip: 'unknown', userAgent: 'unknown' };
+
+export async function handleLoginRequest(body: unknown, context: AuditContext = UNKNOWN_CONTEXT): Promise<LoginResult> {
   const { email, password } = (body ?? {}) as Record<string, unknown>;
   if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
     return fail('VALIDATION_ERROR');
@@ -46,11 +49,24 @@ export async function handleLoginRequest(body: unknown): Promise<LoginResult> {
   });
 
   const valid = await comparePassword(password, usuario ? usuario.password : await getDummyHash());
-  if (!usuario || !valid) return fail('AUTH_INVALID');
-  if (usuario.estado !== 'ACTIVO') return fail('AUTH_DISABLED'); // después de validar password: no filtra estados
+  // Auditoría (P-15): cada intento queda en AuditoriaAcceso; si la cuenta existe se atribuye al usuario apuntado
+  if (!usuario || !valid) {
+    await recordAccessAttempt({
+      usuarioId: usuario?.id ?? null, accion: 'LOGIN', resultado: 'DENY', motivo: 'AUTH_INVALID', context,
+    });
+    return fail('AUTH_INVALID');
+  }
+  if (usuario.estado !== 'ACTIVO') {
+    // después de validar password: no filtra estados
+    await recordAccessAttempt({
+      usuarioId: usuario.id, accion: 'LOGIN', resultado: 'DENY', motivo: 'AUTH_DISABLED', context,
+    });
+    return fail('AUTH_DISABLED');
+  }
 
   const token = createJWT(usuario.id, SESSION_TTL_SECONDS, {
     rol: usuario.rol, email: usuario.email, nombre: usuario.nombre,
   });
+  await recordAccessAttempt({ usuarioId: usuario.id, accion: 'LOGIN', resultado: 'ALLOW', context });
   return { status: 200, token, body: { success: true, role: usuario.rol } };
 }

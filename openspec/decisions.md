@@ -352,6 +352,27 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Test corregido**: `tests/api/clientes.route.test.ts` simulaba `$transaction` pasando un `tx` vacío; ahora el `tx` expone
   `usuario` y `socio`, como el cliente interactivo real.
 
+### D-32 · Auditoría de accesos: login y accesos denegados (T-029, cierra P-15)
+- **Origen**: Claude; Fernando pidió seguir con lo siguiente tras D-31.
+- **Qué se registra** (tabla `AuditoriaAcceso`):
+  - `LOGIN`/`ALLOW` en un login correcto, y `LOGIN`/`DENY` con `motivo` `AUTH_INVALID` (email desconocido o contraseña mala) o
+    `AUTH_DISABLED` (cuenta deshabilitada con la contraseña correcta). Los 400 por body inválido no se registran.
+  - `ACCESS_DENIED`/`DENY` cuando un usuario **con sesión válida** pide una ruta o acción que su rol no permite (el 403 de la API
+    y el redirect a su home en las páginas). `motivo` = `MÉTODO /ruta` (sin query string).
+- **Acción nueva** `ACCESS_DENIED` en el enum `AccionAcceso`: migración `20261008120000_add_access_denied_action`
+  (`ALTER TYPE ... ADD VALUE`). **Hay que aplicarla** (`npx prisma migrate dev` y `npx prisma generate`).
+- **Qué NO se registra, a propósito**: los 401 sin sesión o con token inválido. No hay actor al que atribuirlos y cualquiera podría
+  inundar la tabla con requests anónimos (solo el login está limitado por IP). Los fallos de login sí se registran porque ya pasan por
+  el límite de 8 por minuto por IP.
+- **Anti-inundación**: como mucho 10 filas `ACCESS_DENIED` por usuario y minuto (`checkRateLimit`, ruta `audit:access-denied`).
+- **Auditar nunca rompe la request**: `src/lib/audit.ts` no lanza; si la base falla deja el detalle en el log del servidor.
+- **IP y user-agent**: IP de Vercel, o `x-forwarded-for`/`x-real-ip` fuera de Vercel (mejor esfuerzo, falseable sin proxy confiable);
+  user-agent recortado a 255. Esto no cambia el rate limit (P-16 sigue abierto).
+- **Diferencias con la spec `access-audit-logging`**: `motivo` en código y no en inglés libre; el login fallido se atribuye al
+  usuario apuntado cuando la cuenta existe (la spec dice `usuario_id: null`), útil para detectar fuerza bruta.
+- **Pendiente**: el check-in (`CHECK_IN`/`MANUAL_DENY`) y la consulta de logs a Administrador (`/admin/audit-log`) no existen todavía.
+- **No verificado contra una base real**: tests con Prisma simulado; hace falta aplicar la migración y probar el login y un 403.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -399,7 +420,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-12 | Deuda de lint: 115 errores / 41 warnings en 52 archivos | Baja | Ver D-14 |
 | P-13 | T-023b (utilidades) y T-024 (factories) sin hacer | — | Según el plan |
 | P-14 | Código muerto: `getAuthHeaders()` en `src/api/clientes.ts` | Baja | Lee `localStorage`, donde nada escribe; el proxy ya no lo necesita |
-| P-15 | Registrar accesos denegados y fallos de autenticación en `AuditoriaAcceso` (`ACTION=DENIED`) | Media | Lo piden `rbac-middleware` y `access-audit-logging`; no está implementado (propuesta T-029) |
+| P-15 | ~~Registrar accesos denegados y fallos de autenticación en `AuditoriaAcceso`~~ | — | **Resuelto** en D-32 (T-029). Falta aplicar la migración y probarlo contra la base |
 | P-16 | El rate limit usa `ipAddress` de `@vercel/functions` | Media | Fuera de Vercel devuelve vacío: todos comparten la clave `unknown` y el login queda en 8 intentos por minuto **en total**. Usar `x-forwarded-for` como alternativa o documentar el límite |
 | P-17 | ~~Campos numéricos de Rutinas quedan en `NaN` al borrarlos~~ | — | **Resuelto** en FX-15 / D-28 |
 | P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
@@ -476,7 +497,7 @@ Origen: Dev 2.
 | Rutas de ejemplo | `/recepcion/check-in`, `/admin/*`, `/instructor/*`, `/socio/*`, `/api/audit-logs` | Las reales: `/home-interno`, `/home-socio`, `/ejercicios`, `/rutinas`, `/clientes`, `/membresias` y sus APIs | `rbac-middleware` (reescrito) |
 | Redirect sin sesión | 302 | 307 (el que emite Next) | `rbac-middleware` |
 | Refresh token y revocación | Requeridos | **Diferidos** (propuesta T-027) | P-06, P-20 |
-| Log de accesos denegados | Requerido | **Diferido** (propuesta T-029) | P-15 |
+| Log de accesos denegados | Requerido | **Implementado** (T-029) con tres diferencias: acción nueva `ACCESS_DENIED`; solo se registra con sesión válida; en el login fallido el `motivo` es un código (`AUTH_INVALID`/`AUTH_DISABLED`) y se atribuye al usuario apuntado si existe | P-15, D-32 |
 | Estado de cuota en edición | — | Mapeo alineado con el enum de Prisma | D-27 |
 
 ---

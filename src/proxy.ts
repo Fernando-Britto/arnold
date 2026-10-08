@@ -6,6 +6,7 @@ import { hasRouteAccess, type HttpMethod, type UserRole } from "@/lib/authorizat
 import { decideAccess, isPublicPath, type SessionState } from "@/lib/access-decision";
 import { AUTH_COOKIE_NAME } from "@/api/auth";
 import { prisma } from "@/lib/db";
+import { recordDeniedAccess } from "@/lib/audit";
 
 const RATE_LIMITED_AUTH = ["/api/auth/login", "/api/auth/register"];
 
@@ -46,6 +47,11 @@ export async function proxy(request: NextRequest) {
 
   // 2. Autorización
   const decision = decideAccess({ pathname, method, session });
+  // P-15: usuario con sesión válida al que se le niega una ruta → AuditoriaAcceso (ACCESS_DENIED).
+  // Sin sesión (401) no se registra: no hay actor y se podría inundar la tabla.
+  if (decision.type !== "next" && typeof session === "object") {
+    await recordDeniedAccess({ request, usuarioId: userId, method, pathname });
+  }
   if (decision.type === "redirect") {
     return NextResponse.redirect(new URL(decision.to, request.url));
   }
