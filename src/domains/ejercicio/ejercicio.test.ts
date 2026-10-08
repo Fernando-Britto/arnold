@@ -29,10 +29,10 @@ jest.mock("@/lib/db", () => {
       filas.set(where.id, nueva);
       return nueva;
     },
-    delete: async ({ where }: { where: { id: string } }) => {
+    delete: jest.fn(async ({ where }: { where: { id: string } }) => {
       if (!filas.delete(where.id)) throw noExiste();
       return {};
-    },
+    }),
   };
   return { prisma: { ejercicio } };
 });
@@ -222,21 +222,22 @@ describe("Ejercicio Domain Model", () => {
     });
 
     it("should throw DELETE_BLOCKED_ASSIGNED when ejercicio is in use (P2003)", async () => {
-      // This test verifies the error handling logic
-      // We can't easily mock prisma.ejercicio.delete at this level,
-      // so we verify the logic by checking that delete() would handle P2003 correctly
-      // The actual integration is tested in the API route tests
-      
-      // For unit testing the error handling, we test with a known error:
-      const testError = {
+      // Prueba la traducción del repositorio ante el error de clave foránea que lanzaría Prisma.
+      // Que la base realmente lo lance es cosa de un test de integración (P-25).
+      const { prisma } = jest.requireMock("@/lib/db");
+      const created = await repository.create({ nombre: "Remo con barra", grupoMuscular: "Espalda" });
+      prisma.ejercicio.delete.mockRejectedValueOnce({
         code: "P2003",
         message: "Foreign key constraint failed on the field: `ejercicioId`",
-      };
+      });
 
-      // Verify the error handling logic (this would be inside delete method)
-      if (testError?.code === "P2003" || testError?.message?.includes("foreign key")) {
-        expect(testError.code).toBe("P2003");
-      }
+      await expect(repository.delete(created.id)).rejects.toMatchObject({
+        code: "DELETE_BLOCKED_ASSIGNED",
+      });
+    });
+
+    it("should return false when deleting a non-existent ejercicio", async () => {
+      await expect(repository.delete("non-existent-id")).resolves.toBe(false);
     });
 
     it("should list all ejercicios", async () => {

@@ -101,6 +101,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-20 | Refresh token con rotación (junto con P-06) | Media |
 | P-21 | Probar la edición de clientes contra la base (con la migración de D-27 aplicada) | Alta |
 | P-22 | Reescribir el spec `authentication-login` | Media |
+| P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |
 | P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |
 
 ## Cambios recientes (2026-10-07)
