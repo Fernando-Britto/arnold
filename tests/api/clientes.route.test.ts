@@ -8,8 +8,9 @@ import {
 } from "@/app/api/clientes/route";
 
 // Mock Prisma (B4 fix: Include $transaction)
-jest.mock("@/lib/db", () => ({
-  prisma: {
+jest.mock("@/lib/db", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prisma: any = {
     socio: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -25,13 +26,13 @@ jest.mock("@/lib/db", () => ({
     membresia: {
       findUnique: jest.fn(),
     },
-    $transaction: jest.fn((ops) =>
-      Array.isArray(ops)
-        ? Promise.resolve(ops.map(() => ({})))
-        : Promise.resolve(ops({ prisma: {} }))
-    ),
-  },
-}));
+  };
+  // $transaction(callback): el "tx" es el mismo mock (como el cliente interactivo de Prisma, que expone los mismos modelos)
+  prisma.$transaction = jest.fn((ops) =>
+    Array.isArray(ops) ? Promise.resolve(ops.map(() => ({}))) : Promise.resolve(ops(prisma))
+  );
+  return { prisma };
+});
 
 describe("Cliente API Routes", () => {
   beforeEach(() => {

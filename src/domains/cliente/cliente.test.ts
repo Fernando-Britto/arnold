@@ -669,6 +669,67 @@ describe("ClienteRepository", () => {
     });
   });
 
+  describe("create() es atómico (P-04)", () => {
+    const datos = {
+      nombre: "Juan Pérez",
+      dni: "12.345.678",
+      email: "juan@example.com",
+      membresiaAsignada: "gold-123",
+      estadoCuenta: "Activo" as const,
+      telefono: "+54 9 1234 567890",
+    };
+    let tx: any;
+
+    beforeEach(() => {
+      tx = {
+        usuario: { create: jest.fn().mockResolvedValue({ id: "user-1" }) },
+        socio: {
+          create: jest.fn().mockResolvedValue({
+            id: "socio-1", dni: "12345678", telefono: datos.telefono, membresiaAsignadaId: "gold-123",
+            estadoCuota: "AL_DIA", usuarioId: "user-1",
+            usuario: { nombre: datos.nombre, email: datos.email },
+          }),
+        },
+      };
+      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx));
+      mockPrisma.socio.findUnique.mockResolvedValue(null);
+      mockPrisma.membresia.findUnique.mockResolvedValue({ estado: "ACTIVA" });
+    });
+
+    it("crea Usuario y Socio dentro de UNA misma transacción, usuario primero", async () => {
+      await repository.create(datos);
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(tx.usuario.create).toHaveBeenCalledTimes(1);
+      expect(tx.socio.create).toHaveBeenCalledTimes(1);
+      expect(tx.usuario.create.mock.invocationCallOrder[0]).toBeLessThan(tx.socio.create.mock.invocationCallOrder[0]);
+      // nada se escribe fuera de la transacción (si no, un fallo dejaría un Usuario huérfano)
+      expect(mockPrisma.usuario.create).not.toHaveBeenCalled();
+      expect(mockPrisma.socio.create).not.toHaveBeenCalled();
+      expect(tx.socio.create.mock.calls[0][0].data.usuarioId).toBe("user-1");
+    });
+
+    it("si falla la creación del Socio el error sale tal cual (la transacción deshace el Usuario)", async () => {
+      tx.socio.create.mockRejectedValue(new Error("db down"));
+      await expect(repository.create(datos)).rejects.toThrow("db down");
+    });
+
+    it("email duplicado (P2002 sobre email) → VALIDATION_DUPLICATE_EMAIL, no un 500", async () => {
+      tx.usuario.create.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002", meta: { target: ["email"] } }));
+      await expect(repository.create(datos)).rejects.toThrow("VALIDATION_DUPLICATE_EMAIL");
+    });
+
+    it("DNI duplicado por carrera (P2002 sobre dni) → VALIDATION_DUPLICATE_DNI", async () => {
+      tx.socio.create.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002", meta: { target: ["dni"] } }));
+      await expect(repository.create(datos)).rejects.toThrow("VALIDATION_DUPLICATE_DNI");
+    });
+
+    it("P2002 sin target conocido se trata como email (es lo que puede chocar en Usuario)", async () => {
+      tx.usuario.create.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002" }));
+      await expect(repository.create(datos)).rejects.toThrow("VALIDATION_DUPLICATE_EMAIL");
+    });
+  });
+
   describe("update()", () => {
     describe("edición completa desde el formulario (nombre/email viven en Usuario, no en Socio)", () => {
       const socioExistente = {

@@ -259,26 +259,41 @@ export class ClienteRepository {
     const tempPassword = generateTemporaryPassword();
     const hashedPassword = await hashPassword(tempPassword);
     
-    const usuario = await prisma.usuario.create({
-      data: {
-        nombre: data.nombre,
-        email: data.email,
-        password: hashedPassword,
-        rol: "SOCIO" as const,
-      },
-    });
-
-    // Then create Socio (Prisma will auto-set id and fechaAlta)
-    const socio = await prisma.socio.create({
-      data: {
-        dni: normalizedDNI,
-        telefono: data.telefono,
-        membresiaAsignadaId: data.membresiaAsignada,
-        estadoCuota: "AL_DIA",
-        usuarioId: usuario.id,
-      },
-      include: { usuario: true },
-    });
+    // P-04: Usuario y Socio se crean en UNA transacción; si el Socio falla (p. ej. DNI duplicado
+    // por una carrera entre dos altas) se deshace también el Usuario y no queda uno huérfano.
+    let socio;
+    try {
+      socio = await prisma.$transaction(async (tx) => {
+        const usuario = await tx.usuario.create({
+          data: {
+            nombre: data.nombre,
+            email: data.email,
+            password: hashedPassword,
+            rol: "SOCIO" as const,
+          },
+        });
+        // Prisma setea id y fechaAlta
+        return tx.socio.create({
+          data: {
+            dni: normalizedDNI,
+            telefono: data.telefono,
+            membresiaAsignadaId: data.membresiaAsignada,
+            estadoCuota: "AL_DIA",
+            usuarioId: usuario.id,
+          },
+          include: { usuario: true },
+        });
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code === "P2002") {
+        const target = (e as { meta?: { target?: unknown } }).meta?.target;
+        const isDni = Array.isArray(target) ? target.includes("dni") : String(target ?? "").includes("dni");
+        throw new Error(
+          isDni ? "VALIDATION_DUPLICATE_DNI: DNI ya registrado" : "VALIDATION_DUPLICATE_EMAIL: Email ya registrado"
+        );
+      }
+      throw e;
+    }
 
     return {
       cliente: this.mapSocioToCliente(socio),
