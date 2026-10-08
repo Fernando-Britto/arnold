@@ -400,4 +400,47 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       });
     });
   });
+  describe("P-03: si falla una de las dos cargas, la pantalla no se cae entera", () => {
+    const ana = {
+      id: "c1", nombre: "Ana García", dni: "12345678", email: "ana@example.com",
+      telefono: "+54 9 1234 567890", membresiaAsignada: "gold-1", estadoCuenta: "Activo" as const,
+      fechaAlta: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
+    };
+
+    it("falla membresías: la lista de clientes se ve, hay un aviso y no se puede crear", async () => {
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockRejectedValue(new Error("boom"));
+
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+
+      expect(await screen.findByText("Ana García")).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/No se pudieron cargar las membresías/i);
+      expect(screen.getByRole("button", { name: /Crear/i })).toBeDisabled();
+    });
+
+    it("falla clientes: se muestra el error y no hay lista", async () => {
+      mockClientesApi.fetchClientes.mockRejectedValue(new Error("Error al cargar clientes"));
+      mockMembresasApi.fetchMembresias.mockResolvedValue([]);
+
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+
+      expect(await screen.findByText(/Error al cargar clientes/i)).toBeInTheDocument();
+      expect(screen.queryByText("Ana García")).not.toBeInTheDocument();
+    });
+
+    it("cargas correctas: sin aviso", async () => {
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue([
+        { id: "gold-1", nombre: "Gold", precio: 150, estado: "ACTIVA" as const },
+      ]);
+
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+
+      expect(await screen.findByText("Ana García")).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
 });

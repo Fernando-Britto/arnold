@@ -340,6 +340,18 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **No verificado**: no se pudo correr contra una base real (el asistente no puede generar el cliente de Prisma); lo
   cubren los tests con Prisma simulado y la corrida de Fernando.
 
+### D-31 · Robustez del módulo Clientes (cierra P-03 y P-04)
+- **Origen**: Claude; Fernando pidió seguir con lo que Claude considerara óptimo.
+- **P-04**: `ClienteRepository.create()` crea `Usuario` y `Socio` dentro de un mismo `$transaction` (mismo patrón que `update()`
+  y `delete()`): si el Socio falla no queda un `Usuario` huérfano. Un `P2002` (duplicado por carrera) ya no es un 500: se mapea a
+  `VALIDATION_DUPLICATE_DNI` o `VALIDATION_DUPLICATE_EMAIL` (400) según el campo (`meta.target`; sin `target` se asume email).
+  Antes, un email repetido en el alta daba 500 porque solo se chequeaba el DNI.
+- **P-03**: `src/app/clientes/page.tsx` usa `Promise.allSettled`. Si falla solo la carga de membresías, la lista de clientes se ve,
+  aparece un aviso (`role="alert"`) y el formulario queda sin poder crear/editar (ya deshabilitaba el botón sin membresías
+  activas). Si fallan los clientes se muestra el error de siempre.
+- **Test corregido**: `tests/api/clientes.route.test.ts` simulaba `$transaction` pasando un `tx` vacío; ahora el `tx` expone
+  `usuario` y `socio`, como el cliente interactivo real.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -375,8 +387,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 |---|---|---|---|
 | P-01 | Correr `npx tsc --noEmit` en la máquina del autor | Alta | Confirma que los `implicit any` del asistente eran un artefacto (D-12) |
 | P-02 | Contrastar a mano los números de `/api/home-interno` y los turnos/franjas (D-10) | Alta | Responde 200, pero nadie comparó contra datos reales |
-| P-03 | La pantalla de Clientes se cae entera si falla el desplegable de membresías | Media | `Promise.all`; usar `Promise.allSettled` con la lista visible y el desplegable deshabilitado con un aviso |
-| P-04 | `ClienteRepository.create()` no es atómico | Media | Crea `Usuario` y luego `Socio`; si el segundo falla (p. ej. DNI duplicado en una carrera) queda un `Usuario` huérfano |
+| P-03 | ~~La pantalla de Clientes se cae entera si falla el desplegable de membresías~~ | — | **Resuelto** en D-31 |
+| P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
 | P-06 | Sin revocación de tokens ni refresh (D-08, D-23) | Media | Requiere migración de `TokenRevocation` (propuesta T-027); el logout solo borra la cookie. Ver también P-20 |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | Los logs muestran 2,1–3,5 s de `application-code` y ~0,4 s por consulta simple en otros endpoints: la base parece tener latencia alta. Son 14 consultas; revisar cuántas pueden fusionarse |

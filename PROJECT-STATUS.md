@@ -85,8 +85,8 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 |---|---|---|
 | P-01 | `tsc` local | Alta |
 | P-02 | Contrastar Home_Interno con datos reales | Alta |
-| P-03 | Clientes se cae entero si falla el desplegable de membresías (`Promise.all`) | Media |
-| P-04 | `ClienteRepository.create()` no es atómico (puede quedar un `Usuario` huérfano) | Media |
+| P-03 | ~~Clientes se cae entero si falla el desplegable de membresías~~ → resuelto (D-31) | Baja |
+| P-04 | ~~`ClienteRepository.create()` no es atómico~~ → resuelto (D-31) | Baja |
 | P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real | Baja |
 | P-06 | Sin revocación de tokens: el logout solo borra la cookie | Media |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |

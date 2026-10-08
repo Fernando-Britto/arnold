@@ -31,6 +31,8 @@ export function ClientesPage() {
     password: string;
   }>({ visible: false, password: "" });
 
+  const [membresiasError, setMembresiasError] = useState(false);
+
   // Check authentication and authorization
   useEffect(() => {
     if (!isAuthenticated) {
@@ -52,12 +54,23 @@ export function ClientesPage() {
       try {
         setLoading(true);
         setError(null);
-        const [clientesData, membresasData] = await Promise.all([
+        // P-03: allSettled, no all. Si falla solo el desplegable de membresías, la lista de
+        // clientes se sigue viendo (con un aviso); solo si fallan los clientes se muestra el error.
+        const [clientesRes, membresiasRes] = await Promise.allSettled([
           fetchClientes(),
           fetchMembresias(),
         ]);
-        setClientes(clientesData);
-        setMembresias(membresasData);
+        if (clientesRes.status === "rejected") {
+          throw clientesRes.reason;
+        }
+        setClientes(clientesRes.value);
+        if (membresiasRes.status === "fulfilled") {
+          setMembresias(membresiasRes.value);
+          setMembresiasError(false);
+        } else {
+          setMembresias([]);
+          setMembresiasError(true);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error loading data");
       } finally {
@@ -185,6 +198,13 @@ export function ClientesPage() {
   return (
     <>
       <h1 className="sr-only">Clientes</h1>
+
+      {membresiasError && (
+        <div role="alert" className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          No se pudieron cargar las membresías. Podés ver los clientes, pero no crear ni editar hasta que se
+          recuperen. Recargá la página para reintentar.
+        </div>
+      )}
 
       {/* Temp password modal */}
       {tempPasswordModal.visible && (
