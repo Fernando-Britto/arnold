@@ -406,6 +406,21 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Verificado (2026-10-08)**: 10 `POST /api/auth/login` seguidos con credenciales falsas contra `npm run dev` dan 8 × `401` y 2 × `429`;
   repetido tras vencer la ventana de 60 s da lo mismo. La pantalla `/login` solo muestra "Demasiados intentos" con el `429`.
 
+### D-34 · Revocación de tokens en el logout (T-027, cierra P-06)
+- **Origen**: Claude; Fernando pidió seguir con lo pendiente tras D-33.
+- **Problema**: el JWT es sin estado y dura 24 h. El logout solo borraba la cookie: una copia robada del token seguía valiendo.
+- **Decisión**: tabla `TokenRevocation` (`jti` como clave, `usuarioId`, `expiraEn`, `revocadoEn`; migración
+  `20261008230000_add_token_revocation`). `POST /api/auth/logout` lee el token de la cookie y guarda su `jti`; el proxy consulta
+  esa tabla **en paralelo** con la consulta del usuario (no suma latencia) y trata un token revocado como sesión inválida:
+  `401 TOKEN_INVALID` en la API y redirect a `/login` en las páginas. Como el proxy corre en todas las rutas, cubre toda la API.
+- **Limpieza**: cada fila guarda el vencimiento del token (ya no pasaría `verifyJWT`); el logout borra las vencidas.
+- **Logout siempre cierra la sesión del navegador**: responde 200 y borra la cookie aunque no haya sesión, el token sea inválido
+  o falle la base al revocar (en ese caso el error queda en el log). Un token revocado no genera `ACCESS_DENIED`: es sesión inválida.
+- **Límites**: (1) solo se revoca el token de la sesión que cierra; no hay "cerrar todas las sesiones". (2) Deshabilitar o borrar
+  un usuario ya cortaba el acceso (el proxy mira `estado` y `deletedAt`). (3) `extractUserFromRequest` en los handlers no consulta
+  revocaciones: confía en que el proxy ya las filtró. (4) **El refresh con rotación (P-20) sigue pendiente**.
+- **No verificado contra una base real**: tests con Prisma simulado; hay que aplicar la migración y probar un logout.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -446,7 +461,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-03 | ~~La pantalla de Clientes se cae entera si falla el desplegable de membresías~~ | — | **Resuelto** en D-31 |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
-| P-06 | Sin revocación de tokens ni refresh (D-08, D-23) | Media | Requiere migración de `TokenRevocation` (propuesta T-027); el logout solo borra la cookie. Ver también P-20 |
+| P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto** en D-34 (T-027): el logout revoca el `jti`. Falta aplicar la migración y probarlo. El refresh sigue pendiente (P-20) |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | Los logs muestran 2,1–3,5 s de `application-code` y ~0,4 s por consulta simple en otros endpoints: la base parece tener latencia alta. Son 14 consultas; revisar cuántas pueden fusionarse |
 | P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto** en D-30 (`npm run seed`). Falta correrlo contra la base real |
 | P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |
@@ -460,7 +475,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-17 | ~~Campos numéricos de Rutinas quedan en `NaN` al borrarlos~~ | — | **Resuelto** en FX-15 / D-28 |
 | P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
 | P-19 | Tests lentos o ruidosos: avisos `act(...)` (`ejercicios/page.test.tsx`, `cliente-form.test.tsx`) y `rutina-form.test.tsx` de 15–20 s (`ejercicio.test.ts` ya no usa la base, FX-16) | Baja | Envolver en `act(...)` y revisar los tests lentos |
-| P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Se resuelve junto con P-06 (propuesta T-027) |
+| P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Con la revocación (D-34) un token robado se puede cortar con el logout, pero la sesión sigue venciendo a las 24 h sin renovarse |
 | P-21 | Probar la edición de clientes contra la base real (nombre + membresía + estado; aplicar antes la migración de D-27) | Alta | FX-13/FX-14 pasaron tests con Prisma simulado y `tsc` está limpio (P-01); falta la prueba manual (D-26, D-27) |
 | P-22 | Reescribir el spec `authentication-login` con la implementación real | Media | Hoy lleva solo un aviso de revisión (cookie `authToken`, ruta `/login`, `{ success, role }`, refresh diferido); sus escenarios siguen describiendo el diseño original |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
@@ -539,7 +554,7 @@ Origen: Dev 2.
 | Mensajes de error | Inglés; el 403 nombraba el rol requerido | Español; mensaje genérico | D-17, `rbac-middleware` |
 | Rutas de ejemplo | `/recepcion/check-in`, `/admin/*`, `/instructor/*`, `/socio/*`, `/api/audit-logs` | Las reales: `/home-interno`, `/home-socio`, `/ejercicios`, `/rutinas`, `/clientes`, `/membresias` y sus APIs | `rbac-middleware` (reescrito) |
 | Redirect sin sesión | 302 | 307 (el que emite Next) | `rbac-middleware` |
-| Refresh token y revocación | Requeridos | **Diferidos** (propuesta T-027) | P-06, P-20 |
+| Refresh token y revocación | Requeridos | Revocación **implementada** (T-027, D-34); refresh **diferido** | P-20 |
 | Log de accesos denegados | Requerido | **Implementado** (T-029) con tres diferencias: acción nueva `ACCESS_DENIED`; solo se registra con sesión válida; en el login fallido el `motivo` es un código (`AUTH_INVALID`/`AUTH_DISABLED`) y se atribuye al usuario apuntado si existe | P-15, D-32 |
 | Estado de cuota en edición | — | Mapeo alineado con el enum de Prisma | D-27 |
 

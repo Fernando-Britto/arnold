@@ -7,6 +7,7 @@ import { AUTH_COOKIE_NAME } from "@/api/auth";
 import { prisma } from "@/lib/db";
 import { recordDeniedAccess } from "@/lib/audit";
 import { getTrustedClientIp } from "@/lib/client-ip";
+import { isTokenRevoked } from "@/lib/token-revocation";
 
 const RATE_LIMITED_AUTH = ["/api/auth/login", "/api/auth/register"];
 
@@ -36,8 +37,14 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   if (token) {
     const payload = verifyJWT(token);
-    const user = payload ? await prisma.usuario.findUnique({ where: { id: payload.sub } }) : null;
-    if (user && user.estado === "ACTIVO" && !user.deletedAt) {
+    // En paralelo: la consulta de revocación (P-06) no suma latencia a la del usuario
+    const [user, revoked] = payload
+      ? await Promise.all([
+          prisma.usuario.findUnique({ where: { id: payload.sub } }),
+          isTokenRevoked(payload.jti),
+        ])
+      : [null, false];
+    if (user && user.estado === "ACTIVO" && !user.deletedAt && !revoked) {
       session = { rol: user.rol as UserRole };
       userId = user.id;
     } else {

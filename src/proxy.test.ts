@@ -10,15 +10,18 @@ jest.mock("@/lib/rateLimit", () => ({
   cleanupRateLimitLogsIfNeeded: jest.fn(),
 }));
 jest.mock("@/lib/audit", () => ({ recordDeniedAccess: jest.fn() }));
+jest.mock("@/lib/token-revocation", () => ({ isTokenRevoked: jest.fn().mockResolvedValue(false) }));
 
 import { prisma } from "@/lib/db";
 import { verifyJWT } from "@/lib/auth";
 import { recordDeniedAccess } from "@/lib/audit";
+import { isTokenRevoked } from "@/lib/token-revocation";
 import { proxy } from "./proxy";
 
 const findUnique = prisma.usuario.findUnique as jest.Mock;
 const verify = verifyJWT as jest.Mock;
 const denied = recordDeniedAccess as jest.Mock;
+const revoked = isTokenRevoked as jest.Mock;
 
 const call = (path: string, withCookie = true, method = "GET") =>
   proxy(
@@ -110,5 +113,59 @@ describe("proxy — límite de intentos de login por IP (P-16)", () => {
     const res = await login();
     expect(res.status).toBe(429);
     expect((await res.json()).code).toBe("RATE_LIMITED");
+  });
+});
+
+describe("proxy — tokens revocados (P-06)", () => {
+  beforeEach(() => {
+    revoked.mockReset();
+    revoked.mockResolvedValue(false);
+    // el bloque anterior (P-16) deja el límite de intentos en "excedido": se reinicia
+    const rate = jest.requireMock("@/lib/rateLimit").checkRateLimit as jest.Mock;
+    rate.mockReset();
+    rate.mockResolvedValue(true);
+  });
+
+  it("token revocado (logout) → 401 TOKEN_INVALID aunque la firma y el usuario sean válidos", async () => {
+    verify.mockReturnValue({ sub: "u1", jti: "j-revocado" });
+    findUnique.mockResolvedValue({ id: "u1", rol: "ADMINISTRADOR", estado: "ACTIVO", deletedAt: null });
+    revoked.mockResolvedValue(true);
+
+    const res = await call("/api/clientes");
+
+    expect(revoked).toHaveBeenCalledWith("j-revocado");
+    expect(res.status).toBe(401);
+    expect((await res.json()).code).toBe("TOKEN_INVALID");
+  });
+
+  it("una página con token revocado redirige a /login", async () => {
+    verify.mockReturnValue({ sub: "u1", jti: "j-revocado" });
+    findUnique.mockResolvedValue({ id: "u1", rol: "ADMINISTRADOR", estado: "ACTIVO", deletedAt: null });
+    revoked.mockResolvedValue(true);
+
+    const res = await call("/clientes");
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/login");
+  });
+
+  it("token no revocado → pasa", async () => {
+    verify.mockReturnValue({ sub: "u1", jti: "j-ok" });
+    findUnique.mockResolvedValue({ id: "u1", rol: "ADMINISTRADOR", estado: "ACTIVO", deletedAt: null });
+    expect((await call("/api/clientes")).status).toBe(200);
+  });
+
+  it("no consulta revocaciones cuando el token ni siquiera verifica", async () => {
+    verify.mockReturnValue(null);
+    await call("/api/clientes");
+    expect(revoked).not.toHaveBeenCalled();
+  });
+
+  it("un token revocado no deja rastro de ACCESS_DENIED (es una sesión inválida, no un permiso denegado)", async () => {
+    verify.mockReturnValue({ sub: "u1", jti: "j-revocado" });
+    findUnique.mockResolvedValue({ id: "u1", rol: "SOCIO", estado: "ACTIVO", deletedAt: null });
+    revoked.mockResolvedValue(true);
+    await call("/api/clientes");
+    expect(denied).not.toHaveBeenCalled();
   });
 });

@@ -70,7 +70,7 @@ describe('POST /api/auth/login', () => {
 
 describe('POST /api/auth/logout', () => {
   it('200: borra la cookie (valor vacío, Max-Age=0)', async () => {
-    const res = await logoutPOST();
+    const res = await logoutPOST(new NextRequest('http://localhost:3000/api/auth/logout', { method: 'POST' }));
     expect(res.status).toBe(200);
     const cookie = res.headers.get('set-cookie')!;
     expect(cookie).toMatch(new RegExp(`${AUTH_COOKIE_NAME}=;`));

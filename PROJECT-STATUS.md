@@ -26,6 +26,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-018, T-019 | Home_Socio | ✅ |
 | T-028 ➕ | `GET /api/home-socio` (datos reales de Home_Socio) | ✅ sin probar con un socio real (P-05, D-29) |
 | T-029 ➕ | Auditoría de accesos: login y accesos denegados en `AuditoriaAcceso` | ✅ verificado contra la base (P-15, D-32) |
+| T-027 ➕ | Revocación de tokens en el logout (el refresh queda para P-20) | ✅ requiere aplicar la migración (P-06, D-34) |
 | T-020 | Home_Interno: componentes base | ✅ |
 | T-021a | Home_Interno Parte 1 (acciones, hoy, operación) | ✅ 934 LOC (estimado 250) |
 | T-021b | Home_Interno Parte 2 (gestión, actividad) | ✅ 336 LOC (estimado 150) |
@@ -74,13 +75,17 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 ## Antes de seguir
 
 1. ~~`npx tsc --noEmit` en la máquina local~~ → hecho el 2026-10-08, sin errores (P-01).
-2. **Editar un cliente** como Administrador y como Recepcionista: cambiar a la vez nombre, email, teléfono y membresía,
+2. **Aplicar las migraciones pendientes** (`npx prisma migrate deploy` y `npx prisma generate`) antes de las pruebas 3 y 6:
+   `20261008190000_add_estado_cuota_inactiva_bloqueada` (Inactivo guarda `INACTIVA` y Bloqueado `BLOQUEADA`, D-27, FX-17) y
+   `20261008230000_add_token_revocation` (D-34).
+3. **Editar un cliente** como Administrador y como Recepcionista: cambiar a la vez nombre, email, teléfono y membresía,
    y también el estado de cuenta (Inactivo/Bloqueado); guardar, recargar y confirmar que se persistió (FX-13, FX-14).
-3. **Revisar los clientes que se intentaron editar mientras el error estaba abierto**: cada intento fallido guardó
+4. **Revisar los clientes que se intentaron editar mientras el error estaba abierto**: cada intento fallido guardó
    igual el nuevo nombre y email del usuario (FX-09).
-5. **Aplicar la migración** `20261008190000_add_estado_cuota_inactiva_bloqueada` (`npx prisma migrate deploy`) *antes* de la
-   prueba 2: Inactivo guarda `INACTIVA` y Bloqueado `BLOQUEADA` (D-27, FX-17).
-4. Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos (P-02).
+5. Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos (P-02).
+6. **Cerrar sesión** y probar que el token queda inútil: iniciá sesión, copiá la cookie `authToken` (herramientas del
+   navegador → Application/Storage), cerrá sesión, y repetí un pedido a la API con esa cookie (por ejemplo con `curl`):
+   tiene que responder `401` `TOKEN_INVALID` (P-06, D-34).
 
 ## Pendientes principales
 
@@ -93,12 +98,12 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-03 | ~~Clientes se cae entero si falla el desplegable de membresías~~ → resuelto (D-31) | Baja |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ → resuelto (D-31) | Baja |
 | P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real | Baja |
-| P-06 | Sin revocación de tokens: el logout solo borra la cookie | Media |
+| P-06 | ~~Sin revocación de tokens~~ → resuelto (T-027, D-34); falta aplicar la migración y probarlo | Baja |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto (`npm run seed`, D-30); falta correrlo contra la base | Baja |
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
 | P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
-| P-20 | Refresh token con rotación (junto con P-06) | Media |
+| P-20 | Refresh token con rotación (la revocación ya está, D-34) | Media |
 | P-21 | Probar la edición de clientes contra la base (con la migración de D-27 aplicada) | Alta |
 | P-22 | Reescribir el spec `authentication-login` | Media |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |

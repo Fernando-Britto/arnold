@@ -528,3 +528,18 @@ model RateLimitLog {
   @@index([key, route, timestamp])
   @@index([timestamp])
 }
+
+// ============================================================================
+// REVOCACIÓN DE TOKENS (P-06, D-34)
+// ============================================================================
+
+/// Token de sesión (jti del JWT) cerrado antes de vencer. El proxy rechaza los jti de esta tabla.
+/// `expiraEn` es el vencimiento del token: pasado ese momento la fila ya no sirve y se borra.
+model TokenRevocation {
+  jti        String   @id
+  usuarioId  String?
+  expiraEn   DateTime
+  revocadoEn DateTime @default(now())
+
+  @@index([expiraEn])
+}
