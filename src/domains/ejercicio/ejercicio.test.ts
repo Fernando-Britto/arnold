@@ -1,5 +1,42 @@
 import { createEjercicio, validateEjercicio, EjercicioRepository } from "./ejercicio";
 
+// Prisma simulado en memoria (FX-16, P-19): este test NO debe tocar la base real. Antes cada corrida
+// creaba ejercicios en la base de desarrollo y el primer test dependía de la latencia de la conexión.
+jest.mock("@/lib/db", () => {
+  type Fila = Record<string, unknown> & { id: string; nombre: string; grupoMuscular: string };
+  const filas = new Map<string, Fila>();
+  let contador = 0;
+  const noExiste = () => Object.assign(new Error("Record does not exist"), { code: "P2025" });
+
+  const ejercicio = {
+    create: async ({ data }: { data: Omit<Fila, "id"> }) => {
+      const fila: Fila = { id: `ej-${++contador}`, ...data, createdAt: new Date(), updatedAt: new Date() };
+      filas.set(fila.id, fila);
+      return fila;
+    },
+    findUnique: async ({ where }: { where: { id: string } }) => filas.get(where.id) ?? null,
+    findMany: async ({
+      where = {},
+    }: { where?: { grupoMuscular?: string; nombre?: { contains: string } } } = {}) =>
+      [...filas.values()]
+        .filter((f) => !where.grupoMuscular || f.grupoMuscular === where.grupoMuscular)
+        .filter((f) => !where.nombre || f.nombre.toLowerCase().includes(where.nombre.contains.toLowerCase()))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre)),
+    update: async ({ where, data }: { where: { id: string }; data: Partial<Fila> }) => {
+      const actual = filas.get(where.id);
+      if (!actual) throw noExiste();
+      const nueva = { ...actual, ...data, updatedAt: new Date() };
+      filas.set(where.id, nueva);
+      return nueva;
+    },
+    delete: async ({ where }: { where: { id: string } }) => {
+      if (!filas.delete(where.id)) throw noExiste();
+      return {};
+    },
+  };
+  return { prisma: { ejercicio } };
+});
+
 describe("Ejercicio Domain Model", () => {
   describe("Ejercicio creation and validation", () => {
     it("should create an ejercicio with required fields", () => {

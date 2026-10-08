@@ -1,10 +1,15 @@
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
 import { TextEncoder, TextDecoder } from 'util';
 
 // Polyfill TextEncoder/TextDecoder for jsdom environment
 // Fixes userEvent encoding issues in parallel test execution
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder as any;
+
+// `waitFor`/`findBy*` esperan 1 s por defecto; con ~85 suites en paralelo un render lento daba fallos
+// intermitentes (FX-18). Solo hace más lento fallar cuando el test realmente está mal.
+configure({ asyncUtilTimeout: 5000 });
 
 // Jest setup file — runs before all tests
 // Add any global test utilities, mocks, or fixtures here

@@ -43,7 +43,7 @@ partió en 7 PRs está en `decisions.md` (D-01).
 - Logs de `next dev` de Fernando: login `200`; `/home-interno` y `GET /api/home-interno` `200`; Clientes carga para
   Administrador y Recepcionista; `GET /api/membresias/activas` `200`.
 - Tests en la máquina de Fernando (2026-10-08, `npm test`): **86 de 86 suites; 1.151 de 1.152 tests pasan** (1 `todo`).
-  Confirma que el timeout de `ejercicio.test.ts` (FX-16) quedó resuelto; el test sigue usando la base real (P-19).
+  Corrección: ese `timeout` de FX-16 nunca estuvo en el repo; la corrida pasó por rapidez. Ver FX-16 y FX-18 en `decisions.md`.
 - `npx prisma generate && npx tsc --noEmit` en la máquina de Fernando (2026-10-08): sin errores (cierra P-01).
 - Auditoría de accesos (2026-10-08, consulta a `AuditoriaAcceso` en Supabase): hay filas `LOGIN/DENY` (`AUTH_INVALID`, con `usuarioId`
   del usuario apuntado o vacío si el email no existe), `LOGIN/ALLOW` y `ACCESS_DENIED/DENY` con `motivo` `GET /clientes` (P-15, D-32).
@@ -109,7 +109,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
   cuota alineado con el enum de Prisma (FX-14, D-27). Actualización 2026-10-08: Inactivo y Bloqueado tienen valores propios
   en el enum (`INACTIVA`, `BLOQUEADA`; FX-17) y requieren aplicar una migración.
 - **Rutinas**: campos numéricos vacíos ya no quedan en `NaN` (FX-15, D-28).
-- **Tests**: timeout de `ejercicio.test.ts` ampliado (FX-16).
+- **Tests**: `ejercicio.test.ts` usa Prisma simulado y ya no escribe en la base (FX-16); `waitFor` espera 5 s en toda la suite (FX-18).
 - **Documentación unificada**: `decisions.md` incorpora el registro del segundo desarrollador (D-17…D-25, FX-11/12,
   P-15…P-20, §6 desvíos de specs, §7 concordancia ADR); `rbac-middleware` reescrito y `authentication-login` con aviso
   de revisión.
