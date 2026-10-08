@@ -25,7 +25,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-014 – T-017 | Membresías | ✅ |
 | T-018, T-019 | Home_Socio | ✅ |
 | T-028 ➕ | `GET /api/home-socio` (datos reales de Home_Socio) | ✅ sin probar con un socio real (P-05, D-29) |
-| T-029 ➕ | Auditoría de accesos: login y accesos denegados en `AuditoriaAcceso` | ✅ requiere aplicar la migración (P-15, D-32) |
+| T-029 ➕ | Auditoría de accesos: login y accesos denegados en `AuditoriaAcceso` | ✅ verificado contra la base (P-15, D-32) |
 | T-020 | Home_Interno: componentes base | ✅ |
 | T-021a | Home_Interno Parte 1 (acciones, hoy, operación) | ✅ 934 LOC (estimado 250) |
 | T-021b | Home_Interno Parte 2 (gestión, actividad) | ✅ 336 LOC (estimado 150) |
@@ -45,6 +45,8 @@ partió en 7 PRs está en `decisions.md` (D-01).
 - Tests en la máquina de Fernando (2026-10-08, `npm test`): **86 de 86 suites; 1.151 de 1.152 tests pasan** (1 `todo`).
   Confirma que el timeout de `ejercicio.test.ts` (FX-16) quedó resuelto; el test sigue usando la base real (P-19).
 - `npx prisma generate && npx tsc --noEmit` en la máquina de Fernando (2026-10-08): sin errores (cierra P-01).
+- Auditoría de accesos (2026-10-08, consulta a `AuditoriaAcceso` en Supabase): hay filas `LOGIN/DENY` (`AUTH_INVALID`, con `usuarioId`
+  del usuario apuntado o vacío si el email no existe), `LOGIN/ALLOW` y `ACCESS_DENIED/DENY` con `motivo` `GET /clientes` (P-15, D-32).
 - Límite de intentos de login (2026-10-08, `curl` contra `npm run dev`): 8 intentos con `401` y el 9.º y 10.º con `429`;
   la pantalla `/login` muestra "Demasiados intentos" solo con el `429` (P-16, D-33).
 - Los nombres de modelo, campo, relación y enum usados por `/api/home-interno` existen en `schema.prisma` (41 de 41).
@@ -93,7 +95,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-06 | Sin revocación de tokens: el logout solo borra la cookie | Media |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto (`npm run seed`, D-30); falta correrlo contra la base | Baja |
-| P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto (T-029, D-32); falta aplicar la migración y probarlo | Baja |
+| P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
 | P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
 | P-20 | Refresh token con rotación (junto con P-06) | Media |
 | P-21 | Probar la edición de clientes contra la base y confirmar el mapeo de estado | Alta |

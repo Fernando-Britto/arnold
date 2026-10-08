@@ -371,7 +371,10 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Diferencias con la spec `access-audit-logging`**: `motivo` en código y no en inglés libre; el login fallido se atribuye al
   usuario apuntado cuando la cuenta existe (la spec dice `usuario_id: null`), útil para detectar fuerza bruta.
 - **Pendiente**: el check-in (`CHECK_IN`/`MANUAL_DENY`) y la consulta de logs a Administrador (`/admin/audit-log`) no existen todavía.
-- **No verificado contra una base real**: tests con Prisma simulado; hace falta aplicar la migración y probar el login y un 403.
+- **Verificado contra la base (2026-10-08)**: la migración está aplicada y `AuditoriaAcceso` tiene filas `LOGIN/DENY` (`AUTH_INVALID`),
+  `LOGIN/ALLOW` y `ACCESS_DENIED/DENY` con `motivo` `GET /clientes`; el `usuarioId` se completa cuando la cuenta existe y queda
+  vacío si el email no existe. En local `ipAddress` guarda `::1` o `::ffff:127.0.0.1` (Next en desarrollo agrega `x-forwarded-for`),
+  a diferencia del límite de login, que usa `unknown` (D-33). Los `429` del límite no generan filas.
 
 ### D-33 · IP del cliente para el límite de login (cierra P-16)
 - **Origen**: Claude; Fernando pidió seguir con P-16 tras D-32.
@@ -437,7 +440,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-12 | Deuda de lint: 115 errores / 41 warnings en 52 archivos | Baja | Ver D-14 |
 | P-13 | T-023b (utilidades) y T-024 (factories) sin hacer | — | Según el plan |
 | P-14 | Código muerto: `getAuthHeaders()` en `src/api/clientes.ts` | Baja | Lee `localStorage`, donde nada escribe; el proxy ya no lo necesita |
-| P-15 | ~~Registrar accesos denegados y fallos de autenticación en `AuditoriaAcceso`~~ | — | **Resuelto** en D-32 (T-029). Falta aplicar la migración y probarlo contra la base |
+| P-15 | ~~Registrar accesos denegados y fallos de autenticación en `AuditoriaAcceso`~~ | — | **Resuelto y verificado** en D-32 (T-029): migración aplicada, filas confirmadas en la base (2026-10-08) |
 | P-16 | ~~El rate limit usa `ipAddress` de `@vercel/functions`~~ | — | **Resuelto** en D-33 (opt-in `TRUST_PROXY_HEADERS`) |
 | P-17 | ~~Campos numéricos de Rutinas quedan en `NaN` al borrarlos~~ | — | **Resuelto** en FX-15 / D-28 |
 | P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
