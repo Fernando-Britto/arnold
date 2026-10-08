@@ -367,11 +367,26 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Anti-inundación**: como mucho 10 filas `ACCESS_DENIED` por usuario y minuto (`checkRateLimit`, ruta `audit:access-denied`).
 - **Auditar nunca rompe la request**: `src/lib/audit.ts` no lanza; si la base falla deja el detalle en el log del servidor.
 - **IP y user-agent**: IP de Vercel, o `x-forwarded-for`/`x-real-ip` fuera de Vercel (mejor esfuerzo, falseable sin proxy confiable);
-  user-agent recortado a 255. Esto no cambia el rate limit (P-16 sigue abierto).
+  user-agent recortado a 255. El rate limit se arregla aparte (D-33).
 - **Diferencias con la spec `access-audit-logging`**: `motivo` en código y no en inglés libre; el login fallido se atribuye al
   usuario apuntado cuando la cuenta existe (la spec dice `usuario_id: null`), útil para detectar fuerza bruta.
 - **Pendiente**: el check-in (`CHECK_IN`/`MANUAL_DENY`) y la consulta de logs a Administrador (`/admin/audit-log`) no existen todavía.
 - **No verificado contra una base real**: tests con Prisma simulado; hace falta aplicar la migración y probar el login y un 403.
+
+### D-33 · IP del cliente para el límite de login (cierra P-16)
+- **Origen**: Claude; Fernando pidió seguir con P-16 tras D-32.
+- **Problema**: `ipAddress` de `@vercel/functions` devuelve vacío fuera de Vercel, así que todos compartían la clave `unknown` y el
+  login quedaba en 8 intentos por minuto **en total** (un atacante podía bloquear a todos).
+- **Decisión**: `src/lib/client-ip.ts` con dos funciones, porque el riesgo es distinto.
+  - `getTrustedClientIp` (límite de login, un control de seguridad): usa la IP de Vercel; fuera de Vercel **no** confía en
+    `x-forwarded-for`/`x-real-ip` salvo que se declare `TRUST_PROXY_HEADERS=true` (valor exacto). Motivo: esos headers los
+    controla el cliente cuando la app recibe tráfico directo; confiar en ellos permitiría saltear el límite cambiando el header.
+    Sin confianza devuelve `unknown` (fail-closed: el contador es global pero no se puede evadir) y en producción avisa una vez por log.
+  - `getBestEffortClientIp` (auditoría, evidencia): acepta los headers igual; lo peor es una IP mal atribuida.
+- **Qué hay que hacer al desplegar fuera de Vercel**: si hay un proxy/balanceador propio que sobrescribe `x-forwarded-for`, definir
+  `TRUST_PROXY_HEADERS=true`. Si no lo hay, dejarlo sin definir y asumir el límite global.
+- **Límite que sigue**: el límite por IP depende de la infraestructura; en desarrollo local todos son `unknown` (da igual: un solo usuario).
+- **Cambia**: `src/proxy.ts` (límite de login) y `src/lib/audit.ts` (reutiliza la función de mejor esfuerzo). Sin migración.
 
 ---
 
@@ -421,7 +436,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-13 | T-023b (utilidades) y T-024 (factories) sin hacer | — | Según el plan |
 | P-14 | Código muerto: `getAuthHeaders()` en `src/api/clientes.ts` | Baja | Lee `localStorage`, donde nada escribe; el proxy ya no lo necesita |
 | P-15 | ~~Registrar accesos denegados y fallos de autenticación en `AuditoriaAcceso`~~ | — | **Resuelto** en D-32 (T-029). Falta aplicar la migración y probarlo contra la base |
-| P-16 | El rate limit usa `ipAddress` de `@vercel/functions` | Media | Fuera de Vercel devuelve vacío: todos comparten la clave `unknown` y el login queda en 8 intentos por minuto **en total**. Usar `x-forwarded-for` como alternativa o documentar el límite |
+| P-16 | ~~El rate limit usa `ipAddress` de `@vercel/functions`~~ | — | **Resuelto** en D-33 (opt-in `TRUST_PROXY_HEADERS`) |
 | P-17 | ~~Campos numéricos de Rutinas quedan en `NaN` al borrarlos~~ | — | **Resuelto** en FX-15 / D-28 |
 | P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
 | P-19 | Tests lentos o ruidosos: avisos `act(...)` (`ejercicios/page.test.tsx`, `cliente-form.test.tsx`), `rutina-form.test.tsx` de 15–20 s y `ejercicio.test.ts`, que usa la base real | Baja | Mockear Prisma en `ejercicio.test.ts` o moverlo a tests de integración (FX-16 es un paliativo) |

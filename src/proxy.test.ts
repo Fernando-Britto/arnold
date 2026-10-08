@@ -79,3 +79,36 @@ describe("proxy — auditoría de accesos denegados (P-15)", () => {
     expect(denied).not.toHaveBeenCalled();
   });
 });
+
+describe("proxy — límite de intentos de login por IP (P-16)", () => {
+  const rate = jest.requireMock("@/lib/rateLimit").checkRateLimit as jest.Mock;
+  const login = (headers: Record<string, string> = {}) =>
+    proxy(new NextRequest("http://localhost:3000/api/auth/login", { method: "POST", headers }));
+
+  beforeEach(() => {
+    rate.mockReset();
+    rate.mockResolvedValue(true);
+    delete process.env.TRUST_PROXY_HEADERS;
+  });
+  afterAll(() => {
+    delete process.env.TRUST_PROXY_HEADERS;
+  });
+
+  it("fuera de Vercel y sin proxy confiable, un x-forwarded-for falseado NO cambia la clave del límite", async () => {
+    await login({ "x-forwarded-for": "6.6.6.6" });
+    expect(rate).toHaveBeenCalledWith("unknown", "/api/auth/login", 8);
+  });
+
+  it("con TRUST_PROXY_HEADERS=true cada IP real tiene su propio contador", async () => {
+    process.env.TRUST_PROXY_HEADERS = "true";
+    await login({ "x-forwarded-for": "9.9.9.9, 10.0.0.1" });
+    expect(rate).toHaveBeenCalledWith("9.9.9.9", "/api/auth/login", 8);
+  });
+
+  it("pasado el límite responde 429", async () => {
+    rate.mockResolvedValue(false);
+    const res = await login();
+    expect(res.status).toBe(429);
+    expect((await res.json()).code).toBe("RATE_LIMITED");
+  });
+});

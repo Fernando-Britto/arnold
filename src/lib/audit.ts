@@ -1,7 +1,7 @@
-import { ipAddress } from "@vercel/functions";
 import type { AccionAcceso, ResultadoAcceso } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { getBestEffortClientIp } from "@/lib/client-ip";
 
 /**
  * Registro de accesos en AuditoriaAcceso (spec access-audit-logging, P-15 / D-32).
@@ -19,15 +19,12 @@ const MAX_MOTIVO = 255;
 const DENIED_AUDIT_PER_MINUTE = 10;
 
 /**
- * IP y user-agent de la request. La IP sale de Vercel; fuera de Vercel (P-16) se prueba
- * x-forwarded-for (primer salto) y x-real-ip. Es información de auditoría "mejor esfuerzo":
- * esos headers los puede falsear el cliente si no hay un proxy confiable adelante.
+ * IP y user-agent de la request, para la auditoría. La IP es "mejor esfuerzo" (ver client-ip.ts):
+ * los headers de proxy los puede falsear el cliente si no hay un proxy confiable adelante.
  */
 export function getRequestContext(request: Request): AuditContext {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = ipAddress(request) || forwarded || request.headers.get("x-real-ip")?.trim() || "unknown";
   const userAgent = (request.headers.get("user-agent") || "unknown").slice(0, MAX_USER_AGENT);
-  return { ip, userAgent };
+  return { ip: getBestEffortClientIp(request), userAgent };
 }
 
 export async function recordAccessAttempt(entry: {

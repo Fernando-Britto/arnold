@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ipAddress } from "@vercel/functions";
 import { verifyJWT } from "@/lib/auth";
 import { checkRateLimit, cleanupRateLimitLogsIfNeeded } from "@/lib/rateLimit";
 import { hasRouteAccess, type HttpMethod, type UserRole } from "@/lib/authorization";
@@ -7,6 +6,7 @@ import { decideAccess, isPublicPath, type SessionState } from "@/lib/access-deci
 import { AUTH_COOKIE_NAME } from "@/api/auth";
 import { prisma } from "@/lib/db";
 import { recordDeniedAccess } from "@/lib/audit";
+import { getTrustedClientIp } from "@/lib/client-ip";
 
 const RATE_LIMITED_AUTH = ["/api/auth/login", "/api/auth/register"];
 
@@ -18,7 +18,7 @@ export async function proxy(request: NextRequest) {
 
   // Login/registro: límite por IP contra fuerza bruta (8 por minuto)
   if (RATE_LIMITED_AUTH.some((r) => pathname.startsWith(r))) {
-    const ip = ipAddress(request) || "unknown";
+    const ip = getTrustedClientIp(request);
     if (!(await checkRateLimit(ip, pathname, 8))) {
       return NextResponse.json(
         { code: "RATE_LIMITED", message: "Demasiados intentos. Probá de nuevo en un minuto." },

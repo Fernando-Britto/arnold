@@ -22,6 +22,7 @@ npm run dev                 # http://localhost:3000
 |---|---|
 | `DATABASE_URL` | Conexión a PostgreSQL |
 | `JWT_SECRET` | Firma de la cookie de sesión. **Obligatoria en producción** |
+| `TRUST_PROXY_HEADERS` | Opcional. `true` solo si hay un proxy propio y confiable delante (fuera de Vercel); ver `.env.example` |
 
 **Datos de desarrollo** (opcional, solo para probar): `npm run seed` carga 5 usuarios (Administrador, Instructor,
 Recepcionista y 2 Socios, todos `@arnold.test`), membresías, ejercicios, rutinas, máquinas y datos de asistencia, progreso,
