@@ -1,6 +1,6 @@
 # Arnold — Estado del proyecto
 
-**Actualizado**: 2026-10-05 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
+**Actualizado**: 2026-10-08 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
 **Decisiones y defectos**: [`openspec/decisions.md`](openspec/decisions.md) · **Modo**: Strict TDD
 
 Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19, Prisma 6 sobre PostgreSQL, Jest.
@@ -42,16 +42,17 @@ partió en 7 PRs está en `decisions.md` (D-01).
 **Verificado con evidencia**
 - Logs de `next dev` de Fernando: login `200`; `/home-interno` y `GET /api/home-interno` `200`; Clientes carga para
   Administrador y Recepcionista; `GET /api/membresias/activas` `200`.
-- Tests en la máquina de Fernando (2026-10-07, `npm test`): **76 de 77 suites; 1.079 de 1.081 tests pasan** (1 `todo`).
-  El fallo fue un timeout de `ejercicio.test.ts`, que usa la base real (FX-16, P-19); se subió el timeout y falta
-  confirmar la corrida completa.
+- Tests en la máquina de Fernando (2026-10-08, `npm test`): **86 de 86 suites; 1.151 de 1.152 tests pasan** (1 `todo`).
+  Confirma que el timeout de `ejercicio.test.ts` (FX-16) quedó resuelto; el test sigue usando la base real (P-19).
+- `npx prisma generate && npx tsc --noEmit` en la máquina de Fernando (2026-10-08): sin errores (cierra P-01).
+- Límite de intentos de login (2026-10-08, `curl` contra `npm run dev`): 8 intentos con `401` y el 9.º y 10.º con `429`;
+  la pantalla `/login` muestra "Demasiados intentos" solo con el `429` (P-16, D-33).
 - Los nombres de modelo, campo, relación y enum usados por `/api/home-interno` existen en `schema.prisma` (41 de 41).
 
 **No verificado**
 - Que los números de Home_Interno coincidan con los datos reales (turnos, franjas y "activo" son supuestos).
 - Que la edición de clientes funcione de punta a punta contra la base real. FX-09 y su corrección FX-13/FX-14 (transacción
   y mapeo del enum de cuota) pasaron tests con Prisma simulado, pero **no se probaron contra la base** (P-21).
-- `npx tsc --noEmit` en la máquina de Fernando (el asistente no puede generar el cliente de Prisma).
 
 ## Roles y acceso
 
@@ -70,7 +71,7 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 
 ## Antes de seguir
 
-1. `npx tsc --noEmit` en la máquina local y confirmar que no hay errores en `home-interno-data.ts` (P-01).
+1. ~~`npx tsc --noEmit` en la máquina local~~ → hecho el 2026-10-08, sin errores (P-01).
 2. **Editar un cliente** como Administrador y como Recepcionista: cambiar a la vez nombre, email, teléfono y membresía,
    y también el estado de cuenta (Inactivo/Bloqueado); guardar, recargar y confirmar que se persistió (FX-13, FX-14).
 3. **Revisar los clientes que se intentaron editar mientras el error estaba abierto**: cada intento fallido guardó
@@ -84,7 +85,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 
 | # | Pendiente | Severidad |
 |---|---|---|
-| P-01 | `tsc` local | Alta |
+| P-01 | ~~`tsc` local~~ → resuelto (2026-10-08, sin errores) | Baja |
 | P-02 | Contrastar Home_Interno con datos reales | Alta |
 | P-03 | ~~Clientes se cae entero si falla el desplegable de membresías~~ → resuelto (D-31) | Baja |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ → resuelto (D-31) | Baja |
@@ -93,7 +94,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto (`npm run seed`, D-30); falta correrlo contra la base | Baja |
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto (T-029, D-32); falta aplicar la migración y probarlo | Baja |
-| P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
+| P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
 | P-20 | Refresh token con rotación (junto con P-06) | Media |
 | P-21 | Probar la edición de clientes contra la base y confirmar el mapeo de estado | Alta |
 | P-22 | Reescribir el spec `authentication-login` | Media |

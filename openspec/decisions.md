@@ -144,7 +144,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   Fernando en su máquina.
 - **Consecuencia**: `tsc` en el entorno del asistente reporta unos 14 errores `implicitly any` en
   `home-interno-data.ts` que son un **artefacto** (sin el cliente generado los resultados son `any`). En la
-  máquina de Fernando deberían desaparecer: confirmar con `npx tsc --noEmit` (ver [§3](#3-pendientes-abiertos)).
+  máquina de Fernando deberían desaparecer. **Confirmado el 2026-10-08**: `npx prisma generate && npx tsc --noEmit` sin errores (P-01).
 
 ### D-13 · Flujo de trabajo con Git
 - Una rama por tarea, creada desde `main` actualizado; PR y merge. Cuando las ramas están encadenadas,
@@ -387,6 +387,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   `TRUST_PROXY_HEADERS=true`. Si no lo hay, dejarlo sin definir y asumir el límite global.
 - **Límite que sigue**: el límite por IP depende de la infraestructura; en desarrollo local todos son `unknown` (da igual: un solo usuario).
 - **Cambia**: `src/proxy.ts` (límite de login) y `src/lib/audit.ts` (reutiliza la función de mejor esfuerzo). Sin migración.
+- **Verificado (2026-10-08)**: 10 `POST /api/auth/login` seguidos con credenciales falsas contra `npm run dev` dan 8 × `401` y 2 × `429`;
+  repetido tras vencer la ventana de 60 s da lo mismo. La pantalla `/login` solo muestra "Demasiados intentos" con el `429`.
 
 ---
 
@@ -409,7 +411,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | FX-13 | Editar un cliente cambiando nombre y membresía a la vez seguía en riesgo tras FX-09 | D-11 mezclaba `usuario` anidado con `membresiaAsignadaId`; el `any` ocultaba el error de tipos | `$transaction` con dos escrituras tipadas (D-26) | commit `fix(clientes): …transacción…` (rama `fix/clientes-update-transaccion`) | Revisión del diff por Dev 2 |
 | FX-14 | Pasar un cliente a Inactivo/Bloqueado habría fallado: valores fuera del enum | `mapEstadoCuentaToEstadoCuota` devolvía `"VENCIDO"`/`"DENEGADO"`; el enum es `AL_DIA`/`VENCIDA`/`PENDIENTE` | Tipo de retorno literal y mapeo inverso alineado (D-27) | mismo commit que FX-13 | Error `ts(2322)` al quitar el `any` |
 | FX-15 | Aviso de React `Received NaN for the value attribute` en el formulario de Rutinas; el campo quedaba en `NaN` al borrarlo | `parseInt("")` en el `onChange` | `""` mientras esté vacío + `Number()` al validar (D-28) | commit `fix(rutinas): evitar NaN…` | Salida de `npm test` (P-17) |
-| FX-16 | `ejercicio.test.ts` fallaba por timeout de 5 s en la corrida completa | No mockea Prisma: el primer test abre la conexión real a la base y, con 77 suites en paralelo, tarda más de 5 s | `jest.setTimeout(30000)` en el `describe` (paliativo; la solución de fondo es P-19) | commit `test(ejercicio): subir timeout…` | Salida de `npm test` |
+| FX-16 | `ejercicio.test.ts` fallaba por timeout de 5 s en la corrida completa | No mockea Prisma: el primer test abre la conexión real a la base y, con 77 suites en paralelo, tarda más de 5 s | `jest.setTimeout(30000)` en el `describe` (paliativo; la solución de fondo es P-19) | commit `test(ejercicio): subir timeout…` | Salida de `npm test`; confirmado el 2026-10-08: 86 de 86 suites, 1.151 tests |
 
 > **FX-09 / FX-13 y datos**: mientras el bug existía, cada intento fallido **sí guardaba** el nuevo nombre y email del
 > usuario. Conviene revisar a mano los clientes que se intentaron editar y confirmar que nombre y email sean
@@ -421,7 +423,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 
 | # | Pendiente | Severidad | Notas |
 |---|---|---|---|
-| P-01 | Correr `npx tsc --noEmit` en la máquina del autor | Alta | Confirma que los `implicit any` del asistente eran un artefacto (D-12) |
+| P-01 | ~~Correr `npx tsc --noEmit` en la máquina del autor~~ | — | **Resuelto** el 2026-10-08: sin errores; los `implicit any` del asistente eran un artefacto (D-12) |
 | P-02 | Contrastar a mano los números de `/api/home-interno` y los turnos/franjas (D-10) | Alta | Responde 200, pero nadie comparó contra datos reales |
 | P-03 | ~~La pantalla de Clientes se cae entera si falla el desplegable de membresías~~ | — | **Resuelto** en D-31 |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
@@ -441,7 +443,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
 | P-19 | Tests lentos o ruidosos: avisos `act(...)` (`ejercicios/page.test.tsx`, `cliente-form.test.tsx`), `rutina-form.test.tsx` de 15–20 s y `ejercicio.test.ts`, que usa la base real | Baja | Mockear Prisma en `ejercicio.test.ts` o moverlo a tests de integración (FX-16 es un paliativo) |
 | P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Se resuelve junto con P-06 (propuesta T-027) |
-| P-21 | Probar la edición de clientes contra la base real (nombre + membresía + estado) y confirmar `Bloqueado → PENDIENTE` | Alta | FX-13/FX-14 pasaron tests con Prisma simulado; falta `tsc` y la prueba manual (D-26, D-27) |
+| P-21 | Probar la edición de clientes contra la base real (nombre + membresía + estado) y confirmar `Bloqueado → PENDIENTE` | Alta | FX-13/FX-14 pasaron tests con Prisma simulado y `tsc` está limpio (P-01); falta la prueba manual (D-26, D-27) |
 | P-22 | Reescribir el spec `authentication-login` con la implementación real | Media | Hoy lleva solo un aviso de revisión (cookie `authToken`, ruta `/login`, `{ success, role }`, refresh diferido); sus escenarios siguen describiendo el diseño original |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
 
