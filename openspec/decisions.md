@@ -297,10 +297,23 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Origen**: Claude; lo destapó el error `ts(2322)` al quitar el `any` (D-26). El enum de Prisma es
   `AL_DIA | VENCIDA | PENDIENTE`, pero `mapEstadoCuentaToEstadoCuota` devolvía `string` y producía `"VENCIDO"` y
   `"DENEGADO"`, que **no existen**: pasar un cliente a Inactivo o Bloqueado habría fallado en ejecución (FX-14).
-- **Decisión**: la función devuelve el tipo literal `"AL_DIA" | "VENCIDA" | "PENDIENTE"` y la inversa se alinea:
-  Activo ↔ `AL_DIA`, Inactivo ↔ `VENCIDA`, Bloqueado ↔ `PENDIENTE`.
-- **Decisión de negocio sin confirmar**: `Bloqueado → PENDIENTE` es lo más cercano que ofrece el enum, no algo que
-  `clientes-crud` defina (supuesto 7 de [§4](#4-supuestos-sin-confirmar)).
+- **Primera decisión (2026-10-07)**: la función devuelve el tipo literal `"AL_DIA" | "VENCIDA" | "PENDIENTE"` y la inversa
+  se alinea: Activo ↔ `AL_DIA`, Inactivo ↔ `VENCIDA`, Bloqueado ↔ `PENDIENTE`. Era lo más cercano que ofrecía el enum,
+  pero esos valores describen **pagos**, no el estado de la cuenta, y `PENDIENTE` como "Bloqueado" era engañoso.
+- **Decisión vigente (2026-10-08, FX-17)**: se agregan `INACTIVA` y `BLOQUEADA` al enum `EstadoCuota` (migración
+  `20261008190000_add_estado_cuota_inactiva_bloqueada`). Activo ↔ `AL_DIA`, Inactivo ↔ `INACTIVA`, Bloqueado ↔ `BLOQUEADA`.
+  Al leer, los valores de pago que ya existían (`VENCIDA`, `PENDIENTE`; el seed deja un socio en `VENCIDA`) se muestran
+  como Inactivo.
+- **Por qué solo estos dos valores (alcance)**: la spec `clientes-crud` define tres estados de cuenta distintos
+  (Bloqueado en rojo y separado de la membresía, ligado al control de acceso), así que no se unificaron Inactivo y Bloqueado.
+  Para el alcance actual alcanza con darle a cada estado de la pantalla su propio valor; hoy `estadoCuota` solo lo usa la
+  pantalla de Clientes. **El resto queda para más adelante** (P-24): los estados propios de pagos (cuota vencida, pago
+  pendiente) cuando existan esos flujos, y separar el estado de la cuenta del estado de la cuota si el check-in
+  (`member-access-check`) pasa a depender de él.
+- **Descartado**: unificar Bloqueado con Inactivo (pierde un estado que la spec distingue); un campo separado en `Socio`
+  para el estado de la cuenta (correcto conceptualmente pero más invasivo de lo que pide el alcance actual).
+- **Tests**: mapeo de ida y vuelta para los tres estados, `VENCIDA`/`PENDIENTE` leídos como Inactivo y valor guardado
+  `INACTIVA` al editar. **Se aplica con** `npx prisma migrate deploy`.
 
 ### D-28 · Campos numéricos vacíos en el formulario de Rutinas
 - **Origen**: Dev 2 (P-17); corregido por Claude. `parseInt("")` daba `NaN` al borrar "Frecuencia Semanal" o
@@ -415,6 +428,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | FX-14 | Pasar un cliente a Inactivo/Bloqueado habría fallado: valores fuera del enum | `mapEstadoCuentaToEstadoCuota` devolvía `"VENCIDO"`/`"DENEGADO"`; el enum es `AL_DIA`/`VENCIDA`/`PENDIENTE` | Tipo de retorno literal y mapeo inverso alineado (D-27) | mismo commit que FX-13 | Error `ts(2322)` al quitar el `any` |
 | FX-15 | Aviso de React `Received NaN for the value attribute` en el formulario de Rutinas; el campo quedaba en `NaN` al borrarlo | `parseInt("")` en el `onChange` | `""` mientras esté vacío + `Number()` al validar (D-28) | commit `fix(rutinas): evitar NaN…` | Salida de `npm test` (P-17) |
 | FX-16 | `ejercicio.test.ts` fallaba por timeout de 5 s en la corrida completa | No mockea Prisma: el primer test abre la conexión real a la base y, con 77 suites en paralelo, tarda más de 5 s | `jest.setTimeout(30000)` en el `describe` (paliativo; la solución de fondo es P-19) | commit `test(ejercicio): subir timeout…` | Salida de `npm test`; confirmado el 2026-10-08: 86 de 86 suites, 1.151 tests |
+| FX-17 | `Bloqueado → PENDIENTE` e `Inactivo → VENCIDA` mezclaban estado de cuenta con estado de pago | El enum `EstadoCuota` solo tenía valores de pago | Valores `INACTIVA` y `BLOQUEADA` en el enum, mapeo de ida y vuelta (D-27) | commit `fix(clientes): estados de cuenta propios…` | Tests de `cliente.test.ts`; falta aplicar la migración y probar contra la base |
 
 > **FX-09 / FX-13 y datos**: mientras el bug existía, cada intento fallido **sí guardaba** el nuevo nombre y email del
 > usuario. Conviene revisar a mano los clientes que se intentaron editar y confirmar que nombre y email sean
@@ -446,9 +460,10 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
 | P-19 | Tests lentos o ruidosos: avisos `act(...)` (`ejercicios/page.test.tsx`, `cliente-form.test.tsx`), `rutina-form.test.tsx` de 15–20 s y `ejercicio.test.ts`, que usa la base real | Baja | Mockear Prisma en `ejercicio.test.ts` o moverlo a tests de integración (FX-16 es un paliativo) |
 | P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Se resuelve junto con P-06 (propuesta T-027) |
-| P-21 | Probar la edición de clientes contra la base real (nombre + membresía + estado) y confirmar `Bloqueado → PENDIENTE` | Alta | FX-13/FX-14 pasaron tests con Prisma simulado y `tsc` está limpio (P-01); falta la prueba manual (D-26, D-27) |
+| P-21 | Probar la edición de clientes contra la base real (nombre + membresía + estado; aplicar antes la migración de D-27) | Alta | FX-13/FX-14 pasaron tests con Prisma simulado y `tsc` está limpio (P-01); falta la prueba manual (D-26, D-27) |
 | P-22 | Reescribir el spec `authentication-login` con la implementación real | Media | Hoy lleva solo un aviso de revisión (cookie `authToken`, ruta `/login`, `{ success, role }`, refresh diferido); sus escenarios siguen describiendo el diseño original |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
+| P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él |
 
 ---
 
@@ -462,13 +477,17 @@ Estos puntos los decidió el asistente porque ninguna spec los define. Corregirl
 4. "Baja de socio" = `deletedAt` de un `Usuario` SOCIO en las últimas 24 h.
 5. "Activo" en el aforo = entrada dentro de `ventanaAforoMinutos` (no hay hora de salida).
 6. Si el fallo de `middleware.ts` en Edge se reprodujo o solo se identificó por lectura (D-07, P-23).
-7. `Bloqueado → PENDIENTE` e `Inactivo → VENCIDA` en el estado de cuota (D-27); lo define el enum, no `clientes-crud`.
+7. ~~`Bloqueado → PENDIENTE` e `Inactivo → VENCIDA`~~ → resuelto en D-27 (2026-10-08): valores propios `INACTIVA` y `BLOQUEADA`;
+   `VENCIDA` y `PENDIENTE` se leen como Inactivo. Falta confirmar con el negocio el significado exacto de Inactivo (P-24).
 8. Progreso (Home_Socio): ejercicio = el del registro más reciente de las últimas 4 semanas; un punto por día con la mayor
    carga; `deltaEsteMes` = último − primero de la ventana (`src/domains/home-socio/home-socio.ts`).
 9. Próxima sesión sugerida = marca actual + `incrementoSugerido` de la primera `ReglaDeProgresion` LINEAL, o 2,5 kg si no hay.
 10. Sesión en progreso = `SesionDeEntrenamiento` sin `horaFin` iniciada hoy; `indiceActual` siempre 0 (no se guarda en qué
     ejercicio va la sesión).
 11. La racha mira hasta 53 semanas de asistencias PERMITIDO del socio (tope).
+12. El DNI de un cliente **se puede editar** después del alta, por Administrador y por Recepcionista (decisión de Fernando,
+    2026-10-08): coincide con la spec `clientes-crud` (solo `id` y `fechaAlta` son de solo lectura). No queda registro de quién
+    lo cambió; el historial cuelga del `id` del socio, no del DNI. Alternativa si se quiere más control: solo Administrador.
 
 ---
 

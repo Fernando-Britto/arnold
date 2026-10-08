@@ -85,6 +85,9 @@ enum EstadoCuota {
   AL_DIA
   VENCIDA
   PENDIENTE
+  // Estado de la cuenta elegido en Clientes (D-27): no describen un pago sino la cuenta
+  INACTIVA
+  BLOQUEADA
 }
 
 // ============================================================================

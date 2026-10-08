@@ -78,7 +78,8 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
    y también el estado de cuenta (Inactivo/Bloqueado); guardar, recargar y confirmar que se persistió (FX-13, FX-14).
 3. **Revisar los clientes que se intentaron editar mientras el error estaba abierto**: cada intento fallido guardó
    igual el nuevo nombre y email del usuario (FX-09).
-5. Confirmar con el negocio que **Bloqueado → `PENDIENTE`** e **Inactivo → `VENCIDA`** es el mapeo deseado (D-27).
+5. **Aplicar la migración** `20261008190000_add_estado_cuota_inactiva_bloqueada` (`npx prisma migrate deploy`) *antes* de la
+   prueba 2: Inactivo guarda `INACTIVA` y Bloqueado `BLOQUEADA` (D-27, FX-17).
 4. Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos (P-02).
 
 ## Pendientes principales
@@ -98,13 +99,15 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
 | P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
 | P-20 | Refresh token con rotación (junto con P-06) | Media |
-| P-21 | Probar la edición de clientes contra la base y confirmar el mapeo de estado | Alta |
+| P-21 | Probar la edición de clientes contra la base (con la migración de D-27 aplicada) | Alta |
 | P-22 | Reescribir el spec `authentication-login` | Media |
+| P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |
 
 ## Cambios recientes (2026-10-07)
 
 - **Clientes**: editar nombre/email y membresía en una sola transacción, sin `any` (FX-13, D-26); mapeo de estado de
-  cuota alineado con el enum de Prisma (FX-14, D-27).
+  cuota alineado con el enum de Prisma (FX-14, D-27). Actualización 2026-10-08: Inactivo y Bloqueado tienen valores propios
+  en el enum (`INACTIVA`, `BLOQUEADA`; FX-17) y requieren aplicar una migración.
 - **Rutinas**: campos numéricos vacíos ya no quedan en `NaN` (FX-15, D-28).
 - **Tests**: timeout de `ejercicio.test.ts` ampliado (FX-16).
 - **Documentación unificada**: `decisions.md` incorpora el registro del segundo desarrollador (D-17…D-25, FX-11/12,
@@ -113,7 +116,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 
 ## Supuestos que la spec no define
 
-Corregirlos es un cambio de una línea cada uno (detalle en `decisions.md` §4; incluye el mapeo `Bloqueado → PENDIENTE`, D-27):
+Corregirlos es un cambio de una línea cada uno (detalle en `decisions.md` §4; incluye que el DNI sigue siendo editable, supuesto 12):
 turnos Mañana 06–14 / Tarde 14–22 / Noche 22–06 · franjas de aforo de 2 h entre 06 y 22 · `diasInactividad = 15` ·
 "baja de socio" = usuario socio con `deletedAt` en las últimas 24 h · "activo" = entrada dentro de `ventanaAforoMinutos`.
 

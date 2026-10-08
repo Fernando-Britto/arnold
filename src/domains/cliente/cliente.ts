@@ -55,17 +55,20 @@ export function generateTemporaryPassword(): string {
 }
 
 /**
- * Map Socio.estadoCuota to Cliente.estadoCuenta
- * Socio tracks payment status (AL_DIA, VENCIDO, DENEGADO)
- * Cliente exposes account status (Activo, Inactivo, Bloqueado)
+ * Map Socio.estadoCuota to Cliente.estadoCuenta (D-27)
+ * Cliente exposes account status (Activo, Inactivo, Bloqueado).
+ * Socio.estadoCuota: AL_DIA | INACTIVA | BLOQUEADA son los estados de cuenta que escribe esta pantalla;
+ * VENCIDA y PENDIENTE son valores de pago que ya existían (seed, flujos futuros) y se muestran como Inactivo.
  */
 export function mapEstadoCuotaToEstadoCuenta(estadoCuota: string): EstadoCuenta {
   switch (estadoCuota) {
     case "AL_DIA":
       return "Activo";
+    case "INACTIVA":
     case "VENCIDA":
-      return "Inactivo";
     case "PENDIENTE":
+      return "Inactivo";
+    case "BLOQUEADA":
       return "Bloqueado";
     default:
       return "Activo";
@@ -73,20 +76,20 @@ export function mapEstadoCuotaToEstadoCuenta(estadoCuota: string): EstadoCuenta 
 }
 
 /**
- * Map Cliente.estadoCuenta to Socio.estadoCuota (inverse of mapEstadoCuotaToEstadoCuenta)
- * Client exposes account status (Activo, Inactivo, Bloqueado)
- * Socio tracks payment status (AL_DIA, VENCIDO, DENEGADO)
+ * Map Cliente.estadoCuenta to Socio.estadoCuota (D-27)
+ * Client exposes account status (Activo, Inactivo, Bloqueado); se guarda en su propio valor del enum.
+ * Siempre devuelve un valor que existe en `EstadoCuota` (antes devolvía VENCIDA/PENDIENTE, que describen pagos).
  */
 export function mapEstadoCuentaToEstadoCuota(
   estado: EstadoCuenta
-): "AL_DIA" | "VENCIDA" | "PENDIENTE" {
+): "AL_DIA" | "INACTIVA" | "BLOQUEADA" {
   switch (estado) {
     case "Activo":
       return "AL_DIA";
     case "Inactivo":
-      return "VENCIDA";
+      return "INACTIVA";
     case "Bloqueado":
-      return "PENDIENTE";
+      return "BLOQUEADA";
     default:
       return "AL_DIA";
   }

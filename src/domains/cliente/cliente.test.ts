@@ -917,7 +917,7 @@ describe("ClienteRepository", () => {
       mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
       mockPrisma.socio.update.mockResolvedValue({
         ...mockSocio,
-        estadoCuota: "VENCIDA", // Updated to Inactivo
+        estadoCuota: "INACTIVA", // Updated to Inactivo
       });
 
       await repository.update("socio-123", {
@@ -927,7 +927,7 @@ describe("ClienteRepository", () => {
       expect(mockPrisma.socio.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            estadoCuota: "VENCIDA", // H2: mapEstadoCuentaToEstadoCuota applied
+            estadoCuota: "INACTIVA", // H2: mapEstadoCuentaToEstadoCuota applied
           }),
         })
       );
@@ -1138,12 +1138,12 @@ describe("ClienteRepository", () => {
       expect(mapEstadoCuentaToEstadoCuota("Activo")).toBe("AL_DIA");
     });
 
-    it("should map Inactivo to VENCIDA", () => {
-      expect(mapEstadoCuentaToEstadoCuota("Inactivo")).toBe("VENCIDA");
+    it("should map Inactivo to INACTIVA", () => {
+      expect(mapEstadoCuentaToEstadoCuota("Inactivo")).toBe("INACTIVA");
     });
 
-    it("should map Bloqueado to PENDIENTE", () => {
-      expect(mapEstadoCuentaToEstadoCuota("Bloqueado")).toBe("PENDIENTE");
+    it("should map Bloqueado to BLOQUEADA", () => {
+      expect(mapEstadoCuentaToEstadoCuota("Bloqueado")).toBe("BLOQUEADA");
     });
 
     it("should default to AL_DIA for unknown values", () => {
@@ -1156,12 +1156,23 @@ describe("ClienteRepository", () => {
       expect(mapEstadoCuotaToEstadoCuenta("AL_DIA")).toBe("Activo");
     });
 
-    it("should map VENCIDA to Inactivo", () => {
-      expect(mapEstadoCuotaToEstadoCuenta("VENCIDA")).toBe("Inactivo");
+    it("should map INACTIVA to Inactivo", () => {
+      expect(mapEstadoCuotaToEstadoCuenta("INACTIVA")).toBe("Inactivo");
     });
 
-    it("should map PENDIENTE to Bloqueado", () => {
-      expect(mapEstadoCuotaToEstadoCuenta("PENDIENTE")).toBe("Bloqueado");
+    it("should map BLOQUEADA to Bloqueado", () => {
+      expect(mapEstadoCuotaToEstadoCuenta("BLOQUEADA")).toBe("Bloqueado");
+    });
+
+    it("should show the payment values VENCIDA and PENDIENTE as Inactivo (D-27)", () => {
+      expect(mapEstadoCuotaToEstadoCuenta("VENCIDA")).toBe("Inactivo");
+      expect(mapEstadoCuotaToEstadoCuenta("PENDIENTE")).toBe("Inactivo");
+    });
+
+    it("should round-trip every estadoCuenta through the database value", () => {
+      for (const estado of ["Activo", "Inactivo", "Bloqueado"] as const) {
+        expect(mapEstadoCuotaToEstadoCuenta(mapEstadoCuentaToEstadoCuota(estado))).toBe(estado);
+      }
     });
 
     it("should default to Activo for unknown values", () => {
