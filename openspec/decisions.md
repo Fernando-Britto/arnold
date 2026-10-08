@@ -324,6 +324,22 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Límite conocido**: el footer de máquina de `Tarjeta_Detalle` (RN-05) no tiene datos: `Ejercicio` no se relaciona con
   `Maquina` en el schema. El payload no trae estado de máquina.
 
+### D-30 · Script de seed de desarrollo (cierra P-08)
+- **Origen**: Claude; Fernando pidió seguir con P-08 tras T-028.
+- **Decisión**: `prisma/seed-data.ts` (lógica, recibe Prisma por parámetro y se prueba con un Prisma simulado en
+  `tests/prisma-seed.test.ts`) y `prisma/seed.ts` (runner). Se corre con `npm run seed` (`prisma db seed`, configurado en
+  `package.json#prisma.seed`, con `prisma/tsconfig.json` propio para que ts-node use CommonJS en cualquier sistema).
+- **Repetible**: usuarios/empleados/socios con `upsert` por clave única; membresías, ejercicios, rutinas, máquinas,
+  configuración y regla de progresión solo si faltan; asistencias, progreso, pagos, cuotas y sesiones se borran y recrean
+  **solo para los 2 socios del seed** (siempre con filtro `socioId in [...]`), con fechas relativas a "ahora".
+- **Seguridad**: se niega a correr con `NODE_ENV=production`; la contraseña se guarda hasheada (bcrypt, 10 rondas, como el
+  login); al volver a correr, los usuarios del seed vuelven a quedar ACTIVO y con la contraseña del seed; solo muestra el
+  host de `DATABASE_URL`, nunca las credenciales. Todos los emails son `@arnold.test`.
+- **Datos**: socio 1 al día con rutina activa, progreso, asistencias y un pago de hoy; socio 2 con la cuota vencida y sin
+  visitas recientes (dispara las alertas de Home_Interno). Capacidad 60, ventana de aforo 90 min.
+- **No verificado**: no se pudo correr contra una base real (el asistente no puede generar el cliente de Prisma); lo
+  cubren los tests con Prisma simulado y la corrida de Fernando.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -364,7 +380,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
 | P-06 | Sin revocación de tokens ni refresh (D-08, D-23) | Media | Requiere migración de `TokenRevocation` (propuesta T-027); el logout solo borra la cookie. Ver también P-20 |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | Los logs muestran 2,1–3,5 s de `application-code` y ~0,4 s por consulta simple en otros endpoints: la base parece tener latencia alta. Son 14 consultas; revisar cuántas pueden fusionarse |
-| P-08 | No hay script de seed de usuarios | Media | Hoy los usuarios se crean a mano |
+| P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto** en D-30 (`npm run seed`). Falta correrlo contra la base real |
 | P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |
 | P-11 | El proxy consulta la base en cada navegación de página (incluido el prefetch) | Baja | Compromiso aceptado: un usuario deshabilitado queda afuera al instante |

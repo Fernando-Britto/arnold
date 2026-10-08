@@ -23,7 +23,11 @@ npm run dev                 # http://localhost:3000
 | `DATABASE_URL` | Conexión a PostgreSQL |
 | `JWT_SECRET` | Firma de la cookie de sesión. **Obligatoria en producción** |
 
-No hay script de seed todavía (pendiente P-08): los usuarios se crean a mano.
+**Datos de desarrollo** (opcional, solo para probar): `npm run seed` carga 5 usuarios (Administrador, Instructor,
+Recepcionista y 2 Socios, todos `@arnold.test`), membresías, ejercicios, rutinas, máquinas y datos de asistencia, progreso,
+pagos y cuotas. Se puede correr las veces que haga falta (no duplica) y se niega a correr con `NODE_ENV=production`.
+La contraseña por defecto es `Arnold2026!`; se cambia con `SEED_PASSWORD` en el `.env`. Prisma 6 avisa que
+`package.json#prisma` está deprecado: es solo un aviso.
 
 ## Comandos
 

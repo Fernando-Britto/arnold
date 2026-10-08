@@ -90,7 +90,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real | Baja |
 | P-06 | Sin revocación de tokens: el logout solo borra la cookie | Media |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |
-| P-08 | No hay script de seed de usuarios | Media |
+| P-08 | ~~No hay script de seed de usuarios~~ → resuelto (`npm run seed`, D-30); falta correrlo contra la base | Baja |
 | P-15 | Accesos denegados sin registrar en `AuditoriaAcceso` | Media |
 | P-16 | Rate limit del login: fuera de Vercel todos comparten la IP `unknown` | Media |
 | P-20 | Refresh token con rotación (junto con P-06) | Media |
