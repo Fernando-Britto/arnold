@@ -422,6 +422,30 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Verificado contra la base (2026-10-09)**: con dos tokens de Socio, `GET /api/clientes` daba `403` antes del logout y `401 TOKEN_INVALID` después de
   `POST /api/auth/logout`. Se probó el endpoint con `curl`; el botón de FX-19 no se probó aparte.
 
+### D-35 · Home_Interno: consultas planas en una sola ronda (P-07)
+- **Origen**: Claude; Fernando pidió resolver P-07 y después P-22.
+- **Diagnóstico** (por lectura del código y de los logs; **no se pudo medir contra la base real**): `buildHomeInternoPayload` hacía
+  14 consultas visibles, pero cada relación anidada de Prisma es **otra consulta, encadenada** (padre y después hijo): en total
+  unas 25, con cadenas de hasta 4 pasos (pago → socio → usuario → membresía) y con `config` esperando antes de lanzar las
+  otras 13. Con la base lejos (~0,1–0,4 s por viaje) el camino crítico eran ~5 viajes seguidos; en frío, además, cada consulta
+  paralela puede abrir su propia conexión.
+- **Decisión**: ninguna consulta anida relaciones; son 14 consultas planas que salen **todas juntas** (una sola ronda) y el cruce
+  (nombre del socio, plan, rutina) se hace en memoria. Detalle:
+  - los pagos (caja y feed de 24 h) salen de **una** consulta de 36 h;
+  - la última cuota y la última visita por socio se agregan en la base con `groupBy` + `_max` (una fila por socio) en vez de traer
+    el historial con `take: 1` anidado;
+  - el personal en turno es una consulta sobre `Usuario` con filtro por la relación `empleado` (un JOIN);
+  - `clientes` y `membresias` ya no son `count()` aparte: salen de las listas de socios y de planes que se traen igual;
+  - la ventana de aforo se **recorta a 6 h** (`MAX_VENTANA_AFORO_MIN`): así la consulta de asistencias no espera a `config`.
+- **Guardias en el test** (`src/api/home-interno-data.test.ts`): "todas las consultas salen juntas" (ninguna espera a otra) y "ninguna
+  consulta anida relaciones en `select`". El test de contrato (JSON → dominio → números de la spec) se mantiene.
+- **Contrato**: el JSON de `/api/home-interno` no cambia. Cambio de datos de prueba: el feed y la caja salen de la misma lista de pagos.
+- **Medición**: la ruta responde `Server-Timing: datos;dur=<ms>` (tiempo de armado de datos, sin el proxy).
+- **Costo conocido**: se traen todos los socios y usuarios-socio en cada llamada (una fila corta por socio); con decenas de miles
+  de socios habría que paginar o cachear.
+- **Sin migración.** Preview feature `relationJoins` de Prisma **descartada**: sigue siendo preview en 6.19 y no se pudo probar.
+- **No verificado contra una base real**: los tests usan Prisma simulado; falta comparar tiempos y el contenido del dashboard.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -464,7 +488,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
 | P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto y verificado** en D-34 (T-027): el logout revoca el `jti`. El refresh sigue pendiente (P-20) |
-| P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | Los logs muestran 2,1–3,5 s de `application-code` y ~0,4 s por consulta simple en otros endpoints: la base parece tener latencia alta. Son 14 consultas; revisar cuántas pueden fusionarse |
+| P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ | — | **Implementado, falta medir** (D-35): consultas planas en una sola ronda + `Server-Timing`. Si sigue lenta, queda la consulta del proxy en cada request (usuario + revocación, D-34) |
 | P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto** en D-30 (`npm run seed`). Falta correrlo contra la base real |
 | P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |

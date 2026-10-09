@@ -24,6 +24,12 @@ export async function handleHomeInternoRequest(): Promise<{ status: number; body
  * `no-store`: the spec requires live data, not snapshots older than the page session.
  */
 export async function GET() {
+  const inicio = performance.now();
   const { status, body } = await handleHomeInternoRequest();
-  return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
+  // Server-Timing (P-07): cuánto tardó armar los datos. Se ve con `curl -i` o en la pestaña Network del navegador.
+  const ms = Math.round(performance.now() - inicio);
+  return NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "no-store", "Server-Timing": `datos;dur=${ms}` },
+  });
 }

@@ -17,9 +17,19 @@ import type { HomeInternoDTO } from "@/api/home-interno";
  * - "Active" attendance = a PERMITIDO check-in inside `ventanaAforoMinutos`
  *   (Asistencia has no check-out), default 90 per the schema.
  * - "Baja de socio" = a SOCIO user soft-deleted (`deletedAt`) in the last 24h.
+ *
+ * Rendimiento (P-07 / D-35): Prisma resuelve cada relación anidada con una consulta APARTE y EN CADENA
+ * (padre y después hijo). Con una base lejana (~0,1–0,4 s por viaje) eso suma segundos. Por eso acá
+ * NINGUNA consulta anida relaciones: son 14 consultas planas que salen todas juntas, en una sola ronda,
+ * y el cruce (nombre del socio, plan, rutina) se hace en memoria. La guardia está en el test
+ * ("ninguna consulta anida relaciones" y "una sola ronda"). Los filtros por relación (`where`) sí
+ * valen: se resuelven con un JOIN dentro de la misma consulta.
+ * - La ventana de aforo se recorta a MAX_VENTANA_AFORO_MIN: así la consulta de asistencias no necesita
+ *   esperar a la configuración para saber desde cuándo traer (eso era un viaje de más).
  */
 const HOUR_MS = 60 * 60 * 1000;
 const DEFAULT_VENTANA_AFORO_MIN = 90;
+const MAX_VENTANA_AFORO_MIN = 6 * 60; // tope razonable para "personas adentro ahora"
 const MAX_EVENTOS = 50;
 const SLOTS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
 
@@ -41,97 +51,109 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
   // 36h back always covers the whole gym day (≤24h) whatever the time zone offset.
   const hace36h = new Date(now.getTime() - 36 * HOUR_MS);
   const inicioDia = startOfGymDay(now);
+  // Asistencias: desde el inicio del día del gimnasio o desde el tope de la ventana, lo que sea más antiguo.
+  const desdeAsistencias = new Date(Math.min(inicioDia.getTime(), now.getTime() - MAX_VENTANA_AFORO_MIN * 60 * 1000));
 
-  const config = await prisma.configuracionDelSistema.findFirst({ orderBy: { updatedAt: "desc" } });
-  const ventanaMin = config?.ventanaAforoMinutos ?? DEFAULT_VENTANA_AFORO_MIN;
-  const desdeVentana = new Date(now.getTime() - ventanaMin * 60 * 1000);
-
+  // UNA sola ronda: ninguna consulta depende de otra ni anida relaciones (ver nota de la cabecera).
   const [
-    maquinas, pagos, socios, asistencias, empleados,
-    rutinas, ejercicios, clientes, membresias,
-    pagosEvt, altas, bajas, asignaciones,
+    config, maquinas, pagosRecientes, socios, usuariosSocio, ultimasCuotas, ultimasVisitas,
+    asistencias, personal, rutinas, ejercicios, planes, asignaciones, rutinasAsignadas,
   ] = await Promise.all([
+    prisma.configuracionDelSistema.findFirst({ orderBy: { updatedAt: "desc" } }),
     prisma.maquina.findMany({ select: { estado: true } }),
+    // Una sola consulta alimenta la caja (CONFIRMADO, día argentino) y el feed de 24 h (CONFIRMADO + ANULADO).
     prisma.pago.findMany({
-      where: { estado: "CONFIRMADO", fechaPago: { gte: hace36h } },
-      select: { monto: true, metodoPago: true, estado: true, fechaPago: true },
+      where: { estado: { in: ["CONFIRMADO", "ANULADO"] }, fechaPago: { gte: hace36h } },
+      select: { estado: true, monto: true, metodoPago: true, fechaPago: true, socioId: true },
     }),
-    // One pass over the active roster feeds both "cuotas por vencer" and "socios inactivos".
-    prisma.socio.findMany({
-      where: { usuario: { estado: "ACTIVO", deletedAt: null } },
-      select: {
-        id: true,
-        usuario: { select: { nombre: true } },
-        cuotas: { orderBy: { fechaVencimiento: "desc" }, take: 1, select: { fechaVencimiento: true } },
-        asistencias: { where: { estado: "PERMITIDO" }, orderBy: { fechaHora: "desc" }, take: 1, select: { fechaHora: true } },
-      },
-    }),
+    prisma.socio.findMany({ select: { id: true, usuarioId: true, membresiaAsignadaId: true, fechaAlta: true } }),
+    prisma.usuario.findMany({ where: { rol: "SOCIO" }, select: { id: true, nombre: true, estado: true, deletedAt: true } }),
+    // Última cuota y última visita por socio, agregadas en la base: una fila por socio en vez de traer todo el historial.
+    prisma.cuota.groupBy({ by: ["socioId"], _max: { fechaVencimiento: true } }),
+    prisma.asistencia.groupBy({ by: ["socioId"], where: { estado: "PERMITIDO" }, _max: { fechaHora: true } }),
     prisma.asistencia.findMany({
-      where: { estado: "PERMITIDO", fechaHora: { gte: new Date(Math.min(inicioDia.getTime(), desdeVentana.getTime())) } },
+      where: { estado: "PERMITIDO", fechaHora: { gte: desdeAsistencias } },
       select: { fechaHora: true },
     }),
-    prisma.empleado.findMany({
-      where: { estadoLaboral: "ACTIVO", turno: turnoActual(now), usuario: { estado: "ACTIVO", deletedAt: null } },
-      select: { usuario: { select: { rol: true } } },
+    // Personal en turno: filtro por la relación 1:1 con Empleado (un JOIN), sin traer el Empleado.
+    prisma.usuario.findMany({
+      where: { estado: "ACTIVO", deletedAt: null, empleado: { is: { estadoLaboral: "ACTIVO", turno: turnoActual(now) } } },
+      select: { rol: true },
     }),
     prisma.rutina.count(),
     prisma.ejercicio.count(),
-    prisma.socio.count({ where: { usuario: { deletedAt: null } } }),
-    prisma.membresia.count(),
-    prisma.pago.findMany({
-      where: { estado: { in: ["CONFIRMADO", "ANULADO"] }, fechaPago: { gte: hace24h } },
-      orderBy: { fechaPago: "desc" },
-      take: MAX_EVENTOS,
-      select: {
-        estado: true,
-        fechaPago: true,
-        socio: { select: { usuario: { select: { nombre: true } }, membresiaAsignada: { select: { nombre: true } } } },
-      },
-    }),
-    prisma.socio.findMany({
-      where: { fechaAlta: { gte: hace24h } },
-      orderBy: { fechaAlta: "desc" },
-      take: MAX_EVENTOS,
-      select: { fechaAlta: true, usuario: { select: { nombre: true } } },
-    }),
-    prisma.usuario.findMany({
-      where: { rol: "SOCIO", deletedAt: { gte: hace24h } },
-      orderBy: { deletedAt: "desc" },
-      take: MAX_EVENTOS,
-      select: { nombre: true, deletedAt: true },
-    }),
+    prisma.membresia.findMany({ select: { id: true, nombre: true } }),
     prisma.rutinaAsignada.findMany({
       where: { fechaAsignacion: { gte: hace24h } },
       orderBy: { fechaAsignacion: "desc" },
       take: MAX_EVENTOS,
-      select: {
-        fechaAsignacion: true,
-        rutina: { select: { nombre: true } },
-        socio: { select: { usuario: { select: { nombre: true } } } },
-      },
+      select: { fechaAsignacion: true, socioId: true, rutinaId: true },
+    }),
+    prisma.rutina.findMany({
+      where: { asignaciones: { some: { fechaAsignacion: { gte: hace24h } } } },
+      select: { id: true, nombre: true },
     }),
   ]);
+
+  const ventanaMin = Math.min(config?.ventanaAforoMinutos ?? DEFAULT_VENTANA_AFORO_MIN, MAX_VENTANA_AFORO_MIN);
+  const desdeVentana = new Date(now.getTime() - ventanaMin * 60 * 1000);
 
   const entradasDeHoy = asistencias.map((a) => a.fechaHora).filter((f) => f >= inicioDia);
   const { horas, horaActual } = buildAforoHoras(entradasDeHoy, now);
 
+  // --- Cruces en memoria ---
+  const usuarioPorId = new Map(usuariosSocio.map((u) => [u.id, u]));
+  const socioPorId = new Map(socios.map((s) => [s.id, s]));
+  const planPorId = new Map(planes.map((m) => [m.id, m.nombre]));
+  const rutinaPorId = new Map(rutinasAsignadas.map((r) => [r.id, r.nombre]));
+  const cuotaPorSocio = new Map(ultimasCuotas.map((c) => [c.socioId, c._max.fechaVencimiento]));
+  const visitaPorSocio = new Map(ultimasVisitas.map((v) => [v.socioId, v._max.fechaHora]));
+  const nombreDeSocio = (socioId: string | null | undefined) => {
+    const socio = socioId ? socioPorId.get(socioId) : undefined;
+    return socio ? usuarioPorId.get(socio.usuarioId)?.nombre : undefined;
+  };
+
+  // Padrón activo: socios cuyo usuario está ACTIVO y no dado de baja.
+  const padron = socios.filter((s) => {
+    const u = usuarioPorId.get(s.usuarioId);
+    return u !== undefined && u.estado === "ACTIVO" && u.deletedAt === null;
+  });
+  const clientes = socios.filter((s) => usuarioPorId.get(s.usuarioId)?.deletedAt === null).length;
+
   const eventos: HomeInternoDTO["eventos"] = [
-    ...pagosEvt.map((p) => {
-      const anulado = p.estado === "ANULADO";
-      const plan = p.socio?.membresiaAsignada?.nombre;
-      return {
-        tipo: anulado ? ("ANULACION_PAGO" as const) : ("PAGO" as const),
-        nombre: p.socio?.usuario.nombre ?? "Pago sin socio",
-        descripcion: anulado ? "Pago anulado" : plan ? `Pago de membresía ${plan}` : "Pago registrado",
-        fecha: p.fechaPago.toISOString(),
-      };
-    }),
-    ...altas.map((s) => ({ tipo: "ALTA_SOCIO" as const, nombre: s.usuario.nombre, descripcion: "Alta de nuevo socio", fecha: s.fechaAlta.toISOString() })),
-    ...bajas.map((u) => ({ tipo: "BAJA_SOCIO" as const, nombre: u.nombre, descripcion: "Baja de socio", fecha: (u.deletedAt as Date).toISOString() })),
+    ...pagosRecientes
+      .filter((p) => p.fechaPago >= hace24h)
+      .map((p) => {
+        const anulado = p.estado === "ANULADO";
+        const socio = p.socioId ? socioPorId.get(p.socioId) : undefined;
+        const plan = socio?.membresiaAsignadaId ? planPorId.get(socio.membresiaAsignadaId) : undefined;
+        return {
+          tipo: anulado ? ("ANULACION_PAGO" as const) : ("PAGO" as const),
+          nombre: nombreDeSocio(p.socioId) ?? "Pago sin socio",
+          descripcion: anulado ? "Pago anulado" : plan ? `Pago de membresía ${plan}` : "Pago registrado",
+          fecha: p.fechaPago.toISOString(),
+        };
+      }),
+    ...socios
+      .filter((s) => s.fechaAlta >= hace24h)
+      .map((s) => ({
+        tipo: "ALTA_SOCIO" as const,
+        nombre: usuarioPorId.get(s.usuarioId)?.nombre ?? "Socio",
+        descripcion: "Alta de nuevo socio",
+        fecha: s.fechaAlta.toISOString(),
+      })),
+    ...usuariosSocio
+      .filter((u) => u.deletedAt !== null && u.deletedAt >= hace24h)
+      .map((u) => ({
+        tipo: "BAJA_SOCIO" as const,
+        nombre: u.nombre,
+        descripcion: "Baja de socio",
+        fecha: (u.deletedAt as Date).toISOString(),
+      })),
     ...asignaciones.map((a) => ({
       tipo: "ASIGNACION_RUTINA" as const,
-      nombre: a.socio.usuario.nombre,
-      descripcion: `Rutina asignada: ${a.rutina.nombre}`,
+      nombre: nombreDeSocio(a.socioId) ?? "Socio",
+      descripcion: `Rutina asignada: ${rutinaPorId.get(a.rutinaId) ?? "rutina"}`,
       fecha: a.fechaAsignacion.toISOString(),
     })),
   ]
@@ -146,28 +168,31 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
       diasInactividad: config?.diasInactividad ?? null,
     },
     maquinas: maquinas.map((m) => ({ estado: m.estado })),
-    pagos: pagos.map((p) => ({
-      monto: Number(p.monto),
-      metodoPago: p.metodoPago,
-      estado: p.estado,
-      fecha: p.fechaPago.toISOString(),
-    })),
-    cuotas: socios.flatMap((s) =>
-      s.cuotas[0]
-        ? [{ socioId: s.id, socioNombre: s.usuario.nombre, fechaVencimiento: s.cuotas[0].fechaVencimiento.toISOString() }]
-        : []
-    ),
-    ultimasAsistencias: socios.map((s) => s.asistencias[0]?.fechaHora.toISOString() ?? null),
+    pagos: pagosRecientes
+      .filter((p) => p.estado === "CONFIRMADO")
+      .map((p) => ({
+        monto: Number(p.monto),
+        metodoPago: p.metodoPago,
+        estado: p.estado,
+        fecha: p.fechaPago.toISOString(),
+      })),
+    cuotas: padron.flatMap((s) => {
+      const vencimiento = cuotaPorSocio.get(s.id);
+      return vencimiento
+        ? [{ socioId: s.id, socioNombre: usuarioPorId.get(s.usuarioId)?.nombre ?? "Socio", fechaVencimiento: vencimiento.toISOString() }]
+        : [];
+    }),
+    ultimasAsistencias: padron.map((s) => visitaPorSocio.get(s.id)?.toISOString() ?? null),
     aforo: {
       asistenciasActivas: asistencias.filter((a) => a.fechaHora >= desdeVentana).length,
       horas,
       horaActual,
     },
-    personal: empleados
-      .map((e) => e.usuario.rol as string)
+    personal: personal
+      .map((e) => e.rol as string)
       .filter((rol): rol is StaffRol => STAFF.includes(rol))
       .map((rol) => ({ rol })),
-    contadores: { rutinas, ejercicios, clientes, membresias },
+    contadores: { rutinas, ejercicios, clientes, membresias: planes.length },
     eventos,
   };
 }
