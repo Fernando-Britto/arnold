@@ -84,8 +84,8 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
    igual el nuevo nombre y email del usuario (FX-09).
 5. Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos (P-02).
 6. **Cerrar sesión** y probar que el token queda inútil: iniciá sesión, copiá la cookie `authToken` (herramientas del
-   navegador → Application/Storage), cerrá sesión, y repetí un pedido a la API con esa cookie (por ejemplo con `curl`):
-   tiene que responder `401` `TOKEN_INVALID` (P-06, D-34).
+   navegador → Application/Storage), cerrá sesión con el botón de la barra superior (Socio y personal; FX-19), y repetí un
+   pedido a la API con esa cookie (por ejemplo con `curl`): tiene que responder `401` `TOKEN_INVALID` (P-06, D-34).
 
 ## Pendientes principales
 

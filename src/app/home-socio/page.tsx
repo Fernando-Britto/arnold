@@ -29,7 +29,7 @@ import { MembresiaCard } from "@/components/home-socio/membresia-card";
  */
 export function HomeSocioPage() {
   const router = useRouter();
-  const { isAuthenticated, isMember } = useAuth();
+  const { isAuthenticated, isMember, logout } = useAuth();
 
   const [data, setData] = useState<HomeSocioViewModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,7 +104,7 @@ export function HomeSocioPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F7F7F7]">
-      <TopNav active="inicio" />
+      <TopNav active="inicio" onLogoutClick={() => void logout()} />
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-12">
         {/* Fila1 */}

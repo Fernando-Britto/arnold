@@ -141,4 +141,16 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
     // The exercise state for e1 (before indiceActual) should read "completado"
     expect(screen.getByTestId("ejercicio-e1")).toHaveAttribute("data-estado", "completado");
   });
+
+  it('el botón "Cerrar sesión" del TopNav cierra la sesión (logout del contexto)', async () => {
+    const logout = jest.fn();
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false, logout });
+    const user = userEvent.setup();
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    await user.click(screen.getByRole("button", { name: /cerrar sesión/i }));
+
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
 });

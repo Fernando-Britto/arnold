@@ -43,4 +43,14 @@ describe("TopNav (matches Home_Socio_1x §TopNav)", () => {
     expect(onNotificationsClick).toHaveBeenCalledTimes(1);
     expect(onAvatarClick).toHaveBeenCalledTimes(1);
   });
+
+  it("tiene un botón 'Cerrar sesión' que llama a onLogoutClick (el Socio no tenía forma de salir)", async () => {
+    const onLogoutClick = jest.fn();
+    const user = userEvent.setup();
+    render(<TopNav active="inicio" onLogoutClick={onLogoutClick} />);
+
+    await user.click(screen.getByRole("button", { name: /cerrar sesión/i }));
+
+    expect(onLogoutClick).toHaveBeenCalledTimes(1);
+  });
 });

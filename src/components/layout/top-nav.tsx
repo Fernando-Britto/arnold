@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Bell, Search } from "lucide-react";
+import { Bell, LogOut, Search } from "lucide-react";
 
 /**
  * TopNav — top navigation bar for the Socio-facing app (Home_Socio y afines).
@@ -25,6 +25,8 @@ export interface TopNavProps {
   onSearchClick?: () => void;
   onNotificationsClick?: () => void;
   onAvatarClick?: () => void;
+  /** Cierra la sesión (P-06: sin esto el Socio no tenía forma de salir ni de revocar su token). */
+  onLogoutClick?: () => void;
 }
 
 const LINKS: { key: TopNavLink; label: string }[] = [
@@ -40,7 +42,9 @@ export function TopNav({
   onSearchClick,
   onNotificationsClick,
   onAvatarClick,
-}: TopNavProps) {  return (
+  onLogoutClick,
+}: TopNavProps) {
+  return (
     <div className="flex h-20 items-center justify-between bg-white px-12 shadow-[0px_1px_2px_rgba(0,0,0,0.051)]">
       <div className="flex items-center">
         <p className="text-xl font-bold text-zinc-900">ARNOLD</p>
@@ -88,6 +92,14 @@ export function TopNav({
           className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100"
         >
           <Bell className="h-5 w-5 text-zinc-500" />
+        </button>
+        <button
+          type="button"
+          aria-label="Cerrar sesión"
+          onClick={onLogoutClick}
+          className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200"
+        >
+          <LogOut className="h-5 w-5 text-zinc-500" />
         </button>
         <button
           type="button"
