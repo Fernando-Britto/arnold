@@ -419,7 +419,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Límites**: (1) solo se revoca el token de la sesión que cierra; no hay "cerrar todas las sesiones". (2) Deshabilitar o borrar
   un usuario ya cortaba el acceso (el proxy mira `estado` y `deletedAt`). (3) `extractUserFromRequest` en los handlers no consulta
   revocaciones: confía en que el proxy ya las filtró. (4) **El refresh con rotación (P-20) sigue pendiente**.
-- **No verificado contra una base real**: tests con Prisma simulado; hay que aplicar la migración y probar un logout.
+- **Verificado contra la base (2026-10-09)**: con dos tokens de Socio, `GET /api/clientes` daba `403` antes del logout y `401 TOKEN_INVALID` después de
+  `POST /api/auth/logout`. Se probó el endpoint con `curl`; el botón de FX-19 no se probó aparte.
 
 ---
 
@@ -462,7 +463,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-03 | ~~La pantalla de Clientes se cae entera si falla el desplegable de membresías~~ | — | **Resuelto** en D-31 |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
-| P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto** en D-34 (T-027): el logout revoca el `jti`. Falta aplicar la migración y probarlo. El refresh sigue pendiente (P-20) |
+| P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto y verificado** en D-34 (T-027): el logout revoca el `jti`. El refresh sigue pendiente (P-20) |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | Los logs muestran 2,1–3,5 s de `application-code` y ~0,4 s por consulta simple en otros endpoints: la base parece tener latencia alta. Son 14 consultas; revisar cuántas pueden fusionarse |
 | P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto** en D-30 (`npm run seed`). Falta correrlo contra la base real |
 | P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |

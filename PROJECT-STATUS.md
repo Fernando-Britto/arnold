@@ -26,7 +26,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-018, T-019 | Home_Socio | ✅ |
 | T-028 ➕ | `GET /api/home-socio` (datos reales de Home_Socio) | ✅ sin probar con un socio real (P-05, D-29) |
 | T-029 ➕ | Auditoría de accesos: login y accesos denegados en `AuditoriaAcceso` | ✅ verificado contra la base (P-15, D-32) |
-| T-027 ➕ | Revocación de tokens en el logout (el refresh queda para P-20) | ✅ requiere aplicar la migración (P-06, D-34) |
+| T-027 ➕ | Revocación de tokens en el logout (el refresh queda para P-20) | ✅ verificado contra la base (P-06, D-34) |
 | T-020 | Home_Interno: componentes base | ✅ |
 | T-021a | Home_Interno Parte 1 (acciones, hoy, operación) | ✅ 934 LOC (estimado 250) |
 | T-021b | Home_Interno Parte 2 (gestión, actividad) | ✅ 336 LOC (estimado 150) |
@@ -50,6 +50,9 @@ partió en 7 PRs está en `decisions.md` (D-01).
   del usuario apuntado o vacío si el email no existe), `LOGIN/ALLOW` y `ACCESS_DENIED/DENY` con `motivo` `GET /clientes` (P-15, D-32).
 - Límite de intentos de login (2026-10-08, `curl` contra `npm run dev`): 8 intentos con `401` y el 9.º y 10.º con `429`;
   la pantalla `/login` muestra "Demasiados intentos" solo con el `429` (P-16, D-33).
+- Revocación de tokens (2026-10-09, `curl` contra `npm run dev`, con la migración aplicada): con dos tokens distintos de Socio, `GET /api/clientes`
+  respondía `403` (sesión válida sin permiso); tras `POST /api/auth/logout` con ese mismo token, el mismo pedido respondió `401 TOKEN_INVALID`
+  (P-06, D-34). Se probó el endpoint con `curl`; el botón "Cerrar sesión" del Socio (FX-19) no se probó aparte.
 - Los nombres de modelo, campo, relación y enum usados por `/api/home-interno` existen en `schema.prisma` (41 de 41).
 
 **No verificado**
@@ -83,7 +86,7 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 4. **Revisar los clientes que se intentaron editar mientras el error estaba abierto**: cada intento fallido guardó
    igual el nuevo nombre y email del usuario (FX-09).
 5. Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos (P-02).
-6. **Cerrar sesión** y probar que el token queda inútil: iniciá sesión, copiá la cookie `authToken` (herramientas del
+6. ~~**Cerrar sesión** y probar que el token queda inútil~~ → hecho el 2026-10-09 con `curl` (P-06). Pasos usados: iniciá sesión, copiá la cookie `authToken` (herramientas del
    navegador → Application/Storage), cerrá sesión con el botón de la barra superior (Socio y personal; FX-19), y repetí un
    pedido a la API con esa cookie (por ejemplo con `curl`): tiene que responder `401` `TOKEN_INVALID` (P-06, D-34).
 
@@ -98,7 +101,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-03 | ~~Clientes se cae entero si falla el desplegable de membresías~~ → resuelto (D-31) | Baja |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ → resuelto (D-31) | Baja |
 | P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real | Baja |
-| P-06 | ~~Sin revocación de tokens~~ → resuelto (T-027, D-34); falta aplicar la migración y probarlo | Baja |
+| P-06 | ~~Sin revocación de tokens~~ → resuelto y verificado (T-027, D-34) | Baja |
 | P-07 | Home_Interno tarda 2–4 s en desarrollo (base con latencia alta, 14 consultas) | Media |
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto (`npm run seed`, D-30); falta correrlo contra la base | Baja |
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
