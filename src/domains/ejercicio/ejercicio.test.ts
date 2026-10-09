@@ -3,13 +3,14 @@ import { createEjercicio, validateEjercicio, EjercicioRepository } from "./ejerc
 // Prisma simulado en memoria (FX-16, P-19): este test NO debe tocar la base real. Antes cada corrida
 // creaba ejercicios en la base de desarrollo y el primer test dependía de la latencia de la conexión.
 jest.mock("@/lib/db", () => {
-  type Fila = Record<string, unknown> & { id: string; nombre: string; grupoMuscular: string };
+  type Datos = Record<string, unknown> & { nombre: string; grupoMuscular: string };
+  type Fila = Datos & { id: string };
   const filas = new Map<string, Fila>();
   let contador = 0;
   const noExiste = () => Object.assign(new Error("Record does not exist"), { code: "P2025" });
 
   const ejercicio = {
-    create: async ({ data }: { data: Omit<Fila, "id"> }) => {
+    create: async ({ data }: { data: Datos }) => {
       const fila: Fila = { id: `ej-${++contador}`, ...data, createdAt: new Date(), updatedAt: new Date() };
       filas.set(fila.id, fila);
       return fila;

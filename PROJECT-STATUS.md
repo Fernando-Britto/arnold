@@ -78,7 +78,8 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 
 ## Antes de seguir
 
-1. ~~`npx tsc --noEmit` en la máquina local~~ → hecho el 2026-10-08, sin errores (P-01).
+1. ~~`npx tsc --noEmit` en la máquina local~~ → hecho el 2026-10-08, sin errores (P-01). El 2026-10-09 (tras D-35) dio 1 error en el mock de
+   `ejercicio.test.ts` (FX-20) y ninguno en el código de la aplicación.
 2. **Aplicar las migraciones pendientes** (`npx prisma migrate deploy` y `npx prisma generate`) antes de las pruebas 3 y 6:
    `20261008190000_add_estado_cuota_inactiva_bloqueada` (Inactivo guarda `INACTIVA` y Bloqueado `BLOQUEADA`, D-27, FX-17) y
    `20261008230000_add_token_revocation` (D-34).
