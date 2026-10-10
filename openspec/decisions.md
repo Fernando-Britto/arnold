@@ -450,9 +450,15 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Lectura**: (1) el armado de datos y el proxy tardan parecido, y ambos son idas y vueltas a la base: la variación entre pedidos apunta a
   la red o al pool, no al código; (2) no hay un "antes" medido en las mismas condiciones (las mediciones previas son de otra sesión), así
   que **no se puede afirmar cuánto mejoró** el cambio. Lo que sí garantizan los tests es que pasó de ~5 viajes seguidos a 1.
-- **Siguiente medición**: `npm run db:latency` (`prisma/db-latency.ts`): primera consulta en frío, 10 consultas seguidas y 14 a la vez. Dice si la
-  base está lejos, si el pool atiende en paralelo y cuánto cuesta abrir una conexión; con eso se decide entre mover la región de Supabase,
-  ajustar `connection_limit` o cachear la consulta del proxy.
+- **`npm run db:latency` (2026-10-09)**: base `db.<ref>.supabase.co:5432` (conexión directa, sin parámetros). Una consulta sola: 193–310 ms (mediana 212).
+  14 a la vez: mediana 203 ms (1,0× una sola; el máximo, 2120 ms, es el primer lote: abrir las conexiones del pool). Primera consulta con la
+  conexión en frío: 2178 ms. **Lectura**: la red es moderada (cada viaje seguido cuesta ~0,2 s), el pool paraleliza bien y lo caro es *abrir* una
+  conexión (~2,2 s). No hace falta tocar `connection_limit`. Con las conexiones abiertas, armar Home_Interno debería costar ~1 viaje (0,2–0,4 s),
+  pero en `npm run dev` se mide 0,55–1,55 s y el proxy 0,6–1,9 s: **esa diferencia no sale de la base**.
+- **Experimento pendiente**: `npm run bench:home-interno` (`prisma/bench-home-interno.ts`) corre el mismo armado de datos y la misma verificación
+  de sesión del proxy **fuera de Next** (solo lee). Si ahí tarda ~0,2–0,6 s de forma pareja, los segundos extra son del servidor de desarrollo
+  (compilación, recarga, clientes de Prisma separados) y no existen en producción; si también tarda más, hay consultas pesadas o conexiones
+  que se reabren. Usa `tsconfig-paths` (ya estaba en el lock como dependencia transitiva de ESLint; ahora declarada en `devDependencies`).
 
 ---
 
@@ -497,7 +503,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
 | P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto y verificado** en D-34 (T-027): el logout revoca el `jti`. El refresh sigue pendiente (P-20) |
-| P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | **Medido el 2026-10-09 (D-35): sigue en 1,2–4,2 s por request.** El armado de datos ya no es lo más lento: el proxy cuesta tanto o más. Falta `npm run db:latency` para separar red, pool y conexión en frío |
+| P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | **Medido el 2026-10-09 (D-35): sigue en 1,2–4,2 s por request en `npm run dev`.** La base no es la causa (≈ 0,2 s por viaje, pool bien, abrir una conexión ≈ 2,2 s). Falta `npm run bench:home-interno` para saber si el resto es del servidor de desarrollo |
 | P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto** en D-30 (`npm run seed`). Falta correrlo contra la base real |
 | P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |
