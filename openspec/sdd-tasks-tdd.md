@@ -1,7 +1,7 @@
 # SDD Tasks: ARNOLD MVP Core (TDD Mode)
 
-**Status**: IN EXECUTION — T-001 … T-021c and T-026 done; T-023b and T-024 pending  
-**Date**: 2026-09-12 (approved) · Updated 2026-10-05  
+**Status**: IN EXECUTION — T-001 … T-021c and T-026 … T-030 done; T-023b and T-024 pending  
+**Date**: 2026-09-12 (approved) · Updated 2026-10-10  
 **Mode**: Strict TDD (strict_tdd: true)  
 **Delivery**: Chained PRs (≤400 LOC each) — 28 planned + additions (see [Scope changes during apply](#scope-changes-during-apply))  
 **Total LOC**: 7,885 planned baseline · actuals are tracked per task below  
@@ -41,6 +41,9 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-014 – T-017 Membresía | ✅ | PR-006-C … PR-007-C | — | |
 | T-018, T-019 Home_Socio | ✅ | PR-008-A, PR-008-B | — | Data endpoint added later as T-028 |
 | T-028 ➕ `GET /api/home-socio` | ✅ | PR-012-A/B/C | — | Domain + Prisma payload + route; D-29 |
+| T-029 ➕ Access audit | ✅ | — (direct to `dev`) | — | Logins and denied access in `AuditoriaAcceso`; D-32, P-15; verified against the database |
+| T-027 ➕ Token revocation on logout | ✅ | — (direct to `dev`) | — | `TokenRevocation` table + proxy check; D-34, P-06; verified. Refresh with rotation stays open (P-20) |
+| T-030 ➕ Home_Interno flat queries | ✅ | — (direct to `dev`) | — | One round of queries + `Server-Timing`; D-35, P-07; measured outside Next (~0.4 s) |
 | T-020 Home_Interno components | ✅ | PR-008-C | — | FX-01, FX-02 fixed in T-021a |
 | T-021a Home_Interno Part 1 | ✅ | PR-009-A1/A2/A3 | 934 (est. 250) | Scope grew, see D-01 |
 | T-021b Home_Interno Part 2 | ✅ | PR-009-B | 336 (est. 150) | +31 LOC rename refactor |
@@ -609,25 +612,23 @@ npm test -- src/middleware/role-gating
 14. **An `any` that silences the compiler hides the bug** (FX-13, FX-14): removing it exposed both the Prisma input-shape
     conflict and invalid enum values (L-09).
 
-15. **Run the full suite before the PR**: a DB-backed test timed out only with all suites in parallel (FX-16, L-10).
+15. **Run the full suite before the PR**: a test that used the real database timed out only with all suites in parallel (FX-16, L-10); it now uses an in-memory Prisma. Unit tests must not touch the database (L-13).
 
 ---
 
 ## Next Phase: sdd-apply — current state
 
-Executed so far: T-001 → … → T-021c and T-026a/b/c (see [Execution Status](#execution-status)).
+Executed so far: T-001 → … → T-021c, T-026a/b/c and T-027 … T-030 (see [Execution Status](#execution-status)).
 
 Suggested order for what is left (details and severities in `decisions.md` §3 and `PROJECT-STATUS.md`):
 
-1. **Verify before building more**: run `npx tsc --noEmit` locally (P-01), compare `/api/home-interno` numbers with
-   real data (P-02), edit a client (name + membership + status) against the real database (P-21) and check the clients
-   that were edited while FX-09 was open.
-2. **P-03** Clientes screen: show the list even if the membership dropdown fails (`Promise.allSettled`).
-3. **P-04** Make `ClienteRepository.create()` atomic (Usuario + Socio).
-4. **T-023b** (PR-009-D) and **T-024** (PR-010-A), as planned.
-5. **P-05** `/api/home-socio` (proposed T-028), **P-08** user seed script, **P-06 / P-20** token revocation and refresh
-   (proposed T-027, needs a migration).
-6. **P-15** log denied access to `AuditoriaAcceso` (proposed T-029); **P-16** rate-limit key outside Vercel;
-   **P-22** rewrite the `authentication-login` spec.
+1. **Verify before building more**: edit a client (name + membership + status) against the real database (P-21),
+   check the clients that were edited while FX-09 was open, and compare `/api/home-interno` numbers with real data (P-02).
+2. **P-22** rewrite the `authentication-login` spec so it reflects what exists: cookie and routes, audit (D-32), login rate
+   limit (D-33) and token revocation (D-34).
+3. **T-023b** (PR-009-D) and **T-024** (PR-010-A), as planned.
+4. **P-20** refresh token with rotation (revocation is already in place).
+5. **Deployment**: evaluate the Supabase pooler (transaction mode, `directUrl` for migrations) before deploying to Vercel (D-35).
+6. **P-24** complete the `EstadoCuota` states and **P-25** integration tests for the Ejercicio repository against a test database.
 
 Workflow (D-13): one branch per task from an up-to-date `main`, tests first, ≤400 LOC per PR, `npm test` green before merging.

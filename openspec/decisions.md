@@ -529,7 +529,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-19 | Tests lentos o ruidosos: avisos `act(...)` (`ejercicios/page.test.tsx`, `cliente-form.test.tsx`) y `rutina-form.test.tsx` de 15–20 s (`ejercicio.test.ts` ya no usa la base, FX-16) | Baja | Envolver en `act(...)` y revisar los tests lentos |
 | P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Con la revocación (D-34) un token robado se puede cortar con el logout, pero la sesión sigue venciendo a las 24 h sin renovarse |
 | P-21 | Probar la edición de clientes contra la base real (nombre + membresía + estado; aplicar antes la migración de D-27) | Alta | FX-13/FX-14 pasaron tests con Prisma simulado y `tsc` está limpio (P-01); falta la prueba manual (D-26, D-27) |
-| P-22 | Reescribir el spec `authentication-login` con la implementación real | Media | Hoy lleva solo un aviso de revisión (cookie `authToken`, ruta `/login`, `{ success, role }`, refresh diferido); sus escenarios siguen describiendo el diseño original |
+| P-22 | Reescribir el spec `authentication-login` con la implementación real | Media | Hoy lleva solo un aviso de revisión, y ese aviso ya está desactualizado: dice que la revocación está diferida, pero se hizo (D-34). Tiene que reflejar cookie `authToken`, ruta `/login`, `{ success, role }`, auditoría (D-32), límite de intentos (D-33) y revocación (D-34); el refresh con rotación sigue pendiente (P-20) |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo) | Baja | `ejercicio.test.ts` ahora usa Prisma simulado (FX-16): ya no comprueba lo que hace la base real, como el borrado bloqueado por clave foránea (P2003) o la búsqueda sin distinguir mayúsculas. El test de P2003 prueba solo la traducción del error |
 | P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él |
@@ -589,6 +589,7 @@ Estos puntos los decidió el asistente porque ninguna spec los define. Corregirl
   dar un tema por cerrado.
 - **L-12 · Una corrida en verde no prueba que el arreglo exista.** FX-16 figuraba como resuelto y "confirmado", pero el commit nunca estuvo en el repo; el test había pasado por una corrida rápida. Antes de dar un fix por cerrado, comprobar con `git log -- <archivo>` o `grep` que el cambio está, y no confiar solo en que el test pase.
 - **L-13 · Un test unitario que toca la base real contamina los datos.** `ejercicio.test.ts` creaba ejercicios en la base de desarrollo en cada corrida. Revisar que los tests unitarios mockeen la base.
+- **L-14 · Toda cifra de calidad lleva el comando que la produce.** `PROJECT-STATUS.md` decía "115 errores y 41 warnings en 52 archivos" de lint, pero `npx eslint` en ese mismo commit da 145 errores, 56 avisos y 58 archivos. Sin el comando al lado, el número no se puede comprobar ni actualizar.
 
 ---
 

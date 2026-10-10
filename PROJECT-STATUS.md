@@ -1,6 +1,6 @@
 # Arnold — Estado del proyecto
 
-**Actualizado**: 2026-10-08 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
+**Actualizado**: 2026-10-10 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
 **Decisiones y defectos**: [`openspec/decisions.md`](openspec/decisions.md) · **Modo**: Strict TDD
 
 Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19, Prisma 6 sobre PostgreSQL, Jest.
@@ -44,8 +44,9 @@ partió en 7 PRs está en `decisions.md` (D-01).
 **Verificado con evidencia**
 - Logs de `next dev` de Fernando: login `200`; `/home-interno` y `GET /api/home-interno` `200`; Clientes carga para
   Administrador y Recepcionista; `GET /api/membresias/activas` `200`.
-- Tests en la máquina de Fernando (2026-10-08, `npm test`): **86 de 86 suites; 1.151 de 1.152 tests pasan** (1 `todo`).
-  Corrección: ese `timeout` de FX-16 nunca estuvo en el repo; la corrida pasó por rapidez. Ver FX-16 y FX-18 en `decisions.md`.
+- Tests en la máquina de Fernando (`npm test`), última corrida registrada (tras FX-16/FX-18, antes de T-027 y T-030): **86 de 86 suites; 1.154 de 1.155 tests
+  pasan** (1 `todo`). En el entorno del asistente, con el cliente de Prisma simulado, el código actual pasa 91 de 91 suites (1.197 tests): no reemplaza
+  una corrida real, que hay que repetir. Ver FX-16 y FX-18 en `decisions.md` (el `timeout` de FX-16 nunca estuvo en el repo; hoy el test usa Prisma simulado).
 - `npx prisma generate && npx tsc --noEmit` en la máquina de Fernando (2026-10-08): sin errores (cierra P-01).
 - Auditoría de accesos (2026-10-08, consulta a `AuditoriaAcceso` en Supabase): hay filas `LOGIN/DENY` (`AUTH_INVALID`, con `usuarioId`
   del usuario apuntado o vacío si el email no existe), `LOGIN/ALLOW` y `ACCESS_DENIED/DENY` con `motivo` `GET /clientes` (P-15, D-32).
@@ -80,9 +81,9 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 
 1. ~~`npx tsc --noEmit` en la máquina local~~ → hecho el 2026-10-08, sin errores (P-01). El 2026-10-09 (tras D-35) dio 1 error en el mock de
    `ejercicio.test.ts` (FX-20) y ninguno en el código de la aplicación.
-2. **Aplicar las migraciones pendientes** (`npx prisma migrate deploy` y `npx prisma generate`) antes de las pruebas 3 y 6:
-   `20261008190000_add_estado_cuota_inactiva_bloqueada` (Inactivo guarda `INACTIVA` y Bloqueado `BLOQUEADA`, D-27, FX-17) y
-   `20261008230000_add_token_revocation` (D-34).
+2. **Confirmar que las migraciones están aplicadas** (`npx prisma migrate status`; si falta alguna, `npx prisma migrate deploy` y `npx prisma generate`):
+   `20261008230000_add_token_revocation` ya está (la prueba de revocación de D-34 la usó) y falta confirmar
+   `20261008190000_add_estado_cuota_inactiva_bloqueada` (Inactivo guarda `INACTIVA` y Bloqueado `BLOQUEADA`, D-27, FX-17), necesaria para la prueba 3.
 3. **Editar un cliente** como Administrador y como Recepcionista: cambiar a la vez nombre, email, teléfono y membresía,
    y también el estado de cuenta (Inactivo/Bloqueado); guardar, recargar y confirmar que se persistió (FX-13, FX-14).
 4. **Revisar los clientes que se intentaron editar mientras el error estaba abierto**: cada intento fallido guardó
@@ -117,10 +118,16 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-20 | Refresh token con rotación (la revocación ya está, D-34) | Media |
 | P-21 | Probar la edición de clientes contra la base (con la migración de D-27 aplicada) | Alta |
 | P-22 | Reescribir el spec `authentication-login` | Media |
-| P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |
 | P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |
+| P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |
 
-## Cambios recientes (2026-10-07)
+## Cambios recientes (2026-10-07 al 2026-10-10)
+
+- **Seguridad de la sesión**: auditoría de logins y accesos denegados (T-029, D-32), límite de intentos de login con IP confiable (D-33) y revocación
+  del token en el logout (T-027, D-34), con el botón "Cerrar sesión" del Socio (FX-19). Falta el refresh con rotación (P-20).
+- **Rendimiento de Home_Interno**: una sola ronda de consultas con `Server-Timing` (T-030) y scripts de diagnóstico `npm run db:latency` y
+  `npm run bench:home-interno` (D-35, FX-21). P-07 cerrado: fuera de Next tarda ~0,4 s; falta evaluar el pooler de Supabase para desplegar.
+- **Datos de desarrollo**: `npm run seed` repetible con usuarios por rol (D-30).
 
 - **Clientes**: editar nombre/email y membresía en una sola transacción, sin `any` (FX-13, D-26); mapeo de estado de
   cuota alineado con el enum de Prisma (FX-14, D-27). Actualización 2026-10-08: Inactivo y Bloqueado tienen valores propios
@@ -139,8 +146,8 @@ turnos Mañana 06–14 / Tarde 14–22 / Noche 22–06 · franjas de aforo de 2 
 
 ## Calidad
 
-- Los archivos de cada PR de esta etapa están sin errores nuevos de lint. El repositorio arrastra **115 errores y 41
-  warnings en 52 archivos** (deuda preexistente): el ítem "`npm run lint` limpio" del checklist TDD se interpreta
+- Los archivos de cada PR de esta etapa están sin errores nuevos de lint. El repositorio arrastra **147 errores y 56
+  avisos en 58 archivos** (medido el 2026-10-10 con `npx eslint`; deuda preexistente, L-14): el ítem "`npm run lint` limpio" del checklist TDD se interpreta
   como "sin errores nuevos en lo tocado" (D-14).
 - Tamaño de PR: todos ≤400 LOC (el mayor, 389).
 

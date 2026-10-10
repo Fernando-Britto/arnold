@@ -35,11 +35,13 @@ La contraseña por defecto es `Arnold2026!`; se cambia con `SEED_PASSWORD` en el
 | Comando | Qué hace |
 |---|---|
 | `npm run dev` | Servidor de desarrollo |
-| `npm test` | Todos los tests (`ejercicio.test.ts` necesita la base de datos) |
+| `npm test` | Todos los tests (usan Prisma simulado: no tocan la base de datos) |
 | `npm test -- <ruta>` | Tests de una carpeta o archivo |
-| `npx tsc --noEmit` | Chequeo de tipos |
+| `npx prisma generate && npx tsc --noEmit` | Chequeo de tipos (hace falta generar antes el cliente de Prisma) |
 | `npx eslint <rutas>` | Lint. El repo arrastra deuda preexistente; ver `PROJECT-STATUS.md` |
 | `npm run build` | Build de producción |
+| `npm run db:latency` | Diagnóstico (solo lee): latencia de la base, paralelismo del pool y costo de una conexión nueva (D-35) |
+| `npm run bench:home-interno` | Diagnóstico (solo lee): mide el armado de Home_Interno y la verificación de sesión fuera de Next (D-35) |
 
 ## Roles
 
