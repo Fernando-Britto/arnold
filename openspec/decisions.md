@@ -444,7 +444,15 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Costo conocido**: se traen todos los socios y usuarios-socio en cada llamada (una fila corta por socio); con decenas de miles
   de socios habría que paginar o cachear.
 - **Sin migración.** Preview feature `relationJoins` de Prisma **descartada**: sigue siendo preview en 6.19 y no se pudo probar.
-- **No verificado contra una base real**: los tests usan Prisma simulado; falta comparar tiempos y el contenido del dashboard.
+- **Medición (2026-10-09, `curl` a `npm run dev`, 6 pedidos, personal)**: `Server-Timing datos` entre 546 y 1547 ms (mediana ≈ 980; alterna
+  ~0,6 s y ~1,4 s); en la terminal `application-code` 0,55–1,55 s (2,8 s en frío), `proxy.ts` 0,6–1,9 s (mediana ≈ 1,4 s) y total por request de
+  1,2 a 4,2 s. El contenido de la respuesta es coherente con el seed (cuotas, última asistencia por socio, personal en turno, contadores).
+- **Lectura**: (1) el armado de datos y el proxy tardan parecido, y ambos son idas y vueltas a la base: la variación entre pedidos apunta a
+  la red o al pool, no al código; (2) no hay un "antes" medido en las mismas condiciones (las mediciones previas son de otra sesión), así
+  que **no se puede afirmar cuánto mejoró** el cambio. Lo que sí garantizan los tests es que pasó de ~5 viajes seguidos a 1.
+- **Siguiente medición**: `npm run db:latency` (`prisma/db-latency.ts`): primera consulta en frío, 10 consultas seguidas y 14 a la vez. Dice si la
+  base está lejos, si el pool atiende en paralelo y cuánto cuesta abrir una conexión; con eso se decide entre mover la región de Supabase,
+  ajustar `connection_limit` o cachear la consulta del proxy.
 
 ---
 
@@ -489,7 +497,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
 | P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto y verificado** en D-34 (T-027): el logout revoca el `jti`. El refresh sigue pendiente (P-20) |
-| P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ | — | **Implementado, falta medir** (D-35): consultas planas en una sola ronda + `Server-Timing`. Si sigue lenta, queda la consulta del proxy en cada request (usuario + revocación, D-34) |
+| P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | **Medido el 2026-10-09 (D-35): sigue en 1,2–4,2 s por request.** El armado de datos ya no es lo más lento: el proxy cuesta tanto o más. Falta `npm run db:latency` para separar red, pool y conexión en frío |
 | P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto** en D-30 (`npm run seed`). Falta correrlo contra la base real |
 | P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |

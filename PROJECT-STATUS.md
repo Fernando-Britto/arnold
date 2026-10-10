@@ -91,10 +91,10 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 6. ~~**Cerrar sesión** y probar que el token queda inútil~~ → hecho el 2026-10-09 con `curl` (P-06). Pasos usados: iniciá sesión, copiá la cookie `authToken` (herramientas del
    navegador → Application/Storage), cerrá sesión con el botón de la barra superior (Socio y personal; FX-19), y repetí un
    pedido a la API con esa cookie (por ejemplo con `curl`): tiene que responder `401` `TOKEN_INVALID` (P-06, D-34).
-7. **Medir Home_Interno** (P-07, D-35): con la sesión iniciada como personal, `curl -i http://localhost:3000/api/home-interno -H "Cookie: authToken=TOKEN"`
-   varias veces; el encabezado `server-timing: datos;dur=…` dice cuántos ms tardó en armar los datos. Compará con el `application-code`
-   que muestra la terminal de `npm run dev` para esa ruta (antes: ~0,4–0,6 s en caliente y 2–5 s en frío). Y comprobar que Home_Interno
-   muestra los mismos números que antes.
+7. ~~**Medir Home_Interno**~~ → hecho el 2026-10-09 (P-07, D-35): `datos` 0,55–1,55 s, `proxy.ts` 0,6–1,9 s, total 1,2–4,2 s; el contenido
+   coincide con el seed. No mejoró de forma evidente (no hay un "antes" comparable); ver D-35.
+8. **Medir la base** (P-07): `npm run db:latency` y pasar la salida (no escribe nada, solo `select 1`). Dice si la base está lejos, si el pool
+   atiende consultas en paralelo y cuánto cuesta una conexión en frío.
 
 ## Pendientes principales
 
@@ -108,7 +108,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ → resuelto (D-31) | Baja |
 | P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real | Baja |
 | P-06 | ~~Sin revocación de tokens~~ → resuelto y verificado (T-027, D-34) | Baja |
-| P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ → implementado (D-35), falta medir; si sigue lenta, queda la consulta del proxy en cada request | Baja |
+| P-07 | Home_Interno tarda 2–4 s en desarrollo: medido tras D-35, sigue en 1,2–4,2 s por request (datos ≈ 1 s, proxy ≈ 1,4 s); falta `npm run db:latency` para ver si es red, pool o conexión en frío | Media |
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto (`npm run seed`, D-30); falta correrlo contra la base | Baja |
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
 | P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
