@@ -455,10 +455,20 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   conexión en frío: 2178 ms. **Lectura**: la red es moderada (cada viaje seguido cuesta ~0,2 s), el pool paraleliza bien y lo caro es *abrir* una
   conexión (~2,2 s). No hace falta tocar `connection_limit`. Con las conexiones abiertas, armar Home_Interno debería costar ~1 viaje (0,2–0,4 s),
   pero en `npm run dev` se mide 0,55–1,55 s y el proxy 0,6–1,9 s: **esa diferencia no sale de la base**.
-- **Experimento pendiente**: `npm run bench:home-interno` (`prisma/bench-home-interno.ts`) corre el mismo armado de datos y la misma verificación
-  de sesión del proxy **fuera de Next** (solo lee). Si ahí tarda ~0,2–0,6 s de forma pareja, los segundos extra son del servidor de desarrollo
-  (compilación, recarga, clientes de Prisma separados) y no existen en producción; si también tarda más, hay consultas pesadas o conexiones
-  que se reabren. Usa `tsconfig-paths` (ya estaba en el lock como dependencia transitiva de ESLint; ahora declarada en `devDependencies`).
+- **`npm run bench:home-interno` (2026-10-09)**: corre el mismo armado de datos y la misma verificación de sesión del proxy **fuera de Next**
+  (solo lee; usa `tsconfig-paths`, que estaba en el lock como dependencia transitiva de ESLint y ahora está declarada en `devDependencies`).
+  Resultado: armado de Home_Interno — primera corrida (conexiones en frío) 2107 ms; siguientes 381–437 ms (mediana 405, ≈ 1,9 viajes de ~210 ms).
+  Verificación de sesión — primera 426 ms; siguientes 198–416 ms (mediana 207, ≈ 1 viaje).
+- **Conclusión (P-07)**: fuera de Next el armado tarda ~0,4 s de forma pareja y la sesión ~0,2 s; en `npm run dev` esos mismos pasos medían 0,55–1,55 s y
+  0,6–1,9 s. Los 0,2–1,1 s (armado) y 0,4–1,7 s (sesión) de más **no son de la base ni del código**: son del servidor de desarrollo (causa probable, no
+  verificada: el proxy y las rutas corren en contextos separados, cada uno con su cliente de Prisma, más compilación y recarga). Lo que sí es
+  del código —cadenas de consultas y espera a `config`— ya está resuelto. Quedan costos que son de la infraestructura: ~0,2 s por viaje a la base
+  y ~2,1 s para abrir una conexión nueva (en frío), que se paga en la primera request de cada proceso.
+- **Para el despliegue** (anotado, sin probar): en un entorno serverless (Vercel) cada instancia abre sus propias conexiones y cada una cuesta ~2 s en
+  frío, con hasta 14 consultas en paralelo por request. Hay que evaluar el pooler de Supabase (modo transaction, puerto 6543, `pgbouncer=true`,
+  `connection_limit=1`). **Falta verificar** que esta aplicación lo tolera: usa transacciones interactivas (`ClienteRepository`) y las migraciones
+  necesitan una conexión directa (`directUrl` en `schema.prisma`, que hoy no está configurada). Ver `.env.example`.
+- **Confirmación opcional**: `npm run build` y `npm run start`, y repetir el `curl` a `/api/home-interno`: el proxy debería quedar cerca de 0,2 s.
 
 ---
 
@@ -504,7 +514,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
 | P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto y verificado** en D-34 (T-027): el logout revoca el `jti`. El refresh sigue pendiente (P-20) |
-| P-07 | Home_Interno tarda 2–4 s en desarrollo | Media | **Medido el 2026-10-09 (D-35): sigue en 1,2–4,2 s por request en `npm run dev`.** La base no es la causa (≈ 0,2 s por viaje, pool bien, abrir una conexión ≈ 2,2 s). Falta `npm run bench:home-interno` para saber si el resto es del servidor de desarrollo |
+| P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ | — | **Cerrado** (D-35): el código ya hace una sola ronda de consultas (~0,4 s fuera de Next, sesión ~0,2 s). Lo que queda en `npm run dev` (1,2–4,2 s) es del servidor de desarrollo. Pendiente aparte: evaluar el pooler de Supabase para el despliegue |
 | P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto** en D-30 (`npm run seed`). Falta correrlo contra la base real |
 | P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |

@@ -27,7 +27,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-028 ➕ | `GET /api/home-socio` (datos reales de Home_Socio) | ✅ sin probar con un socio real (P-05, D-29) |
 | T-029 ➕ | Auditoría de accesos: login y accesos denegados en `AuditoriaAcceso` | ✅ verificado contra la base (P-15, D-32) |
 | T-027 ➕ | Revocación de tokens en el logout (el refresh queda para P-20) | ✅ verificado contra la base (P-06, D-34) |
-| T-030 ➕ | Home_Interno: consultas planas en una sola ronda + `Server-Timing` | ✅ falta medir contra la base (P-07, D-35) |
+| T-030 ➕ | Home_Interno: consultas planas en una sola ronda + `Server-Timing` | ✅ medido contra la base: ~0,4 s fuera de Next (P-07, D-35) |
 | T-020 | Home_Interno: componentes base | ✅ |
 | T-021a | Home_Interno Parte 1 (acciones, hoy, operación) | ✅ 934 LOC (estimado 250) |
 | T-021b | Home_Interno Parte 2 (gestión, actividad) | ✅ 336 LOC (estimado 150) |
@@ -94,8 +94,9 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 7. ~~**Medir Home_Interno**~~ → hecho el 2026-10-09 (P-07, D-35): `datos` 0,55–1,55 s, `proxy.ts` 0,6–1,9 s, total 1,2–4,2 s; el contenido
    coincide con el seed. No mejoró de forma evidente (no hay un "antes" comparable); ver D-35.
 8. ~~**Medir la base**~~ → hecho el 2026-10-09 (`npm run db:latency`): consulta ≈ 212 ms, 14 a la vez ≈ 203 ms (el pool paraleliza bien), conexión nueva ≈ 2,2 s.
-9. **Medir fuera de Next** (P-07): `npm run bench:home-interno` (solo lee) y pasar la salida. Corre el armado de Home_Interno y la verificación de sesión
-   del proxy sin el servidor de desarrollo; dice si los segundos extra de `npm run dev` son del servidor de desarrollo o de la base.
+9. ~~**Medir fuera de Next**~~ → hecho el 2026-10-09 (`npm run bench:home-interno`): armado ≈ 405 ms, sesión ≈ 207 ms, primera corrida (en frío) ≈ 2,1 s.
+10. *(opcional)* **Confirmar con el build de producción**: `npm run build`, `npm run start` y repetir el `curl` a `/api/home-interno` (P-07, D-35): el proxy
+    debería quedar cerca de 0,2 s y `datos` cerca de 0,4 s.
 
 ## Pendientes principales
 
@@ -109,7 +110,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ → resuelto (D-31) | Baja |
 | P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real | Baja |
 | P-06 | ~~Sin revocación de tokens~~ → resuelto y verificado (T-027, D-34) | Baja |
-| P-07 | Home_Interno tarda 2–4 s en desarrollo: medido tras D-35, sigue en 1,2–4,2 s por request (datos ≈ 1 s, proxy ≈ 1,4 s). `db:latency`: la base no es la causa (≈ 0,2 s por viaje, pool bien, conexión nueva ≈ 2,2 s). Falta `bench:home-interno` para saber si el resto es del servidor de desarrollo | Media |
+| P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ → cerrado (D-35): fuera de Next el armado tarda ~0,4 s y la sesión ~0,2 s; el resto es del servidor de desarrollo. Pendiente aparte: evaluar el pooler de Supabase para el despliegue | Baja |
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto (`npm run seed`, D-30); falta correrlo contra la base | Baja |
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
 | P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
