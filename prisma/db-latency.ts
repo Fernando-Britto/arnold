@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { diagnose } from "./db-latency-report";
+import { cargarEnv } from "./load-env";
 
 /**
  * Diagnóstico de latencia a la base (P-07). Uso: `npm run db:latency`. Solo hace `select 1`:
@@ -13,6 +14,7 @@ const medir = async (fn: () => Promise<unknown>) => {
 };
 
 async function main() {
+  cargarEnv();
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("Falta DATABASE_URL (completá el archivo .env)");
   // Solo el host y los parámetros de conexión (nunca usuario ni contraseña)

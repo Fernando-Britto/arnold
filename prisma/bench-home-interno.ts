@@ -1,6 +1,7 @@
 import path from "path";
 import { register } from "tsconfig-paths";
 import { diagnoseBench, summarize } from "./db-latency-report";
+import { cargarEnv } from "./load-env";
 
 // El código de la app usa el alias "@/..." (src/). ts-node no lo conoce: se registra acá, ANTES de importar la app.
 register({ baseUrl: path.resolve(__dirname, ".."), paths: { "@/*": ["src/*"] } });
@@ -20,6 +21,7 @@ const medir = async (fn: () => Promise<unknown>) => {
 };
 
 async function main() {
+  cargarEnv(); // antes de leer DATABASE_URL: este script importa Prisma después, así que nada más cargaría el .env
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("Falta DATABASE_URL (completá el archivo .env)");
   console.log(`Base: ${new URL(url).host}\n`);
