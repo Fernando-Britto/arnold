@@ -40,6 +40,10 @@ The system **MUST** query the Membresía table and verify status before granting
 
 ### Requirement: Quota Payment Validation
 
+> **Estados de pago**: los estados `Pagada`, `Pendiente` y `Vencida` de abajo se calculan según [`pagos-cuotas`](../pagos-cuotas/spec.md) (D-40):
+> `AL_DIA` (≈ Pagada), `PENDIENTE` (del 1 al día límite, entra con aviso), `VENCIDA` (requiere autorización) y `SIN_CUOTA` (se trata como vencida).
+> Si esta sección y `pagos-cuotas` se contradicen, vale `pagos-cuotas`.
+
 The system **MUST** verify current month's quota payment status (RN-03) before granting access.
 
 #### Scenario: Quota paid grants access

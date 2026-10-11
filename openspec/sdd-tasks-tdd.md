@@ -53,6 +53,9 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-026c Proxy + RBAC + cookie-first | ✅ ➕ | PR-011-C | 381 | By Fernando, see D-07 |
 | T-023b UI utilities | ✅ | PR-009-D (was PR-009-C) | 434 (2 commits: 263 + 171) | Renumbered, see D-15 · built but not yet wired into screens, see D-37 |
 | T-024 Test fixtures | ✅ | PR-010-A | 280 | Factories in `tests/factories/`; existing mocks not migrated, see D-38 |
+| T-031 ➕ Cuotas: reglas de cálculo | ✅ | — (direct to `dev`) | — | `src/domains/pago/cuota.ts` + migration; spec `pagos-cuotas`; D-40. Not wired to API/UI yet |
+| T-032 ➕ `POST /api/pagos` (registrar pago) | ⏳ | — | — | Transactional `Pago` + `Cuota`; decide fate of `Socio.estadoCuota` (D-40, P-24) |
+| T-033 ➕ Registrar Pago (UI) + Mis pagos | ⏳ | — | — | Home_Interno quick action; Socio payment history |
 
 ## Scope changes during apply
 

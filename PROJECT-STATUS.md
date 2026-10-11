@@ -9,7 +9,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 
 - Hechos: los 4 CRUD (Ejercicios, Rutinas, Clientes, Membresías), Home_Socio, **Home_Interno completo (interfaz y API de
   datos)**, y la autenticación (login, logout, proxy con permisos por rol).
-- **Todas las tareas del plan están hechas.** T-023b (utilidades de UI) está conectada a las cuatro pantallas CRUD (D-39); T-024 dejó factories en `tests/factories/` que todavía no reemplazan a los mocks viejos (D-38).
+- **Todas las tareas del plan original están hechas.** Desde el 2026-10-11 hay una etapa de ampliación (pagos → asistencia → registro de rutina), ver *Ampliación en curso*. T-023b (utilidades de UI) está conectada a las cuatro pantallas CRUD (D-39); T-024 dejó factories en `tests/factories/` que todavía no reemplazan a los mocks viejos (D-38).
 - Lo hecho hasta el 2026-10-10 está **verificado** (ver *Qué se verificó y qué no*). Lo del 2026-10-11 (T-023b conectada a las pantallas, T-024) se
   probó en el entorno de Claude, pero **falta correr `npm test` y `npx tsc --noEmit` en la máquina de Fernando** antes del merge (paso 11 de *Antes de seguir*).
 - Quedan: el refresh token (P-20), el despliegue (P-28: pooler de Supabase y build de producción, D-35), el `useMemo` de Clientes (P-26) y deuda
@@ -38,6 +38,9 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-026a/b/c ➕ | Login/logout, página `/login`, proxy + RBAC | ✅ (de Fernando) |
 | T-023b | Utilidades de UI (validación, formato, errores de API, notificaciones) | ✅ `PR-009-D`; conectada a las cuatro pantallas CRUD (D-37, D-39) |
 | T-024 | Fixtures y factories (`tests/factories/`) | ✅ (D-38) |
+| T-031 ➕ | Cuotas mensuales: reglas de cálculo (vence el 10, alta con prorrateo o cuota doble) | ✅ 28 tests; **migración sin verificar** (P-29); sin API ni pantalla todavía (D-40) |
+| T-032 ➕ | `POST /api/pagos`: registrar pago (crea `Pago` + `Cuota`) | ⏳ |
+| T-033 ➕ | Pantalla "Registrar Pago" y "Mis pagos" | ⏳ |
 
 ➕ = agregada durante la ejecución, no estaba en el plan. El detalle de por qué T-021 pasó de 400 a 1.806 LOC y se
 partió en 7 PRs está en `decisions.md` (D-01).
@@ -133,6 +136,19 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 10. *(opcional)* **Confirmar con el build de producción**: `npm run build`, `npm run start` y repetir el `curl` a `/api/home-interno` (P-07, D-35): el proxy
     debería quedar cerca de 0,2 s y `datos` cerca de 0,4 s.
 
+## Ampliación en curso
+
+Orden acordado (cada bloque en varios patches de ≤400 LOC, con tests primero; el detalle de cada decisión va a `decisions.md`):
+
+1. **Pagos y cuotas** — reglas de cálculo hechas (T-031); faltan la API (T-032) y las pantallas (T-033).
+2. **Asignar rutina** (modal + `/api/rutinas-asignadas`; hoy solo el seed asigna rutinas).
+3. **Check-in por DNI** desde recepción, con auditoría y el override existente (spec `member-access-check`).
+4. **Pantalla de puerta** (tablet) con token de dispositivo y anti-passback.
+5. **Sesión de entrenamiento**: serie por serie con kg y repeticiones, cronómetro de descanso, `RegistroDeProgreso`.
+6. **Secciones del socio**: Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias.
+7. **Cierre de caja.**
+8. **Molinete y huella** (depende del hardware que se elija).
+
 ## Pendientes principales
 
 Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pendientes-abiertos).
@@ -155,10 +171,15 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-26 | `src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos (lo marca `eslint`; riesgo de error por cambio en el orden de hooks) | Media |
 | P-27 | Errores de `eslint` que ya existían en `membresia-form-panel.tsx` y `membresia-list-panel.tsx`, y `any` en varias pantallas | Baja |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) | Media |
+| P-29 | Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago` (SQL escrito a mano, sin validar con Prisma) | Media |
 | P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |
 
 ## Cambios recientes (2026-10-07 al 2026-10-11)
+
+- **Cuotas mensuales (T-031, D-40)**: el mes se paga del 1 al 10; las altas pagan prorrateo hasta el día 20 y, después, una cuota completa que cubre dos
+  períodos. Funciones puras en `src/domains/pago/cuota.ts`, spec `pagos-cuotas`, `ConfiguracionDelSistema.diaLimitePago` / `diaCorteAltaTardia` y
+  `Cuota.membresiaId`. Requiere aplicar una migración (P-29).
 
 - **Utilidades de UI (T-023b, D-37, D-39)**: validaciones compartidas (Cliente las reutiliza), formato de DNI y teléfono, `ApiError` / `handleApiError` y
   `NotificationProvider`. Conectadas a Clientes, Ejercicios, Rutinas y Membresías: avisos de éxito al crear, editar y eliminar, y mensajes de error según el
@@ -186,7 +207,8 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 
 Corregirlos es un cambio de una línea cada uno (detalle en `decisions.md` §4; incluye que el DNI sigue siendo editable, supuesto 12):
 turnos Mañana 06–14 / Tarde 14–22 / Noche 22–06 · franjas de aforo de 2 h entre 06 y 22 · `diasInactividad = 15` ·
-"baja de socio" = usuario socio con `deletedAt` en las últimas 24 h · "activo" = entrada dentro de `ventanaAforoMinutos`.
+"baja de socio" = usuario socio con `deletedAt` en las últimas 24 h · "activo" = entrada dentro de `ventanaAforoMinutos` · cobro: cuotas mensuales, día
+límite 10, corte de altas 20, pago tardío sin recargo (D-40, supuestos 13–15).
 
 ## Calidad
 

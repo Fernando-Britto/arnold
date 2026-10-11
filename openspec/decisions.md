@@ -542,6 +542,30 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   Clientes) sigue lanzando `Error` plano; Clientes solo usa si falló o no (P-03), no muestra su texto.
 - **Verificado**: tests de Clientes (página, API del lado cliente, componentes) y `tsc` en verde. **No verificado**: la pantalla en el navegador.
 
+### D-40 · Pagos y cuotas: reglas de cobro mensual (T-031)
+- **Origen**: Fernando (las reglas de negocio) y Claude (el modelo). Primer paso de la etapa de ampliación: pagos → asistencia → registro de rutina.
+- **Contexto**: `Cuota` y `Pago` existían en el schema pero sin código. Antes de construir la API hacía falta decidir cuándo vence una cuota y qué paga quien
+  se anota a fin de mes. Spec: [`pagos-cuotas`](./specs/pagos-cuotas/spec.md).
+- **Decisión 1 — cuota por mes calendario, se paga del 1 al 10.** El día límite (10) y el día de corte (20) viven en `ConfiguracionDelSistema`
+  (`diaLimitePago`, `diaCorteAltaTardia`); `periodoGracia` se suma al día límite.
+- **Decisión 2 — altas: la opción 2 de las tres que se evaluaron.** Hasta el día 20 inclusive paga el prorrateo (días restantes, contando el del alta);
+  después del 20 paga **una cuota completa que cubre lo que queda del mes y el siguiente**. Ejemplo con $30.000: alta el 30/10 → paga $30.000, cubre hasta
+  el 30/11 y vuelve a pagar del 1 al 10/12.
+- **Descartado**: *prorrateo puro* (el del 30 pagaría ~$1.900 por dos días y al día siguiente la cuota entera) y *ciclo propio de 30 días por socio* (se
+  pierde la ventana común del 1 al 10).
+- **Decisión 3 — sin columnas `periodo` ni `monto` en `Cuota`.** El período se deduce de `fechaVencimiento` (hora argentina) y el monto ya está en `Pago`.
+  Así `fechaVencimiento` conserva su significado y Home_Interno / Home_Socio no cambian. Lo único que se agrega es `Cuota.membresiaId` (nulo en las
+  cuotas viejas) para saber qué plan se pagó aunque el socio cambie de plan.
+- **Decisión 4 — el estado de pago se calcula, no se guarda.** No hay proceso programado; `estadoCuotaSocio` lo deduce al consultar. Consecuencia:
+  `Socio.estadoCuota` deja de ser fuente de verdad para `PENDIENTE` y `VENCIDA`; sus valores quedan en el enum por compatibilidad (ver P-24). Qué hacer
+  con esa columna al registrar pagos se decide en T-032.
+- **Decisión 5 — pago tardío y reingreso.** Quien paga después del día 10 paga el mes completo, sin recargo. Quien no tiene cobertura ni en el mes anterior
+  ni en el actual se trata como alta: no se cobra deuda retroactiva.
+- **Verificado**: 28 tests en `src/domains/pago/cuota.test.ts` (cambio de mes y de año, hora argentina frente a UTC, febrero bisiesto, límites del día 10 y
+  del día 20, gracia, redondeo). **No verificado**: la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`. En el entorno de Claude el motor de
+  Prisma no se pudo descargar, así que el SQL se escribió a mano y no se validó contra el schema ni contra la base (P-29). Nada está conectado todavía a
+  una API ni a una pantalla.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -607,7 +631,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-26 | `src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos (`react-hooks/rules-of-hooks`, y un `as any` en la línea 130) | Media | Lo marca `eslint`, existía antes de D-39 y no se tocó. Si `isAuthenticated` cambia entre renders, React puede fallar por cambio en el orden de hooks. Arreglo: subir el `useMemo` arriba de los `return`. |
 | P-27 | `eslint` marca errores que ya existían en `membresia-form-panel.tsx` (`useState<any>`) y `membresia-list-panel.tsx` (`fetchMembresias` usada en el `useEffect` antes de declararse), además de `any` en varias pantallas | Baja | No se tocaron en D-39. |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | Salió de P-07 y D-35 ("pendiente aparte"). Fuera de Next la base responde bien (consulta ≈ 212 ms, 14 a la vez ≈ 203 ms, conexión nueva ≈ 2,2 s); falta probarlo con el build de producción y el pooler. El `curl` a `/api/home-interno` debería dejar el proxy cerca de 0,2 s y `datos` cerca de 0,4 s |
-| P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él |
+| P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él. **Actualización D-40**: el estado de pago (`AL_DIA`/`PENDIENTE`/`VENCIDA`/`SIN_CUOTA`) se calcula con `estadoCuotaSocio`; falta decidir qué pasa con `Socio.estadoCuota` (T-032) |
+| P-29 | Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago` | Media | El SQL se escribió a mano (el motor de Prisma no se pudo descargar en el entorno de Claude). Correr `npx prisma migrate dev` (o `migrate deploy`), `npx prisma generate` y `npx prisma migrate status`; si `migrate dev` propone una migración nueva, hay una diferencia entre el SQL y `schema.prisma` |
 
 ---
 
@@ -632,6 +657,11 @@ Estos puntos los decidió el asistente porque ninguna spec los define. Corregirl
 12. El DNI de un cliente **se puede editar** después del alta, por Administrador y por Recepcionista (decisión de Fernando,
     2026-10-08): coincide con la spec `clientes-crud` (solo `id` y `fechaAlta` son de solo lectura). No queda registro de quién
     lo cambió; el historial cuelga del `id` del socio, no del DNI. Alternativa si se quiere más control: solo Administrador.
+13. Cobro (D-40): todas las cuotas son **mensuales** (el mes calendario); `Membresia.periodicidad` en días no interviene en el cálculo. Si se vende
+    un plan trimestral o semestral, hay que pasar la periodicidad a meses.
+14. Cobro (D-40): día límite de pago 10, día de corte de altas 20, gracia 0 (editables en `ConfiguracionDelSistema`). Pago tardío = mes completo sin
+    recargo ni descuento. Reingreso tras un mes entero sin cobertura = alta, sin deuda retroactiva y sin `descuentoReactivacion` (todavía no se aplica).
+15. Cobro (D-40): un pago cubre una cuota entera (no hay pagos parciales) y el monto se redondea al centavo.
 
 ---
 
