@@ -6,12 +6,15 @@ import { Ejercicio } from "@prisma/client";
 import { EjercicioForm } from "@/components/ejercicio-crud/ejercicio-form";
 import { EjercicioListPanel } from "@/components/ejercicio-crud/ejercicio-list";
 import { useAuth } from "@/contexts/auth";
+import { useNotifications } from "@/contexts/notifications";
+import { ApiError, handleApiError } from "@/utils/api-error";
 import { fetchEjercicios, createEjercicio, updateEjercicio, deleteEjercicio } from "@/api/ejercicios";
 import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
 
 export function EjerciciosPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
+  const { notify } = useNotifications();
   
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
   const [selectedEjercicio, setSelectedEjercicio] = useState<Ejercicio | null>(null);
@@ -43,7 +46,7 @@ export function EjerciciosPage() {
         const data = await fetchEjercicios();
         setEjercicios(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading ejercicios");
+        setError(handleApiError(err, "No se pudieron cargar los ejercicios."));
       } finally {
         setLoading(false);
       }
@@ -78,6 +81,7 @@ export function EjerciciosPage() {
         setEjercicios(prev =>
           prev.map(e => (e.id === formData.id ? savedEjercicio : e))
         );
+        notify("success", "Ejercicio actualizado");
       } else {
         // Create new
         savedEjercicio = await createEjercicio({
@@ -88,13 +92,13 @@ export function EjerciciosPage() {
 
         // Add to list
         setEjercicios(prev => [...prev, savedEjercicio]);
+        notify("success", "Ejercicio creado");
       }
 
       // Reset form
       setSelectedEjercicio(null);
     } catch (err) {
-      // Error message is already in Spanish from the domain layer
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setError(handleApiError(err, "No se pudo guardar el ejercicio."));
     } finally {
       setIsSaving(false);
     }
@@ -112,14 +116,13 @@ export function EjerciciosPage() {
       if (selectedEjercicio?.id === id) {
         setSelectedEjercicio(null);
       }
+      notify("success", "Ejercicio eliminado");
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Error deleting ejercicio";
-      
-      // Check if it's a referential integrity error
-      if (errorMessage.includes("en uso") || errorMessage.includes("DELETE_BLOCKED")) {
+      // Integridad referencial: el servidor responde 409 DELETE_BLOCKED_ASSIGNED
+      if (err instanceof ApiError && err.code === "DELETE_BLOCKED_ASSIGNED") {
         setError("No se puede eliminar: este ejercicio está en uso por una o más rutinas");
       } else {
-        setError(errorMessage);
+        setError(handleApiError(err, "No se pudo eliminar el ejercicio."));
       }
     }
   };

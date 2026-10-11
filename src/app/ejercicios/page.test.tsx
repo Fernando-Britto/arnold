@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EjerciciosPage } from "./page";
 import { useAuth } from "@/contexts/auth";
+import { useNotifications } from "@/contexts/notifications";
+import { ApiError } from "@/utils/api-error";
 import * as ejercicioApi from "@/api/ejercicios";
 import { Ejercicio } from "@prisma/client";
 
@@ -19,6 +21,8 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/contexts/auth");
+jest.mock("@/contexts/notifications");
+const mockNotify = jest.fn();
 jest.mock("@/api/ejercicios");
 jest.mock("@/components/ejercicio-crud/ejercicio-form", () => ({
   EjercicioForm: ({ onSave, initialData }: any) => (
@@ -64,6 +68,7 @@ const mockEjercicio2: Ejercicio = {
 describe("Ejercicios CRUD Screen (Page)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
     (useAuth as jest.Mock).mockReturnValue({
       user: { id: "user1", rol: "ADMINISTRADOR" },
       isAuthenticated: true,
@@ -290,7 +295,7 @@ describe("Ejercicios CRUD Screen (Page)", () => {
     it("should prevent deletion when referenced in rutinas", async () => {
       const user = userEvent.setup();
       (ejercicioApi.deleteEjercicio as jest.Mock).mockRejectedValue(
-        new Error("DELETE_BLOCKED_IN_USE")
+        new ApiError(409, "No se puede eliminar el ejercicio porque está asignado a una o más rutinas", "DELETE_BLOCKED_ASSIGNED")
       );
 
       render(<EjerciciosPage />);
@@ -314,14 +319,14 @@ describe("Ejercicios CRUD Screen (Page)", () => {
   describe("Error handling", () => {
     it("should show error message if fetch fails", async () => {
       (ejercicioApi.fetchEjercicios as jest.Mock).mockRejectedValue(
-        new Error("Network error")
+        new TypeError("Failed to fetch")
       );
 
       render(<EjerciciosPage />);
 
       await waitFor(() => {
         expect(
-          screen.getByText(/error|falló|no se pudo/i)
+          screen.getByText(/No hay conexión con el servidor/i)
         ).toBeInTheDocument();
       });
     });
@@ -330,7 +335,7 @@ describe("Ejercicios CRUD Screen (Page)", () => {
       const user = userEvent.setup();
       // Simulate error from domain validation (already in Spanish)
       (ejercicioApi.createEjercicio as jest.Mock).mockRejectedValue(
-        new Error("Validación fallida: El nombre es requerido")
+        new ApiError(400, "Validación fallida: El nombre es requerido", "VALIDATION_ERROR")
       );
 
       render(<EjerciciosPage />);
@@ -453,6 +458,65 @@ describe("Ejercicios CRUD Screen (Page)", () => {
         const saveButton = screen.getByRole("button", { name: /Save/i });
         expect(saveButton).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("T-023b: avisos de éxito y mensajes de error de la API", () => {
+    it("al crear avisa 'Ejercicio creado'", async () => {
+      const user = userEvent.setup();
+      (ejercicioApi.createEjercicio as jest.Mock).mockResolvedValue(mockEjercicio);
+
+      render(<EjerciciosPage />);
+      await user.click(await screen.findByRole("button", { name: /Save/i }));
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio creado"));
+    });
+
+    it("al editar avisa 'Ejercicio actualizado'", async () => {
+      const user = userEvent.setup();
+      (ejercicioApi.updateEjercicio as jest.Mock).mockResolvedValue(mockEjercicio);
+
+      render(<EjerciciosPage />);
+      await user.click(await screen.findByRole("button", { name: /Modify/i }));
+      await user.click(await screen.findByRole("button", { name: /Save/i }));
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio actualizado"));
+    });
+
+    it("al eliminar avisa 'Ejercicio eliminado'", async () => {
+      const user = userEvent.setup();
+      (ejercicioApi.deleteEjercicio as jest.Mock).mockResolvedValue(undefined);
+
+      render(<EjerciciosPage />);
+      await user.click(await screen.findByRole("button", { name: /Delete/i }));
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio eliminado"));
+    });
+
+    it("si el borrado está bloqueado por rutinas, no avisa éxito y muestra el texto de siempre", async () => {
+      const user = userEvent.setup();
+      (ejercicioApi.deleteEjercicio as jest.Mock).mockRejectedValue(
+        new ApiError(409, "mensaje del servidor", "DELETE_BLOCKED_ASSIGNED")
+      );
+
+      render(<EjerciciosPage />);
+      await user.click(await screen.findByRole("button", { name: /Delete/i }));
+
+      expect(
+        await screen.findByText("No se puede eliminar: este ejercicio está en uso por una o más rutinas")
+      ).toBeInTheDocument();
+      expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
+    });
+
+    it("un 5xx no muestra el detalle técnico", async () => {
+      (ejercicioApi.fetchEjercicios as jest.Mock).mockRejectedValue(
+        new ApiError(500, "prisma exploded", "SERVER_ERROR")
+      );
+
+      render(<EjerciciosPage />);
+
+      expect(await screen.findByText(/No se pudo procesar la solicitud/i)).toBeInTheDocument();
+      expect(screen.queryByText(/prisma exploded/i)).not.toBeInTheDocument();
     });
   });
 });

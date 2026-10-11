@@ -9,7 +9,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 
 - Hechos: los 4 CRUD (Ejercicios, Rutinas, Clientes, Membresías), Home_Socio, **Home_Interno completo (interfaz y API de
   datos)**, y la autenticación (login, logout, proxy con permisos por rol).
-- **Todas las tareas del plan están hechas.** T-023b (utilidades de UI) está conectada a Clientes (D-39) y falta en Ejercicios, Rutinas y Membresías; T-024 dejó factories en `tests/factories/` que todavía no reemplazan a los mocks viejos (D-38).
+- **Todas las tareas del plan están hechas.** T-023b (utilidades de UI) está conectada a Clientes y Ejercicios (D-39) y falta en Rutinas y Membresías; T-024 dejó factories en `tests/factories/` que todavía no reemplazan a los mocks viejos (D-38).
 - Lo hecho está **verificado** (ver *Qué se verificó y qué no*). Queda el refresh token (P-20) y decidir el despliegue
   (pooler de Supabase, D-35).
 

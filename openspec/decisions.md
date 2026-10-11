@@ -528,7 +528,11 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   red muestran el texto fijo de `handleApiError`; cualquier otro error muestra el texto de respaldo de la pantalla. Antes se mostraba `err.message`
   tal cual (incluido el detalle técnico). Se ajustaron dos tests de la página que afirmaban el texto viejo.
 - **Los tests de la página mockean `@/contexts/notifications`** (igual que `@/contexts/auth`), así afirman la llamada a `notify` sin montar el provider.
-- **Pendiente**: la misma conexión en Ejercicios, Rutinas y Membresías (un patch cada una).
+- **Ejercicios (mismo patrón, segundo patch)**: `src/api/ejercicios.ts` y `src/app/ejercicios/page.tsx` igual que Clientes ("Ejercicio creado /
+  actualizado / eliminado"). El borrado bloqueado por rutinas ya no se detecta buscando "en uso" o "DELETE_BLOCKED" dentro del mensaje: se usa
+  el `code` `DELETE_BLOCKED_ASSIGNED` (409) que manda el servidor, y se conserva el texto fijo que ya veía la persona.
+- **Pendiente**: la misma conexión en Rutinas y Membresías (un patch cada una). Membresías es distinta: sus fetch están dentro de los componentes
+  `membresia-form-panel` y `membresia-list-panel`, no en la página.
 - **Verificado**: tests de Clientes (página, API del lado cliente, componentes) y `tsc` en verde. **No verificado**: la pantalla en el navegador.
 
 ---

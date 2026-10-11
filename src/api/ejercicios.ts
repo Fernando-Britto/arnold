@@ -1,4 +1,5 @@
 import { Ejercicio } from "@prisma/client";
+import { throwIfNotOk } from "@/utils/api-error";
 import { ejercicioRepository, EjercicioInput } from "@/domains/ejercicio/ejercicio";
 
 // Re-export types for route handlers
@@ -79,9 +80,7 @@ export async function getEjercicioCount(): Promise<number> {
  */
 export async function fetchEjercicios(): Promise<Ejercicio[]> {
   const response = await fetch("/api/ejercicios");
-  if (!response.ok) {
-    throw new Error("Failed to fetch ejercicios");
-  }
+  await throwIfNotOk(response, "No se pudieron cargar los ejercicios");
   return response.json();
 }
 
@@ -94,10 +93,7 @@ export async function createEjercicio(data: EjercicioInput): Promise<Ejercicio> 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to create ejercicio");
-  }
+  await throwIfNotOk(response, "No se pudo crear el ejercicio");
   return response.json();
 }
 
@@ -113,10 +109,7 @@ export async function updateEjercicio(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to update ejercicio");
-  }
+  await throwIfNotOk(response, "No se pudo actualizar el ejercicio");
   return response.json();
 }
 
@@ -127,8 +120,5 @@ export async function deleteEjercicio(id: string): Promise<void> {
   const response = await fetch(`/api/ejercicios/${id}`, {
     method: "DELETE",
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to delete ejercicio");
-  }
+  await throwIfNotOk(response, "No se pudo eliminar el ejercicio");
 }
