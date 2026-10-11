@@ -136,6 +136,7 @@ model Membresia {
 
   // Relaciones
   socios        Socio[]  @relation("MembresiaDelSocio")
+  cuotas        Cuota[]
 
   @@index([estado])
 }
@@ -153,9 +154,13 @@ model Cuota {
   id                String   @id @default(cuid())
   socio             Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
   socioId           String
+  /// Inicio del tramo cubierto. Fin del tramo: `fechaVencimiento`, siempre el último instante de un mes (D-40).
   fechaInicio       DateTime @default(now())
   fechaVencimiento  DateTime
   estado            EstadoCuotaModel @default(VIGENTE)
+  /// Plan que se pagó (queda aunque el socio cambie de plan después). Nulo en cuotas anteriores a D-40.
+  membresia         Membresia? @relation(fields: [membresiaId], references: [id], onDelete: SetNull)
+  membresiaId       String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -165,6 +170,7 @@ model Cuota {
   @@index([socioId])
   @@index([fechaVencimiento])
   @@index([estado])
+  @@index([membresiaId])
 }
 
 enum EstadoCuotaModel {
@@ -511,6 +517,10 @@ model ConfiguracionDelSistema {
   diasInactividad       Int      // para notificaciones
   descuentoReactivacion Decimal  @db.Decimal(5, 2) // %
   ventanaAforoMinutos   Int      @default(90)
+  /// Día del mes hasta el que se puede pagar la cuota sin estar vencido (D-40)
+  diaLimitePago         Int      @default(10)
+  /// Último día del mes en que un alta paga prorrateo; después paga cuota completa (D-40)
+  diaCorteAltaTardia    Int      @default(20)
   updatedAt             DateTime @updatedAt
 }
 
