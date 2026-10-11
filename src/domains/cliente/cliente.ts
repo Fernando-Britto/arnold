@@ -4,6 +4,7 @@
  */
 import type { Prisma } from "@prisma/client";
 import { hashPassword } from "@/lib/auth";
+import { validateDNI, validateEmail, validatePhone } from "@/utils/validation";
 
 /**
  * Estado de Cuenta enum
@@ -104,33 +105,6 @@ export function normalizeDNI(dni: string): string {
 }
 
 /**
- * Validate DNI format
- * Accepts both "XX.XXX.XXX" (with dots) and "XXXXXXXX" (digits only)
- */
-function validateDNIFormat(dni: string): boolean {
-  const withDots = /^\d{2}\.\d{3}\.\d{3}$/;
-  const withoutDots = /^\d{8}$/;
-  return withDots.test(dni) || withoutDots.test(dni);
-}
-
-/**
- * Validate email format
- */
-function validateEmailFormat(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-/**
- * Validate phone format (optional)
- * Accepts format: +54 9 XXXX XXXXXX
- */
-function validatePhoneFormat(phone: string): boolean {
-  const phoneRegex = /^\+54\s9\s\d{4}\s\d{6}$/;
-  return phoneRegex.test(phone);
-}
-
-/**
  * Validate a Cliente object
  */
 export function validateCliente(data: Partial<Cliente>): ValidationResult {
@@ -148,13 +122,13 @@ export function validateCliente(data: Partial<Cliente>): ValidationResult {
   // Validate DNI (required, unique, format XX.XXX.XXX or XXXXXXXX)
   if (!data.dni || data.dni.trim() === "") {
     errors.push("El DNI es requerido");
-  } else if (!validateDNIFormat(data.dni)) {
+  } else if (!validateDNI(data.dni)) {
     errors.push("El DNI debe tener formato XX.XXX.XXX o XXXXXXXX");
   }
 
   // Validate telefono (optional, but if provided must match format)
   if (data.telefono && data.telefono.trim() !== "") {
-    if (!validatePhoneFormat(data.telefono)) {
+    if (!validatePhone(data.telefono)) {
       errors.push("El teléfono debe tener formato +54 9 XXXX XXXXXX");
     }
   }
@@ -162,7 +136,7 @@ export function validateCliente(data: Partial<Cliente>): ValidationResult {
   // Validate email (required, valid format)
   if (!data.email || data.email.trim() === "") {
     errors.push("El email es requerido");
-  } else if (!validateEmailFormat(data.email)) {
+  } else if (!validateEmail(data.email)) {
     errors.push("Formato de email inválido");
   }
 
