@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { MembresiaForm } from "./membresia-form";
 import type { Membresia, EstadoMembresia } from "@/domains/membresia/membresia";
+import { useNotifications } from "@/contexts/notifications";
+import { ApiError, handleApiError, throwIfNotOk } from "@/utils/api-error";
 
 interface MembresiaFormPanelProps {
   initialData?: Membresia | null;
@@ -17,6 +19,7 @@ export function MembresiaFormPanel({
   onCancel,
   isEdit = false,
 }: MembresiaFormPanelProps) {
+  const { notify } = useNotifications();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deactivationWarning, setDeactivationWarning] = useState<{
@@ -36,6 +39,8 @@ export function MembresiaFormPanel({
     setIsLoading(true);
     setError(null);
 
+    const fallback = `No se pudo ${isEdit ? "actualizar" : "crear"} la membresía`;
+
     try {
       const endpoint = isEdit && initialData ? `/api/membresias/${initialData.id}` : "/api/membresias";
       const method = isEdit ? "PUT" : "POST";
@@ -46,34 +51,28 @@ export function MembresiaFormPanel({
         body: JSON.stringify(formData),
       });
 
+      await throwIfNotOk(response, fallback);
       const data = await response.json();
-
-      if (!response.ok) {
-        // Check for deactivation warning (AC-005)
-        if (data.code === "DEACTIVATION_WARNING") {
-          setPendingFormData(formData); // Save for retry with confirmation
-          setDeactivationWarning({
-            message: data.message,
-            assignedCount: parseInt(data.message.match(/\d+/)?.[0] || "0"),
-          });
-          setIsLoading(false);
-          return;
-        }
-
-        // Other errors
-        setError(data.message || `Error al ${isEdit ? "actualizar" : "crear"} membresía`);
-        setIsLoading(false);
-        return;
-      }
 
       // Success: clear warning state and pending data
       setDeactivationWarning(null);
       setPendingFormData(null);
+      notify("success", isEdit ? "Membresía actualizada" : "Membresía creada");
       if (onSuccess) {
         onSuccess(data);
       }
     } catch (err) {
-      setError(`Error: ${err instanceof Error ? err.message : "Desconocido"}`);
+      // Check for deactivation warning (AC-005)
+      if (err instanceof ApiError && err.code === "DEACTIVATION_WARNING") {
+        setPendingFormData(formData); // Save for retry with confirmation
+        setDeactivationWarning({
+          message: err.message,
+          assignedCount: parseInt(err.message.match(/\d+/)?.[0] || "0"),
+        });
+        return;
+      }
+
+      setError(handleApiError(err, `${fallback}.`));
     } finally {
       setIsLoading(false);
     }

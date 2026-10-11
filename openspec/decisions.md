@@ -533,8 +533,13 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   el `code` `DELETE_BLOCKED_ASSIGNED` (409) que manda el servidor, y se conserva el texto fijo que ya veía la persona.
 - **Rutinas (mismo patrón, tercer patch)**: `src/api/rutinas.ts` y `src/app/rutinas/page.tsx` ("Rutina creada / actualizada / eliminada"). Se ajustaron
   tres tests de la página que afirmaban el texto viejo (error de red, borrado bloqueado y validación).
-- **Pendiente**: la misma conexión en Membresías. Es distinta: sus fetch están dentro de los componentes
-  `membresia-form-panel` y `membresia-list-panel`, no en la página.
+- **Membresías (cuarto patch)**: es distinta porque sus `fetch` están en los componentes, no en la página. `membresia-form-panel` y
+  `membresia-list-panel` usan `throwIfNotOk`, `handleApiError` y `useNotifications` ("Membresía creada / actualizada / eliminada"). Se conservan los
+  dos flujos especiales: la advertencia de desactivación (ahora se reconoce por `ApiError.code === "DEACTIVATION_WARNING"`; confirmarla también avisa
+  "Membresía actualizada") y el borrado bloqueado (`DELETE_BLOCKED_ASSIGNED` → "No se puede eliminar: …"). Un cuerpo que no es JSON en un 5xx ya no
+  muestra "Unexpected token…". Se ajustaron dos tests de la lista que afirmaban `Network error`.
+- **Con esto T-023b queda conectada a las cuatro pantallas CRUD.** Fuera de alcance: `src/api/membresias.ts` (`fetchMembresias` del desplegable de
+  Clientes) sigue lanzando `Error` plano; Clientes solo usa si falló o no (P-03), no muestra su texto.
 - **Verificado**: tests de Clientes (página, API del lado cliente, componentes) y `tsc` en verde. **No verificado**: la pantalla en el navegador.
 
 ---
@@ -600,6 +605,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo) | Baja | `ejercicio.test.ts` ahora usa Prisma simulado (FX-16): ya no comprueba lo que hace la base real, como el borrado bloqueado por clave foránea (P2003) o la búsqueda sin distinguir mayúsculas. El test de P2003 prueba solo la traducción del error |
 | P-26 | `src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos (`react-hooks/rules-of-hooks`, y un `as any` en la línea 130) | Media | Lo marca `eslint`, existía antes de D-39 y no se tocó. Si `isAuthenticated` cambia entre renders, React puede fallar por cambio en el orden de hooks. Arreglo: subir el `useMemo` arriba de los `return`. |
+| P-27 | `eslint` marca errores que ya existían en `membresia-form-panel.tsx` (`useState<any>`) y `membresia-list-panel.tsx` (`fetchMembresias` usada en el `useEffect` antes de declararse), además de `any` en varias pantallas | Baja | No se tocaron en D-39. |
 | P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él |
 
 ---

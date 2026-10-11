@@ -7,6 +7,10 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MembresiaFormPanel } from "./membresia-form-panel";
+import { useNotifications } from "@/contexts/notifications";
+
+jest.mock("@/contexts/notifications");
+const mockNotify = jest.fn();
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -26,6 +30,7 @@ describe("MembresiaFormPanel", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (global.fetch as jest.Mock).mockClear();
+    (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
   });
 
   describe("Create mode (POST)", () => {
@@ -167,6 +172,113 @@ describe("MembresiaFormPanel", () => {
 
       // Panel has space for error messages
       expect(container.querySelector(".space-y-4")).toBeInTheDocument();
+    });
+  });
+
+  describe("T-023b: avisos de éxito y mensajes de error de la API", () => {
+    async function fillAndSubmitCreate(user: ReturnType<typeof userEvent.setup>) {
+      await user.type(screen.getByLabelText(/Nombre/i), "Platinum");
+      await user.type(screen.getByLabelText(/Precio/i), "25000");
+      await user.type(screen.getByLabelText(/Periodicidad/i), "30");
+      await user.click(screen.getByRole("button", { name: /Guardar/i }));
+    }
+
+    it("al crear avisa 'Membresía creada'", async () => {
+      const user = userEvent.setup();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ...mockMembresia, id: "new-id" }),
+      });
+
+      render(<MembresiaFormPanel isEdit={false} />);
+      await fillAndSubmitCreate(user);
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Membresía creada"));
+    });
+
+    it("al editar avisa 'Membresía actualizada'", async () => {
+      const user = userEvent.setup();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => mockMembresia });
+
+      render(<MembresiaFormPanel initialData={mockMembresia} isEdit={true} />);
+      await user.click(screen.getByRole("button", { name: /Guardar/i }));
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Membresía actualizada"));
+    });
+
+    it("un 400 de validación muestra el mensaje del servidor y no avisa éxito", async () => {
+      const user = userEvent.setup();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ code: "VALIDATION_DUPLICATE_NAME", message: "Ya existe una membresía con ese nombre" }),
+      });
+
+      render(<MembresiaFormPanel isEdit={false} />);
+      await fillAndSubmitCreate(user);
+
+      expect(await screen.findByText("Ya existe una membresía con ese nombre")).toBeInTheDocument();
+      expect(mockNotify).not.toHaveBeenCalled();
+    });
+
+    it("un 401 muestra el aviso de sesión vencida, no el código del servidor", async () => {
+      const user = userEvent.setup();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ code: "TOKEN_INVALID", message: "TOKEN_INVALID" }),
+      });
+
+      render(<MembresiaFormPanel isEdit={false} />);
+      await fillAndSubmitCreate(user);
+
+      expect(await screen.findByText(/Tu sesión venció/i)).toBeInTheDocument();
+      expect(screen.queryByText("TOKEN_INVALID")).not.toBeInTheDocument();
+    });
+
+    it("un 5xx con cuerpo que no es JSON no muestra el detalle técnico", async () => {
+      const user = userEvent.setup();
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: async () => {
+          throw new SyntaxError("Unexpected token < in JSON");
+        },
+      });
+
+      render(<MembresiaFormPanel isEdit={false} />);
+      await fillAndSubmitCreate(user);
+
+      expect(await screen.findByText(/No se pudo procesar la solicitud/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Unexpected token/i)).not.toBeInTheDocument();
+    });
+
+    it("si no hay conexión avisa que no hay conexión", async () => {
+      const user = userEvent.setup();
+      (global.fetch as jest.Mock).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+      render(<MembresiaFormPanel isEdit={false} />);
+      await fillAndSubmitCreate(user);
+
+      expect(await screen.findByText(/No hay conexión con el servidor/i)).toBeInTheDocument();
+    });
+
+    it("confirmar la desactivación también avisa 'Membresía actualizada'", async () => {
+      const user = userEvent.setup();
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: async () => ({ code: "DEACTIVATION_WARNING", message: "5 socios tienen esta membresía asignada" }),
+        })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ ...mockMembresia, estado: "INACTIVA" }) });
+
+      render(<MembresiaFormPanel initialData={mockMembresia} isEdit={true} />);
+      await user.selectOptions(screen.getByLabelText(/Estado/i), "INACTIVA");
+      await user.click(screen.getByRole("button", { name: /Guardar/i }));
+      await user.click(await screen.findByRole("button", { name: /desactivar de todas formas/i }));
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Membresía actualizada"));
     });
   });
 

@@ -7,6 +7,10 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MembresiaListPanel } from "./membresia-list-panel";
+import { useNotifications } from "@/contexts/notifications";
+
+jest.mock("@/contexts/notifications");
+const mockNotify = jest.fn();
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -44,6 +48,7 @@ describe("MembresiaListPanel", () => {
     jest.clearAllMocks();
     (global.fetch as jest.Mock).mockClear();
     (global.confirm as jest.Mock).mockClear();
+    (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
   });
 
   describe("List fetching and display", () => {
@@ -327,30 +332,111 @@ describe("MembresiaListPanel", () => {
     it("should display error when fetch fails", async () => {
       const mockFetch = global.fetch as jest.Mock;
 
-      mockFetch.mockRejectedValue(new Error("Network error"));
+      mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
 
       render(<MembresiaListPanel />);
 
       // Error state should be displayed
       await waitFor(() => {
-        expect(screen.getByText(/Network error|Error/i)).toBeInTheDocument();
+        expect(screen.getByText(/No hay conexión con el servidor/i)).toBeInTheDocument();
       }, { timeout: 3000 });
     });
 
     it("should show retry button on error", async () => {
       const mockFetch = global.fetch as jest.Mock;
 
-      mockFetch.mockRejectedValue(new Error("Network error"));
+      mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
 
       render(<MembresiaListPanel />);
 
       await waitFor(() => {
-        expect(screen.getByText(/Network error|Error/i)).toBeInTheDocument();
+        expect(screen.getByText(/No hay conexión con el servidor/i)).toBeInTheDocument();
       }, { timeout: 3000 });
 
       // Verify retry button is present
       const retryButton = screen.getByRole("button", { name: /Reintentar/i });
       expect(retryButton).toBeInTheDocument();
+    });
+  });
+
+  describe("T-023b: avisos de éxito y mensajes de error de la API", () => {
+    async function clickDeleteSilverAndAccept(user: ReturnType<typeof userEvent.setup>) {
+      await waitFor(() => expect(screen.getByText("Silver")).toBeInTheDocument());
+      const row = screen.getAllByRole("row").find((r) => r.textContent?.includes("Silver"))!;
+      const button = Array.from(row.querySelectorAll("button")).find((b) => b.textContent?.includes("Eliminar"))!;
+      await user.click(button);
+      await user.click(await screen.findByRole("button", { name: /Aceptar/i }));
+    }
+
+    it("al eliminar avisa 'Membresía eliminada'", async () => {
+      const user = userEvent.setup();
+      const mockFetch = global.fetch as jest.Mock;
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => mockMembresias });
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+
+      render(<MembresiaListPanel />);
+      await clickDeleteSilverAndAccept(user);
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Membresía eliminada"));
+    });
+
+    it("el borrado bloqueado muestra 'No se puede eliminar: …' y no avisa éxito", async () => {
+      const user = userEvent.setup();
+      const mockFetch = global.fetch as jest.Mock;
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => mockMembresias });
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({ code: "DELETE_BLOCKED_ASSIGNED", message: "3 socios asignados" }),
+      });
+
+      render(<MembresiaListPanel />);
+      await clickDeleteSilverAndAccept(user);
+
+      expect(await screen.findByText("No se puede eliminar: 3 socios asignados")).toBeInTheDocument();
+      expect(mockNotify).not.toHaveBeenCalled();
+    });
+
+    it("otro error al borrar muestra el mensaje del servidor", async () => {
+      const user = userEvent.setup();
+      const mockFetch = global.fetch as jest.Mock;
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => mockMembresias });
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ code: "NOT_FOUND", message: "Membresía no encontrada" }),
+      });
+
+      render(<MembresiaListPanel />);
+      await clickDeleteSilverAndAccept(user);
+
+      expect(await screen.findByText("Membresía no encontrada")).toBeInTheDocument();
+    });
+
+    it("un 5xx al cargar no muestra el detalle técnico y conserva Reintentar", async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({ code: "SERVER_ERROR", message: "prisma exploded" }),
+      });
+
+      render(<MembresiaListPanel />);
+
+      expect(await screen.findByText(/No se pudo procesar la solicitud/i)).toBeInTheDocument();
+      expect(screen.queryByText(/prisma exploded/i)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Reintentar/i })).toBeInTheDocument();
+    });
+
+    it("un 401 al cargar muestra el aviso de sesión vencida", async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ code: "TOKEN_INVALID", message: "TOKEN_INVALID" }),
+      });
+
+      render(<MembresiaListPanel />);
+
+      expect(await screen.findByText(/Tu sesión venció/i)).toBeInTheDocument();
     });
   });
 

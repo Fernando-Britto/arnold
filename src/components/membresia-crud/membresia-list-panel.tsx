@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { MembresiaList } from "./membresia-list";
 import type { Membresia } from "@/domains/membresia/membresia";
+import { useNotifications } from "@/contexts/notifications";
+import { ApiError, handleApiError, throwIfNotOk } from "@/utils/api-error";
 
 interface MembresiaListPanelProps {
   onEditClick?: (membresia: MembresiaWithCount) => void;
@@ -17,6 +19,7 @@ export function MembresiaListPanel({
   onEditClick,
   activeOnly = false,
 }: MembresiaListPanelProps) {
+  const { notify } = useNotifications();
   const [membresias, setMembresias] = useState<MembresiaWithCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,14 +39,12 @@ export function MembresiaListPanel({
       const url = activeOnly ? "/api/membresias?activeOnly=true" : "/api/membresias";
       const response = await fetch(url);
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: No se pudieron cargar las membresías`);
-      }
+      await throwIfNotOk(response, "No se pudieron cargar las membresías");
 
       const data = await response.json();
       setMembresias(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setError(handleApiError(err, "No se pudieron cargar las membresías."));
     } finally {
       setIsLoading(false);
     }
@@ -58,24 +59,18 @@ export function MembresiaListPanel({
         method: "DELETE",
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-
-        // Handle AC-006: delete blocking
-        if (data.code === "DELETE_BLOCKED_ASSIGNED") {
-          setDeleteError(
-            `No se puede eliminar: ${data.message}`
-          );
-          return;
-        }
-
-        throw new Error(data.message || "Error al eliminar membresía");
-      }
+      await throwIfNotOk(response, "No se pudo eliminar la membresía");
 
       // Remove from list
       setMembresias((prev) => prev.filter((m) => m.id !== id));
+      notify("success", "Membresía eliminada");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Error desconocido");
+      // Handle AC-006: delete blocking
+      if (err instanceof ApiError && err.code === "DELETE_BLOCKED_ASSIGNED") {
+        setDeleteError(`No se puede eliminar: ${err.message}`);
+        return;
+      }
+      setDeleteError(handleApiError(err, "No se pudo eliminar la membresía."));
     }
   };
 
