@@ -622,10 +622,11 @@ Executed so far: T-001 → … → T-021c, T-026a/b/c and T-027 … T-030 (see [
 
 Suggested order for what is left (details and severities in `decisions.md` §3 and `PROJECT-STATUS.md`):
 
-1. **Verify before building more**: edit a client (name + membership + status) against the real database (P-21),
-   check the clients that were edited while FX-09 was open, and compare `/api/home-interno` numbers with real data (P-02).
-2. **P-22** rewrite the `authentication-login` spec so it reflects what exists: cookie and routes, audit (D-32), login rate
-   limit (D-33) and token revocation (D-34).
+1. ~~**Verify before building more**~~ → done 2026-10-10: client edit (P-21) and `/api/home-interno` against real data (P-02) confirmed by
+   Fernando; `tsc`, migrations and `npm test` (91 of 91 suites) are green on his machine. Still open: check the clients that were edited
+   while FX-09 was open.
+2. ~~**P-22** rewrite the `authentication-login` spec~~ → done 2026-10-10 (D-36): it now reflects the cookie and routes, audit (D-32),
+   login rate limit (D-33) and token revocation (D-34); refresh stays deferred (P-20).
 3. **T-023b** (PR-009-D) and **T-024** (PR-010-A), as planned.
 4. **P-20** refresh token with rotation (revocation is already in place).
 5. **Deployment**: evaluate the Supabase pooler (transaction mode, `directUrl` for migrations) before deploying to Vercel (D-35).

@@ -470,6 +470,20 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   necesitan una conexión directa (`directUrl` en `schema.prisma`, que hoy no está configurada). Ver `.env.example`.
 - **Confirmación opcional**: `npm run build` y `npm run start`, y repetir el `curl` a `/api/home-interno`: el proxy debería quedar cerca de 0,2 s.
 
+### D-36 · Spec `authentication-login` reescrito según la implementación (P-22)
+- **Origen**: Claude; Fernando pidió hacer los specs "como veníamos trabajando" (en inglés, como `rbac-middleware`).
+- **Problema**: el spec describía el diseño original (cookie `Authorization`, página `/auth/login`, `ADMIN` / `ACTIVE`, refresh automático,
+  "cerrar todas las sesiones") y su aviso de revisión quedó desactualizado cuando se hizo la revocación (D-34).
+- **Decisión**: reescribirlo describiendo lo que existe, con cada escenario contrastado contra el código y los tests, y una tabla de trazabilidad
+  (tests y qué se verificó contra la base). Requisitos: login, límite de intentos (D-33), auditoría (D-32), validación de la sesión en cada request,
+  y logout con revocación (D-34). El refresh con rotación queda como sección *Deferred* (P-20), no como requisito.
+- **Qué cambió respecto del original** (el código hace otra cosa): `SESSION_EXPIRED` y `TOKEN_REVOKED` no se usan (un token vencido o revocado da
+  `TOKEN_INVALID`); los errores del proxy no llevan `recoverable`; las cuentas `INACTIVO` y `BLOQUEADO` dan `AUTH_DISABLED`; `Secure` solo en
+  producción; el JWT lleva `email` y `nombre`; el logout revoca solo el token de esa sesión (se descartó "cerrar todas las sesiones").
+- **Límites que quedan anotados en el spec, sin corregir**: `getSessionUser` solo verifica la firma y confía en el proxy; `/api/auth/register`
+  figura pública pero la ruta no existe (P-10); el login ignora `?from=` (P-09).
+- **Sin cambios de código**: solo documentación.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -509,7 +523,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | # | Pendiente | Severidad | Notas |
 |---|---|---|---|
 | P-01 | ~~Correr `npx tsc --noEmit` en la máquina del autor~~ | — | **Resuelto** el 2026-10-08: sin errores; los `implicit any` del asistente eran un artefacto (D-12) |
-| P-02 | Contrastar a mano los números de `/api/home-interno` y los turnos/franjas (D-10) | Alta | Responde 200, pero nadie comparó contra datos reales |
+| P-02 | ~~Contrastar a mano los números de `/api/home-interno` y los turnos/franjas (D-10)~~ | — | **Resuelto** el 2026-10-10: Fernando lo comparó con datos reales y confirmó que está bien. Los supuestos de turnos y franjas siguen sin confirmar con el negocio (§4) |
 | P-03 | ~~La pantalla de Clientes se cae entera si falla el desplegable de membresías~~ | — | **Resuelto** en D-31 |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
@@ -528,8 +542,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
 | P-19 | Tests lentos o ruidosos: avisos `act(...)` (`ejercicios/page.test.tsx`, `cliente-form.test.tsx`) y `rutina-form.test.tsx` de 15–20 s (`ejercicio.test.ts` ya no usa la base, FX-16) | Baja | Envolver en `act(...)` y revisar los tests lentos |
 | P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Con la revocación (D-34) un token robado se puede cortar con el logout, pero la sesión sigue venciendo a las 24 h sin renovarse |
-| P-21 | Probar la edición de clientes contra la base real (nombre + membresía + estado; aplicar antes la migración de D-27) | Alta | FX-13/FX-14 pasaron tests con Prisma simulado y `tsc` está limpio (P-01); falta la prueba manual (D-26, D-27) |
-| P-22 | Reescribir el spec `authentication-login` con la implementación real | Media | Hoy lleva solo un aviso de revisión, y ese aviso ya está desactualizado: dice que la revocación está diferida, pero se hizo (D-34). Tiene que reflejar cookie `authToken`, ruta `/login`, `{ success, role }`, auditoría (D-32), límite de intentos (D-33) y revocación (D-34); el refresh con rotación sigue pendiente (P-20) |
+| P-21 | ~~Probar la edición de clientes contra la base real~~ | — | **Resuelto** el 2026-10-10: confirmado por Fernando con las migraciones al día (`prisma migrate status`: 5 migraciones). Falta revisar los clientes editados mientras FX-09 estaba abierto |
+| P-22 | ~~Reescribir el spec `authentication-login`~~ | — | **Resuelto** el 2026-10-10 (D-36): spec reescrito según el código; el refresh con rotación queda como *Deferred* (P-20) |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo) | Baja | `ejercicio.test.ts` ahora usa Prisma simulado (FX-16): ya no comprueba lo que hace la base real, como el borrado bloqueado por clave foránea (P2003) o la búsqueda sin distinguir mayúsculas. El test de P2003 prueba solo la traducción del error |
 | P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él |
@@ -599,7 +613,7 @@ Origen: Dev 2.
 
 | Tema | Spec original | Implementación | Dónde quedó documentado |
 |---|---|---|---|
-| Nombre de la cookie | `Authorization` | `authToken` | D-23; `authentication-login` (aviso de revisión) |
+| Nombre de la cookie | `Authorization` | `authToken` | D-23; `authentication-login` (reescrito, D-36) |
 | Ruta de login | `/auth/login` | `/login` | `authentication-login`, `rbac-middleware` |
 | Roles y estados | `ADMIN`, `ACTIVE/DISABLED`, `password_hash`, `role` | `ADMINISTRADOR`, `ACTIVO/INACTIVO/BLOQUEADO`, `password`, `rol` (manda el esquema Prisma) | ambos specs |
 | Quién inicia sesión | Solo personal | También el Socio | D-23 |

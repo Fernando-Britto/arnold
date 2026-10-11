@@ -10,7 +10,8 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 - Hechos: los 4 CRUD (Ejercicios, Rutinas, Clientes, Membresías), Home_Socio, **Home_Interno completo (interfaz y API de
   datos)**, y la autenticación (login, logout, proxy con permisos por rol).
 - Pendiente del plan: **T-023b** (utilidades de UI) y **T-024** (fixtures y factories).
-- Lo más urgente no es construir más: es **verificar** lo hecho (ver [Antes de seguir](#antes-de-seguir)).
+- Lo hecho está **verificado** (ver *Qué se verificó y qué no*). Queda construir T-023b y T-024, el refresh token (P-20) y decidir el despliegue
+  (pooler de Supabase, D-35).
 
 ## Tareas
 
@@ -44,10 +45,12 @@ partió en 7 PRs está en `decisions.md` (D-01).
 **Verificado con evidencia**
 - Logs de `next dev` de Fernando: login `200`; `/home-interno` y `GET /api/home-interno` `200`; Clientes carga para
   Administrador y Recepcionista; `GET /api/membresias/activas` `200`.
-- Tests en la máquina de Fernando (`npm test`), última corrida registrada (tras FX-16/FX-18, antes de T-027 y T-030): **86 de 86 suites; 1.154 de 1.155 tests
-  pasan** (1 `todo`). En el entorno del asistente, con el cliente de Prisma simulado, el código actual pasa 91 de 91 suites (1.197 tests): no reemplaza
-  una corrida real, que hay que repetir. Ver FX-16 y FX-18 en `decisions.md` (el `timeout` de FX-16 nunca estuvo en el repo; hoy el test usa Prisma simulado).
-- `npx prisma generate && npx tsc --noEmit` en la máquina de Fernando (2026-10-08): sin errores (cierra P-01).
+- Tests en la máquina de Fernando (2026-10-10, `npm test`): **91 de 91 suites; 1.197 de 1.198 tests pasan** (1 `todo`). Ver FX-16 y FX-18 en
+  `decisions.md` (el `timeout` de FX-16 nunca estuvo en el repo; hoy `ejercicio.test.ts` usa Prisma simulado).
+- `npx prisma generate && npx tsc --noEmit` en la máquina de Fernando (2026-10-10): sin errores (cierra P-01).
+- `npx prisma migrate status` (2026-10-10): 5 migraciones, el esquema de la base está al día.
+- Edición de clientes contra la base (P-21) y Home_Interno contrastado con datos reales (P-02): confirmados por Fernando el 2026-10-10 ("todo ok"; este
+  registro no guarda el detalle caso por caso).
 - Auditoría de accesos (2026-10-08, consulta a `AuditoriaAcceso` en Supabase): hay filas `LOGIN/DENY` (`AUTH_INVALID`, con `usuarioId`
   del usuario apuntado o vacío si el email no existe), `LOGIN/ALLOW` y `ACCESS_DENIED/DENY` con `motivo` `GET /clientes` (P-15, D-32).
 - Límite de intentos de login (2026-10-08, `curl` contra `npm run dev`): 8 intentos con `401` y el 9.º y 10.º con `429`;
@@ -58,9 +61,9 @@ partió en 7 PRs está en `decisions.md` (D-01).
 - Los nombres de modelo, campo, relación y enum usados por `/api/home-interno` existen en `schema.prisma` (41 de 41).
 
 **No verificado**
-- Que los números de Home_Interno coincidan con los datos reales (turnos, franjas y "activo" son supuestos).
-- Que la edición de clientes funcione de punta a punta contra la base real. FX-09 y su corrección FX-13/FX-14 (transacción
-  y mapeo del enum de cuota) pasaron tests con Prisma simulado, pero **no se probaron contra la base** (P-21).
+- Los supuestos de negocio de Home_Interno (turnos, franjas, "activo"; ver *Supuestos*) no están confirmados con el negocio, aunque los números
+  se contrastaron con datos reales (P-02).
+- Los clientes que se intentaron editar mientras FX-09 estaba abierto (ver *Antes de seguir*, punto 4).
 
 ## Roles y acceso
 
@@ -81,14 +84,28 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 
 1. ~~`npx tsc --noEmit` en la máquina local~~ → hecho el 2026-10-08, sin errores (P-01). El 2026-10-09 (tras D-35) dio 1 error en el mock de
    `ejercicio.test.ts` (FX-20) y ninguno en el código de la aplicación.
-2. **Confirmar que las migraciones están aplicadas** (`npx prisma migrate status`; si falta alguna, `npx prisma migrate deploy` y `npx prisma generate`):
-   `20261008230000_add_token_revocation` ya está (la prueba de revocación de D-34 la usó) y falta confirmar
-   `20261008190000_add_estado_cuota_inactiva_bloqueada` (Inactivo guarda `INACTIVA` y Bloqueado `BLOQUEADA`, D-27, FX-17), necesaria para la prueba 3.
-3. **Editar un cliente** como Administrador y como Recepcionista: cambiar a la vez nombre, email, teléfono y membresía,
-   y también el estado de cuenta (Inactivo/Bloqueado); guardar, recargar y confirmar que se persistió (FX-13, FX-14).
-4. **Revisar los clientes que se intentaron editar mientras el error estaba abierto**: cada intento fallido guardó
-   igual el nuevo nombre y email del usuario (FX-09).
-5. Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos (P-02).
+2. ~~**Confirmar que las migraciones están aplicadas**~~ → hecho el 2026-10-10: `npx prisma migrate status` informa 5 migraciones y el esquema al día
+   (incluye `20261008190000_add_estado_cuota_inactiva_bloqueada`, D-27, FX-17, y `20261008230000_add_token_revocation`, D-34).
+3. ~~**Editar un cliente** como Administrador y como Recepcionista (nombre, email, teléfono, membresía y estado de cuenta)~~ → hecho, confirmado por
+   Fernando el 2026-10-10 (P-21; FX-13, FX-14).
+4. **Revisar los clientes que se intentaron editar mientras el error estaba abierto** (FX-09): `usuario.update` corría antes y por separado, y después
+   `socio.update` fallaba, así que quedaban guardados el nombre y el email nuevos pero **no** el teléfono, la membresía ni el estado. El rastro es que
+   `Usuario.updatedAt` quedó posterior a `Socio.updatedAt`. Consulta (SQL Editor de Supabase; excluye los usuarios del seed):
+
+   ```sql
+   select u.nombre, u.email, s.telefono, s."estadoCuota", s."membresiaAsignadaId",
+          u."updatedAt" as usuario_modificado, s."updatedAt" as socio_modificado,
+          round(extract(epoch from (u."updatedAt" - s."updatedAt"))) as segundos_de_diferencia
+   from "Usuario" u join "Socio" s on s."usuarioId" = u.id
+   where u."updatedAt" > s."updatedAt" + interval '2 seconds' and u.email not like '%@arnold.test'
+   order by u."updatedAt" desc;
+   ```
+
+   Cómo leerla: 0 filas → no hay nada que corregir. Una fila con `usuario_modificado` entre 2026-09-22 y el día en que se aplicó la corrección
+   (commit del 2026-10-05) es sospechosa: abrir ese cliente en la pantalla de edición y completar teléfono, membresía y estado. El nombre y el email
+   originales no se pueden recuperar de la base. Una diferencia posterior a la corrección puede venir de una edición que solo cambió nombre o email.
+   Si un cliente se volvió a editar con éxito, ambos `updatedAt` se igualan y ya no deja rastro (los datos quedaron completos). *Sin confirmar.*
+5. ~~Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos~~ → hecho, confirmado por Fernando el 2026-10-10 (P-02).
 6. ~~**Cerrar sesión** y probar que el token queda inútil~~ → hecho el 2026-10-09 con `curl` (P-06). Pasos usados: iniciá sesión, copiá la cookie `authToken` (herramientas del
    navegador → Application/Storage), cerrá sesión con el botón de la barra superior (Socio y personal; FX-19), y repetí un
    pedido a la API con esa cookie (por ejemplo con `curl`): tiene que responder `401` `TOKEN_INVALID` (P-06, D-34).
@@ -106,7 +123,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | # | Pendiente | Severidad |
 |---|---|---|
 | P-01 | ~~`tsc` local~~ → resuelto (2026-10-08, sin errores) | Baja |
-| P-02 | Contrastar Home_Interno con datos reales | Alta |
+| P-02 | ~~Contrastar Home_Interno con datos reales~~ → resuelto (2026-10-10); los supuestos de turnos y franjas siguen sin confirmar con el negocio | Baja |
 | P-03 | ~~Clientes se cae entero si falla el desplegable de membresías~~ → resuelto (D-31) | Baja |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ → resuelto (D-31) | Baja |
 | P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real | Baja |
@@ -116,8 +133,8 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
 | P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
 | P-20 | Refresh token con rotación (la revocación ya está, D-34) | Media |
-| P-21 | Probar la edición de clientes contra la base (con la migración de D-27 aplicada) | Alta |
-| P-22 | Reescribir el spec `authentication-login` | Media |
+| P-21 | ~~Probar la edición de clientes contra la base~~ → resuelto (2026-10-10) | Baja |
+| P-22 | ~~Reescribir el spec `authentication-login`~~ → resuelto (D-36) | Baja |
 | P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |
 
@@ -128,6 +145,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 - **Rendimiento de Home_Interno**: una sola ronda de consultas con `Server-Timing` (T-030) y scripts de diagnóstico `npm run db:latency` y
   `npm run bench:home-interno` (D-35, FX-21). P-07 cerrado: fuera de Next tarda ~0,4 s; falta evaluar el pooler de Supabase para desplegar.
 - **Datos de desarrollo**: `npm run seed` repetible con usuarios por rol (D-30).
+- **Spec de login** reescrito según la implementación, con trazabilidad a tests y a lo verificado contra la base (P-22, D-36).
 
 - **Clientes**: editar nombre/email y membresía en una sola transacción, sin `any` (FX-13, D-26); mapeo de estado de
   cuota alineado con el enum de Prisma (FX-14, D-27). Actualización 2026-10-08: Inactivo y Bloqueado tienen valores propios
@@ -135,8 +153,8 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 - **Rutinas**: campos numéricos vacíos ya no quedan en `NaN` (FX-15, D-28).
 - **Tests**: `ejercicio.test.ts` usa Prisma simulado y ya no escribe en la base (FX-16); `waitFor` espera 5 s en toda la suite (FX-18).
 - **Documentación unificada**: `decisions.md` incorpora el registro del segundo desarrollador (D-17…D-25, FX-11/12,
-  P-15…P-20, §6 desvíos de specs, §7 concordancia ADR); `rbac-middleware` reescrito y `authentication-login` con aviso
-  de revisión.
+  P-15…P-20, §6 desvíos de specs, §7 concordancia ADR); `rbac-middleware` reescrito y `authentication-login` reescrito
+  el 2026-10-10 (D-36).
 
 ## Supuestos que la spec no define
 
