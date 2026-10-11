@@ -56,6 +56,15 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-031 ➕ Cuotas: reglas de cálculo | ✅ | — (direct to `dev`) | — | `src/domains/pago/cuota.ts` + migration; spec `pagos-cuotas`; D-40. Not wired to API/UI yet |
 | T-032 ➕ `POST /api/pagos` (registrar pago) | ⏳ | — | — | Transactional `Pago` + `Cuota`; decide fate of `Socio.estadoCuota` (D-40, P-24) |
 | T-033 ➕ Registrar Pago (UI) + Mis pagos | ⏳ | — | — | Home_Interno quick action; Socio payment history |
+| T-034 ➕ Asignar rutina (modal + `/api/rutinas-asignadas`) | ⏳ | — | — | Flowspec exists; prerequisite for everything in the Socio area (D-42) |
+| T-035 ➕ Check-in por DNI (API + pantalla de recepción) | ⏳ | — | — | `member-access-check` + `estadoCuotaSocio`; blocked by P-33 (D-43) |
+| T-036 ➕ Pantalla de puerta + `Dispositivo` con token | ⏳ | — | — | Device auth, anti-passback; blocked by P-33 (D-43) |
+| T-037 ➕ Sesión de entrenamiento (migración + API) | ⏳ | — | — | `EN_CURSO`, serie actual, `RegistroDeProgreso.sesionId`/`numeroSerie`; blocked by P-34 (D-44) |
+| T-038 ➕ Ejecución de rutina con cronómetro (UI) | ⏳ | — | — | Replaces the in-memory `handleSeguirRutina` (D-44) |
+| T-039 ➕ Secciones del socio | ⏳ | — | — | Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias (D-45) |
+| T-040 ➕ Cierre de caja | ⏳ | — | — | Group the shift's `Pago` rows by method |
+| T-041 ➕ Molinete y huella | ⏳ | — | — | Hardware not chosen; blocked by P-30 (D-43) |
+| T-042 – T-044 ➕ Usuarios internos, configuración y máquinas, cambio de contraseña | ⏳ | — | — | Suggested by Claude, not yet confirmed (D-42) |
 
 ## Scope changes during apply
 

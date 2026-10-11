@@ -1,6 +1,6 @@
 # Registro de decisiones — ARNOLD MVP Core
 
-**Actualizado**: 2026-10-07 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
+**Actualizado**: 2026-10-11 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
 
 Este documento registra **por qué** el proyecto se desvió del plan original durante `sdd-apply`, qué
 alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace; acá queda el *porqué*.
@@ -566,6 +566,101 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   Prisma no se pudo descargar, así que el SQL se escribió a mano y no se validó contra el schema ni contra la base (P-29). Nada está conectado todavía a
   una API ni a una pantalla.
 
+### D-41 · Forma de trabajo de la etapa de ampliación
+- **Origen**: Fernando (2026-10-11).
+- **Acuerdos**:
+  - Se trabaja **siempre en `dev`**; Fernando no usa ramas en GitHub. El merge a `main` se hace al cerrar la etapa. (Antes se dijo "cada actividad importante en otra
+    rama"; Fernando lo resolvió así.)
+  - Claude entrega los cambios como archivos **`.patch`** (`git format-patch`), numerados. Fernando los copia a una carpeta `~/files` fuera del repo y corre
+    `git am ~/files/*.patch`. Claude no necesita permisos de escritura y el repo no se ensucia con archivos sueltos.
+  - **Commit y push solo al terminar una actividad**, no a medias. Una actividad = uno o varios commits en `dev`.
+  - Se mantienen Strict TDD, **≤400 LOC por patch**, mensajes Conventional Commits con tarea y decisión (`feat(pagos): … (T-031, D-40)`), y autor
+    `Fernando Britto <fernando@example.com>` para que los commits queden consistentes.
+- **Reglas prácticas** (porque `git am` aplica en orden alfabético y exige un árbol limpio):
+  - `dev` limpia y al día (`git status`, `git pull`) antes de aplicar.
+  - Carpeta `files` **vacía entre tandas**: si quedan patches viejos, `git am` intenta reaplicarlos y falla. Los patches se numeran (`0001-…`) y, cuando una tanda
+    continúa a otra, la numeración sigue (`0004-…`).
+  - Si un patch falla: `git am --abort` deja todo como estaba.
+- **Límites del entorno de Claude** (por qué algunas verificaciones quedan de lado de Fernando):
+  - Claude **no puede correr `prisma migrate` ni `prisma generate`** (el motor de Prisma no se puede descargar desde su entorno). Toda migración se escribe a mano y queda
+    **sin verificar** hasta que Fernando corra `npx prisma migrate dev` + `npx prisma generate` (ver P-29).
+  - Sin cliente de Prisma generado fallan 24 suites de Jest **con y sin** los cambios (`@prisma/client did not initialize`), y `tsc` marca errores de tipos de Prisma.
+    Se comprobó que es el mismo conjunto de suites antes y después. Los tests nuevos de dominio puro sí se corren y pasan.
+  - Claude no puede hacer `git push`: lo hace Fernando después del `git am`.
+  - Antes de entregar, Claude prueba que los patches aplican con `git am` sobre un clon limpio del mismo commit.
+- **Pendiente de documentación**: el `README` (línea 71) todavía dice "una rama por tarea creada desde `main`"; no coincide con este acuerdo (P-35).
+
+### D-42 · Etapa de ampliación: alcance, hallazgos y orden
+- **Origen**: Fernando pidió el alcance; Claude hizo el análisis y propuso el orden. Fernando arrancó por Pagos (D-40). Con esto se cierra "la parte básica" del sistema.
+- **Lo que pidió Fernando (decidido)**: control de pagos; control de asistencia por **huella dactilar o DNI** que habilite el molinete (D-43); las secciones del socio que
+  faltan (D-45); y el registro de la ejecución de la rutina desde Home_Socio (D-44).
+- **Hallazgos del análisis (2026-10-11, sobre `dev` en `e1eeba9`)**:
+  - Ya existían en el schema `Pago`, `Cuota`, `CierreDeCaja`, `Asistencia`, `SesionDeEntrenamiento`, `RegistroDeProgreso`, `Maquina` y `ReglaDeProgresion`, pero **ningún
+    código** (dominio, API ni pantalla) de pagos, cierres, asistencia ni sesiones: no existían `/api/pagos`, `/api/cierres`, `/api/sesiones` ni un check-in. La matriz de
+    permisos ya reservaba esos nombres.
+  - `member-access-check` estaba especificado pero sin implementar; `manual-override-authorization` sí estaba hecho.
+  - En Home_Interno los botones "Registrar Pago", "Control Acceso" y "Cierre de Caja" existen pero no hacen nada.
+  - **`/api/rutinas-asignadas` no existe** (solo hay `asignar-rutina-flowspec.md`): hoy un socio solo tiene rutina por el seed. Es requisito previo de todo lo del socio.
+  - No hay API ni pantalla de `ConfiguracionDelSistema` ni de `Maquina` (RN-05), ni de alta de empleados (solo el seed los crea), ni un flujo de cambio de contraseña
+    (los requisitos mencionan credenciales provisorias).
+- **Orden propuesto (Claude, sin objeción de Fernando)**: 1) Pagos y cuotas · 2) Asignar rutina · 3) Check-in por DNI en recepción · 4) Pantalla de puerta con token de
+  dispositivo · 5) Sesión de entrenamiento · 6) Secciones del socio · 7) Cierre de caja · 8) Molinete y huella. El orden es flexible; los bloques 7 y 8 se pueden mover.
+  Razón de empezar por pagos: el check-in depende de saber si la cuota está al día.
+- **Tareas previstas** (ids propuestos; solo T-031 está hecha): T-032 `POST /api/pagos` · T-033 Registrar Pago y Mis pagos (UI) · T-034 Asignar rutina · T-035 Check-in por
+  DNI (API + recepción) · T-036 Pantalla de puerta y dispositivos · T-037 Sesión de entrenamiento (migración + API) · T-038 Ejecución de rutina con cronómetro (UI) · T-039 Secciones
+  del socio · T-040 Cierre de caja · T-041 Molinete y huella · T-042 Usuarios internos · T-043 Configuración y máquinas · T-044 Cambio de contraseña.
+- **Sugerencias de Claude no pedidas por Fernando** (entran solo si las confirma): T-042 a T-044; comprobante imprimible y anulación de pagos con auditoría (`ANULACION` ya existe en
+  `TipoOperacion`); resolver P-20 (refresh token) y P-28 (despliegue) **antes de conectar un dispositivo real**. Para más adelante, no ahora: reportes de recaudación y asistencia,
+  visor de auditoría y recuperación de inactivos (Fase 2).
+- **Alcance de cada bloque**: cada uno se parte en varios patches de ≤400 LOC con tests primero; las migraciones las aplica Fernando (D-41). Las decisiones de cada bloque se
+  agregan acá a medida que se toman.
+
+### D-43 · Control de acceso por DNI o huella y molinete (diseño propuesto, sin implementar)
+- **Origen**: la necesidad es de Fernando (**decidido**): dos opciones para el cliente, DNI o huella, **para simplificar costos**, y que el resultado **habilite el molinete**. El resto
+  es propuesta de Claude, **sin confirmar**.
+- **Propuesta 1 — método de identificación como adaptador.** El check-in recibe "quién es" desde un método (DNI, manual, y más adelante huella). Se construye primero DNI; la huella
+  entra al final (T-041) sin tocar la lógica de decisión. `Asistencia` ganaría un campo `metodo` para auditar cómo se identificó cada ingreso.
+- **Propuesta 2 — la decisión sale de las reglas ya escritas.** `member-access-check` + `estadoCuotaSocio` (D-40): `AL_DIA` permite; `PENDIENTE` permite con aviso; `VENCIDA` y `SIN_CUOTA`
+  niegan salvo override manual (ya implementado, T-025). Se registra en `Asistencia` y en `AuditoriaAcceso` (`CHECK_IN`). Falta reconciliar `member-access-check` con el schema
+  real (el spec habla de estados `Cancelada`/`Pagada` que no existen como tales).
+- **Riesgo conocido — el DNI no es un secreto.** Quien sepa el DNI de otro socio puede entrar por él. Mitigaciones propuestas: mostrar nombre y foto en recepción, **anti-passback**
+  (no permitir un segundo ingreso dentro de una ventana, a definir), límite de intentos por dispositivo (reutilizando `rateLimit`) y, más adelante, un PIN corto opcional. La pantalla
+  de la puerta no debe mostrar más datos que el nombre.
+- **Propuesta 3 — molinete.** Una web no maneja hardware. Lo habitual es un controlador con relé (tipo ESP32 o Raspberry) que consulta al servidor o recibe la orden de abrir.
+  Debe haber un **modo sin conexión** resuelto desde recepción con el override existente. Se decide al final (T-041), cuando se elija el hardware.
+- **Propuesta 4 — dispositivos con su propia autenticación.** El proxy hoy solo entiende sesiones de usuario. La pantalla de la puerta (tablet) y el controlador necesitan un modelo
+  `Dispositivo` con token propio y rutas con autenticación de dispositivo; hay que sumarlo a `authorization.ts` y a su test de consistencia.
+- **Propuesta 5 — huella.** Preferir un lector que compare la huella por su cuenta y mande al sistema solo el ID del socio, **sin guardar plantillas biométricas en Arnold**. Los datos
+  biométricos son datos personales sensibles (en Argentina rige la Ley 25.326): **hay que confirmarlo antes de implementar**. El hardware no está elegido y Claude no conoce los
+  modelos disponibles para Fernando.
+- **Aforo**: `Asistencia` solo registra la entrada; la ocupación sigue usando `ventanaAforoMinutos`. Registrar la salida queda como mejora futura.
+- **Cambios de schema previstos** (ninguno aplicado): `Asistencia.metodo`; modelo `Dispositivo` (nombre, tipo, token con hash, estado, último contacto).
+- **Pendientes**: elegir hardware y confirmar lo legal (P-30); definir ventana de anti-passback, PIN y si se registra la salida (P-33).
+
+### D-44 · Registro de la ejecución de la rutina (sesión de entrenamiento)
+- **Origen**: la idea es de Fernando (**decidido**): en Home_Socio, el socio toca "Seguir rutina" y eso activa la ejecución; al marcar que hizo el ejercicio aparece un **cronómetro de
+  descanso**; se **registran peso y repeticiones** para la sección Progreso. La forma exacta es propuesta de Claude.
+- **Estado hallado**: el botón solo avanza un índice en memoria (`handleSeguirRutina`, con un `TODO` de la API de sesiones) y `indiceActual` viene siempre en 0
+  (`home-socio-data.ts`; supuesto 10). El spec de Home_Socio habla de "Iniciar sesión / Siguiente / Finalizar" mientras la pantalla implementa un único botón (según la maqueta).
+  Ni el cronómetro ni el registro de peso y repeticiones estaban en ningún spec: solo existen RN-07 y UC-10 (reordenamiento por disponibilidad), que son **Fase 2 y no se incluyen**.
+- **Propuesta de flujo (sin confirmar)**: 1) "Seguir rutina" crea la sesión (`EN_CURSO`). 2) Por **cada serie**, el socio carga kg y repeticiones —ya rellenados con lo de la última
+  vez— y toca "Serie hecha". 3) Aparece el cronómetro con el `descanso` del ejercicio, con "saltar" y aviso al terminar. 4) Al terminar las series pasa al ejercicio siguiente y
+  al final se cierra la sesión.
+- **El cronómetro se calcula con la hora de inicio guardada**, no con un contador en pantalla, para que sobreviva a una recarga o a un celular bloqueado.
+- **Cada serie se guarda en `RegistroDeProgreso`**, que ya alimenta la sección Progreso.
+- **Cambios de schema previstos** (ninguno aplicado): estado `EN_CURSO` en `EstadoSesion` (hoy `estadoDeFinalizacion` es obligatorio y no hay estado "en curso"); ejercicio y serie
+  actual en `SesionDeEntrenamiento` para poder retomar; `RegistroDeProgreso.sesionId` y `numeroSerie`; `RegistroDeProgreso.pesoCorporal` opcional (hoy es obligatorio en cada fila).
+- **Permisos**: el Socio hoy tiene `GET` y `POST` en `/api/sesiones`. Para finalizar hace falta `PUT`, y una ruta para registrar progreso; hay que actualizar `authorization.ts` y
+  `matrix-consistency.test.ts`.
+- **Pendiente**: confirmar si el registro es **por serie** (propuesto) o **por ejercicio** (P-34). Bloquea T-037.
+
+### D-45 · Secciones del socio
+- **Origen**: Fernando pidió "las secciones del cliente que faltan: mi rutina, mis ejercicios y tal" (**decidido**). El detalle es propuesta de Claude.
+- **Secciones propuestas**: **Mi rutina** (rutina completa, historial de sesiones, retomar una sesión en curso) · **Mis ejercicios** (los de su rutina, con descripción y su mejor marca) ·
+  **Progreso** (gráfico de cargas y mejores marcas con datos reales) · **Mis pagos y membresía** (historial, vencimiento, renovación) · **Mis asistencias** (calendario y racha).
+- **Dependencias**: Mis pagos depende de D-40 (T-032/T-033); Mis asistencias de D-43; Progreso y Mi rutina de D-44; todas de que existan rutinas asignadas (T-034).
+- **Nota**: P-18 (botón de salir del Socio) ya se resolvió en FX-19.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -633,6 +728,13 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | Salió de P-07 y D-35 ("pendiente aparte"). Fuera de Next la base responde bien (consulta ≈ 212 ms, 14 a la vez ≈ 203 ms, conexión nueva ≈ 2,2 s); falta probarlo con el build de producción y el pooler. El `curl` a `/api/home-interno` debería dejar el proxy cerca de 0,2 s y `datos` cerca de 0,4 s |
 | P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él. **Actualización D-40**: el estado de pago (`AL_DIA`/`PENDIENTE`/`VENCIDA`/`SIN_CUOTA`) se calcula con `estadoCuotaSocio`; falta decidir qué pasa con `Socio.estadoCuota` (T-032) |
 | P-29 | Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago` | Media | El SQL se escribió a mano (el motor de Prisma no se pudo descargar en el entorno de Claude). Correr `npx prisma migrate dev` (o `migrate deploy`), `npx prisma generate` y `npx prisma migrate status`; si `migrate dev` propone una migración nueva, hay una diferencia entre el SQL y `schema.prisma` |
+| P-30 | Elegir el hardware del molinete y del lector de huella, y confirmar los requisitos legales de datos biométricos (Ley 25.326) | Media | Bloquea T-041. Claude no conoce los modelos disponibles; propuesta en D-43 (lector que compara por su cuenta, sin guardar plantillas en Arnold) |
+| P-31 | Decidir qué hace el registro de pagos con `Socio.estadoCuota` | Media | Propuesta de Claude, sin confirmar: no volver a escribir `PENDIENTE`/`VENCIDA` (se calculan, D-40) y dejar la columna para el estado de la cuenta (`AL_DIA`/`INACTIVA`/`BLOQUEADA`). Se resuelve en T-032 |
+| P-32 | Confirmar con el negocio la política de cobro: pago tardío = mes completo sin recargo, reingreso = alta sin deuda retroactiva, día de corte 20, gracia 0 | Baja | Supuestos 13–15. Cambiarlos es editar la configuración o una función |
+| P-33 | Definir los parámetros del control de acceso: ventana de anti-passback, PIN opcional, si se registra la salida | Media | D-43. Bloquea T-035 y T-036 |
+| P-34 | Confirmar si el registro de rutina es por serie (propuesto) o por ejercicio | Media | D-44. Bloquea T-037 |
+| P-35 | El `README` (línea 71) dice "una rama por tarea creada desde `main`"; se acordó trabajar siempre en `dev` | Baja | D-41. Actualizar al cerrar la etapa, junto con el merge a `main` |
+| P-36 | Archivos sueltos en la raíz del repo: `tests-clientes-update.patch` y `tests-enum-estadoCuota.patch` | Baja | Parecen restos de parches viejos. Confirmar con Fernando antes de borrarlos |
 
 ---
 

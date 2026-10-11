@@ -138,16 +138,19 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 
 ## Ampliación en curso
 
-Orden acordado (cada bloque en varios patches de ≤400 LOC, con tests primero; el detalle de cada decisión va a `decisions.md`):
+Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`, cambios como `.patch`). Cada bloque va en varios patches de ≤400 LOC, con tests primero.
+El orden es una **propuesta** (Fernando arrancó por pagos); lo que está decidido y lo que no se marca en cada D-xx:
 
-1. **Pagos y cuotas** — reglas de cálculo hechas (T-031); faltan la API (T-032) y las pantallas (T-033).
-2. **Asignar rutina** (modal + `/api/rutinas-asignadas`; hoy solo el seed asigna rutinas).
-3. **Check-in por DNI** desde recepción, con auditoría y el override existente (spec `member-access-check`).
-4. **Pantalla de puerta** (tablet) con token de dispositivo y anti-passback.
-5. **Sesión de entrenamiento**: serie por serie con kg y repeticiones, cronómetro de descanso, `RegistroDeProgreso`.
-6. **Secciones del socio**: Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias.
-7. **Cierre de caja.**
-8. **Molinete y huella** (depende del hardware que se elija).
+1. **Pagos y cuotas** (D-40) — reglas de cálculo hechas (T-031); faltan la API (T-032) y las pantallas (T-033).
+2. **Asignar rutina** (T-034; modal + `/api/rutinas-asignadas`; hoy solo el seed asigna rutinas).
+3. **Check-in por DNI** (T-035, D-43) desde recepción, con auditoría y el override existente (spec `member-access-check`).
+4. **Pantalla de puerta** (T-036, D-43; tablet) con token de dispositivo y anti-passback.
+5. **Sesión de entrenamiento** (T-037, T-038, D-44): serie por serie con kg y repeticiones, cronómetro de descanso, `RegistroDeProgreso`.
+6. **Secciones del socio** (T-039, D-45): Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias.
+7. **Cierre de caja** (T-040).
+8. **Molinete y huella** (T-041, D-43; depende del hardware que se elija).
+
+Sugeridos y sin confirmar: usuarios internos, configuración y máquinas, cambio de contraseña (T-042 a T-044). Antes de conectar un dispositivo real conviene cerrar P-20 y P-28.
 
 ## Pendientes principales
 
@@ -172,10 +175,21 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-27 | Errores de `eslint` que ya existían en `membresia-form-panel.tsx` y `membresia-list-panel.tsx`, y `any` en varias pantallas | Baja |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) | Media |
 | P-29 | Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago` (SQL escrito a mano, sin validar con Prisma) | Media |
+| P-30 | Elegir hardware de molinete y huella y confirmar lo legal de datos biométricos (D-43) | Media |
+| P-31 | Qué hace el registro de pagos con `Socio.estadoCuota` (propuesta en `decisions.md`) | Media |
+| P-32 | Confirmar con el negocio la política de cobro (pago tardío, reingreso, día de corte) | Baja |
+| P-33 | Parámetros del control de acceso: anti-passback, PIN, salida (D-43) | Media |
+| P-34 | Registro de rutina por serie o por ejercicio (D-44) | Media |
+| P-35 | `README` dice "una rama por tarea"; se acordó trabajar en `dev` (D-41) | Baja |
+| P-36 | `.patch` sueltos en la raíz del repo | Baja |
 | P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |
 
 ## Cambios recientes (2026-10-07 al 2026-10-11)
+
+- **Etapa de ampliación documentada (D-41 a D-45)**: forma de trabajo con patches, alcance y orden, control de acceso por DNI/huella y molinete, registro de la
+  ejecución de rutina y secciones del socio. Son decisiones y propuestas: **todavía no hay código** más allá de T-031. Cada D-xx indica qué decidió Fernando y qué
+  propuso Claude sin confirmar; los puntos abiertos son P-30 a P-36.
 
 - **Cuotas mensuales (T-031, D-40)**: el mes se paga del 1 al 10; las altas pagan prorrateo hasta el día 20 y, después, una cuota completa que cubre dos
   períodos. Funciones puras en `src/domains/pago/cuota.ts`, spec `pagos-cuotas`, `ConfiguracionDelSistema.diaLimitePago` / `diaCorteAltaTardia` y
@@ -223,6 +237,6 @@ límite 10, corte de altas 20, pago tardío sin recargo (D-40, supuestos 13–15
 |---|---|
 | `openspec/sdd-tasks-tdd.md` | Plan de tareas, estado por tarea, cambios de alcance |
 | `openspec/decisions.md` | Decisiones (D-xx), defectos corregidos (FX-xx), pendientes (P-xx), lecciones |
-| `openspec/specs/*/spec.md` | Specs de cada área |
+| `openspec/specs/*/spec.md` | Specs de cada área (`pagos-cuotas` es la fuente de verdad de los estados de pago) |
 | `openspec/*.svg`, `*.png` | Maquetas |
 | `README.md` | Cómo instalar y correr el proyecto |
