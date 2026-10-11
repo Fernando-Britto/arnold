@@ -485,6 +485,23 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   figura pública pero la ruta no existe (P-10); el login ignora `?from=` (P-09).
 - **Sin cambios de código**: solo documentación.
 
+### D-37 · T-023b: utilidades de UI, y qué quedó sin conectar
+- **Origen**: Claude, a pedido de Fernando (siguiente tarea del plan).
+- **Qué se hizo**: `src/utils/validation.ts` (`validateEmail`, `validateDNI`, `validatePhone`), `src/utils/formatting.ts` (`formatDNI`,
+  `formatPhone`), `src/utils/api-error.ts` (`ApiError`, `throwIfNotOk`, `handleApiError`) y `src/contexts/notifications.tsx`
+  (`NotificationProvider`, `useNotifications`), montado en `src/app/layout.tsx`.
+- **Decisión 1 — una sola fuente de las reglas**: las tres validaciones eran privadas de `src/domains/cliente/cliente.ts`. Se movieron a
+  `src/utils/validation.ts` con las mismas expresiones regulares y `cliente.ts` las importa. Comportamiento idéntico (tests de Cliente en verde).
+- **Decisión 2 — formatear no inventa**: `formatDNI` y `formatPhone` devuelven el texto tal cual si no son 8 dígitos / 10 dígitos nacionales, así
+  un dato incompleto nunca se "completa" solo. Siguen el formato que exige la validación existente (DNI de 8 dígitos; `+54 9 XXXX XXXXXX`).
+- **Decisión 3 — `handleApiError`**: un 4xx de validación muestra el mensaje del servidor; 401, 403, 429 y red tienen texto propio; un 5xx
+  nunca muestra el detalle (coincide con `mapErrorToResponse`, que lo deja en el log del servidor).
+- **Sin conectar (a propósito, para no mezclar cambios)**: los `src/api/*.ts` del cliente siguen lanzando `new Error(...)` con sus mensajes
+  actuales y ninguna pantalla usa todavía `useNotifications` ni `handleApiError`. Adoptarlos pantalla por pantalla es trabajo aparte, porque
+  cambia mensajes que hoy afirman los tests.
+- **Verificado**: tests nuevos y los de Cliente en verde; `eslint` limpio en los archivos nuevos. **No verificado**: la app corriendo con el
+  provider montado en el layout.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -535,7 +552,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |
 | P-11 | El proxy consulta la base en cada navegación de página (incluido el prefetch) | Baja | Compromiso aceptado: un usuario deshabilitado queda afuera al instante |
 | P-12 | Deuda de lint: 115 errores / 41 warnings en 52 archivos | Baja | Ver D-14 |
-| P-13 | T-023b (utilidades) y T-024 (factories) sin hacer | — | Según el plan |
+| P-13 | ~~T-023b (utilidades)~~ hecho (D-37); T-024 (factories) sin hacer | — | Según el plan |
 | P-14 | Código muerto: `getAuthHeaders()` en `src/api/clientes.ts` | Baja | Lee `localStorage`, donde nada escribe; el proxy ya no lo necesita |
 | P-15 | ~~Registrar accesos denegados y fallos de autenticación en `AuditoriaAcceso`~~ | — | **Resuelto y verificado** en D-32 (T-029): migración aplicada, filas confirmadas en la base (2026-10-08) |
 | P-16 | ~~El rate limit usa `ipAddress` de `@vercel/functions`~~ | — | **Resuelto** en D-33 (opt-in `TRUST_PROXY_HEADERS`) |

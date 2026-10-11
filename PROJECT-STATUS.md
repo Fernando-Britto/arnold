@@ -9,8 +9,8 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 
 - Hechos: los 4 CRUD (Ejercicios, Rutinas, Clientes, Membresías), Home_Socio, **Home_Interno completo (interfaz y API de
   datos)**, y la autenticación (login, logout, proxy con permisos por rol).
-- Pendiente del plan: **T-023b** (utilidades de UI) y **T-024** (fixtures y factories).
-- Lo hecho está **verificado** (ver *Qué se verificó y qué no*). Queda construir T-023b y T-024, el refresh token (P-20) y decidir el despliegue
+- Pendiente del plan: **T-024** (fixtures y factories). T-023b (utilidades de UI) está hecha pero sin conectar a las pantallas (D-37).
+- Lo hecho está **verificado** (ver *Qué se verificó y qué no*). Queda construir T-024, el refresh token (P-20) y decidir el despliegue
   (pooler de Supabase, D-35).
 
 ## Tareas
@@ -34,7 +34,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-021b | Home_Interno Parte 2 (gestión, actividad) | ✅ 336 LOC (estimado 150) |
 | T-021c ➕ | `GET /api/home-interno` | ✅ 505 LOC |
 | T-026a/b/c ➕ | Login/logout, página `/login`, proxy + RBAC | ✅ (de Fernando) |
-| T-023b | Utilidades de UI | ⏳ → `PR-009-D` |
+| T-023b | Utilidades de UI (validación, formato, errores de API, notificaciones) | ✅ `PR-009-D`; sin conectar a las pantallas (D-37) |
 | T-024 | Fixtures y factories | ⏳ |
 
 ➕ = agregada durante la ejecución, no estaba en el plan. El detalle de por qué T-021 pasó de 400 a 1.806 LOC y se
