@@ -6,6 +6,8 @@ import { Ejercicio } from "@prisma/client";
 import { RutinaForm } from "@/components/rutina-crud/rutina-form";
 import { RutinaListPanel } from "@/components/rutina-crud/rutina-list";
 import { useAuth } from "@/contexts/auth";
+import { useNotifications } from "@/contexts/notifications";
+import { handleApiError } from "@/utils/api-error";
 import {
   fetchRutinas,
   createRutina,
@@ -19,6 +21,7 @@ import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/lay
 export function RutinasPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
+  const { notify } = useNotifications();
 
   const [rutinas, setRutinas] = useState<RutinaWithCount[]>([]);
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
@@ -57,7 +60,7 @@ export function RutinasPage() {
         setRutinas(rutinasData);
         setEjercicios(ejerciciosData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading data");
+        setError(handleApiError(err, "No se pudieron cargar las rutinas."));
       } finally {
         setLoading(false);
       }
@@ -109,6 +112,7 @@ export function RutinasPage() {
         setRutinas((prev) =>
           prev.map((r) => (r.id === formData.id ? savedRutina : r))
         );
+        notify("success", "Rutina actualizada");
       } else {
         // Create new
         const created = await createRutina({
@@ -128,12 +132,13 @@ export function RutinasPage() {
 
         // Add to list with accurate exercises count
         setRutinas((prev) => [...prev, savedRutina]);
+        notify("success", "Rutina creada");
       }
 
       // Reset form
       setSelectedRutina(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setError(handleApiError(err, "No se pudo guardar la rutina."));
     } finally {
       setIsSaving(false);
     }
@@ -151,10 +156,9 @@ export function RutinasPage() {
       if (selectedRutina?.id === id) {
         setSelectedRutina(null);
       }
+      notify("success", "Rutina eliminada");
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Error deleting rutina";
-      setError(errorMessage);
+      setError(handleApiError(err, "No se pudo eliminar la rutina."));
     }
   };
 

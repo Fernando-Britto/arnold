@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RutinasPage } from "./page";
 import { useAuth } from "@/contexts/auth";
+import { useNotifications } from "@/contexts/notifications";
+import { ApiError } from "@/utils/api-error";
 import * as rutinasApi from "@/api/rutinas";
 import { mockRutina, mockRutinaWithEjercicios } from "@/__mocks__/rutina";
 
@@ -19,6 +21,8 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/contexts/auth");
+jest.mock("@/contexts/notifications");
+const mockNotify = jest.fn();
 
 // Mock API functions
 jest.mock("@/api/rutinas", () => ({
@@ -50,6 +54,7 @@ const waitForLoadingComplete = async () => {
 describe("RutinasPage — Rutina CRUD Screen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
     (useAuth as jest.Mock).mockReturnValue({
       user: { id: "user1", rol: "ADMINISTRADOR" },
       isAuthenticated: true,
@@ -382,9 +387,7 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
       const mockRutinas = [mockRutina];
       mockRutinasApi.fetchRutinas.mockResolvedValue(mockRutinas);
       mockEjerciciosApi.fetchEjercicios.mockResolvedValue([]);
-      const error = new Error(
-        "Rutina asignada activamente a 2 socio(s)"
-      );
+      const error = new ApiError(409, "Rutina asignada activamente a 2 socio(s)");
       mockRutinasApi.deleteRutina.mockRejectedValue(error);
 
       // Mock global.confirm to return true
@@ -462,7 +465,7 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
       mockRutinasApi.fetchRutinas.mockResolvedValue([]);
     mockEjerciciosApi.fetchEjercicios.mockResolvedValue([]);
       mockRutinasApi.createRutina.mockRejectedValue(
-        new Error("Nombre es requerido")
+        new ApiError(400, "Nombre es requerido", "VALIDATION_ERROR")
       );
 
       render(<RutinasPage />);
@@ -488,7 +491,7 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
 
     it("should show error when list fails to load", async () => {
       mockRutinasApi.fetchRutinas.mockRejectedValue(
-        new Error("No se pudo cargar las rutinas")
+        new TypeError("Failed to fetch")
       );
 
       render(<RutinasPage />);
@@ -496,9 +499,81 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/No se pudo cargar las rutinas|error/i)
+          screen.getByText(/No hay conexión con el servidor/i)
         ).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("T-023b: avisos de éxito y mensajes de error de la API", () => {
+    const saved = { ...mockRutina, nombre: "Fuerza Full Body Actualizada" };
+
+    it("al crear avisa 'Rutina creada'", async () => {
+      const user = userEvent.setup();
+      mockRutinasApi.createRutina.mockResolvedValue(saved);
+
+      render(<RutinasPage />);
+      await waitForLoadingComplete();
+      await user.type(screen.getByLabelText(/Nombre/i), "Rutina Nueva");
+      await user.selectOptions(screen.getByLabelText(/Objetivo Principal/i), "Fuerza");
+      await user.clear(screen.getByLabelText(/Frecuencia Semanal/i));
+      await user.type(screen.getByLabelText(/Frecuencia Semanal/i), "3");
+      await user.clear(screen.getByLabelText(/Duración Estimada/i));
+      await user.type(screen.getByLabelText(/Duración Estimada/i), "60");
+      await user.click(screen.getByRole("radio", { name: /Básico/i }));
+      await user.click(screen.getByRole("button", { name: /Guardar/i }));
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Rutina creada"));
+    });
+
+    it("al editar avisa 'Rutina actualizada'", async () => {
+      const user = userEvent.setup();
+      mockRutinasApi.fetchRutinas.mockResolvedValue([mockRutina]);
+      mockRutinasApi.updateRutina.mockResolvedValue(saved);
+
+      render(<RutinasPage />);
+      await waitForLoadingComplete();
+      await user.click((await screen.findAllByRole("button", { name: /editar|edit/i }))[0]);
+      await user.click(screen.getByRole("button", { name: /Guardar|Actualizar/i }));
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Rutina actualizada"));
+    });
+
+    it("al eliminar avisa 'Rutina eliminada'", async () => {
+      const user = userEvent.setup();
+      mockRutinasApi.fetchRutinas.mockResolvedValue([mockRutina]);
+      mockRutinasApi.deleteRutina.mockResolvedValue(undefined);
+      global.confirm = jest.fn(() => true);
+
+      render(<RutinasPage />);
+      await waitForLoadingComplete();
+      await user.click((await screen.findAllByRole("button", { name: /eliminar|delete/i }))[0]);
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Rutina eliminada"));
+    });
+
+    it("si falla el borrado muestra el mensaje del servidor y no avisa éxito", async () => {
+      const user = userEvent.setup();
+      mockRutinasApi.fetchRutinas.mockResolvedValue([mockRutina]);
+      mockRutinasApi.deleteRutina.mockRejectedValue(new ApiError(409, "Rutina asignada activamente a 2 socio(s)"));
+      global.confirm = jest.fn(() => true);
+
+      render(<RutinasPage />);
+      await waitForLoadingComplete();
+      await user.click((await screen.findAllByRole("button", { name: /eliminar|delete/i }))[0]);
+
+      expect(await screen.findByText("Rutina asignada activamente a 2 socio(s)")).toBeInTheDocument();
+      expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
+    });
+
+    it("un 5xx no muestra el detalle técnico", async () => {
+      mockRutinasApi.fetchRutinas.mockRejectedValue(new ApiError(500, "prisma exploded", "SERVER_ERROR"));
+
+      render(<RutinasPage />);
+      await waitForLoadingComplete();
+
+      expect(await screen.findByText(/No se pudo procesar la solicitud/i)).toBeInTheDocument();
+      expect(screen.queryByText(/prisma exploded/i)).not.toBeInTheDocument();
     });
   });
 });

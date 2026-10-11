@@ -1,6 +1,7 @@
 import { Rutina } from "@prisma/client";
 import { RutinaRepository, validateRutina } from "@/domains/rutina/rutina";
 import { prisma } from "@/lib/db";
+import { throwIfNotOk } from "@/utils/api-error";
 
 export type RutinaWithCount = Rutina & { _count: { ejercicios: number } };
 
@@ -172,10 +173,7 @@ export async function handleRutinaDelete(id: string): Promise<void> {
  */
 export async function fetchRutinas(): Promise<RutinaWithCount[]> {
   const response = await fetch("/api/rutinas");
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to fetch rutinas");
-  }
+  await throwIfNotOk(response, "No se pudieron cargar las rutinas");
   return response.json();
 }
 
@@ -191,10 +189,7 @@ export async function createRutina(
     body: JSON.stringify(data),
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to create rutina");
-  }
+  await throwIfNotOk(response, "No se pudo crear la rutina");
   return response.json();
 }
 
@@ -211,10 +206,7 @@ export async function updateRutina(
     body: JSON.stringify(data),
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to update rutina");
-  }
+  await throwIfNotOk(response, "No se pudo actualizar la rutina");
   return response.json();
 }
 
@@ -226,8 +218,5 @@ export async function deleteRutina(id: string): Promise<void> {
     method: "DELETE",
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to delete rutina");
-  }
+  await throwIfNotOk(response, "No se pudo eliminar la rutina");
 }

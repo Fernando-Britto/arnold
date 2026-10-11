@@ -531,7 +531,9 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Ejercicios (mismo patrón, segundo patch)**: `src/api/ejercicios.ts` y `src/app/ejercicios/page.tsx` igual que Clientes ("Ejercicio creado /
   actualizado / eliminado"). El borrado bloqueado por rutinas ya no se detecta buscando "en uso" o "DELETE_BLOCKED" dentro del mensaje: se usa
   el `code` `DELETE_BLOCKED_ASSIGNED` (409) que manda el servidor, y se conserva el texto fijo que ya veía la persona.
-- **Pendiente**: la misma conexión en Rutinas y Membresías (un patch cada una). Membresías es distinta: sus fetch están dentro de los componentes
+- **Rutinas (mismo patrón, tercer patch)**: `src/api/rutinas.ts` y `src/app/rutinas/page.tsx` ("Rutina creada / actualizada / eliminada"). Se ajustaron
+  tres tests de la página que afirmaban el texto viejo (error de red, borrado bloqueado y validación).
+- **Pendiente**: la misma conexión en Membresías. Es distinta: sus fetch están dentro de los componentes
   `membresia-form-panel` y `membresia-list-panel`, no en la página.
 - **Verificado**: tests de Clientes (página, API del lado cliente, componentes) y `tsc` en verde. **No verificado**: la pantalla en el navegador.
 
