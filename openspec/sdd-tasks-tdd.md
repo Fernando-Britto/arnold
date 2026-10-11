@@ -1,6 +1,6 @@
 # SDD Tasks: ARNOLD MVP Core (TDD Mode)
 
-**Status**: IN EXECUTION — T-001 … T-021c, T-023b and T-026 … T-030 done; T-024 pending  
+**Status**: IN EXECUTION — all planned tasks done (T-001 … T-030); only deferred items remain (see PROJECT-STATUS.md)  
 **Date**: 2026-09-12 (approved) · Updated 2026-10-10  
 **Mode**: Strict TDD (strict_tdd: true)  
 **Delivery**: Chained PRs (≤400 LOC each) — 28 planned + additions (see [Scope changes during apply](#scope-changes-during-apply))  
@@ -52,7 +52,7 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-026b Login page + SessionUser | ✅ ➕ | PR-011-B | 290 | By Fernando |
 | T-026c Proxy + RBAC + cookie-first | ✅ ➕ | PR-011-C | 381 | By Fernando, see D-07 |
 | T-023b UI utilities | ✅ | PR-009-D (was PR-009-C) | 434 (2 commits: 263 + 171) | Renumbered, see D-15 · built but not yet wired into screens, see D-37 |
-| T-024 Test fixtures | ⏳ | PR-010-A | — | `tests/fixtures/home-interno-data.ts` anticipates part of it (D-16) |
+| T-024 Test fixtures | ✅ | PR-010-A | 280 | Factories in `tests/factories/`; existing mocks not migrated, see D-38 |
 
 ## Scope changes during apply
 
@@ -425,7 +425,7 @@ Rationale for each item lives in [`decisions.md`](./decisions.md); this is the i
 - **Dependencies**: None (independent utilities)
 
 ### T-024: Test Fixtures & Factories
-- **Status**: ⏳ Pending
+- **Status**: ✅ Done (D-38)
 - **Spec**: Test infrastructure (data generation)
 - **What**: Factories for Ejercicio, Rutina, Cliente, Membresía, Usuario, EjercicioEnRutina
 - **Test file**: tests/factories/*.ts (with light integration tests)

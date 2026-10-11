@@ -56,7 +56,7 @@ src/domains/      Reglas de negocio puras y repositorios
 src/api/          Handlers de servidor y funciones de cliente
 src/components/   Componentes por área
 src/lib/          Auth, base de datos, permisos, hora del gimnasio
-tests/            Tests de rutas y fixtures compartidos
+tests/            Tests de rutas, fixtures y factories de datos de prueba (tests/factories)
 openspec/         Specs, plan de tareas, decisiones y maquetas
 ```
 

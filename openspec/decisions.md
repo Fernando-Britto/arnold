@@ -166,7 +166,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 
 ### D-16 · Fixture compartido anticipa T-024
 - `tests/fixtures/home-interno-data.ts` sirve a los tests de página de T-021a/b. **No reemplaza** a T-024
-  (factories de Ejercicio, Rutina, Cliente, Membresía, Usuario), que sigue pendiente.
+  (factories de Ejercicio, Rutina, Cliente, Membresía, Usuario), que se hizo después ([D-38](#d-38--t-024-factories-de-datos-de-prueba)).
 
 ### D-17 · Política de acceso del proxy: JSON en la API, redirect en las páginas
 - **Origen**: Dev 2 (ADR-05). **Contexto**: la spec `rbac-middleware` pedía redirigir sin sesión y un 403 que nombraba
@@ -502,6 +502,20 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Verificado**: tests nuevos y los de Cliente en verde; `eslint` limpio en los archivos nuevos. **No verificado**: la app corriendo con el
   provider montado en el layout.
 
+### D-38 · T-024: factories de datos de prueba
+- **Origen**: Claude, a pedido de Fernando (siguiente tarea del plan).
+- **Qué se hizo**: `tests/factories/` con `buildEjercicio`, `buildRutina`, `buildEjercicioEnRutina`, `buildUsuario` (filas con el tipo de
+  `@prisma/client`, así un cambio de `schema.prisma` rompe `tsc`), `buildCliente` y `buildMembresia` (tipos del dominio), y `resetFactories()`.
+- **Decisión 1 — deterministas**: ids, DNI y emails salen de una secuencia (`nextSeq`), no de `Math.random()` ni de `Date.now()`; las fechas son
+  fijas (2026-01-01). Con `resetFactories()` en un `beforeEach` cada test arranca igual y los fallos se reproducen.
+- **Decisión 2 — válidos por construcción**: `factories.test.ts` pasa los valores por defecto por `validateCliente`, `validateMembresia`,
+  `validateRutina` y `validateEjercicio`; si una regla del dominio cambia, el test avisa.
+- **Decisión 3 — sin hashes reales**: `buildUsuario().password` es un texto fijo que no es un hash (hashear con bcrypt cuesta tiempo en cada
+  build). Si un test necesita iniciar sesión de verdad, que use `hashPassword`.
+- **Sin migrar (a propósito)**: los mocks y fixtures que ya existen (`src/__mocks__/rutina.ts`, `tests/fixtures/home-interno-data.ts` y los
+  datos armados a mano en cada test) siguen como están; cambiarlos toca decenas de tests sin ganar nada hoy. Las factories se usan en los tests
+  nuevos y se adoptan en los viejos cuando se editen (D-16 sigue valiendo para `home-interno-data.ts`).
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -552,7 +566,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |
 | P-11 | El proxy consulta la base en cada navegación de página (incluido el prefetch) | Baja | Compromiso aceptado: un usuario deshabilitado queda afuera al instante |
 | P-12 | Deuda de lint: 115 errores / 41 warnings en 52 archivos | Baja | Ver D-14 |
-| P-13 | ~~T-023b (utilidades)~~ hecho (D-37); T-024 (factories) sin hacer | — | Según el plan |
+| P-13 | ~~T-023b (utilidades)~~ hecho (D-37); ~~T-024 (factories)~~ hecho (D-38) | — | Según el plan |
 | P-14 | Código muerto: `getAuthHeaders()` en `src/api/clientes.ts` | Baja | Lee `localStorage`, donde nada escribe; el proxy ya no lo necesita |
 | P-15 | ~~Registrar accesos denegados y fallos de autenticación en `AuditoriaAcceso`~~ | — | **Resuelto y verificado** en D-32 (T-029): migración aplicada, filas confirmadas en la base (2026-10-08) |
 | P-16 | ~~El rate limit usa `ipAddress` de `@vercel/functions`~~ | — | **Resuelto** en D-33 (opt-in `TRUST_PROXY_HEADERS`) |
