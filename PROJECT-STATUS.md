@@ -10,8 +10,10 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 - Hechos: los 4 CRUD (Ejercicios, Rutinas, Clientes, Membresías), Home_Socio, **Home_Interno completo (interfaz y API de
   datos)**, y la autenticación (login, logout, proxy con permisos por rol).
 - **Todas las tareas del plan están hechas.** T-023b (utilidades de UI) está conectada a las cuatro pantallas CRUD (D-39); T-024 dejó factories en `tests/factories/` que todavía no reemplazan a los mocks viejos (D-38).
-- Lo hecho está **verificado** (ver *Qué se verificó y qué no*). Queda el refresh token (P-20) y decidir el despliegue
-  (pooler de Supabase, D-35).
+- Lo hecho hasta el 2026-10-10 está **verificado** (ver *Qué se verificó y qué no*). Lo del 2026-10-11 (T-023b conectada a las pantallas, T-024) se
+  probó en el entorno de Claude, pero **falta correr `npm test` y `npx tsc --noEmit` en la máquina de Fernando** antes del merge (paso 11 de *Antes de seguir*).
+- Quedan: el refresh token (P-20), el despliegue (P-28: pooler de Supabase y build de producción, D-35), el `useMemo` de Clientes (P-26) y deuda
+  menor (P-24, P-25, P-27).
 
 ## Tareas
 
@@ -34,7 +36,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-021b | Home_Interno Parte 2 (gestión, actividad) | ✅ 336 LOC (estimado 150) |
 | T-021c ➕ | `GET /api/home-interno` | ✅ 505 LOC |
 | T-026a/b/c ➕ | Login/logout, página `/login`, proxy + RBAC | ✅ (de Fernando) |
-| T-023b | Utilidades de UI (validación, formato, errores de API, notificaciones) | ✅ `PR-009-D`; sin conectar a las pantallas (D-37) |
+| T-023b | Utilidades de UI (validación, formato, errores de API, notificaciones) | ✅ `PR-009-D`; conectada a las cuatro pantallas CRUD (D-37, D-39) |
 | T-024 | Fixtures y factories (`tests/factories/`) | ✅ (D-38) |
 
 ➕ = agregada durante la ejecución, no estaba en el plan. El detalle de por qué T-021 pasó de 400 a 1.806 LOC y se
@@ -61,8 +63,17 @@ partió en 7 PRs está en `decisions.md` (D-01).
   respondía `403` (sesión válida sin permiso); tras `POST /api/auth/logout` con ese mismo token, el mismo pedido respondió `401 TOKEN_INVALID`
   (P-06, D-34). Se probó el endpoint con `curl`; el botón "Cerrar sesión" del Socio (FX-19) no se probó aparte.
 - Los nombres de modelo, campo, relación y enum usados por `/api/home-interno` existen en `schema.prisma` (41 de 41).
+- T-023b, primera parte (utilidades y `NotificationProvider`): Fernando la aplicó en `dev` y confirmó "todo ok" el 2026-10-11 (este registro no guarda el
+  detalle de qué probó).
+- En el entorno de Claude (2026-10-11, con el cliente de Prisma generado pero **sin motor de consultas**): `npx tsc --noEmit` sin errores, y la suite
+  completa con 1.306 tests pasando y ninguno fallando. Cuatro suites figuran como "failed to run" solo porque falta el motor de Prisma. Cada patch se
+  aplicó en cadena sobre una copia limpia de `dev`. `npx eslint .` da 147 errores y 56 avisos, igual que el 2026-10-10: los cambios del 2026-10-11 no
+  sumaron errores de lint.
 
 **No verificado**
+- Los patches de T-024 y de D-39 (Clientes, Ejercicios, Rutinas, Membresías) **en la máquina de Fernando**: `npm test` con el motor de Prisma real y
+  `npx tsc --noEmit`.
+- Los avisos de éxito y los mensajes de error nuevos (D-39) **en el navegador**, incluido el `NotificationProvider` montado en `layout.tsx` (D-37).
 - Los supuestos de negocio de Home_Interno (turnos, franjas, "activo"; ver *Supuestos*) no están confirmados con el negocio, aunque los números
   se contrastaron con datos reales (P-02).
 - `/api/home-socio` y la pantalla del Socio con un socio real del seed (P-05), incluido el botón "Cerrar sesión" del Socio (FX-19).
@@ -117,6 +128,8 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
    coincide con el seed. No mejoró de forma evidente (no hay un "antes" comparable); ver D-35.
 8. ~~**Medir la base**~~ → hecho el 2026-10-09 (`npm run db:latency`): consulta ≈ 212 ms, 14 a la vez ≈ 203 ms (el pool paraleliza bien), conexión nueva ≈ 2,2 s.
 9. ~~**Medir fuera de Next**~~ → hecho el 2026-10-09 (`npm run bench:home-interno`): armado ≈ 405 ms, sesión ≈ 207 ms, primera corrida (en frío) ≈ 2,1 s.
+11. **Antes del merge de `dev` a `main`**: con todos los patches aplicados, correr `npm test` y `npx tsc --noEmit` en la máquina de Fernando y abrir
+    las cuatro pantallas CRUD para ver un aviso de éxito (crear, editar, eliminar) y un error de la API (D-37, D-38, D-39).
 10. *(opcional)* **Confirmar con el build de producción**: `npm run build`, `npm run start` y repetir el `curl` a `/api/home-interno` (P-07, D-35): el proxy
     debería quedar cerca de 0,2 s y `datos` cerca de 0,4 s.
 
@@ -139,10 +152,19 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-20 | Refresh token con rotación (la revocación ya está, D-34) | Media |
 | P-21 | ~~Probar la edición de clientes contra la base~~ → resuelto (2026-10-10) | Baja |
 | P-22 | ~~Reescribir el spec `authentication-login`~~ → resuelto (D-36) | Baja |
+| P-26 | `src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos (lo marca `eslint`; riesgo de error por cambio en el orden de hooks) | Media |
+| P-27 | Errores de `eslint` que ya existían en `membresia-form-panel.tsx` y `membresia-list-panel.tsx`, y `any` en varias pantallas | Baja |
+| P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) | Media |
 | P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |
 
-## Cambios recientes (2026-10-07 al 2026-10-10)
+## Cambios recientes (2026-10-07 al 2026-10-11)
+
+- **Utilidades de UI (T-023b, D-37, D-39)**: validaciones compartidas (Cliente las reutiliza), formato de DNI y teléfono, `ApiError` / `handleApiError` y
+  `NotificationProvider`. Conectadas a Clientes, Ejercicios, Rutinas y Membresías: avisos de éxito al crear, editar y eliminar, y mensajes de error según el
+  estado HTTP (sin detalle técnico en los 5xx). Los mocks y fixtures viejos no se migraron (D-38).
+- **Factories de prueba (T-024, D-38)**: `tests/factories/`, deterministas y validadas contra las reglas del dominio.
+- **Hallazgos sin arreglar**: P-26 (`useMemo` de Clientes) y P-27 (lint previo en los paneles de Membresías). P-28 pasa a ser el ítem explícito del despliegue.
 
 - **Seguridad de la sesión**: auditoría de logins y accesos denegados (T-029, D-32), límite de intentos de login con IP confiable (D-33) y revocación
   del token en el logout (T-027, D-34), con el botón "Cerrar sesión" del Socio (FX-19). Falta el refresh con rotación (P-20).

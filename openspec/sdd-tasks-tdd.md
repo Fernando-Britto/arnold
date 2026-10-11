@@ -1,7 +1,7 @@
 # SDD Tasks: ARNOLD MVP Core (TDD Mode)
 
 **Status**: IN EXECUTION — all planned tasks done (T-001 … T-030); only deferred items remain (see PROJECT-STATUS.md)  
-**Date**: 2026-09-12 (approved) · Updated 2026-10-10  
+**Date**: 2026-09-12 (approved) · Updated 2026-10-11  
 **Mode**: Strict TDD (strict_tdd: true)  
 **Delivery**: Chained PRs (≤400 LOC each) — 28 planned + additions (see [Scope changes during apply](#scope-changes-during-apply))  
 **Total LOC**: 7,885 planned baseline · actuals are tracked per task below  
