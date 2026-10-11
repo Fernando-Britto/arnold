@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClientesPage } from "./page";
 import { useAuth } from "@/contexts/auth";
+import { useNotifications } from "@/contexts/notifications";
+import { ApiError } from "@/utils/api-error";
 import * as clientesApi from "@/api/clientes";
 import * as membresasApi from "@/api/membresias";
 
@@ -19,6 +21,8 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/contexts/auth");
+jest.mock("@/contexts/notifications");
+const mockNotify = jest.fn();
 
 // Mock API functions
 jest.mock("@/api/clientes", () => ({
@@ -47,6 +51,7 @@ const waitForLoadingComplete = async () => {
 describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
     (useAuth as jest.Mock).mockReturnValue({
       user: { id: "user1", rol: "ADMINISTRADOR" },
       isAuthenticated: true,
@@ -139,7 +144,7 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
 
     it("should handle fetch errors gracefully", async () => {
       mockClientesApi.fetchClientes.mockRejectedValue(
-        new Error("Network error")
+        new TypeError("Failed to fetch")
       );
       mockMembresasApi.fetchMembresias.mockResolvedValue([]);
 
@@ -148,7 +153,7 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
 
       // Error message should appear
       await waitFor(() => {
-        expect(screen.getByText(/Network error/i)).toBeInTheDocument();
+        expect(screen.getByText(/No hay conexión con el servidor/i)).toBeInTheDocument();
       });
     });
   });
@@ -420,13 +425,14 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
     });
 
     it("falla clientes: se muestra el error y no hay lista", async () => {
-      mockClientesApi.fetchClientes.mockRejectedValue(new Error("Error al cargar clientes"));
+      mockClientesApi.fetchClientes.mockRejectedValue(new ApiError(500, "prisma exploded", "SERVER_ERROR"));
       mockMembresasApi.fetchMembresias.mockResolvedValue([]);
 
       render(<ClientesPage />);
       await waitForLoadingComplete();
 
-      expect(await screen.findByText(/Error al cargar clientes/i)).toBeInTheDocument();
+      expect(await screen.findByText(/No se pudo procesar la solicitud/i)).toBeInTheDocument();
+      expect(screen.queryByText(/prisma exploded/i)).not.toBeInTheDocument();
       expect(screen.queryByText("Ana García")).not.toBeInTheDocument();
     });
 
@@ -441,6 +447,91 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
 
       expect(await screen.findByText("Ana García")).toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("T-023b: avisos de éxito y mensajes de error de la API", () => {
+    const ana = {
+      id: "cliente-1", nombre: "Ana García", dni: "30123456", email: "ana@example.com",
+      telefono: "+54 9 1234 567890", membresiaAsignada: "gold-1", estadoCuenta: "Activo" as const,
+      fechaAlta: new Date("2024-01-15"),
+    };
+    const gold = [{ id: "gold-1", nombre: "Gold", precio: 150, estado: "ACTIVA" as const }];
+
+    it("al eliminar avisa 'Cliente eliminado'", async () => {
+      const user = userEvent.setup();
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      mockClientesApi.deleteCliente.mockResolvedValue(undefined);
+      global.confirm = jest.fn(() => true);
+
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+      await user.click((await screen.findAllByRole("button", { name: /Eliminar/i }))[0]);
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente eliminado"));
+    });
+
+    it("al editar avisa 'Cliente actualizado'", async () => {
+      const user = userEvent.setup();
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      mockClientesApi.updateCliente.mockResolvedValue(ana);
+
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+      await user.click((await screen.findAllByRole("button", { name: /Editar/i }))[0]);
+      await user.click(await screen.findByRole("button", { name: /Guardar|Actualizar/i }));
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente actualizado"));
+    });
+
+    it("al crear avisa 'Cliente creado'", async () => {
+      const user = userEvent.setup();
+      mockClientesApi.fetchClientes.mockResolvedValue([]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      mockClientesApi.createCliente.mockResolvedValue({ cliente: ana, tempPassword: "Temp-1" });
+
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+      await user.type(screen.getByLabelText(/Nombre/i), "Ana García");
+      await user.type(screen.getByLabelText(/DNI/i), "30.123.456");
+      await user.type(screen.getByLabelText(/Email/i), "ana@example.com");
+      await user.type(screen.getByLabelText(/Teléfono/i), "+54 9 1234 567890");
+      await user.selectOptions(screen.getByLabelText(/Membresía/i), "gold-1");
+      await user.click(screen.getByRole("button", { name: /Crear/i }));
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente creado"));
+    });
+
+    it("si falla el borrado muestra el mensaje del servidor y no avisa éxito", async () => {
+      const user = userEvent.setup();
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      mockClientesApi.deleteCliente.mockRejectedValue(new ApiError(400, "El cliente tiene pagos asociados"));
+      global.confirm = jest.fn(() => true);
+
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+      await user.click((await screen.findAllByRole("button", { name: /Eliminar/i }))[0]);
+
+      expect(await screen.findByText("El cliente tiene pagos asociados")).toBeInTheDocument();
+      expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
+    });
+
+    it("si la sesión venció (401) al guardar muestra el aviso de sesión", async () => {
+      const user = userEvent.setup();
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      mockClientesApi.updateCliente.mockRejectedValue(new ApiError(401, "TOKEN_INVALID", "TOKEN_INVALID"));
+
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+      await user.click((await screen.findAllByRole("button", { name: /Editar/i }))[0]);
+      await user.click(await screen.findByRole("button", { name: /Guardar|Actualizar/i }));
+
+      expect(await screen.findByText(/Tu sesión venció/i)).toBeInTheDocument();
+      expect(screen.queryByText("TOKEN_INVALID")).not.toBeInTheDocument();
     });
   });
 });

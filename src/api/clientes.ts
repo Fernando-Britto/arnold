@@ -1,4 +1,5 @@
 import { Cliente, ClienteRepository, EstadoCuenta, validateCliente, CreateClienteResult } from "@/domains/cliente/cliente";
+import { throwIfNotOk } from "@/utils/api-error";
 
 /**
  * Cliente input type for create operations
@@ -92,10 +93,7 @@ export async function fetchClientes(): Promise<Cliente[]> {
   const response = await fetch("/api/clientes", {
     headers: { ...getAuthHeaders() },
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to fetch clientes");
-  }
+  await throwIfNotOk(response, "No se pudieron cargar los clientes");
   return response.json();
 }
 
@@ -116,10 +114,7 @@ export async function createCliente(
     },
     body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to create cliente");
-  }
+  await throwIfNotOk(response, "No se pudo crear el cliente");
 
   const json = await response.json();
 
@@ -152,10 +147,7 @@ export async function updateCliente(
     },
     body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to update cliente");
-  }
+  await throwIfNotOk(response, "No se pudo actualizar el cliente");
   return response.json();
 }
 
@@ -167,8 +159,5 @@ export async function deleteCliente(id: string): Promise<void> {
     method: "DELETE",
     headers: { ...getAuthHeaders() },
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to delete cliente");
-  }
+  await throwIfNotOk(response, "No se pudo eliminar el cliente");
 }

@@ -23,6 +23,12 @@ describe("throwIfNotOk", () => {
     });
   });
 
+  it("sin message en el cuerpo usa el texto de respaldo recibido", async () => {
+    const error = await throwIfNotOk(jsonResponse(404, {}), "No se encontró el cliente").catch((e) => e);
+    expect(error.message).toBe("No se encontró el cliente");
+    expect(error.status).toBe(404);
+  });
+
   it("si el cuerpo no es JSON, igual lanza ApiError con el status", async () => {
     const res = {
       ok: false,

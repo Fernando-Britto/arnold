@@ -499,6 +499,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Sin conectar (a propósito, para no mezclar cambios)**: los `src/api/*.ts` del cliente siguen lanzando `new Error(...)` con sus mensajes
   actuales y ninguna pantalla usa todavía `useNotifications` ni `handleApiError`. Adoptarlos pantalla por pantalla es trabajo aparte, porque
   cambia mensajes que hoy afirman los tests.
+  (Actualizado en D-39: la pantalla de Clientes ya los usa; faltan las otras tres.)
 - **Verificado**: tests nuevos y los de Cliente en verde; `eslint` limpio en los archivos nuevos. **No verificado**: la app corriendo con el
   provider montado en el layout.
 
@@ -515,6 +516,20 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Sin migrar (a propósito)**: los mocks y fixtures que ya existen (`src/__mocks__/rutina.ts`, `tests/fixtures/home-interno-data.ts` y los
   datos armados a mano en cada test) siguen como están; cambiarlos toca decenas de tests sin ganar nada hoy. Las factories se usan en los tests
   nuevos y se adoptan en los viejos cuando se editen (D-16 sigue valiendo para `home-interno-data.ts`).
+
+### D-39 · T-023b conectada a la pantalla de Clientes (piloto)
+- **Origen**: Claude, a pedido de Fernando ("conectar T-023b a las pantallas"). Se hace **una pantalla por patch**; esta es la primera.
+- **Qué cambió**: `src/api/clientes.ts` usa `throwIfNotOk` (con texto de respaldo en español) en vez de `new Error("Failed to…")`, así el error
+  conserva `status` y `code`. `src/app/clientes/page.tsx` muestra los errores con `handleApiError` y avisa con `useNotifications` al crear,
+  actualizar y eliminar ("Cliente creado / actualizado / eliminado").
+- **Decisión 1 — los errores siguen en el banner**: el aviso de error de `CrudPageLayout` (`role="alert"`) se mantiene; las notificaciones se usan
+  solo para el éxito, así un error no aparece dos veces.
+- **Decisión 2 — cambia qué texto ve la persona**: un 4xx muestra el mensaje del servidor (igual que antes); un 5xx, un 401, 403, 429 o un fallo de
+  red muestran el texto fijo de `handleApiError`; cualquier otro error muestra el texto de respaldo de la pantalla. Antes se mostraba `err.message`
+  tal cual (incluido el detalle técnico). Se ajustaron dos tests de la página que afirmaban el texto viejo.
+- **Los tests de la página mockean `@/contexts/notifications`** (igual que `@/contexts/auth`), así afirman la llamada a `notify` sin montar el provider.
+- **Pendiente**: la misma conexión en Ejercicios, Rutinas y Membresías (un patch cada una).
+- **Verificado**: tests de Clientes (página, API del lado cliente, componentes) y `tsc` en verde. **No verificado**: la pantalla en el navegador.
 
 ---
 
@@ -578,6 +593,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-22 | ~~Reescribir el spec `authentication-login`~~ | — | **Resuelto** el 2026-10-10 (D-36): spec reescrito según el código; el refresh con rotación queda como *Deferred* (P-20) |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo) | Baja | `ejercicio.test.ts` ahora usa Prisma simulado (FX-16): ya no comprueba lo que hace la base real, como el borrado bloqueado por clave foránea (P2003) o la búsqueda sin distinguir mayúsculas. El test de P2003 prueba solo la traducción del error |
+| P-26 | `src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos (`react-hooks/rules-of-hooks`, y un `as any` en la línea 130) | Media | Lo marca `eslint`, existía antes de D-39 y no se tocó. Si `isAuthenticated` cambia entre renders, React puede fallar por cambio en el orden de hooks. Arreglo: subir el `useMemo` arriba de los `return`. |
 | P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él |
 
 ---

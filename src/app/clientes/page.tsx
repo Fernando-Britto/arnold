@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ClienteForm } from "@/components/cliente-crud/cliente-form";
 import { ClienteList } from "@/components/cliente-crud/cliente-list";
 import { useAuth } from "@/contexts/auth";
+import { useNotifications } from "@/contexts/notifications";
+import { handleApiError } from "@/utils/api-error";
 import {
   fetchClientes,
   createCliente,
@@ -19,6 +21,7 @@ import { CrudPageLayout } from "@/components/layout/crud-page-layout";
 export function ClientesPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
+  const { notify } = useNotifications();
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [membresias, setMembresias] = useState<MembresiaDropdown[]>([]);
@@ -72,7 +75,7 @@ export function ClientesPage() {
           setMembresiasError(true);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading data");
+        setError(handleApiError(err, "No se pudieron cargar los clientes."));
       } finally {
         setLoading(false);
       }
@@ -114,6 +117,7 @@ export function ClientesPage() {
         setClientes((prev) =>
           prev.map((c) => (c.id === formData.id ? savedCliente : c))
         );
+        notify("success", "Cliente actualizado");
       } else {
         // Create new
         const result = (await createCliente({
@@ -130,6 +134,7 @@ export function ClientesPage() {
 
         // Add to list
         setClientes((prev) => [...prev, savedCliente]);
+        notify("success", "Cliente creado");
 
         // Show tempPassword modal if present
         if (tempPassword) {
@@ -140,7 +145,7 @@ export function ClientesPage() {
       // Reset form
       setSelectedCliente(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setError(handleApiError(err, "No se pudo guardar el cliente."));
     } finally {
       setIsSaving(false);
     }
@@ -158,8 +163,9 @@ export function ClientesPage() {
       if (selectedCliente?.id === id) {
         setSelectedCliente(null);
       }
+      notify("success", "Cliente eliminado");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error deleting cliente");
+      setError(handleApiError(err, "No se pudo eliminar el cliente."));
     }
   };
 

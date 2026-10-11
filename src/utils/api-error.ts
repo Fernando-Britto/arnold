@@ -16,7 +16,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function throwIfNotOk(response: Response): Promise<void> {
+export async function throwIfNotOk(response: Response, fallbackMessage?: string): Promise<void> {
   if (response.ok) return;
   let body: { code?: string; message?: string } = {};
   try {
@@ -24,7 +24,7 @@ export async function throwIfNotOk(response: Response): Promise<void> {
   } catch {
     // cuerpo vacío o que no es JSON: queda solo el status
   }
-  throw new ApiError(response.status, body.message ?? `HTTP ${response.status}`, body.code);
+  throw new ApiError(response.status, body.message ?? fallbackMessage ?? `HTTP ${response.status}`, body.code);
 }
 
 const GENERIC = "Ocurrió un error inesperado.";
