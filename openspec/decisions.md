@@ -124,8 +124,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - "Baja de socio" = `Usuario` con rol `SOCIO` y `deletedAt` en las últimas 24 h.
 - Feed: hasta 50 eventos de las últimas 24 h; un solo recorrido del padrón alimenta "cuotas por vencer" y
   "socios inactivos" (la última cuota y la última asistencia por socio).
-- **Verificado**: el endpoint responde `200` contra la base de desarrollo (log de Fernando). **No verificado**: que
-  los números coincidan con los datos reales, ni los turnos y franjas contra la operación del gimnasio.
+- **Verificado**: el endpoint responde `200` contra la base de desarrollo (log de Fernando) y, el 2026-10-10 (P-02), Fernando comparó los números con
+  datos reales y están bien. **No verificado**: los turnos y franjas contra la operación del gimnasio (supuestos, [§4](#4-supuestos-sin-confirmar)).
 
 ### D-11 · Editar un cliente: escritura anidada atómica — **reemplazada por [D-26](#d-26--editar-un-cliente-transacción-en-vez-de-escritura-anidada)**
 - `nombre` y `email` se envían como `usuario: { update: {...} }` **dentro** de `socio.update`: una sola
@@ -291,7 +291,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Tests**: el de atomicidad verifica una sola llamada a `$transaction`; casos nuevos para nombre + membresía sin
   la clave `usuario`, orden usuario → socio, email duplicado y propagación del error. El mock de `$transaction` de
   `src/api/clientes.test.ts` ahora le pasa al callback el Prisma simulado.
-- **No verificado**: contra la base real (ver P-21).
+- **Verificado contra la base real el 2026-10-10** (P-21). Además, la consulta de clientes con `Usuario` y `Socio` desfasados (restos de FX-09) devolvió
+  0 filas el 2026-10-11.
 
 ### D-27 · `EstadoCuenta` (UI) ↔ `EstadoCuota` (Prisma): mapeo alineado con el enum
 - **Origen**: Claude; lo destapó el error `ts(2322)` al quitar el `any` (D-26). El enum de Prisma es
@@ -350,8 +351,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   host de `DATABASE_URL`, nunca las credenciales. Todos los emails son `@arnold.test`.
 - **Datos**: socio 1 al día con rutina activa, progreso, asistencias y un pago de hoy; socio 2 con la cuota vencida y sin
   visitas recientes (dispara las alertas de Home_Interno). Capacidad 60, ventana de aforo 90 min.
-- **No verificado**: no se pudo correr contra una base real (el asistente no puede generar el cliente de Prisma); lo
-  cubren los tests con Prisma simulado y la corrida de Fernando.
+- **Verificado**: Fernando lo corrió contra la base de desarrollo y Home_Interno coincide con los datos del seed (D-35; P-08). El asistente no pudo correrlo
+  (no genera el cliente de Prisma): lo cubren los tests con Prisma simulado.
 
 ### D-31 · Robustez del módulo Clientes (cierra P-03 y P-04)
 - **Origen**: Claude; Fernando pidió seguir con lo que Claude considerara óptimo.
@@ -507,7 +508,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | FX-15 | Aviso de React `Received NaN for the value attribute` en el formulario de Rutinas; el campo quedaba en `NaN` al borrarlo | `parseInt("")` en el `onChange` | `""` mientras esté vacío + `Number()` al validar (D-28) | commit `fix(rutinas): evitar NaN…` | Salida de `npm test` (P-17) |
 | FX-16 | `ejercicio.test.ts` fallaba por timeout de 5 s en la corrida completa, y **escribía en la base real** en cada `npm test` (dejaba ejercicios "Bench Press", "Deadlift", "Squat", "Push-up" y "Pull-up"; solo borraba "Curl") | No mockeaba Prisma: la latencia de la conexión real hacía que el primer test pasara o no de los 5 s según la carga. El `jest.setTimeout(30000)` que esta fila decía haber aplicado **nunca llegó al repo** | Prisma simulado en memoria con `jest.mock("@/lib/db")`: el test ya no toca la base y corre sin timeout (cierra la parte de P-19 sobre `ejercicio.test.ts`) | commit `fix(tests): ejercicio.test.ts sin base real…` | 24 tests pasan sin base de datos; falta repetir `npm test` completo |
 | FX-18 | `page-part2.test.tsx` falló una vez ("Cargando el panel…" seguía visible) | **Causa probable, no reproducida**: `waitFor` espera 1 s por defecto y con ~85 suites en paralelo un render lento lo supera. No se pudo reproducir con carga de CPU artificial (3 corridas pasaron con el timeout de 1 s), y la prueba pasó en la corrida anterior y en aislamiento | Mitigación: `configure({ asyncUtilTimeout: 5000 })` en `tests/setup.ts` para toda la suite. **Si vuelve a fallar con 5 s, no es la carga y hay que investigar el componente** | commit `fix(tests): ejercicio.test.ts sin base real…` | Pasan las 22 pruebas de `home-interno`; falta repetir `npm test` completo |
-| FX-17 | `Bloqueado → PENDIENTE` e `Inactivo → VENCIDA` mezclaban estado de cuenta con estado de pago | El enum `EstadoCuota` solo tenía valores de pago | Valores `INACTIVA` y `BLOQUEADA` en el enum, mapeo de ida y vuelta (D-27) | commit `fix(clientes): estados de cuenta propios…` | Tests de `cliente.test.ts`; falta aplicar la migración y probar contra la base |
+| FX-17 | `Bloqueado → PENDIENTE` e `Inactivo → VENCIDA` mezclaban estado de cuenta con estado de pago | El enum `EstadoCuota` solo tenía valores de pago | Valores `INACTIVA` y `BLOQUEADA` en el enum, mapeo de ida y vuelta (D-27) | commit `fix(clientes): estados de cuenta propios…` | Tests de `cliente.test.ts`; migración aplicada (`prisma migrate status` al día) y edición probada contra la base el 2026-10-10 (P-21) |
 | FX-19 | Un Socio no podía cerrar sesión: probando la revocación (D-34), la cookie del Socio seguía valiendo tras el "logout" | `TopNav` (el de Home_Socio) no tenía botón de cerrar sesión; solo `AdminTopNav` (personal) lo tenía. No era un fallo de la revocación: nunca se llamó a `POST /api/auth/logout` | Botón "Cerrar sesión" en `TopNav` (`onLogoutClick`) conectado a `logout()` del contexto desde `home-socio/page.tsx` | commit `fix(home-socio): botón de cerrar sesión…` | Prueba manual de Fernando con `curl` (devolvió 403 en vez de 401) |
 | FX-20 | `npx tsc --noEmit` daba 1 error en `ejercicio.test.ts` línea 13: `Type '{ createdAt; updatedAt; id }' is not assignable to type 'Fila'` | El mock de FX-16 tipaba `data` como `Omit<Fila, "id">`; `Omit` sobre un tipo con firma de índice (`Record<string, unknown> & …`) pierde las propiedades conocidas (`nombre`, `grupoMuscular`) y el spread ya no las aporta. Jest no lo detectaba porque transpila sin chequear tipos | Tipo `Datos` explícito (`Record<string, unknown> & { nombre; grupoMuscular }`) y `Fila = Datos & { id }`; `create` recibe `{ data: Datos }` | commit `fix(tests): tipos del mock de ejercicio.test.ts…` | `tsc` de Fernando (1 error); reproducido con el mismo mensaje y resuelto; 25 tests del archivo pasan |
 | FX-21 | `npm run bench:home-interno` decía "Falta DATABASE_URL" aunque el `.env` de la raíz la tenía | El script chequeaba la variable **antes** de importar Prisma, y era la importación de Prisma (por efecto secundario) la que cargaba el `.env`; `db:latency` funcionaba solo porque importa Prisma arriba de todo | `prisma/load-env.ts` (`cargarEnv`, con `@next/env`: mismas reglas que `npm run dev`) llamada al inicio de `bench:home-interno` y de `db:latency` | commit `fix(diagnostico): cargar el .env de forma explícita…` | Reproducido con un `.env` de una línea y la variable sin definir; `tests/load-env.test.ts` (4 casos) |
@@ -526,10 +527,10 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-02 | ~~Contrastar a mano los números de `/api/home-interno` y los turnos/franjas (D-10)~~ | — | **Resuelto** el 2026-10-10: Fernando lo comparó con datos reales y confirmó que está bien. Los supuestos de turnos y franjas siguen sin confirmar con el negocio (§4) |
 | P-03 | ~~La pantalla de Clientes se cae entera si falla el desplegable de membresías~~ | — | **Resuelto** en D-31 |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
-| P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real contra la base (hoy no hay seed, P-08) |
+| P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real: con el seed cargado (P-08) alcanza con iniciar sesión como `socio1@arnold.test` y abrir `/home-socio` |
 | P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto y verificado** en D-34 (T-027): el logout revoca el `jti`. El refresh sigue pendiente (P-20) |
 | P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ | — | **Cerrado** (D-35): el código ya hace una sola ronda de consultas (~0,4 s fuera de Next, sesión ~0,2 s). Lo que queda en `npm run dev` (1,2–4,2 s) es del servidor de desarrollo. Pendiente aparte: evaluar el pooler de Supabase para el despliegue |
-| P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto** en D-30 (`npm run seed`). Falta correrlo contra la base real |
+| P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto y verificado** en D-30 (`npm run seed`): Fernando lo corrió contra la base y Home_Interno coincide con el seed (D-35) |
 | P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |
 | P-11 | El proxy consulta la base en cada navegación de página (incluido el prefetch) | Baja | Compromiso aceptado: un usuario deshabilitado queda afuera al instante |
@@ -542,7 +543,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
 | P-19 | Tests lentos o ruidosos: avisos `act(...)` (`ejercicios/page.test.tsx`, `cliente-form.test.tsx`) y `rutina-form.test.tsx` de 15–20 s (`ejercicio.test.ts` ya no usa la base, FX-16) | Baja | Envolver en `act(...)` y revisar los tests lentos |
 | P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Con la revocación (D-34) un token robado se puede cortar con el logout, pero la sesión sigue venciendo a las 24 h sin renovarse |
-| P-21 | ~~Probar la edición de clientes contra la base real~~ | — | **Resuelto** el 2026-10-10: confirmado por Fernando con las migraciones al día (`prisma migrate status`: 5 migraciones). Falta revisar los clientes editados mientras FX-09 estaba abierto |
+| P-21 | ~~Probar la edición de clientes contra la base real~~ | — | **Resuelto** el 2026-10-10: confirmado por Fernando con las migraciones al día (`prisma migrate status`: 5 migraciones). Los clientes editados mientras FX-09 estaba abierto: la consulta de `Usuario` y `Socio` desfasados dio 0 filas (2026-10-11) |
 | P-22 | ~~Reescribir el spec `authentication-login`~~ | — | **Resuelto** el 2026-10-10 (D-36): spec reescrito según el código; el refresh con rotación queda como *Deferred* (P-20) |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo) | Baja | `ejercicio.test.ts` ahora usa Prisma simulado (FX-16): ya no comprueba lo que hace la base real, como el borrado bloqueado por clave foránea (P2003) o la búsqueda sin distinguir mayúsculas. El test de P2003 prueba solo la traducción del error |

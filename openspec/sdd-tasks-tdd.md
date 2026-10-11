@@ -388,7 +388,7 @@ Rationale for each item lives in [`decisions.md`](./decisions.md); this is the i
 - **Why added**: the T-021a page called `/api/home-interno`, which nobody had planned. Home_Interno answered 404 and
   never loaded (found in `next dev` logs).
 - **Risk**: High — Prisma queries could not be run in the assistant's environment; verified with mocked Prisma, a
-  schema-field script (41 checks) and a 200 response from the author's dev database. Numbers vs real data: open (P-02).
+  schema-field script (41 checks) and a 200 response from the author's dev database. Numbers vs real data: confirmed on 2026-10-10 (P-02).
 - **Dependencies**: T-021a, T-021b, T-026 (the proxy enforces who can call it)
 
 ### T-026a: Auth Login/Logout API (added during apply, by Fernando)
@@ -623,8 +623,8 @@ Executed so far: T-001 → … → T-021c, T-026a/b/c and T-027 … T-030 (see [
 Suggested order for what is left (details and severities in `decisions.md` §3 and `PROJECT-STATUS.md`):
 
 1. ~~**Verify before building more**~~ → done 2026-10-10: client edit (P-21) and `/api/home-interno` against real data (P-02) confirmed by
-   Fernando; `tsc`, migrations and `npm test` (91 of 91 suites) are green on his machine. Still open: check the clients that were edited
-   while FX-09 was open.
+   Fernando; `tsc`, migrations and `npm test` (91 of 91 suites) are green on his machine. The clients that were edited
+   while FX-09 was open were checked too (0 rows, 2026-10-11).
 2. ~~**P-22** rewrite the `authentication-login` spec~~ → done 2026-10-10 (D-36): it now reflects the cookie and routes, audit (D-32),
    login rate limit (D-33) and token revocation (D-34); refresh stays deferred (P-20).
 3. **T-023b** (PR-009-D) and **T-024** (PR-010-A), as planned.

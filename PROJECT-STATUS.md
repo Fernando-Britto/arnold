@@ -1,6 +1,6 @@
 # Arnold — Estado del proyecto
 
-**Actualizado**: 2026-10-10 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
+**Actualizado**: 2026-10-11 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
 **Decisiones y defectos**: [`openspec/decisions.md`](openspec/decisions.md) · **Modo**: Strict TDD
 
 Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19, Prisma 6 sobre PostgreSQL, Jest.
@@ -51,6 +51,8 @@ partió en 7 PRs está en `decisions.md` (D-01).
 - `npx prisma migrate status` (2026-10-10): 5 migraciones, el esquema de la base está al día.
 - Edición de clientes contra la base (P-21) y Home_Interno contrastado con datos reales (P-02): confirmados por Fernando el 2026-10-10 ("todo ok"; este
   registro no guarda el detalle caso por caso).
+- Clientes editados mientras FX-09 estaba abierto (2026-10-11): la consulta de `Usuario` y `Socio` con fechas desfasadas devolvió **0 filas**; no hay
+  clientes a medias.
 - Auditoría de accesos (2026-10-08, consulta a `AuditoriaAcceso` en Supabase): hay filas `LOGIN/DENY` (`AUTH_INVALID`, con `usuarioId`
   del usuario apuntado o vacío si el email no existe), `LOGIN/ALLOW` y `ACCESS_DENIED/DENY` con `motivo` `GET /clientes` (P-15, D-32).
 - Límite de intentos de login (2026-10-08, `curl` contra `npm run dev`): 8 intentos con `401` y el 9.º y 10.º con `429`;
@@ -63,7 +65,8 @@ partió en 7 PRs está en `decisions.md` (D-01).
 **No verificado**
 - Los supuestos de negocio de Home_Interno (turnos, franjas, "activo"; ver *Supuestos*) no están confirmados con el negocio, aunque los números
   se contrastaron con datos reales (P-02).
-- Los clientes que se intentaron editar mientras FX-09 estaba abierto (ver *Antes de seguir*, punto 4).
+- `/api/home-socio` y la pantalla del Socio con un socio real del seed (P-05), incluido el botón "Cerrar sesión" del Socio (FX-19).
+- El despliegue: el pooler de Supabase con esta aplicación y `npm run build` / `npm run start` (D-35).
 
 ## Roles y acceso
 
@@ -88,7 +91,8 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
    (incluye `20261008190000_add_estado_cuota_inactiva_bloqueada`, D-27, FX-17, y `20261008230000_add_token_revocation`, D-34).
 3. ~~**Editar un cliente** como Administrador y como Recepcionista (nombre, email, teléfono, membresía y estado de cuenta)~~ → hecho, confirmado por
    Fernando el 2026-10-10 (P-21; FX-13, FX-14).
-4. **Revisar los clientes que se intentaron editar mientras el error estaba abierto** (FX-09): `usuario.update` corría antes y por separado, y después
+4. ~~**Revisar los clientes que se intentaron editar mientras el error estaba abierto**~~ → hecho el 2026-10-11: la consulta devolvió **0 filas** (FX-09). Se conserva
+   como referencia. `usuario.update` corría antes y por separado, y después
    `socio.update` fallaba, así que quedaban guardados el nombre y el email nuevos pero **no** el teléfono, la membresía ni el estado. El rastro es que
    `Usuario.updatedAt` quedó posterior a `Socio.updatedAt`. Consulta (SQL Editor de Supabase; excluye los usuarios del seed):
 
@@ -104,7 +108,7 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
    Cómo leerla: 0 filas → no hay nada que corregir. Una fila con `usuario_modificado` entre 2026-09-22 y el día en que se aplicó la corrección
    (commit del 2026-10-05) es sospechosa: abrir ese cliente en la pantalla de edición y completar teléfono, membresía y estado. El nombre y el email
    originales no se pueden recuperar de la base. Una diferencia posterior a la corrección puede venir de una edición que solo cambió nombre o email.
-   Si un cliente se volvió a editar con éxito, ambos `updatedAt` se igualan y ya no deja rastro (los datos quedaron completos). *Sin confirmar.*
+   Si un cliente se volvió a editar con éxito, ambos `updatedAt` se igualan y ya no deja rastro (los datos quedaron completos).
 5. ~~Abrir Home_Interno con datos reales y comparar Aforo, Caja, Personal en turno y Socios inactivos~~ → hecho, confirmado por Fernando el 2026-10-10 (P-02).
 6. ~~**Cerrar sesión** y probar que el token queda inútil~~ → hecho el 2026-10-09 con `curl` (P-06). Pasos usados: iniciá sesión, copiá la cookie `authToken` (herramientas del
    navegador → Application/Storage), cerrá sesión con el botón de la barra superior (Socio y personal; FX-19), y repetí un
@@ -126,10 +130,10 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-02 | ~~Contrastar Home_Interno con datos reales~~ → resuelto (2026-10-10); los supuestos de turnos y franjas siguen sin confirmar con el negocio | Baja |
 | P-03 | ~~Clientes se cae entero si falla el desplegable de membresías~~ → resuelto (D-31) | Baja |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ → resuelto (D-31) | Baja |
-| P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real | Baja |
+| P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real del seed (`socio1@arnold.test`) | Baja |
 | P-06 | ~~Sin revocación de tokens~~ → resuelto y verificado (T-027, D-34) | Baja |
 | P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ → cerrado (D-35): fuera de Next el armado tarda ~0,4 s y la sesión ~0,2 s; el resto es del servidor de desarrollo. Pendiente aparte: evaluar el pooler de Supabase para el despliegue | Baja |
-| P-08 | ~~No hay script de seed de usuarios~~ → resuelto (`npm run seed`, D-30); falta correrlo contra la base | Baja |
+| P-08 | ~~No hay script de seed de usuarios~~ → resuelto y verificado (`npm run seed`, D-30; Fernando lo corrió y Home_Interno coincide con el seed, D-35) | Baja |
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
 | P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
 | P-20 | Refresh token con rotación (la revocación ya está, D-34) | Media |
