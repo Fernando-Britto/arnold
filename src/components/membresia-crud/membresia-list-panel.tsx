@@ -25,30 +25,38 @@ export function MembresiaListPanel({
   const [error, setError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"nombre" | "precio" | "periodicidad" | "estado">("nombre");
+  const [reloadKey, setReloadKey] = useState(0);
 
-  // Fetch list on mount
+  // P-27: la carga se define DENTRO del efecto (igual que la página de clientes) para no acceder
+  // a una variable antes de su declaración; `reloadKey` fuerza la recarga desde "Actualizar".
   useEffect(() => {
-    fetchMembresias();
-  }, [activeOnly]);
+    let cancelled = false;
 
-  const fetchMembresias = async () => {
-    setIsLoading(true);
-    setError(null);
+    const loadMembresias = async () => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const url = activeOnly ? "/api/membresias?activeOnly=true" : "/api/membresias";
-      const response = await fetch(url);
+      try {
+        const url = activeOnly ? "/api/membresias?activeOnly=true" : "/api/membresias";
+        const response = await fetch(url);
 
-      await throwIfNotOk(response, "No se pudieron cargar las membresías");
+        await throwIfNotOk(response, "No se pudieron cargar las membresías");
 
-      const data = await response.json();
-      setMembresias(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setError(handleApiError(err, "No se pudieron cargar las membresías."));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        const data = await response.json();
+        if (!cancelled) setMembresias(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (!cancelled) setError(handleApiError(err, "No se pudieron cargar las membresías."));
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadMembresias();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOnly, reloadKey]);
 
   const handleDelete = async (id: string) => {
     // Confirmation is handled by MembresiaList modal — no need for window.confirm() here
@@ -75,7 +83,7 @@ export function MembresiaListPanel({
   };
 
   const handleRefresh = () => {
-    fetchMembresias();
+    setReloadKey((k) => k + 1);
   };
 
   return (

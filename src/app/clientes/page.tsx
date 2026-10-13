@@ -12,7 +12,6 @@ import {
   createCliente,
   updateCliente,
   deleteCliente,
-  type ClienteInput,
 } from "@/api/clientes";
 import { fetchMembresias, type MembresiaDropdown } from "@/api/membresias";
 import { Cliente } from "@/domains/cliente/cliente";
@@ -86,6 +85,17 @@ export function ClientesPage() {
     }
   }, [isAuthenticated, user]);
 
+  // Build membership labels for ClienteList display.
+  // P-26: este hook va ANTES de los `return` tempranos para que el orden de hooks sea estable
+  // entre renders (isAuthenticated cambia sin romper `react-hooks/rules-of-hooks`).
+  const membresiaLabels = useMemo(() => {
+    const map: Record<string, string> = {};
+    membresias.forEach((m) => {
+      map[m.id] = `${m.nombre} - $${m.precio.toFixed(2)}`;
+    });
+    return map;
+  }, [membresias]);
+
   const handleSave = async (formData: {
     id?: string;
     nombre: string;
@@ -94,6 +104,7 @@ export function ClientesPage() {
     telefono?: string;
     membresiaAsignada: string;
     estadoCuenta: "Activo" | "Inactivo" | "Bloqueado";
+    pin?: string;
   }) => {
     try {
       setIsSaving(true);
@@ -111,6 +122,7 @@ export function ClientesPage() {
           telefono: formData.telefono,
           membresiaAsignada: formData.membresiaAsignada,
           estadoCuenta: formData.estadoCuenta,
+          pin: formData.pin,
         })) as Cliente;
 
         // Update in list
@@ -120,14 +132,15 @@ export function ClientesPage() {
         notify("success", "Cliente actualizado");
       } else {
         // Create new
-        const result = (await createCliente({
+        const result = await createCliente({
           nombre: formData.nombre,
           dni: formData.dni,
           email: formData.email,
           telefono: formData.telefono,
           membresiaAsignada: formData.membresiaAsignada,
           estadoCuenta: formData.estadoCuenta,
-        })) as any;
+          pin: formData.pin,
+        });
 
         savedCliente = result.cliente;
         tempPassword = result.tempPassword;
@@ -191,15 +204,6 @@ export function ClientesPage() {
       </div>
     );
   }
-
-  // Build membership labels for ClienteList display
-  const membresiaLabels = useMemo(() => {
-    const map: Record<string, string> = {};
-    membresias.forEach((m) => {
-      map[m.id] = `${m.nombre} - $${m.precio.toFixed(2)}`;
-    });
-    return map;
-  }, [membresias]);
 
   return (
     <>

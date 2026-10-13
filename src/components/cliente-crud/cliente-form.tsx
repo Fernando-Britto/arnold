@@ -29,6 +29,8 @@ export interface ClienteFormProps {
     telefono?: string;
     membresiaAsignada: string;
     estadoCuenta: EstadoCuenta;
+    /** PIN de 4 dígitos para el ingreso por DNI + PIN (D-47). Opcional. */
+    pin?: string;
   }) => Promise<void> | void;
   onCancel?: () => void;
   initialData: {
@@ -58,6 +60,7 @@ interface FormState {
   telefono: string;
   membresiaAsignada: string;
   estadoCuenta: EstadoCuenta;
+  pin: string;
 }
 
 interface ValidationErrors {
@@ -79,6 +82,7 @@ export function ClienteForm({
     telefono: initialData?.telefono || "",
     membresiaAsignada: initialData?.membresiaAsignada || "",
     estadoCuenta: initialData?.estadoCuenta || "Activo",
+    pin: "",
   });
 
   const [fechaAlta, setFechaAlta] = useState<Date | string | undefined>(initialData?.fechaAlta);
@@ -97,6 +101,7 @@ export function ClienteForm({
         telefono: initialData.telefono || "",
         membresiaAsignada: initialData.membresiaAsignada,
         estadoCuenta: initialData.estadoCuenta,
+        pin: "",
       });
       setFechaAlta(initialData.fechaAlta);
       setErrors({});
@@ -108,6 +113,7 @@ export function ClienteForm({
         telefono: "",
         membresiaAsignada: "",
         estadoCuenta: "Activo",
+        pin: "",
       });
       setFechaAlta(undefined);
       setErrors({});
@@ -157,8 +163,8 @@ export function ClienteForm({
 
     // Validate form data
     const validation = validateCliente(formData);
+    const errorMap: ValidationErrors = {};
     if (!validation.valid) {
-      const errorMap: ValidationErrors = {};
       validation.errors.forEach((error) => {
         if (error.includes("nombre")) errorMap.nombre = error;
         if (error.includes("DNI") || error.includes("dni"))
@@ -171,6 +177,15 @@ export function ClienteForm({
         if (error.includes("estado de cuenta"))
           errorMap.estadoCuenta = error;
       });
+    }
+
+    // PIN opcional (D-47): si se completa tiene que tener exactamente 4 dígitos.
+    const pin = formData.pin.trim();
+    if (pin !== "" && !/^\d{4}$/.test(pin)) {
+      errorMap.pin = "El PIN debe tener exactamente 4 dígitos";
+    }
+
+    if (Object.keys(errorMap).length > 0) {
       setErrors(errorMap);
       return;
     }
@@ -185,6 +200,7 @@ export function ClienteForm({
         telefono: formData.telefono || undefined,
         membresiaAsignada: formData.membresiaAsignada,
         estadoCuenta: formData.estadoCuenta,
+        pin: pin !== "" ? pin : undefined,
       });
     } catch (error) {
       // Error handling for API errors would happen here
@@ -325,6 +341,34 @@ export function ClienteForm({
           />
           {errors.telefono && (
             <p className="text-red-600 text-sm mt-1">{errors.telefono}</p>
+          )}
+        </div>
+
+        {/* PIN de acceso (opcional) */}
+        <div>
+          <label htmlFor="pin" className="block text-sm font-medium text-gray-700 mb-1">
+            PIN (4 dígitos)
+          </label>
+          <input
+            id="pin"
+            type="password"
+            name="pin"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={4}
+            value={formData.pin}
+            onChange={handleChange}
+            placeholder="••••"
+            aria-describedby="pin-hint"
+            className={`w-full px-3 py-2 border rounded-md ${
+              errors.pin ? "border-red-500 bg-red-50" : "border-gray-300"
+            }`}
+          />
+          <p id="pin-hint" className="text-xs text-gray-500 mt-1">
+            Se usa para el ingreso por DNI + PIN. Dejalo vacío para no cambiarlo.
+          </p>
+          {errors.pin && (
+            <p className="text-red-600 text-sm mt-1">{errors.pin}</p>
           )}
         </div>
 

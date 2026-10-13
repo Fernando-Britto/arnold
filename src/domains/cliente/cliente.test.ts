@@ -9,6 +9,7 @@ import {
   mapEstadoCuotaToEstadoCuenta,
   type Cliente,
 } from "./cliente";
+import { comparePassword } from "@/lib/auth";
 
 describe("Cliente Domain Model", () => {
   describe("Cliente creation and validation", () => {
@@ -730,7 +731,100 @@ describe("ClienteRepository", () => {
     });
   });
 
+  describe("create() y el PIN de acceso (D-47)", () => {
+    function prepararAlta() {
+      mockPrisma.socio.findUnique.mockResolvedValue(null);
+      mockPrisma.membresia.findUnique.mockResolvedValue({ estado: "ACTIVA" });
+      mockPrisma.usuario.create.mockResolvedValue({ id: "user-1" });
+      mockPrisma.socio.create.mockResolvedValue({
+        id: "socio-1",
+        dni: "12345678",
+        telefono: null,
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-1",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: { nombre: "Juan Pérez", email: "juan@example.com" },
+      });
+    }
+
+    const alta = {
+      nombre: "Juan Pérez",
+      dni: "12.345.678",
+      email: "juan@example.com",
+      membresiaAsignada: "gold-123",
+      estadoCuenta: "Activo" as const,
+    };
+
+    it("guarda el PIN hasheado (nunca en claro) cuando se provee", async () => {
+      prepararAlta();
+
+      await repository.create({ ...alta, pin: "4821" });
+
+      const { data } = mockPrisma.socio.create.mock.calls[0][0];
+      expect(typeof data.pinHash).toBe("string");
+      expect(data.pinHash).not.toBe("4821");
+      expect(await comparePassword("4821", data.pinHash)).toBe(true);
+    });
+
+    it("deja el PIN sin definir cuando se omite", async () => {
+      prepararAlta();
+
+      await repository.create(alta);
+
+      const { data } = mockPrisma.socio.create.mock.calls[0][0];
+      expect(data).not.toHaveProperty("pinHash");
+    });
+
+    it("rechaza un PIN que no son 4 dígitos sin tocar la base", async () => {
+      prepararAlta();
+
+      await expect(repository.create({ ...alta, pin: "12" })).rejects.toThrow(/VALIDATION_ERROR/);
+      expect(mockPrisma.socio.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.socio.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe("update()", () => {
+    describe("PIN de acceso (D-47)", () => {
+      const socioConPin = {
+        id: "socio-123",
+        dni: "12345678",
+        telefono: null,
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: { id: "user-123", nombre: "Juan Pérez", email: "juan@example.com" },
+      };
+
+      beforeEach(() => {
+        mockPrisma.socio.findUnique.mockResolvedValue(socioConPin);
+        mockPrisma.socio.update.mockResolvedValue(socioConPin);
+      });
+
+      it("guarda el PIN hasheado cuando se provee", async () => {
+        await repository.update("socio-123", { pin: "4821" });
+
+        const { data } = mockPrisma.socio.update.mock.calls[0][0];
+        expect(typeof data.pinHash).toBe("string");
+        expect(await comparePassword("4821", data.pinHash)).toBe(true);
+      });
+
+      it("no toca el PIN cuando se omite", async () => {
+        await repository.update("socio-123", { telefono: "+54 9 9876 543210" });
+
+        const { data } = mockPrisma.socio.update.mock.calls[0][0];
+        expect(data).not.toHaveProperty("pinHash");
+      });
+
+      it("rechaza un PIN que no son 4 dígitos", async () => {
+        await expect(repository.update("socio-123", { pin: "12" })).rejects.toThrow(/VALIDATION_ERROR/);
+        expect(mockPrisma.socio.update).not.toHaveBeenCalled();
+      });
+    });
     describe("edición completa desde el formulario (nombre/email viven en Usuario, no en Socio)", () => {
       const socioExistente = {
         id: "socio-123",

@@ -13,6 +13,19 @@ interface MembresiaFormPanelProps {
   isEdit?: boolean;
 }
 
+/**
+ * P-27: forma exacta de los datos del formulario de membresía. Reemplaza `useState<any>`.
+ * `confirmarDesactivacion` solo lo agrega el reintento tras el aviso AC-005.
+ */
+type MembresiaFormData = {
+  nombre: string;
+  precio: number;
+  periodicidad: number;
+  descripcion?: string;
+  estado: EstadoMembresia;
+  confirmarDesactivacion?: boolean;
+};
+
 export function MembresiaFormPanel({
   initialData,
   onSuccess,
@@ -26,16 +39,9 @@ export function MembresiaFormPanel({
     message: string;
     assignedCount: number;
   } | null>(null);
-  const [pendingFormData, setPendingFormData] = useState<any>(null);
+  const [pendingFormData, setPendingFormData] = useState<MembresiaFormData | null>(null);
 
-  const handleSave = async (formData: {
-    nombre: string;
-    precio: number;
-    periodicidad: number;
-    descripcion?: string;
-    estado: EstadoMembresia;
-    confirmarDesactivacion?: boolean;
-  }) => {
+  const handleSave = async (formData: MembresiaFormData) => {
     setIsLoading(true);
     setError(null);
 

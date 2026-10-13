@@ -451,4 +451,84 @@ describe("ClienteForm", () => {
       expect(submitButton).toBeDisabled();
     });
   });
+
+  describe("PIN opcional (D-47)", () => {
+    const pinField = () => screen.getByLabelText(/^PIN/i);
+
+    async function completarObligatorios(user: ReturnType<typeof userEvent.setup>) {
+      await user.type(screen.getByPlaceholderText("e.g., Ana García"), "Ana García");
+      await user.type(screen.getByPlaceholderText("XX.XXX.XXX o XXXXXXXX"), "30.123.456");
+      await user.type(screen.getByPlaceholderText("ana@example.com"), "ana@example.com");
+      await user.selectOptions(screen.getByDisplayValue("Seleccionar membresía..."), ["gold-1"]);
+    }
+
+    it("create: envía el PIN de 4 dígitos cuando se completa", async () => {
+      const onSave = jest.fn().mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      render(<ClienteForm onSave={onSave} initialData={null} availableMembresias={mockMembresias} />);
+
+      await completarObligatorios(user);
+      await user.type(pinField(), "4821");
+      await user.click(screen.getByText("Crear"));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ pin: "4821" }));
+      });
+    });
+
+    it("create: rechaza un PIN que no son 4 dígitos", async () => {
+      const onSave = jest.fn();
+      const user = userEvent.setup();
+      render(<ClienteForm onSave={onSave} initialData={null} availableMembresias={mockMembresias} />);
+
+      await completarObligatorios(user);
+      await user.type(pinField(), "123");
+      await user.click(screen.getByText("Crear"));
+
+      await waitFor(() => {
+        expect(screen.getByText(/exactamente 4 dígitos/i)).toBeInTheDocument();
+      });
+      expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it("create: sin PIN no lo envía (campo opcional)", async () => {
+      const onSave = jest.fn().mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      render(<ClienteForm onSave={onSave} initialData={null} availableMembresias={mockMembresias} />);
+
+      await completarObligatorios(user);
+      await user.click(screen.getByText("Crear"));
+
+      await waitFor(() => expect(onSave).toHaveBeenCalled());
+      expect(onSave.mock.calls[0][0].pin).toBeUndefined();
+    });
+
+    it("edit: el PIN arranca vacío y no se envía si no se completa", async () => {
+      const onSave = jest.fn().mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      const existingCliente = {
+        id: "cliente-1",
+        nombre: "Ana García",
+        dni: "30.123.456",
+        email: "ana@example.com",
+        telefono: "+54 9 1234 567890",
+        membresiaAsignada: "gold-1",
+        estadoCuenta: "Activo" as const,
+        fechaAlta: new Date("2024-01-15"),
+      };
+      render(
+        <ClienteForm
+          onSave={onSave}
+          initialData={existingCliente}
+          availableMembresias={mockMembresias}
+        />
+      );
+
+      expect(pinField()).toHaveValue("");
+      await user.click(screen.getByText("Actualizar"));
+
+      await waitFor(() => expect(onSave).toHaveBeenCalled());
+      expect(onSave.mock.calls[0][0].pin).toBeUndefined();
+    });
+  });
 });

@@ -3,6 +3,7 @@
  */
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AccesoPage } from "./page";
 import { useAuth } from "@/contexts/auth";
 
@@ -14,6 +15,9 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/contexts/auth");
 jest.mock("@/components/acceso/kiosco-acceso", () => ({
   KioscoAcceso: () => <div>Kiosco de acceso</div>,
+}));
+jest.mock("@/components/acceso/panel-definir-pin", () => ({
+  PanelDefinirPin: () => <div>Panel definir PIN</div>,
 }));
 
 const mockAuth = useAuth as jest.Mock;
@@ -54,5 +58,18 @@ describe("AccesoPage — guardas de acceso", () => {
 
     expect(await screen.findByText("Kiosco de acceso")).toBeInTheDocument();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("permite al personal abrir el panel Definir PIN sin perder el flujo del kiosco", async () => {
+    mockAuth.mockReturnValue({ user: { id: "u1", rol: "RECEPCIONISTA" }, isAuthenticated: true });
+    const user = userEvent.setup();
+
+    render(<AccesoPage />);
+    expect(await screen.findByText("Kiosco de acceso")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /definir pin/i }));
+
+    expect(await screen.findByText("Panel definir PIN")).toBeInTheDocument();
+    expect(screen.queryByText("Kiosco de acceso")).not.toBeInTheDocument();
   });
 });

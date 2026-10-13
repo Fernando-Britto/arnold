@@ -22,6 +22,7 @@ import {
   type EstadoCuenta,
   type ResultadoAcceso,
 } from "@/domains/acceso/check-in";
+import { validarPin } from "@/domains/acceso/pin";
 import { hashPassword, comparePassword } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { toGymWallClock } from "@/lib/gym-time";
@@ -36,12 +37,8 @@ const RATE_LIMIT_ROUTE = "acceso:check-in";
 export const MENSAJE_IDENTIDAD_INVALIDA = "DNI o PIN incorrectos";
 export const MENSAJE_RATE_LIMIT = "Demasiados intentos. Probá de nuevo en un minuto.";
 
-const PIN_RE = /^\d{4}$/;
-
-/** PIN válido: exactamente 4 dígitos (se permiten ceros a la izquierda). */
-export function validarPin(pin: unknown): pin is string {
-  return typeof pin === "string" && PIN_RE.test(pin);
-}
+/** PIN válido: exactamente 4 dígitos (se permiten ceros a la izquierda). Definido en el dominio. */
+export { validarPin };
 
 interface PrismaLike {
   socio: {

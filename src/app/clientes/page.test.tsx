@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClientesPage } from "./page";
 import { useAuth } from "@/contexts/auth";
@@ -532,6 +532,51 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
 
       expect(await screen.findByText(/Tu sesión venció/i)).toBeInTheDocument();
       expect(screen.queryByText("TOKEN_INVALID")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("P-26: el orden de hooks es estable entre renders", () => {
+    const gold = [
+      { id: "gold-1", nombre: "Gold", precio: 150, estado: "ACTIVA" as const },
+    ];
+    const ana = {
+      id: "c1", nombre: "Ana García", dni: "30123456", email: "ana@example.com",
+      telefono: null, membresiaAsignada: "gold-1", estadoCuenta: "Activo" as const,
+      fechaAlta: new Date("2024-01-15"),
+    };
+
+    it("no rompe el orden de hooks al alternar la autenticación y computa el memo", async () => {
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+
+      const admin = {
+        user: { id: "user1", rol: "ADMINISTRADOR" },
+        isAuthenticated: true,
+        isAdmin: true,
+        isStaff: true,
+      };
+
+      // Autenticado: este render SÍ llama a `useMemo`.
+      (useAuth as jest.Mock).mockReturnValue(admin);
+      const { rerender } = render(<ClientesPage />);
+      await waitForLoadingComplete();
+
+      // El memo se computó: la fila de la tabla muestra "Nombre - $precio", no el id crudo.
+      const table = screen.getByRole("table");
+      expect(within(table).getByText("Gold - $150.00")).toBeInTheDocument();
+      expect(within(table).queryByText("gold-1")).not.toBeInTheDocument();
+
+      // Sin autenticar: con el bug (`useMemo` debajo de los return tempranos) este render
+      // ejecutaría menos hooks y React tiraría por orden de hooks inconsistente.
+      (useAuth as jest.Mock).mockReturnValue({ user: null, isAuthenticated: false });
+      expect(() => rerender(<ClientesPage />)).not.toThrow();
+
+      // Volver a autenticar tampoco debe romper el orden de hooks.
+      (useAuth as jest.Mock).mockReturnValue(admin);
+      expect(() => rerender(<ClientesPage />)).not.toThrow();
+
+      await waitForLoadingComplete();
+      expect(within(await screen.findByRole("table")).getByText("Gold - $150.00")).toBeInTheDocument();
     });
   });
 });

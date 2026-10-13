@@ -8,9 +8,7 @@ import {
   fetchClientes,
   updateCliente,
   deleteCliente,
-  type ClienteInput,
 } from "./clientes";
-import { ClienteRepository } from "@/domains/cliente/cliente";
 
 // Mock Prisma (B4 fix: Include membresia and $transaction)
 jest.mock("@/lib/db", () => ({
@@ -352,10 +350,9 @@ describe("Cliente API Handlers", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].nombre).toBe("Ana García");
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/clientes",
-        expect.objectContaining({ headers: expect.any(Object) })
-      );
+      // P-14: ya no se envían headers de auth desde el cliente (localStorage nunca tuvo token;
+      // la sesión viaja en cookie). El fetch va sin headers.
+      expect(global.fetch).toHaveBeenCalledWith("/api/clientes");
     });
   });
 

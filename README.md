@@ -68,5 +68,5 @@ openspec/         Specs, plan de tareas, decisiones y maquetas
 
 ## Flujo de trabajo
 
-Una rama por tarea creada desde `main` actualizado · tests primero (rojo → verde) · PR de ≤400 líneas ·
+Se trabaja siempre en `dev`; el merge a `main` se hace al cerrar la etapa · tests primero (rojo → verde) · PR de ≤400 líneas ·
 `npm test` en verde antes de mergear · commits con Conventional Commits y la referencia `(T-xxx, PR-xxx)`.

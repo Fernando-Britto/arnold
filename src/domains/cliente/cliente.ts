@@ -4,6 +4,7 @@
  */
 import type { Prisma } from "@prisma/client";
 import { hashPassword } from "@/lib/auth";
+import { validarPin } from "@/domains/acceso/pin";
 import { validateDNI, validateEmail, validatePhone } from "@/utils/validation";
 
 /**
@@ -35,6 +36,21 @@ export interface Cliente {
 export interface CreateClienteResult {
   cliente: Cliente;
   tempPassword: string; // Plaintext, UNA SOLA VEZ, only in create response
+}
+
+/**
+ * Datos de entrada para crear/editar un Cliente (Usuario + Socio).
+ * `pin` es opcional (D-47): si viene, se valida que sean 4 dígitos y se guarda hasheado.
+ */
+export interface ClienteInput {
+  nombre: string;
+  dni: string;
+  telefono?: string | null;
+  email: string;
+  membresiaAsignada: string;
+  estadoCuenta: EstadoCuenta;
+  /** PIN de 4 dígitos para el ingreso por DNI + PIN (D-47). */
+  pin?: string;
 }
 
 /**
@@ -198,7 +214,7 @@ export class ClienteRepository {
    * @throws "VALIDATION_DUPLICATE_DNI: DNI ya registrado" if DNI exists
    */
   async create(
-    data: Omit<Cliente, "id" | "fechaAlta" | "createdAt" | "updatedAt">
+    data: ClienteInput
   ): Promise<CreateClienteResult> {
     const prisma = await this.getPrisma();
 
@@ -206,6 +222,11 @@ export class ClienteRepository {
     const validation = validateCliente(data);
     if (!validation.valid) {
       throw new Error(`VALIDATION_ERROR: ${validation.errors.join(", ")}`);
+    }
+
+    // PIN opcional de acceso (D-47): si viene, tiene que ser de 4 dígitos.
+    if (data.pin !== undefined && data.pin !== "" && !validarPin(data.pin)) {
+      throw new Error("VALIDATION_ERROR: El PIN debe tener exactamente 4 dígitos");
     }
 
     // Check for duplicate DNI (normalized comparison)
@@ -235,6 +256,7 @@ export class ClienteRepository {
     // User must change password on first login (TODO: T-013 auth flow)
     const tempPassword = generateTemporaryPassword();
     const hashedPassword = await hashPassword(tempPassword);
+    const pinHash = data.pin ? await hashPassword(data.pin) : undefined;
     
     // P-04: Usuario y Socio se crean en UNA transacción; si el Socio falla (p. ej. DNI duplicado
     // por una carrera entre dos altas) se deshace también el Usuario y no queda uno huérfano.
@@ -257,6 +279,7 @@ export class ClienteRepository {
             membresiaAsignadaId: data.membresiaAsignada,
             estadoCuota: "AL_DIA",
             usuarioId: usuario.id,
+            ...(pinHash ? { pinHash } : {}),
           },
           include: { usuario: true },
         });
@@ -312,7 +335,7 @@ export class ClienteRepository {
    */
   async update(
     id: string,
-    data: Partial<Omit<Cliente, "id" | "fechaAlta" | "createdAt" | "updatedAt">>
+    data: Partial<ClienteInput>
   ): Promise<Cliente | null> {
     const prisma = await this.getPrisma();
 
@@ -368,8 +391,17 @@ export class ClienteRepository {
       }
     }
 
-        // `nombre` y `email` son columnas de Usuario, no de Socio. Se escriben en una
+    // `nombre` y `email` son columnas de Usuario, no de Socio. Se escriben en una
     // transacción: Prisma no deja mezclar `usuario` anidado con `membresiaAsignadaId`.
+    // PIN opcional de acceso (D-47): si viene, se valida; si se omite, no se toca.
+    let pinHash: string | undefined;
+    if (data.pin !== undefined && data.pin !== "") {
+      if (!validarPin(data.pin)) {
+        throw new Error("VALIDATION_ERROR: El PIN debe tener exactamente 4 dígitos");
+      }
+      pinHash = await hashPassword(data.pin);
+    }
+
     const updateData: Prisma.SocioUncheckedUpdateInput = {};
     if (data.dni !== undefined) updateData.dni = normalizeDNI(data.dni);
     if (data.telefono !== undefined) updateData.telefono = data.telefono;
@@ -378,6 +410,7 @@ export class ClienteRepository {
     if (data.estadoCuenta !== undefined) {
       updateData.estadoCuota = mapEstadoCuentaToEstadoCuota(data.estadoCuenta);
     }
+    if (pinHash !== undefined) updateData.pinHash = pinHash;
 
     const usuarioChanges: Prisma.UsuarioUpdateInput = {};
     if (data.nombre !== undefined) usuarioChanges.nombre = data.nombre;
