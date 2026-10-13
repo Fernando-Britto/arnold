@@ -10,6 +10,7 @@ import {
   type DeleteSuccess,
   type DeleteError,
 } from "@/app/api/rutinas/route";
+import { readJsonBody } from "@/lib/request-body";
 
 /**
  * GET /api/rutinas/:id - Get a specific rutina by ID
@@ -43,7 +44,9 @@ export async function PUT(
 ) {
   // Await params per Next.js 16 App Router spec
   const { id } = await params;
-  const body = await request.json();
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const result = await handleRutinaUpdateRequest(id, body);
 
   // If error response (has status and code properties)

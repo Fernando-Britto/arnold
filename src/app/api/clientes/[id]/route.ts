@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleClienteGet, handleClienteUpdate, handleClienteDelete, type ClienteInput } from "@/api/clientes";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
+import { readJsonBody } from "@/lib/request-body";
 import type {
   GetSuccess as GetSuccessType,
   GetError as GetErrorType,
@@ -173,7 +174,9 @@ export async function PUT(
 
   // Await params per Next.js 16 App Router spec
   const { id } = await params;
-  const body = await request.json();
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const result = await handleClienteUpdateRequest(id, body);
 
   // If error response

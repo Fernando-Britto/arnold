@@ -7,6 +7,7 @@ import {
   type EjercicioInput,
 } from "@/api/ejercicios";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { readJsonBody } from "@/lib/request-body";
 
 /**
  * Discriminated union types for handler responses
@@ -146,7 +147,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const body = await request.json();
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const result = await handleEjercicioUpdateRequest((await params).id, body);
 
   if (isUpdateSuccess(result)) {

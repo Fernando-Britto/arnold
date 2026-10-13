@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Ejercicio } from "@prisma/client";
 import { handleEjercicioCreate, handleEjercicioList } from "@/api/ejercicios";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { readJsonBody } from "@/lib/request-body";
 
 /**
  * Discriminated union types for handler responses
@@ -76,7 +77,9 @@ export async function handleEjercicioListRequest(options?: {
  * Requires ADMINISTRADOR or INSTRUCTOR role
  */
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const result = await handleEjercicioCreateRequest(body);
 
   // If error response (has status property)

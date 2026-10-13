@@ -6,6 +6,7 @@
  */
 
 import {
+  PUT as putMembresia,
   handleMembresiaGetByIdRequest,
   handleMembresiaUpdateRequest,
   handleMembresiaDeleteRequest,
@@ -297,6 +298,25 @@ describe("Membresia [id] API Routes", () => {
         expect(result.status).toBe(404);
         expect(result.code).toBe("NOT_FOUND");
       }
+    });
+  });
+
+  describe("PUT /api/membresias/[id] — malformed JSON body", () => {
+    it("should return 400 (not 500) when the body is not valid JSON", async () => {
+      const malformed = {
+        json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token 'o'")),
+      } as unknown as Parameters<typeof putMembresia>[0];
+
+      const res = await putMembresia(malformed, {
+        params: Promise.resolve({ id: "1" }),
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "El cuerpo de la solicitud no es JSON válido",
+      });
+      expect(handleMembresiaUpdate).not.toHaveBeenCalled();
     });
   });
 });

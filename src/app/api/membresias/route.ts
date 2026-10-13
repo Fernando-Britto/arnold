@@ -6,6 +6,7 @@ import {
   type MembresiaInput,
 } from "@/api/membresias";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { readJsonBody } from "@/lib/request-body";
 
 /**
  * Discriminated union types for handler responses
@@ -102,7 +103,9 @@ export async function GET(request: NextRequest) {
  * Requires: Administrador role (handled by middleware)
  */
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const result = await handleMembresiaCreateRequest(body);
 
   if (isCreateSuccess(result)) {

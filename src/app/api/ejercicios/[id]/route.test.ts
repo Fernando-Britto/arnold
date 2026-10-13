@@ -4,6 +4,7 @@
  */
 
 import {
+  PUT as putEjercicio,
   handleEjercicioGetRequest,
   handleEjercicioUpdateRequest,
   handleEjercicioDeleteRequest,
@@ -226,6 +227,25 @@ describe("Ejercicio [id] API Routes", () => {
       if ("code" in result) {
         expect(result.status).toBe(500);
       }
+    });
+  });
+
+  describe("PUT /api/ejercicios/[id] — malformed JSON body", () => {
+    it("should return 400 (not 500) when the body is not valid JSON", async () => {
+      const malformed = {
+        json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token 'o'")),
+      } as unknown as Parameters<typeof putEjercicio>[0];
+
+      const res = await putEjercicio(malformed, {
+        params: Promise.resolve({ id: "1" }),
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "El cuerpo de la solicitud no es JSON válido",
+      });
+      expect(handleEjercicioUpdate).not.toHaveBeenCalled();
     });
   });
 });

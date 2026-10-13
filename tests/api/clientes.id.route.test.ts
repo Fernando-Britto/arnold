@@ -1,4 +1,5 @@
 import {
+  PUT as putCliente,
   handleClienteGetRequest,
   handleClienteUpdateRequest,
   type GetSuccess,
@@ -6,6 +7,13 @@ import {
   type UpdateSuccess,
   type UpdateError,
 } from "@/app/api/clientes/[id]/route";
+
+// Auth is bypassed for the route-level malformed-body test: the handler is
+// mocked to a valid admin so the request reaches the JSON parse guard.
+jest.mock("@/lib/auth", () => ({
+  ...jest.requireActual("@/lib/auth"),
+  extractUserFromRequest: jest.fn(() => ({ id: "u-admin", rol: "ADMINISTRADOR" })),
+}));
 
 // Mock Prisma (B4 fix: Include membresia and $transaction)
 jest.mock("@/lib/db", () => ({
@@ -83,6 +91,24 @@ describe("Cliente [id] API Routes", () => {
       expect((result as UpdateError).code).toBe("VALIDATION_ERROR");
       expect((result as UpdateError).message).toContain("solo lectura");
       expect((result as UpdateError).status).toBe(400);
+    });
+  });
+
+  describe("PUT /api/clientes/[id] — malformed JSON body", () => {
+    it("should return 400 (not 500) when the body is not valid JSON", async () => {
+      const malformed = {
+        json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token 'o'")),
+      } as unknown as Parameters<typeof putCliente>[0];
+
+      const res = await putCliente(malformed, {
+        params: Promise.resolve({ id: "cliente-123" }),
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "El cuerpo de la solicitud no es JSON válido",
+      });
     });
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "@/api/clientes";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
+import { readJsonBody } from "@/lib/request-body";
 
 /**
  * Discriminated union types for handler responses
@@ -116,7 +117,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = await request.json();
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const result = await handleClienteCreateRequest(body);
 
   // If error response

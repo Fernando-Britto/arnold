@@ -1,4 +1,5 @@
 import {
+  POST as postCliente,
   handleClienteCreateRequest,
   handleClienteListRequest,
   type CreateSuccess,
@@ -6,6 +7,13 @@ import {
   type ListSuccess,
   type ListError,
 } from "@/app/api/clientes/route";
+
+// Auth is bypassed for the route-level malformed-body test: the handler is
+// mocked to a valid admin so the request reaches the JSON parse guard.
+jest.mock("@/lib/auth", () => ({
+  ...jest.requireActual("@/lib/auth"),
+  extractUserFromRequest: jest.fn(() => ({ id: "u-admin", rol: "ADMINISTRADOR" })),
+}));
 
 // Mock Prisma (B4 fix: Include $transaction)
 jest.mock("@/lib/db", () => {
@@ -133,6 +141,22 @@ describe("Cliente API Routes", () => {
       
       // GAP 1 FIX: tempPassword MUST NEVER appear in LIST responses (security)
       expect((result as ListSuccess)[0]).not.toHaveProperty("tempPassword");
+    });
+  });
+
+  describe("POST /api/clientes — malformed JSON body", () => {
+    it("should return 400 (not 500) when the body is not valid JSON", async () => {
+      const malformed = {
+        json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token 'o'")),
+      } as unknown as Parameters<typeof postCliente>[0];
+
+      const res = await postCliente(malformed);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "El cuerpo de la solicitud no es JSON válido",
+      });
     });
   });
 });

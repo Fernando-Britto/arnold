@@ -1,3 +1,4 @@
+import { POST as postEjercicio } from "@/app/api/ejercicios/route";
 import {
   handleEjercicioCreateRequest,
   handleEjercicioListRequest,
@@ -411,5 +412,26 @@ describe("Route.ts wrappers (POST and GET functions)", () => {
     const errorResult = await handleEjercicioCreateRequest(input);
     expect("status" in errorResult).toBe(true);
     expect("code" in errorResult).toBe(true);
+  });
+});
+
+describe("POST /api/ejercicios — malformed JSON body", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should return 400 (not 500) when the body is not valid JSON", async () => {
+    const malformed = {
+      json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token 'o'")),
+    } as unknown as Parameters<typeof postEjercicio>[0];
+
+    const res = await postEjercicio(malformed);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      code: "VALIDATION_ERROR",
+      message: "El cuerpo de la solicitud no es JSON válido",
+    });
+    expect(handleEjercicioCreate).not.toHaveBeenCalled();
   });
 });

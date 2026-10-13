@@ -1,4 +1,5 @@
 import {
+  POST as postRutina,
   handleRutinaCreateRequest,
   handleRutinaListRequest,
   handleRutinaGetRequest,
@@ -560,5 +561,26 @@ describe("Error mapping and response structure", () => {
     const errorResult = await handleRutinaListRequest();
     expect("status" in errorResult).toBe(true);
     expect("code" in errorResult).toBe(true);
+  });
+});
+
+describe("POST /api/rutinas — malformed JSON body", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should return 400 (not 500) when the body is not valid JSON", async () => {
+    const malformed = {
+      json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token 'o'")),
+    } as unknown as Parameters<typeof postRutina>[0];
+
+    const res = await postRutina(malformed);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      code: "VALIDATION_ERROR",
+      message: "El cuerpo de la solicitud no es JSON válido",
+    });
+    expect(handleRutinaCreate).not.toHaveBeenCalled();
   });
 });

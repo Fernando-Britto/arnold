@@ -3,7 +3,11 @@
  * T-016: Membresia API layer CRUD
  */
 
-import { handleMembresiaListRequest, handleMembresiaCreateRequest } from "./route";
+import {
+  POST as postMembresia,
+  handleMembresiaListRequest,
+  handleMembresiaCreateRequest,
+} from "./route";
 import {
   handleMembresiaList,
   handleMembresiaCreate,
@@ -254,6 +258,23 @@ describe("Membresia API Routes", () => {
       expect((result as any).status).toBe(201);
       expect((result as any).id).toBe("gold-id");
       expect((result as any).nombre).toBe("Gold");
+    });
+  });
+
+  describe("POST /api/membresias — malformed JSON body", () => {
+    it("should return 400 (not 500) when the body is not valid JSON", async () => {
+      const malformed = {
+        json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token 'o'")),
+      } as unknown as Parameters<typeof postMembresia>[0];
+
+      const res = await postMembresia(malformed);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "El cuerpo de la solicitud no es JSON válido",
+      });
+      expect(handleMembresiaCreate).not.toHaveBeenCalled();
     });
   });
 });

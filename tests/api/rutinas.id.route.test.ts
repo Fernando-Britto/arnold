@@ -49,6 +49,7 @@ describe("GET /api/rutinas/[id] — Get single Rutina by ID", () => {
       descripcion: "Rutina completa",
       createdAt: new Date(),
       updatedAt: new Date(),
+      ejercicios: [],
     };
 
     mockRutinasApi.handleRutinaGet.mockResolvedValue(mockRutina);
@@ -179,5 +180,28 @@ describe("DELETE /api/rutinas/[id] — Delete specific Rutina", () => {
     const json = await result.json();
     expect(json.code).toBe("DELETE_BLOCKED");
     expect(json.message).toContain("2 socio(s)");
+  });
+});
+
+describe("PUT /api/rutinas/[id] — malformed JSON body", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should return 400 (not 500) when the body is not valid JSON", async () => {
+    const malformed = {
+      json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token 'o'")),
+    } as unknown as Parameters<typeof roueteHandlers.PUT>[0];
+
+    const result = await roueteHandlers.PUT(malformed, {
+      params: Promise.resolve({ id: "rutina-1" }),
+    });
+
+    expect(result.status).toBe(400);
+    expect(await result.json()).toEqual({
+      code: "VALIDATION_ERROR",
+      message: "El cuerpo de la solicitud no es JSON válido",
+    });
+    expect(mockRutinasApi.handleRutinaUpdate).not.toHaveBeenCalled();
   });
 });

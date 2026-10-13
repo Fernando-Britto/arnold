@@ -1,4 +1,4 @@
-import { handleAccessOverrideRequest } from "@/app/api/socios/[id]/access-override/route";
+import { POST as postAccessOverride, handleAccessOverrideRequest } from "@/app/api/socios/[id]/access-override/route";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { createJWT } from "@/lib/auth";
 import * as accessOverride from "@/api/socios/access-override";
@@ -369,6 +369,27 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
 
       expect(result.message).toBe("La razón no puede estar vacía");
       expect(result.message).not.toContain("Validación fallida");
+    });
+  });
+
+  describe("POST /api/socios/[id]/access-override — malformed JSON body", () => {
+    it("should return 400 (not 500) when the body is not valid JSON", async () => {
+      const malformed = {
+        headers: { get: () => null },
+        cookies: { get: () => undefined },
+        json: jest.fn().mockRejectedValue(new SyntaxError("Unexpected token 'o'")),
+      } as unknown as Parameters<typeof postAccessOverride>[0];
+
+      const res = await postAccessOverride(malformed, {
+        params: Promise.resolve({ id: "socio-1" }),
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "El cuerpo de la solicitud no es JSON válido",
+      });
+      expect(accessOverride.handleAccessOverride).not.toHaveBeenCalled();
     });
   });
 });

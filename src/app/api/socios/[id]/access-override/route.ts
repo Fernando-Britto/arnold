@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleAccessOverride } from "@/api/socios/access-override";
 import { extractUserFromAuthHeader, RequestWithUser, authHeaderFromRequest } from "@/lib/auth";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { readJsonBody } from "@/lib/request-body";
 
 /**
  * Core handler logic for POST /api/socios/{id}/access-override
@@ -79,7 +80,9 @@ export async function POST(
   const { id: socioId } = await params;
 
   const authHeader = authHeaderFromRequest(request);
-  const body = await request.json();
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
 
   const result = await handleAccessOverrideRequest(authHeader, body, socioId);
 

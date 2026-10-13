@@ -9,6 +9,7 @@ import {
   type RutinaInput,
 } from "@/api/rutinas";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { readJsonBody } from "@/lib/request-body";
 
 /**
  * Discriminated union types for handler responses
@@ -192,7 +193,9 @@ export async function handleRutinaDeleteRequest(id: string): Promise<DeleteSucce
  * Requires ADMINISTRADOR or INSTRUCTOR role
  */
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body;
   const result = await handleRutinaCreateRequest(body);
 
   // If error response (has status property with code)
