@@ -27,6 +27,7 @@ const mockNotify = jest.fn();
 // Mock API functions
 jest.mock("@/api/rutinas", () => ({
   fetchRutinas: jest.fn(),
+  fetchRutina: jest.fn(),
   createRutina: jest.fn(),
   updateRutina: jest.fn(),
   deleteRutina: jest.fn(),
@@ -43,6 +44,11 @@ import * as ejerciciosApi from "@/api/ejercicios";
 
 const mockRutinasApi = rutinasApi as jest.Mocked<typeof rutinasApi>;
 const mockEjerciciosApi = ejerciciosApi as jest.Mocked<typeof ejerciciosApi>;
+
+// `fetchRutina` se agrega junto con el fix NF-1; se accede por cast para que este
+// test pueda correr (y fallar) contra el código viejo, que todavía no lo exporta.
+const mockFetchRutina = (rutinasApi as unknown as { fetchRutina: jest.Mock })
+  .fetchRutina;
 
 const waitForLoadingComplete = async () => {
   await waitFor(() => {
@@ -62,6 +68,7 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
     });
     mockRutinasApi.fetchRutinas.mockResolvedValue([]);
     mockEjerciciosApi.fetchEjercicios.mockResolvedValue([]);
+    mockFetchRutina.mockResolvedValue({ ...mockRutina, ejercicios: [] });
   });
 
   describe("Role-based access control", () => {
@@ -211,6 +218,10 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
       await waitForLoadingComplete();
       await user.click(await screen.findByText("Fuerza Full Body"));
       await user.click(screen.getByRole("button", { name: "Modificar" }));
+      // El detalle se carga async: esperar a que el form quede poblado antes de editar.
+      await waitFor(() =>
+        expect((screen.getByLabelText(/Nombre/i) as HTMLInputElement).value).toBe("Fuerza Full Body"),
+      );
       await user.clear(screen.getByLabelText(/Nombre/i));
       await user.type(screen.getByLabelText(/Nombre/i), "Fuerza Full Body Actualizada");
       await user.click(screen.getByRole("button", { name: /Guardar|Actualizar/i }));
@@ -221,6 +232,61 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
         ),
       );
       expect(mockNotify).toHaveBeenCalledWith("success", "Rutina actualizada");
+    });
+  });
+
+  describe("Selección + Modificar (NF-1: no perder los ejercicios)", () => {
+    it("carga el detalle con ejercicios antes de abrir el form y los conserva al guardar", async () => {
+      const user = userEvent.setup();
+      mockRutinasApi.fetchRutinas.mockResolvedValue([mockRutinaWithEjercicios]);
+      mockFetchRutina.mockResolvedValue({
+        ...mockRutinaWithEjercicios,
+        ejercicios: [
+          {
+            ejercicioId: "ej-1",
+            ejercicioNombre: "Press Banca",
+            series: 3,
+            repeticiones: 10,
+            descanso: 60,
+            orden: 0,
+          },
+          {
+            ejercicioId: "ej-2",
+            ejercicioNombre: "Sentadilla",
+            series: 4,
+            repeticiones: 8,
+            descanso: 90,
+            orden: 1,
+          },
+        ],
+      });
+      mockRutinasApi.updateRutina.mockResolvedValue({ ...mockRutinaWithEjercicios });
+
+      render(<RutinasPage />);
+      await waitForLoadingComplete();
+      await user.click(await screen.findByText("Hipertrofia Avanzada"));
+      await user.click(screen.getByRole("button", { name: "Modificar" }));
+
+      // El form debe abrirse con el detalle completo, no con la fila del listado.
+      await waitFor(() =>
+        expect(mockFetchRutina).toHaveBeenCalledWith("rutina-002"),
+      );
+      expect(await screen.findByText("Press Banca")).toBeInTheDocument();
+      expect(screen.getByText("Sentadilla")).toBeInTheDocument();
+
+      // Guardar debe reenviar los ejercicios cargados (no un array vacío).
+      await user.click(screen.getByRole("button", { name: /Guardar/i }));
+      await waitFor(() =>
+        expect(mockRutinasApi.updateRutina).toHaveBeenCalledWith(
+          "rutina-002",
+          expect.objectContaining({
+            ejercicios: expect.arrayContaining([
+              expect.objectContaining({ ejercicioId: "ej-1" }),
+              expect.objectContaining({ ejercicioId: "ej-2" }),
+            ]),
+          }),
+        ),
+      );
     });
   });
 

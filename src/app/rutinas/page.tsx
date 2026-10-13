@@ -11,10 +11,12 @@ import { useNotifications } from "@/contexts/notifications";
 import { handleApiError } from "@/utils/api-error";
 import {
   fetchRutinas,
+  fetchRutina,
   createRutina,
   updateRutina,
   deleteRutina,
   type RutinaWithCount,
+  type RutinaDetalle,
 } from "@/api/rutinas";
 import { fetchEjercicios } from "@/api/ejercicios";
 import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
@@ -28,9 +30,10 @@ export function RutinasPage() {
   const [rutinas, setRutinas] = useState<RutinaWithCount[]>([]);
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<RutinaWithCount | null>(null);
+  const [editing, setEditing] = useState<RutinaDetalle | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -151,9 +154,20 @@ export function RutinasPage() {
     setSelectedId(rutina.id);
   };
 
-  const handleModify = () => {
-    const rutina = rutinas.find((r) => r.id === selectedId) ?? null;
-    if (rutina) setEditing(rutina);
+  const handleModify = async () => {
+    if (!selectedId) return;
+    try {
+      setError(null);
+      setIsLoadingDetail(true);
+      // Load the full detail (with exercises) before opening the form: the list
+      // item only carries `_count`, so editing from it would wipe the subsection.
+      const detail = await fetchRutina(selectedId);
+      setEditing(detail);
+    } catch (err) {
+      setError(handleApiError(err, "No se pudo cargar la rutina."));
+    } finally {
+      setIsLoadingDetail(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -239,7 +253,7 @@ export function RutinasPage() {
               onSave={handleSave}
               initialData={editing}
               availableEjercicios={ejercicios}
-              isLoading={isSaving}
+              isLoading={isSaving || isLoadingDetail}
             />
           </FormPanelShell>
         }

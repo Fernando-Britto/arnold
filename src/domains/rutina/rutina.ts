@@ -1,4 +1,4 @@
-import { Rutina as PrismaRutina, NivelDeDificultad } from "@prisma/client";
+import { Prisma, Rutina as PrismaRutina, NivelDeDificultad } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 /**
@@ -112,16 +112,23 @@ export function validateRutina(data: Partial<Rutina>): ValidationResult {
  */
 export class RutinaRepository {
   /**
-    * Create a new rutina in the database
+    * Create a new rutina in the database.
+    *
+    * `client` defaults to the module Prisma client, but callers that must couple this
+    * write with others (p. ej. `EjercicioEnRutina`) pass the transaction client `tx` so
+    * both writes commit or roll back together.
     */
-  async create(data: {
-    nombre: string;
-    frecuenciaSemanal: number;
-    duracionEstimada: number;
-    nivelDeDificultad: string;
-    descripcion?: string;
-    objetivoPrincipal?: string;
-  }): Promise<PrismaRutina> {
+  async create(
+    data: {
+      nombre: string;
+      frecuenciaSemanal: number;
+      duracionEstimada: number;
+      nivelDeDificultad: string;
+      descripcion?: string;
+      objetivoPrincipal?: string;
+    },
+    client: Prisma.TransactionClient = prisma
+  ): Promise<PrismaRutina> {
     // Validate first
     const validation = validateRutina(data);
     if (!validation.valid) {
@@ -129,7 +136,7 @@ export class RutinaRepository {
     }
 
     // Create in database
-    return prisma.rutina.create({
+    return client.rutina.create({
       data: {
         nombre: data.nombre,
         frecuenciaSemanal: data.frecuenciaSemanal,
@@ -151,8 +158,12 @@ export class RutinaRepository {
   }
 
   /**
-    * Update a rutina
-    */
+   * Update a rutina.
+   *
+   * `client` defaults to the module Prisma client; callers that synchronize the
+   * exercises inside the same transaction pass `tx` so the read-for-validation, the
+   * update and the exercise sync share one atomic boundary.
+   */
   async update(
     id: string,
     data: Partial<{
@@ -162,7 +173,8 @@ export class RutinaRepository {
       nivelDeDificultad: string;
       descripcion: string | null;
       objetivoPrincipal: string | null;
-    }>
+    }>,
+    client: Prisma.TransactionClient = prisma
   ): Promise<PrismaRutina | null> {
     // Validate if updating validation fields
     if (
@@ -171,7 +183,7 @@ export class RutinaRepository {
       data.duracionEstimada !== undefined ||
       data.nivelDeDificultad !== undefined
     ) {
-      const current = await prisma.rutina.findUnique({ where: { id } });
+      const current = await client.rutina.findUnique({ where: { id } });
       if (!current) return null;
 
       const merged = { ...current, ...data };
@@ -190,7 +202,7 @@ export class RutinaRepository {
     if (data.descripcion !== undefined) updateData.descripcion = data.descripcion;
     if (data.objetivoPrincipal !== undefined) updateData.objetivoPrincipal = data.objetivoPrincipal;
 
-    return prisma.rutina.update({
+    return client.rutina.update({
       where: { id },
       data: updateData,
     });

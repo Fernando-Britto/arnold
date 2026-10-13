@@ -1,4 +1,4 @@
-import { fetchRutinas, createRutina, updateRutina, deleteRutina } from "./rutinas";
+import { fetchRutinas, fetchRutina, createRutina, updateRutina, deleteRutina } from "./rutinas";
 import { ApiError } from "@/utils/api-error";
 
 // Importar ./rutinas trae el repositorio, que importa la base: acá no se toca.
@@ -20,6 +20,7 @@ const input = {
 describe("API de Rutinas (lado cliente): los errores llegan como ApiError", () => {
   it.each([
     ["fetchRutinas", () => fetchRutinas()],
+    ["fetchRutina", () => fetchRutina("r1")],
     ["createRutina", () => createRutina(input)],
     ["updateRutina", () => updateRutina("r1", input)],
     ["deleteRutina", () => deleteRutina("r1")],
@@ -39,5 +40,50 @@ describe("API de Rutinas (lado cliente): los errores llegan como ApiError", () =
   it("una respuesta ok sigue devolviendo los datos", async () => {
     respond(200, [{ id: "r1" }]);
     await expect(fetchRutinas()).resolves.toEqual([{ id: "r1" }]);
+  });
+
+  it("fetchRutina mapea los ejercicios a filas del form (nombre incluido)", async () => {
+    respond(200, {
+      id: "r1",
+      nombre: "Full Body",
+      objetivoPrincipal: "Fuerza",
+      frecuenciaSemanal: 3,
+      duracionEstimada: 60,
+      nivelDeDificultad: "BASICO",
+      descripcion: null,
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+      ejercicios: [
+        {
+          id: "er1",
+          rutinaId: "r1",
+          ejercicioId: "e1",
+          series: 3,
+          repeticiones: 10,
+          descanso: 60,
+          orden: 0,
+          ejercicio: { id: "e1", nombre: "Press Banca" },
+        },
+      ],
+    });
+
+    const detalle = await fetchRutina("r1");
+
+    expect(detalle.ejercicios).toEqual([
+      {
+        ejercicioId: "e1",
+        ejercicioNombre: "Press Banca",
+        series: 3,
+        repeticiones: 10,
+        descanso: 60,
+        orden: 0,
+      },
+    ]);
+  });
+
+  it("fetchRutina sin ejercicios devuelve un array vacío", async () => {
+    respond(200, { id: "r1", nombre: "Full Body" });
+    const detalle = await fetchRutina("r1");
+    expect(detalle.ejercicios).toEqual([]);
   });
 });

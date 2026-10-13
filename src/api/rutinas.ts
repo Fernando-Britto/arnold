@@ -1,9 +1,20 @@
-import { Rutina } from "@prisma/client";
+import { Ejercicio, EjercicioEnRutina, Rutina } from "@prisma/client";
 import { RutinaRepository, validateRutina } from "@/domains/rutina/rutina";
 import { prisma } from "@/lib/db";
 import { throwIfNotOk } from "@/utils/api-error";
+import type { EjercicioEnRutinaRow } from "@/components/rutina-crud/ejercicio-en-rutina-list";
 
 export type RutinaWithCount = Rutina & { _count: { ejercicios: number } };
+
+/**
+ * Rutina detail as consumed by the edit form: the exercises are already shaped
+ * as `EjercicioEnRutinaRow` (name included, `descanso` in seconds) so the form
+ * can render and re-submit them without losing the subsection.
+ */
+export type RutinaDetalle = Rutina & { ejercicios: EjercicioEnRutinaRow[] };
+
+/** Raw row returned by GET /api/rutinas/:id (includes the nested ejercicio). */
+type EjercicioEnRutinaApiRow = EjercicioEnRutina & { ejercicio?: Ejercicio };
 
 /**
  * Rutina input type for create operations
@@ -33,30 +44,38 @@ export async function handleRutinaCreate(
   data: RutinaInput & { ejercicios?: EjercicioEnRutinaInput[] }
 ): Promise<Rutina> {
   const rutinaRepo = new RutinaRepository();
-  const rutina = await rutinaRepo.create({
-    nombre: data.nombre,
-    frecuenciaSemanal: data.frecuenciaSemanal,
-    duracionEstimada: data.duracionEstimada,
-    nivelDeDificultad: data.nivelDeDificultad,
-    descripcion: data.descripcion,
-    objetivoPrincipal: data.objetivoPrincipal,
+
+  // NF-2: la rutina y sus ejercicios son un único estado acoplado. Si `createMany`
+  // falla, la rutina no debe quedar creada: se escriben en UNA transacción.
+  return prisma.$transaction(async (tx) => {
+    const rutina = await rutinaRepo.create(
+      {
+        nombre: data.nombre,
+        frecuenciaSemanal: data.frecuenciaSemanal,
+        duracionEstimada: data.duracionEstimada,
+        nivelDeDificultad: data.nivelDeDificultad,
+        descripcion: data.descripcion,
+        objetivoPrincipal: data.objetivoPrincipal,
+      },
+      tx
+    );
+
+    // Persist ejercicios if provided
+    if (data.ejercicios && data.ejercicios.length > 0) {
+      await tx.ejercicioEnRutina.createMany({
+        data: data.ejercicios.map((ej, index) => ({
+          rutinaId: rutina.id,
+          ejercicioId: ej.ejercicioId,
+          series: Number(ej.series) || 3,
+          repeticiones: Number(ej.repeticiones) || 10,
+          descanso: Number(ej.descanso) || 60,
+          orden: typeof ej.orden === "number" ? ej.orden : index,
+        })),
+      });
+    }
+
+    return rutina;
   });
-
-  // Persist ejercicios if provided
-  if (data.ejercicios && data.ejercicios.length > 0) {
-    await prisma.ejercicioEnRutina.createMany({
-      data: data.ejercicios.map((ej, index) => ({
-        rutinaId: rutina.id,
-        ejercicioId: ej.ejercicioId,
-        series: Number(ej.series) || 3,
-        repeticiones: Number(ej.repeticiones) || 10,
-        descanso: Number(ej.descanso) || 60,
-        orden: typeof ej.orden === "number" ? ej.orden : index,
-      })),
-    });
-  }
-
-  return rutina;
 }
 
 /**
@@ -72,11 +91,14 @@ export async function handleRutinaList(): Promise<RutinaWithCount[]> {
 
 /**
  * Handle GET /api/rutinas/:id
- * Retrieves a single rutina by ID with exercises ordered
+ * Retrieves a single rutina by ID with exercises ordered and their catalog data
+ * (so the client can render the exercise name in the edit form).
  */
 export async function handleRutinaGet(
   id: string
-): Promise<(Rutina & { ejercicios?: any[] }) | null> {
+): Promise<
+  (Rutina & { ejercicios: (EjercicioEnRutina & { ejercicio: Ejercicio })[] }) | null
+> {
   return prisma.rutina.findUnique({
     where: { id },
     include: {
@@ -84,6 +106,7 @@ export async function handleRutinaGet(
         orderBy: {
           orden: "asc",
         },
+        include: { ejercicio: true },
       },
     },
   });
@@ -98,40 +121,57 @@ export async function handleRutinaUpdate(
   data: Partial<RutinaInput> & { ejercicios?: EjercicioEnRutinaInput[] }
 ): Promise<Rutina | null> {
   const rutinaRepo = new RutinaRepository();
-  const rutina = await rutinaRepo.update(id, {
-    nombre: data.nombre,
-    frecuenciaSemanal: data.frecuenciaSemanal,
-    duracionEstimada: data.duracionEstimada,
-    nivelDeDificultad: data.nivelDeDificultad,
-    descripcion: data.descripcion,
-    objetivoPrincipal: data.objetivoPrincipal,
-  });
 
-  if (!rutina) return null;
+  // NF-2: el update de la rutina y la sincronización de ejercicios (delete + recreate)
+  // son un único estado acoplado: van en UNA transacción para que un fallo intermedio
+  // no deje la rutina actualizada sin sus ejercicios (ni al revés).
+  return prisma.$transaction(async (tx) => {
+    const rutina = await rutinaRepo.update(
+      id,
+      {
+        nombre: data.nombre,
+        frecuenciaSemanal: data.frecuenciaSemanal,
+        duracionEstimada: data.duracionEstimada,
+        nivelDeDificultad: data.nivelDeDificultad,
+        descripcion: data.descripcion,
+        objetivoPrincipal: data.objetivoPrincipal,
+      },
+      tx
+    );
 
-  // Synchronize ejercicios if provided
-  if (data.ejercicios !== undefined) {
-    // Delete existing ejercicios for this rutina
-    await prisma.ejercicioEnRutina.deleteMany({
-      where: { rutinaId: id },
-    });
+    if (!rutina) return null;
 
-    // Create new ejercicios if provided
-    if (data.ejercicios.length > 0) {
-      await prisma.ejercicioEnRutina.createMany({
-        data: data.ejercicios.map((ej, index) => ({
-          rutinaId: id,
-          ejercicioId: ej.ejercicioId,
-          series: Number(ej.series) || 3,
-          repeticiones: Number(ej.repeticiones) || 10,
-          descanso: Number(ej.descanso) || 60,
-          orden: typeof ej.orden === "number" ? ej.orden : index,
-        })),
+    // Synchronize ejercicios if provided.
+    //
+    // CONTRACT (NF-1): `ejercicios === undefined` means "leave the subsection
+    // untouched"; an empty array means "the user cleared every exercise". This
+    // handler cannot tell a genuinely-cleared array from a never-loaded one, so
+    // the invariant lives on the client: the edit form MUST always send the full
+    // loaded array (see `fetchRutina` + RutinasPage.handleModify). Do not send
+    // `[]` as a placeholder for "not loaded" — that would wipe the rows.
+    if (data.ejercicios !== undefined) {
+      // Delete existing ejercicios for this rutina
+      await tx.ejercicioEnRutina.deleteMany({
+        where: { rutinaId: id },
       });
-     }
-   }
- 
-   return rutina;
+
+      // Create new ejercicios if provided
+      if (data.ejercicios.length > 0) {
+        await tx.ejercicioEnRutina.createMany({
+          data: data.ejercicios.map((ej, index) => ({
+            rutinaId: id,
+            ejercicioId: ej.ejercicioId,
+            series: Number(ej.series) || 3,
+            repeticiones: Number(ej.repeticiones) || 10,
+            descanso: Number(ej.descanso) || 60,
+            orden: typeof ej.orden === "number" ? ej.orden : index,
+          })),
+        });
+      }
+    }
+
+    return rutina;
+  });
  }
 
 /**
@@ -175,6 +215,30 @@ export async function fetchRutinas(): Promise<RutinaWithCount[]> {
   const response = await fetch("/api/rutinas");
   await throwIfNotOk(response, "No se pudieron cargar las rutinas");
   return response.json();
+}
+
+/**
+ * Client-side API call: fetch a single rutina with its exercises (ordered by
+ * `orden`) shaped as `EjercicioEnRutinaRow`, so the edit form can render them
+ * and re-submit the full subsection instead of wiping it.
+ */
+export async function fetchRutina(id: string): Promise<RutinaDetalle> {
+  const response = await fetch(`/api/rutinas/${id}`);
+  await throwIfNotOk(response, "No se pudo cargar la rutina");
+  const rutina: Rutina & { ejercicios?: EjercicioEnRutinaApiRow[] } =
+    await response.json();
+
+  return {
+    ...rutina,
+    ejercicios: (rutina.ejercicios ?? []).map((row) => ({
+      ejercicioId: row.ejercicioId,
+      ejercicioNombre: row.ejercicio?.nombre ?? "",
+      series: row.series,
+      repeticiones: row.repeticiones,
+      descanso: row.descanso,
+      orden: row.orden,
+    })),
+  };
 }
 
 /**
