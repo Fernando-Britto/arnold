@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleClienteGet, handleClienteUpdate, handleClienteDelete, type ClienteInput } from "@/api/clientes";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import { readJsonBody } from "@/lib/request-body";
 import type {
   GetSuccess as GetSuccessType,
@@ -187,6 +188,13 @@ export async function PUT(
     );
   }
 
+  // Auditoría best-effort: no altera la respuesta HTTP.
+  await registrarOperacion({
+    tipoOperacion: "MODIFICACION",
+    responsableId: user.id,
+    detalles: { clienteId: (result as UpdateSuccessType).id },
+  });
+
   // Success: return updated cliente
   return NextResponse.json(result, { status: 200 });
 }
@@ -229,6 +237,13 @@ export async function DELETE(
       { status: (result as DeleteErrorType).status }
     );
   }
+
+  // Auditoría best-effort: no altera la respuesta HTTP.
+  await registrarOperacion({
+    tipoOperacion: "BAJA",
+    responsableId: user.id,
+    detalles: { clienteId: id },
+  });
 
   // Success: 204 No Content (no body)
   return new NextResponse(null, { status: 204 });

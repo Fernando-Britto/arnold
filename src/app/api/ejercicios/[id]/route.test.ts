@@ -5,6 +5,7 @@
 
 import {
   PUT as putEjercicio,
+  DELETE as delEjercicio,
   handleEjercicioGetRequest,
   handleEjercicioUpdateRequest,
   handleEjercicioDeleteRequest,
@@ -14,10 +15,20 @@ import {
   handleEjercicioUpdate,
   handleEjercicioDelete,
 } from "@/api/ejercicios";
+import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 
 // Mock the API layer
 jest.mock("@/api/ejercicios");
 jest.mock("@/lib/db");
+jest.mock("@/lib/auth", () => ({ extractUserFromRequest: jest.fn() }));
+jest.mock("@/lib/audit", () => ({ registrarOperacion: jest.fn() }));
+
+const mockUser = extractUserFromRequest as jest.Mock;
+const mockAudit = registrarOperacion as jest.Mock;
+const ctx = { params: Promise.resolve({ id: "e1" }) };
+const jsonReq = (body: unknown) =>
+  ({ json: async () => body }) as unknown as Parameters<typeof putEjercicio>[0];
 
 describe("Ejercicio [id] API Routes", () => {
   const mockEjercicio = {
@@ -246,6 +257,66 @@ describe("Ejercicio [id] API Routes", () => {
         message: "El cuerpo de la solicitud no es JSON válido",
       });
       expect(handleEjercicioUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Auditoría de operaciones en /api/ejercicios/[id]", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    it("PUT exitoso registra MODIFICACION con responsableId y ejercicioId", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockUpdate = handleEjercicioUpdate as jest.MockedFunction<typeof handleEjercicioUpdate>;
+      mockUpdate.mockResolvedValueOnce({ id: "e1", nombre: "Press Inclinado" } as never);
+
+      const res = await putEjercicio(jsonReq({ nombre: "Press Inclinado" }), ctx);
+
+      expect(res.status).toBe(200);
+      expect(mockAudit).toHaveBeenCalledWith({
+        tipoOperacion: "MODIFICACION",
+        responsableId: "u-admin",
+        detalles: { ejercicioId: "e1" },
+      });
+    });
+
+    it("PUT fallido no registra nada", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockUpdate = handleEjercicioUpdate as jest.MockedFunction<typeof handleEjercicioUpdate>;
+      mockUpdate.mockRejectedValueOnce(
+        Object.assign(new Error("VALIDATION_ERROR: El nombre es requerido"), {
+          code: "VALIDATION_ERROR",
+        })
+      );
+
+      const res = await putEjercicio(jsonReq({ nombre: "" }), ctx);
+
+      expect(res.status).toBe(400);
+      expect(mockAudit).not.toHaveBeenCalled();
+    });
+
+    it("DELETE exitoso registra BAJA con responsableId y ejercicioId", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockDelete = handleEjercicioDelete as jest.MockedFunction<typeof handleEjercicioDelete>;
+      mockDelete.mockResolvedValueOnce(true);
+
+      const res = await delEjercicio(jsonReq(undefined), ctx);
+
+      expect(res.status).toBe(200);
+      expect(mockAudit).toHaveBeenCalledWith({
+        tipoOperacion: "BAJA",
+        responsableId: "u-admin",
+        detalles: { ejercicioId: "e1" },
+      });
+    });
+
+    it("DELETE no encontrado no registra nada", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockDelete = handleEjercicioDelete as jest.MockedFunction<typeof handleEjercicioDelete>;
+      mockDelete.mockResolvedValueOnce(false);
+
+      const res = await delEjercicio(jsonReq(undefined), ctx);
+
+      expect(res.status).toBe(404);
+      expect(mockAudit).not.toHaveBeenCalled();
     });
   });
 });

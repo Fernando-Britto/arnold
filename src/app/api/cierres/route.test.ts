@@ -13,6 +13,7 @@ jest.mock("@/lib/auth", () => ({
   ...jest.requireActual("@/lib/auth"),
   extractUserFromRequest: jest.fn(),
 }));
+jest.mock("@/lib/audit", () => ({ registrarOperacion: jest.fn() }));
 
 import {
   handleCerrarCaja,
@@ -20,6 +21,7 @@ import {
   handlePrevisualizarCierre,
 } from "@/api/cierres";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import {
   POST,
   GET,
@@ -32,6 +34,7 @@ const mockCerrar = handleCerrarCaja as jest.MockedFunction<typeof handleCerrarCa
 const mockListar = handleListarCierres as jest.MockedFunction<typeof handleListarCierres>;
 const mockPreview = handlePrevisualizarCierre as jest.MockedFunction<typeof handlePrevisualizarCierre>;
 const mockUser = extractUserFromRequest as jest.Mock;
+const mockAudit = registrarOperacion as jest.Mock;
 
 const cierreFalso = {
   id: "cierre-1",
@@ -125,6 +128,7 @@ describe("POST /api/cierres", () => {
     expect(res.status).toBe(401);
     expect((await res.json()).code).toBe("UNAUTHORIZED");
     expect(mockCerrar).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it("403 para un rol no autorizado (INSTRUCTOR)", async () => {
@@ -132,6 +136,7 @@ describe("POST /api/cierres", () => {
     const res = await POST(postReq());
     expect(res.status).toBe(403);
     expect(mockCerrar).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it("201 para RECEPCIONISTA sin cuerpo (rango por defecto)", async () => {
@@ -143,6 +148,11 @@ describe("POST /api/cierres", () => {
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual(cierreFalso);
     expect(mockCerrar).toHaveBeenCalledWith({ usuarioId: "u-rec", desde: undefined, hasta: undefined });
+    expect(mockAudit).toHaveBeenCalledWith({
+      tipoOperacion: "ALTA",
+      responsableId: "u-rec",
+      detalles: { cierreId: "cierre-1" },
+    });
   });
 
   it("201 para ADMINISTRADOR con rango explícito", async () => {
@@ -174,6 +184,7 @@ describe("POST /api/cierres", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("VALIDATION_ERROR");
     expect(mockCerrar).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it("400 si una fecha del rango es inválida", async () => {
@@ -181,6 +192,7 @@ describe("POST /api/cierres", () => {
     const res = await POST(postReq({ desde: "no-es-fecha" }));
     expect(res.status).toBe(400);
     expect(mockCerrar).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it("409 cuando ya existe un cierre para el turno", async () => {
@@ -193,6 +205,7 @@ describe("POST /api/cierres", () => {
 
     expect(res.status).toBe(409);
     expect((await res.json()).code).toBe("CASH_CLOSE_CONFLICT");
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 });
 

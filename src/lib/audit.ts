@@ -51,6 +51,30 @@ export async function recordAccessAttempt(entry: {
 }
 
 /**
+ * Operación de negocio (alta, baja, modificación o anulación) sobre una entidad, en
+ * RegistroDeAuditoria. Misma regla de oro que el resto del módulo: auditar NUNCA rompe la
+ * request; si la base falla, el detalle queda en el log del servidor y el flujo sigue.
+ * `detalles` se persiste como JSON string.
+ */
+export async function registrarOperacion(entry: {
+  tipoOperacion: "ALTA" | "BAJA" | "MODIFICACION" | "ANULACION";
+  responsableId: string;
+  detalles?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    await prisma.registroDeAuditoria.create({
+      data: {
+        tipoOperacion: entry.tipoOperacion,
+        responsableId: entry.responsableId,
+        detalles: entry.detalles ? JSON.stringify(entry.detalles) : null,
+      },
+    });
+  } catch (error) {
+    console.error("[AUDIT] no se pudo registrar la operación:", error);
+  }
+}
+
+/**
  * Acceso denegado por permisos (RBAC) a un usuario con sesión válida. Solo se llama con sesión
  * válida: sin sesión no hay actor al que atribuirlo y registrarlo permitiría inundar la tabla.
  * `pathname` no incluye la query string (no se guardan tokens ni parámetros).

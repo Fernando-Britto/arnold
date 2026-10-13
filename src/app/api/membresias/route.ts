@@ -6,6 +6,8 @@ import {
   type MembresiaInput,
 } from "@/api/membresias";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import { readJsonBody } from "@/lib/request-body";
 
 /**
@@ -109,6 +111,15 @@ export async function POST(request: NextRequest) {
   const result = await handleMembresiaCreateRequest(body);
 
   if (isCreateSuccess(result)) {
+    // Auditoría best-effort: no altera la respuesta HTTP.
+    const user = extractUserFromRequest(request);
+    if (user) {
+      await registrarOperacion({
+        tipoOperacion: "ALTA",
+        responsableId: user.id,
+        detalles: { membresiaId: result.id },
+      });
+    }
     return NextResponse.json(result, { status: 201 });
   }
 

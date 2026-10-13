@@ -7,6 +7,8 @@ import {
   type EjercicioInput,
 } from "@/api/ejercicios";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import { readJsonBody } from "@/lib/request-body";
 
 /**
@@ -153,6 +155,14 @@ export async function PUT(
   const result = await handleEjercicioUpdateRequest((await params).id, body);
 
   if (isUpdateSuccess(result)) {
+    const user = extractUserFromRequest(request);
+    if (user) {
+      await registrarOperacion({
+        tipoOperacion: "MODIFICACION",
+        responsableId: user.id,
+        detalles: { ejercicioId: result.id },
+      });
+    }
     return NextResponse.json(result, { status: 200 });
   }
 
@@ -171,9 +181,18 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await handleEjercicioDeleteRequest((await params).id);
+  const { id } = await params;
+  const result = await handleEjercicioDeleteRequest(id);
 
   if (isDeleteSuccess(result)) {
+    const user = extractUserFromRequest(request);
+    if (user) {
+      await registrarOperacion({
+        tipoOperacion: "BAJA",
+        responsableId: user.id,
+        detalles: { ejercicioId: id },
+      });
+    }
     return NextResponse.json(result, { status: 200 });
   }
 

@@ -6,6 +6,7 @@ import {
 } from "@/api/cierres";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 
 /** Roles que pueden cerrar y consultar cajas (D-42 / matriz de autorización). */
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RECEPCIONISTA"];
@@ -122,6 +123,15 @@ export async function POST(request: NextRequest) {
   }
 
   const { status, body } = await handleCerrarCajaRequest(user.id, desde, hasta);
+  if (status === 201) {
+    // Auditoría best-effort: no altera la respuesta HTTP.
+    const cierreId = (body as { id?: string } | null)?.id;
+    await registrarOperacion({
+      tipoOperacion: "ALTA",
+      responsableId: user.id,
+      detalles: { cierreId },
+    });
+  }
   return NextResponse.json(body, { status });
 }
 

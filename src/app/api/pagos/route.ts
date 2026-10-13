@@ -4,6 +4,7 @@ import type { RegistrarPagoInput } from "@/domains/pago/registrar-pago";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { readJsonBody } from "@/lib/request-body";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 
 /** Roles que pueden registrar y consultar pagos (D-42 / matriz de autorización). */
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RECEPCIONISTA"];
@@ -84,6 +85,15 @@ export async function POST(request: NextRequest) {
   }
 
   const { status, body: responseBody } = await handleRegistrarPagoRequest(body);
+  if (status === 201) {
+    // Auditoría best-effort: no altera la respuesta HTTP.
+    const pagoId = (responseBody as { pago?: { id?: string } } | null)?.pago?.id;
+    await registrarOperacion({
+      tipoOperacion: "ALTA",
+      responsableId: user.id,
+      detalles: { pagoId, socioId: body.socioId },
+    });
+  }
   return NextResponse.json(responseBody, { status });
 }
 

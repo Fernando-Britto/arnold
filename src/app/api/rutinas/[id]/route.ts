@@ -10,6 +10,8 @@ import {
   type DeleteSuccess,
   type DeleteError,
 } from "@/app/api/rutinas/route";
+import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import { readJsonBody } from "@/lib/request-body";
 
 /**
@@ -57,6 +59,16 @@ export async function PUT(
     );
   }
 
+  // Auditoría best-effort: no altera la respuesta HTTP.
+  const user = extractUserFromRequest(request);
+  if (user) {
+    await registrarOperacion({
+      tipoOperacion: "MODIFICACION",
+      responsableId: user.id,
+      detalles: { rutinaId: id },
+    });
+  }
+
   // Success: return updated rutina
   return NextResponse.json(result, { status: 200 });
 }
@@ -78,6 +90,16 @@ export async function DELETE(
       { code: (result as DeleteError).code, message: (result as DeleteError).message },
       { status: (result as DeleteError).status }
     );
+  }
+
+  // Auditoría best-effort: no altera la respuesta HTTP.
+  const user = extractUserFromRequest(request);
+  if (user) {
+    await registrarOperacion({
+      tipoOperacion: "BAJA",
+      responsableId: user.id,
+      detalles: { rutinaId: id },
+    });
   }
 
   // Success: 204 No Content (no body)

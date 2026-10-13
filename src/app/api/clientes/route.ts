@@ -7,6 +7,7 @@ import {
 } from "@/api/clientes";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import { readJsonBody } from "@/lib/request-body";
 
 /**
@@ -129,6 +130,13 @@ export async function POST(request: NextRequest) {
       { status: result.status }
     );
   }
+
+  // Auditoría best-effort: no altera la respuesta HTTP.
+  await registrarOperacion({
+    tipoOperacion: "ALTA",
+    responsableId: user.id,
+    detalles: { clienteId: result.id },
+  });
 
   // Success: return cliente with 201
   return NextResponse.json(result, { status: 201 });

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { Ejercicio } from "@prisma/client";
 import { handleEjercicioCreate, handleEjercicioList } from "@/api/ejercicios";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import { readJsonBody } from "@/lib/request-body";
 
 /**
@@ -88,6 +90,16 @@ export async function POST(request: NextRequest) {
       { code: result.code, message: result.message },
       { status: result.status }
     );
+  }
+
+  // Auditoría best-effort: no altera la respuesta HTTP.
+  const user = extractUserFromRequest(request);
+  if (user) {
+    await registrarOperacion({
+      tipoOperacion: "ALTA",
+      responsableId: user.id,
+      detalles: { ejercicioId: result.id },
+    });
   }
 
   // Success: return ejercicio

@@ -13,9 +13,11 @@ jest.mock("@/lib/auth", () => ({
   ...jest.requireActual("@/lib/auth"),
   extractUserFromRequest: jest.fn(),
 }));
+jest.mock("@/lib/audit", () => ({ registrarOperacion: jest.fn() }));
 
 import { handleRegistrarPago, handleListarPagos } from "@/api/pagos";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import {
   POST,
   GET,
@@ -26,6 +28,7 @@ import {
 const mockRegistrar = handleRegistrarPago as jest.MockedFunction<typeof handleRegistrarPago>;
 const mockListar = handleListarPagos as jest.MockedFunction<typeof handleListarPagos>;
 const mockUser = extractUserFromRequest as jest.Mock;
+const mockAudit = registrarOperacion as jest.Mock;
 
 const pagoFalso = {
   pago: { id: "pago-1", monto: 30000 },
@@ -111,6 +114,7 @@ describe("POST /api/pagos", () => {
     expect(res.status).toBe(401);
     expect((await res.json()).code).toBe("UNAUTHORIZED");
     expect(mockRegistrar).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it("403 para un rol no autorizado (INSTRUCTOR)", async () => {
@@ -118,6 +122,7 @@ describe("POST /api/pagos", () => {
     const res = await POST(postReq({ socioId: "socio-1", metodoPago: "EFECTIVO" }));
     expect(res.status).toBe(403);
     expect(mockRegistrar).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it("400 con body null (no 500) — PG-3", async () => {
@@ -126,6 +131,7 @@ describe("POST /api/pagos", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("VALIDATION_ERROR");
     expect(mockRegistrar).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it("400 si falta socioId (no 500) — PG-3", async () => {
@@ -134,6 +140,7 @@ describe("POST /api/pagos", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("VALIDATION_ERROR");
     expect(mockRegistrar).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it("400 si el body no es un objeto JSON — PG-3", async () => {
@@ -142,6 +149,7 @@ describe("POST /api/pagos", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("VALIDATION_ERROR");
     expect(mockRegistrar).not.toHaveBeenCalled();
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it("201 para RECEPCIONISTA con un pago válido", async () => {
@@ -153,6 +161,11 @@ describe("POST /api/pagos", () => {
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual(pagoFalso);
     expect(mockRegistrar).toHaveBeenCalledWith({ socioId: "socio-1", metodoPago: "EFECTIVO" });
+    expect(mockAudit).toHaveBeenCalledWith({
+      tipoOperacion: "ALTA",
+      responsableId: "u-rec",
+      detalles: { pagoId: "pago-1", socioId: "socio-1" },
+    });
   });
 });
 

@@ -12,6 +12,8 @@ import { NivelDeDificultad } from "@prisma/client";
 
 jest.mock("@/api/rutinas");
 jest.mock("@/lib/db");
+// Estas pruebas verifican el cableado de los handlers, no la identidad; sin sesión no se audita.
+jest.mock("@/lib/auth", () => ({ extractUserFromRequest: jest.fn(() => null) }));
 
 const mockRutinasApi = rutinasApi as jest.Mocked<typeof rutinasApi>;
 

@@ -7,6 +7,7 @@
 
 import {
   PUT as putMembresia,
+  DELETE as delMembresia,
   handleMembresiaGetByIdRequest,
   handleMembresiaUpdateRequest,
   handleMembresiaDeleteRequest,
@@ -16,10 +17,20 @@ import {
   handleMembresiaUpdate,
   handleMembresiaDelete,
 } from "@/api/membresias";
+import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 
 // Mock the API layer
 jest.mock("@/api/membresias");
 jest.mock("@/lib/db");
+jest.mock("@/lib/auth", () => ({ extractUserFromRequest: jest.fn() }));
+jest.mock("@/lib/audit", () => ({ registrarOperacion: jest.fn() }));
+
+const mockUser = extractUserFromRequest as jest.Mock;
+const mockAudit = registrarOperacion as jest.Mock;
+const ctx = { params: Promise.resolve({ id: "m1" }) };
+const jsonReq = (body: unknown) =>
+  ({ json: async () => body }) as unknown as Parameters<typeof putMembresia>[0];
 
 describe("Membresia [id] API Routes", () => {
   const mockMembresia = {
@@ -317,6 +328,78 @@ describe("Membresia [id] API Routes", () => {
         message: "El cuerpo de la solicitud no es JSON válido",
       });
       expect(handleMembresiaUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Auditoría de operaciones en /api/membresias/[id]", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    it("PUT exitoso registra MODIFICACION con responsableId y membresiaId", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockUpdate = handleMembresiaUpdate as jest.MockedFunction<
+        typeof handleMembresiaUpdate
+      >;
+      mockUpdate.mockResolvedValueOnce({ id: "m1", nombre: "Platinum" } as never);
+
+      const res = await putMembresia(jsonReq({ nombre: "Platinum" }), ctx);
+
+      expect(res.status).toBe(200);
+      expect(mockAudit).toHaveBeenCalledWith({
+        tipoOperacion: "MODIFICACION",
+        responsableId: "u-admin",
+        detalles: { membresiaId: "m1" },
+      });
+    });
+
+    it("PUT fallido no registra nada", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockUpdate = handleMembresiaUpdate as jest.MockedFunction<
+        typeof handleMembresiaUpdate
+      >;
+      mockUpdate.mockRejectedValueOnce(
+        Object.assign(new Error("VALIDATION_ERROR: El precio debe ser mayor a 0"), {
+          code: "VALIDATION_ERROR",
+        })
+      );
+
+      const res = await putMembresia(jsonReq({ precio: 0 }), ctx);
+
+      expect(res.status).toBe(400);
+      expect(mockAudit).not.toHaveBeenCalled();
+    });
+
+    it("DELETE exitoso registra BAJA con responsableId y membresiaId", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockDelete = handleMembresiaDelete as jest.MockedFunction<
+        typeof handleMembresiaDelete
+      >;
+      mockDelete.mockResolvedValueOnce(undefined);
+
+      const res = await delMembresia(jsonReq(undefined), ctx);
+
+      expect(res.status).toBe(204);
+      expect(mockAudit).toHaveBeenCalledWith({
+        tipoOperacion: "BAJA",
+        responsableId: "u-admin",
+        detalles: { membresiaId: "m1" },
+      });
+    });
+
+    it("DELETE bloqueado no registra nada", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockDelete = handleMembresiaDelete as jest.MockedFunction<
+        typeof handleMembresiaDelete
+      >;
+      mockDelete.mockRejectedValueOnce(
+        Object.assign(new Error("DELETE_BLOCKED_ASSIGNED: 5 socios"), {
+          code: "DELETE_BLOCKED_ASSIGNED",
+        })
+      );
+
+      const res = await delMembresia(jsonReq(undefined), ctx);
+
+      expect(res.status).toBe(409);
+      expect(mockAudit).not.toHaveBeenCalled();
     });
   });
 });

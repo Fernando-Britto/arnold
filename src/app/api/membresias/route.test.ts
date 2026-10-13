@@ -12,10 +12,19 @@ import {
   handleMembresiaList,
   handleMembresiaCreate,
 } from "@/api/membresias";
+import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 
 // Mock the API layer
 jest.mock("@/api/membresias");
 jest.mock("@/lib/db");
+jest.mock("@/lib/auth", () => ({ extractUserFromRequest: jest.fn() }));
+jest.mock("@/lib/audit", () => ({ registrarOperacion: jest.fn() }));
+
+const mockUser = extractUserFromRequest as jest.Mock;
+const mockAudit = registrarOperacion as jest.Mock;
+const jsonReq = (body: unknown) =>
+  ({ json: async () => body }) as unknown as Parameters<typeof postMembresia>[0];
 
 describe("Membresia API Routes", () => {
   const mockMembresias = [
@@ -275,6 +284,42 @@ describe("Membresia API Routes", () => {
         message: "El cuerpo de la solicitud no es JSON válido",
       });
       expect(handleMembresiaCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("POST /api/membresias — auditoría", () => {
+    it("registra ALTA con responsableId y membresiaId tras un alta exitosa", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockCreate = handleMembresiaCreate as jest.MockedFunction<
+        typeof handleMembresiaCreate
+      >;
+      mockCreate.mockResolvedValueOnce({ id: "m1", nombre: "Gold" } as never);
+
+      const res = await postMembresia(jsonReq({ nombre: "Gold" }));
+
+      expect(res.status).toBe(201);
+      expect(mockAudit).toHaveBeenCalledWith({
+        tipoOperacion: "ALTA",
+        responsableId: "u-admin",
+        detalles: { membresiaId: "m1" },
+      });
+    });
+
+    it("no registra nada si el alta falla en el dominio", async () => {
+      mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+      const mockCreate = handleMembresiaCreate as jest.MockedFunction<
+        typeof handleMembresiaCreate
+      >;
+      mockCreate.mockRejectedValueOnce(
+        Object.assign(new Error("VALIDATION_ERROR: El nombre debe tener al menos 3 caracteres"), {
+          code: "VALIDATION_ERROR",
+        })
+      );
+
+      const res = await postMembresia(jsonReq({ nombre: "Go" }));
+
+      expect(res.status).toBe(400);
+      expect(mockAudit).not.toHaveBeenCalled();
     });
   });
 });

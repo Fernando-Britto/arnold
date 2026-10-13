@@ -7,6 +7,8 @@ import {
   type MembresiaInput,
 } from "@/api/membresias";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import { readJsonBody } from "@/lib/request-body";
 
 /**
@@ -139,6 +141,15 @@ export async function PUT(
   const result = await handleMembresiaUpdateRequest((await params).id, body);
 
   if (isUpdateSuccess(result)) {
+    // Auditoría best-effort: no altera la respuesta HTTP.
+    const user = extractUserFromRequest(request);
+    if (user) {
+      await registrarOperacion({
+        tipoOperacion: "MODIFICACION",
+        responsableId: user.id,
+        detalles: { membresiaId: result.id },
+      });
+    }
     return NextResponse.json(result, { status: 200 });
   }
 
@@ -160,6 +171,15 @@ export async function DELETE(
   const result = await handleMembresiaDeleteRequest((await params).id);
 
   if (isDeleteSuccess(result)) {
+    // Auditoría best-effort: no altera la respuesta HTTP.
+    const user = extractUserFromRequest(request);
+    if (user) {
+      await registrarOperacion({
+        tipoOperacion: "BAJA",
+        responsableId: user.id,
+        detalles: { membresiaId: (await params).id },
+      });
+    }
     // 204 No Content no admite cuerpo: NextResponse.json lo rechaza (TypeError -> 500 sin JSON)
     return new NextResponse(null, { status: 204 });
   }

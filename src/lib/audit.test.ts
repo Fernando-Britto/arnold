@@ -2,13 +2,19 @@
 import { ipAddress } from "@vercel/functions";
 import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { getRequestContext, recordAccessAttempt, recordDeniedAccess } from "./audit";
+import { getRequestContext, recordAccessAttempt, recordDeniedAccess, registrarOperacion } from "./audit";
 
 jest.mock("@vercel/functions", () => ({ ipAddress: jest.fn() }));
-jest.mock("@/lib/db", () => ({ prisma: { auditoriaAcceso: { create: jest.fn() } } }));
+jest.mock("@/lib/db", () => ({
+  prisma: {
+    auditoriaAcceso: { create: jest.fn() },
+    registroDeAuditoria: { create: jest.fn() },
+  },
+}));
 jest.mock("@/lib/rateLimit", () => ({ checkRateLimit: jest.fn() }));
 
 const create = prisma.auditoriaAcceso.create as jest.Mock;
+const createOperacion = prisma.registroDeAuditoria.create as jest.Mock;
 const vercelIp = ipAddress as jest.Mock;
 const throttle = checkRateLimit as jest.Mock;
 const req = (headers: Record<string, string> = {}) => new Request("http://localhost/x", { headers });
@@ -62,6 +68,41 @@ describe("recordAccessAttempt", () => {
     create.mockRejectedValue(new Error("db down"));
     await expect(
       recordAccessAttempt({ accion: "LOGIN", resultado: "DENY", context: ctx })
+    ).resolves.toBeUndefined();
+    expect(console.error).toHaveBeenCalled();
+  });
+});
+
+describe("registrarOperacion (auditoría de altas/bajas/modificaciones)", () => {
+  it("escribe la fila con el tipo de operación, el responsable y los detalles serializados", async () => {
+    await registrarOperacion({
+      tipoOperacion: "ALTA",
+      responsableId: "u-admin",
+      detalles: { clienteId: "c1" },
+    });
+
+    expect(createOperacion).toHaveBeenCalledWith({
+      data: {
+        tipoOperacion: "ALTA",
+        responsableId: "u-admin",
+        detalles: JSON.stringify({ clienteId: "c1" }),
+      },
+    });
+  });
+
+  it("sin detalles guarda null", async () => {
+    await registrarOperacion({ tipoOperacion: "BAJA", responsableId: "u-admin" });
+    expect(createOperacion.mock.calls[0][0].data).toMatchObject({
+      tipoOperacion: "BAJA",
+      responsableId: "u-admin",
+      detalles: null,
+    });
+  });
+
+  it("NUNCA lanza: si la base falla deja el detalle en el log y sigue", async () => {
+    createOperacion.mockRejectedValue(new Error("db down"));
+    await expect(
+      registrarOperacion({ tipoOperacion: "MODIFICACION", responsableId: "u-admin" })
     ).resolves.toBeUndefined();
     expect(console.error).toHaveBeenCalled();
   });
