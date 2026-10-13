@@ -174,8 +174,8 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-20 | Refresh token con rotación (la revocación ya está, D-34) | Media |
 | P-21 | ~~Probar la edición de clientes contra la base~~ → resuelto (2026-10-10) | Baja |
 | P-22 | ~~Reescribir el spec `authentication-login`~~ → resuelto (D-36) | Baja |
-| P-26 | `src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos (lo marca `eslint`; riesgo de error por cambio en el orden de hooks) | Media |
-| P-27 | Errores de `eslint` que ya existían en `membresia-form-panel.tsx` y `membresia-list-panel.tsx`, y `any` en varias pantallas | Baja |
+| P-26 | ~~`useMemo` después de `return` tempranos en Clientes~~ → resuelto (2026-10-13, `a9adb51`) | — |
+| P-27 | ~~Errores de `eslint` en paneles de Membresías y `any`~~ → resuelto (2026-10-13, `a9adb51`) | — |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) | Media |
 | P-29 | ~~Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`~~ → aplicada por Fernando (2026-10-12); SQL coincide con `schema.prisma` | — |
 | P-30 | Elegir hardware de molinete y huella y confirmar lo legal de datos biométricos → diferido a la fase final (D-49) | Baja |
@@ -183,7 +183,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-32 | Confirmar con el negocio la política de cobro (pago tardío, reingreso, día de corte) | Baja |
 | P-33 | Parámetros del control de acceso (anti-passback, PIN olvidado) → decidido DNI + PIN en D-47; quedan valores por defecto (anti-passback 60 min) | Baja |
 | P-34 | ~~Registro de rutina por serie o por ejercicio~~ → resuelto (D-48): por serie, con RIR | — |
-| P-35 | `README` dice "una rama por tarea"; se acordó trabajar en `dev` (D-41) | Baja |
+| P-35 | ~~`README` dice "una rama por tarea"~~ → resuelto (2026-10-13, `a9adb51`) | — |
 | P-36 | `.patch` sueltos en la raíz del repo | Baja |
 | P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |
 | P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |
