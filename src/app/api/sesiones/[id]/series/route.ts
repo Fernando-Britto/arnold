@@ -1,0 +1,84 @@
+import { NextRequest, NextResponse } from "next/server";
+import {
+  handleObtenerSesion,
+  handleRegistrarSerie,
+  resolveSocioIdDeUsuario,
+} from "@/api/sesiones";
+import { extractUserFromRequest } from "@/lib/auth";
+import { mapErrorToResponse } from "@/lib/route-error-mapper";
+
+/** Roles que pueden registrar series: el SOCIO (en sus sesiones) y el ADMINISTRADOR (D-44). */
+const ALLOWED_WRITE_ROLES = ["SOCIO", "ADMINISTRADOR"];
+
+const MENSAJE_SIN_PERMISO = "Se requiere rol de socio o administrador";
+
+function errorResponse(status: number, code: string, message: string) {
+  return NextResponse.json({ code, message }, { status });
+}
+
+/**
+ * POST /api/sesiones/[id]/series — registra una serie de la sesión (D-48).
+ * Un SOCIO solo registra en sus propias sesiones; el ADMINISTRADOR, en cualquiera.
+ * `params` es una promesa en Next 16 (FX-06).
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = extractUserFromRequest(request);
+  if (!user) {
+    return errorResponse(401, "UNAUTHORIZED", "Token de autenticación inválido o faltante");
+  }
+  if (!user.rol || !ALLOWED_WRITE_ROLES.includes(user.rol)) {
+    return errorResponse(403, "FORBIDDEN", MENSAJE_SIN_PERMISO);
+  }
+
+  const { id: sesionId } = await params;
+
+  try {
+    const sesion = await handleObtenerSesion(sesionId);
+    if (!sesion) {
+      return errorResponse(404, "NOT_FOUND", "Sesión no encontrada");
+    }
+
+    if (user.rol === "SOCIO") {
+      const propio = await resolveSocioIdDeUsuario(user.id);
+      if (!propio) {
+        return errorResponse(404, "SOCIO_NOT_FOUND", "No se encontró el perfil de socio");
+      }
+      if ((sesion as { socioId: string }).socioId !== propio) {
+        return errorResponse(403, "FORBIDDEN", "No podés registrar series en la sesión de otro socio");
+      }
+    }
+
+    let body: { ejercicioId?: unknown; carga?: unknown; repeticiones?: unknown; rir?: unknown };
+    try {
+      body = (await request.json()) as typeof body;
+    } catch {
+      return errorResponse(400, "VALIDATION_ERROR", "Cuerpo de la solicitud inválido");
+    }
+
+    const ejercicioId = typeof body.ejercicioId === "string" ? body.ejercicioId : "";
+    if (!ejercicioId || typeof body.carga !== "number" || typeof body.repeticiones !== "number") {
+      return errorResponse(
+        400,
+        "VALIDATION_REQUIRED",
+        "Se requieren ejercicioId, carga y repeticiones"
+      );
+    }
+
+    const rir = typeof body.rir === "number" ? body.rir : null;
+
+    const resultado = await handleRegistrarSerie({
+      sesionId,
+      ejercicioId,
+      carga: body.carga,
+      repeticiones: body.repeticiones,
+      rir,
+    });
+    return NextResponse.json(resultado, { status: 201 });
+  } catch (error) {
+    const mapped = mapErrorToResponse(error, { resourceName: "Sesión" });
+    return NextResponse.json({ code: mapped.code, message: mapped.message }, { status: mapped.status });
+  }
+}
