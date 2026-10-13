@@ -29,7 +29,8 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     // se quitó '/api/rutinas' GET: RN-06 limita Rutinas a Admin/Instructor;
     // el Socio ve su rutina vía /api/home-socio
     '/api/pagos': ['GET'],
-    '/api/sesiones': ['GET', 'POST'],
+    // PUT para finalizar la sesión de entrenamiento (D-44); GET/POST ya existían.
+    '/api/sesiones': ['GET', 'POST', 'PUT'],
     '/api/auth/logout': ['POST'],
   },
 },
@@ -41,6 +42,7 @@ INSTRUCTOR: {
     '/rutinas': ['GET'],
     '/api/socios': ['GET'],
     '/api/ejercicios': ['GET', 'POST', 'PUT', 'DELETE'],
+    '/api/rutinas-asignadas': ['GET', 'POST'], // asignar rutina (T-034); Admin por wildcard
     '/api/rutinas': ['GET', 'POST', 'PUT', 'DELETE'],
     '/api/sesiones': ['GET', 'PUT'],
     '/api/auth/logout': ['POST'],
@@ -51,6 +53,10 @@ RECEPCIONISTA: {
     '/home-interno': ['GET'],
     '/api/home-interno': ['GET'],
     '/clientes': ['GET'],
+    '/pagos': ['GET'], // pantalla "Registrar Pago" (T-033); Admin la cubre por wildcard
+    '/cierres': ['GET'], // pantalla "Cierre de Caja" (T-040); Admin la cubre por wildcard
+    '/acceso': ['GET'], // kiosco de check-in por DNI + PIN (T-035); Admin por wildcard
+    '/api/acceso': ['GET', 'POST'], // check-in (T-035)
     '/api/clientes': ['GET', 'POST', 'PUT', 'DELETE'],
     '/api/membresias/activas': ['GET'], // solo el dropdown de Clientes (AC-004); la gestión sigue siendo de Admin (RN-06)
     '/api/socios': ['GET', 'POST', 'PUT'],

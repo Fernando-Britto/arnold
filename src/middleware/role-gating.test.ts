@@ -1,4 +1,4 @@
-import { roleGatingMiddleware, RoleGate } from "./role-gating";
+import { roleGatingMiddleware, RoleGate, ROLE_GATE_MATRIX } from "./role-gating";
 import { RequestWithUser } from "@/lib/auth";
 import { Rol } from "@prisma/client";
 
@@ -93,6 +93,14 @@ it("should deny RECEPCIONISTA access to /ejercicios (RN-06: solo Admin/Instructo
       } as unknown as RequestWithUser;
 
       expect(() => roleGatingMiddleware(req, "/ejercicios")).toThrow();
+    });
+
+    it("should include /api/sesiones for Socio (T-037, D-44)", () => {
+      expect(ROLE_GATE_MATRIX["/api/sesiones"]).toEqual([
+        Rol.ADMINISTRADOR,
+        Rol.INSTRUCTOR,
+        Rol.SOCIO,
+      ]);
     });
   });
 });

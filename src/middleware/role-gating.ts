@@ -9,16 +9,23 @@ export const ROLE_GATE_MATRIX: Record<string, Rol[]> = {
   "/ejercicios": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/rutinas": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/clientes": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA],
+  "/pagos": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // pantalla "Registrar Pago" (T-033)
+  "/cierres": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // pantalla "Cierre de Caja" (T-040)
+  "/acceso": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // kiosco de check-in por DNI + PIN (T-035)
   "/membresias": [Rol.ADMINISTRADOR],
   "/home-interno": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
   "/home-socio": [Rol.ADMINISTRADOR, Rol.SOCIO],
   "/api/ejercicios": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/api/rutinas": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
+  "/api/rutinas-asignadas": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR], // asignar rutina (T-034)
   "/api/clientes": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA],
   "/api/membresias": [Rol.ADMINISTRADOR],
   "/api/membresias/activas": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // dropdown de Clientes (AC-004), lectura mínima
   "/api/home-interno": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
   "/api/home-socio": [Rol.ADMINISTRADOR, Rol.SOCIO],
+  "/api/acceso": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // check-in (T-035)
+  "/api/cierres": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // cierre de caja (T-040)
+  "/api/sesiones": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.SOCIO], // sesiones de entrenamiento (T-037)
 };
 
 /**

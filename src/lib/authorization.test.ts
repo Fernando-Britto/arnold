@@ -119,6 +119,10 @@ describe("Authorization Matrix", () => {
       expect(hasRouteAccess("RECEPCIONISTA", "/api/cierres", "GET").allowed).toBe(true);
       expect(hasRouteAccess("RECEPCIONISTA", "/api/cierres", "POST").allowed).toBe(true);
     });
+
+    it("should allow RECEPCIONISTA to open the /cierres page", () => {
+      expect(hasRouteAccess("RECEPCIONISTA", "/cierres", "GET").allowed).toBe(true);
+    });
   });
 
   describe("ADMINISTRADOR role (wildcard)", () => {
@@ -144,6 +148,83 @@ describe("Authorization Matrix", () => {
       const result = hasRouteAccess("ADMINISTRADOR", "/api/unknown/path", "GET");
       expect(result.allowed).toBe(true);
       expect(result.basePath).toBe("*");
+    });
+  });
+
+  describe("Página /pagos (T-033)", () => {
+    it("should allow RECEPCIONISTA to GET /pagos", () => {
+      expect(hasRouteAccess("RECEPCIONISTA", "/pagos", "GET").allowed).toBe(true);
+    });
+
+    it("should deny INSTRUCTOR and SOCIO to GET /pagos", () => {
+      expect(hasRouteAccess("INSTRUCTOR", "/pagos", "GET").allowed).toBe(false);
+      expect(hasRouteAccess("SOCIO", "/pagos", "GET").allowed).toBe(false);
+    });
+
+    it("should allow ADMINISTRADOR to GET /pagos via the wildcard", () => {
+      expect(hasRouteAccess("ADMINISTRADOR", "/pagos", "GET").allowed).toBe(true);
+    });
+  });
+
+  describe("Asignar rutina /api/rutinas-asignadas (T-034)", () => {
+    it("should allow INSTRUCTOR to GET and POST /api/rutinas-asignadas", () => {
+      expect(hasRouteAccess("INSTRUCTOR", "/api/rutinas-asignadas", "GET").allowed).toBe(true);
+      expect(hasRouteAccess("INSTRUCTOR", "/api/rutinas-asignadas", "POST").allowed).toBe(true);
+    });
+
+    it("should deny RECEPCIONISTA to /api/rutinas-asignadas", () => {
+      expect(hasRouteAccess("RECEPCIONISTA", "/api/rutinas-asignadas", "GET").allowed).toBe(false);
+      expect(hasRouteAccess("RECEPCIONISTA", "/api/rutinas-asignadas", "POST").allowed).toBe(false);
+    });
+
+    it("should deny SOCIO to /api/rutinas-asignadas", () => {
+      expect(hasRouteAccess("SOCIO", "/api/rutinas-asignadas", "GET").allowed).toBe(false);
+    });
+
+    it("should allow ADMINISTRADOR via the wildcard", () => {
+      expect(hasRouteAccess("ADMINISTRADOR", "/api/rutinas-asignadas", "POST").allowed).toBe(true);
+    });
+  });
+
+  describe("Kiosco de acceso /acceso y /api/acceso (T-035)", () => {
+    it("should allow RECEPCIONISTA GET /acceso and POST /api/acceso", () => {
+      expect(hasRouteAccess("RECEPCIONISTA", "/acceso", "GET").allowed).toBe(true);
+      expect(hasRouteAccess("RECEPCIONISTA", "/api/acceso", "GET").allowed).toBe(true);
+      expect(hasRouteAccess("RECEPCIONISTA", "/api/acceso/check-in", "POST").allowed).toBe(true);
+    });
+
+    it("should deny INSTRUCTOR and SOCIO to the access kiosk", () => {
+      expect(hasRouteAccess("INSTRUCTOR", "/acceso", "GET").allowed).toBe(false);
+      expect(hasRouteAccess("SOCIO", "/acceso", "GET").allowed).toBe(false);
+      expect(hasRouteAccess("INSTRUCTOR", "/api/acceso/check-in", "POST").allowed).toBe(false);
+      expect(hasRouteAccess("SOCIO", "/api/acceso/check-in", "POST").allowed).toBe(false);
+    });
+
+    it("should allow ADMINISTRADOR via the wildcard", () => {
+      expect(hasRouteAccess("ADMINISTRADOR", "/acceso", "GET").allowed).toBe(true);
+      expect(hasRouteAccess("ADMINISTRADOR", "/api/acceso/check-in", "POST").allowed).toBe(true);
+    });
+  });
+
+  describe("Sesiones de entrenamiento /api/sesiones (T-037, D-44)", () => {
+    it("should allow SOCIO to GET, POST and PUT on /api/sesiones", () => {
+      expect(hasRouteAccess("SOCIO", "/api/sesiones", "GET").allowed).toBe(true);
+      expect(hasRouteAccess("SOCIO", "/api/sesiones", "POST").allowed).toBe(true);
+      expect(hasRouteAccess("SOCIO", "/api/sesiones", "PUT").allowed).toBe(true);
+    });
+
+    it("should match the series sub-route under the /api/sesiones base path", () => {
+      const result = hasRouteAccess("SOCIO", "/api/sesiones/s1/series", "POST");
+      expect(result.allowed).toBe(true);
+      expect(result.basePath).toBe("/api/sesiones");
+    });
+
+    it("should deny SOCIO to DELETE on /api/sesiones", () => {
+      expect(hasRouteAccess("SOCIO", "/api/sesiones", "DELETE").allowed).toBe(false);
+    });
+
+    it("should deny RECEPCIONISTA on /api/sesiones", () => {
+      expect(hasRouteAccess("RECEPCIONISTA", "/api/sesiones", "GET").allowed).toBe(false);
     });
   });
 
