@@ -577,6 +577,13 @@ describe("ClienteRepository", () => {
       membresia: {
         findUnique: jest.fn(),
       },
+      // Historial dependiente del socio (PG-6/H2): el delete debe contar estos modelos
+      // antes de borrar. Por defecto 0 → socio "limpio" (se puede eliminar).
+      asistencia: { count: jest.fn().mockResolvedValue(0) },
+      sesionDeEntrenamiento: { count: jest.fn().mockResolvedValue(0) },
+      registroDeProgreso: { count: jest.fn().mockResolvedValue(0) },
+      pago: { count: jest.fn().mockResolvedValue(0) },
+      cuota: { count: jest.fn().mockResolvedValue(0) },
       $transaction: jest.fn((callback) => {
         if (Array.isArray(callback)) {
           return Promise.resolve(callback.map(() => ({})));
@@ -1132,6 +1139,37 @@ describe("ClienteRepository", () => {
       await expect(repository.delete("nonexistent-123")).rejects.toThrow(
         "NOT_FOUND"
       );
+    });
+
+    // PG-6/H2: un socio con asistencias tiene FK `onDelete: Restrict` → borrar
+    // explotaba con P2003 (500). Debe bloquearse antes de tocar la base.
+    it("should throw DELETE_BLOCKED_REFERENCES and not delete when socio has asistencias", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue({
+        id: "socio-123",
+        usuarioId: "user-123",
+      });
+      mockPrisma.asistencia.count.mockResolvedValue(1);
+
+      await expect(repository.delete("socio-123")).rejects.toThrow(
+        "DELETE_BLOCKED_REFERENCES: No se puede eliminar el cliente porque tiene historial (asistencias, sesiones, progreso, pagos o cuotas)"
+      );
+      expect(mockPrisma.socio.delete).not.toHaveBeenCalled();
+      expect(mockPrisma.usuario.delete).not.toHaveBeenCalled();
+    });
+
+    // PG-6/H2: `Cuota` es `onDelete: Cascade`; un borrado silencioso destruiría
+    // las cuotas y dejaría pagos huérfanos (Pago.socio SetNull).
+    it("should throw DELETE_BLOCKED_REFERENCES when socio only has cuotas", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue({
+        id: "socio-123",
+        usuarioId: "user-123",
+      });
+      mockPrisma.cuota.count.mockResolvedValue(3);
+
+      await expect(repository.delete("socio-123")).rejects.toThrow(
+        "DELETE_BLOCKED_REFERENCES"
+      );
+      expect(mockPrisma.socio.delete).not.toHaveBeenCalled();
     });
   });
 

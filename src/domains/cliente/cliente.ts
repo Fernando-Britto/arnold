@@ -445,6 +445,13 @@ export class ClienteRepository {
   /**
    * Delete a cliente
    * H4 fix: Use transaction to delete Socio + Usuario together to avoid orphaned users
+   * PG-6/H2: Block the delete if the Socio has dependent history. `Asistencia`,
+   * `SesionDeEntrenamiento` and `RegistroDeProgreso` use `onDelete: Restrict` (a raw
+   * delete fails with P2003 → 500), while `Cuota` is `onDelete: Cascade` and
+   * `Pago.socio` is `SetNull` (a raw delete would silently destroy cuotas and orphan
+   * pagos). Blocking is the safe, intended behavior — soft-delete is out of scope.
+   * @throws "NOT_FOUND" if the socio does not exist
+   * @throws "DELETE_BLOCKED_REFERENCES: ..." if it has dependent records
    */
   async delete(id: string): Promise<void> {
     const prisma = await this.getPrisma();
@@ -455,6 +462,21 @@ export class ClienteRepository {
     });
     if (!cliente) {
       throw new Error("NOT_FOUND");
+    }
+
+    // Count every dependent relation that either restricts or would be destroyed/orphaned.
+    const [asistencias, sesiones, progreso, pagos, cuotas] = await Promise.all([
+      prisma.asistencia.count({ where: { socioId: id } }),
+      prisma.sesionDeEntrenamiento.count({ where: { socioId: id } }),
+      prisma.registroDeProgreso.count({ where: { socioId: id } }),
+      prisma.pago.count({ where: { socioId: id } }),
+      prisma.cuota.count({ where: { socioId: id } }),
+    ]);
+
+    if (asistencias + sesiones + progreso + pagos + cuotas > 0) {
+      throw new Error(
+        "DELETE_BLOCKED_REFERENCES: No se puede eliminar el cliente porque tiene historial (asistencias, sesiones, progreso, pagos o cuotas)"
+      );
     }
 
     // Delete Socio and Usuario in transaction to free email constraint

@@ -28,6 +28,12 @@ jest.mock("@/lib/db", () => ({
     membresia: {
       findUnique: jest.fn(),
     },
+    // U4: `ClienteRepository.delete` checks dependents before deleting.
+    asistencia: { count: jest.fn(() => Promise.resolve(0)) },
+    sesionDeEntrenamiento: { count: jest.fn(() => Promise.resolve(0)) },
+    registroDeProgreso: { count: jest.fn(() => Promise.resolve(0)) },
+    pago: { count: jest.fn(() => Promise.resolve(0)) },
+    cuota: { count: jest.fn(() => Promise.resolve(0)) },
     $transaction: jest.fn((ops) =>
       Array.isArray(ops)
         ? Promise.resolve(ops.map(() => ({})))
