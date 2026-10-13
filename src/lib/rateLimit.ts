@@ -1,8 +1,52 @@
 import { prisma } from '@/lib/db';
 
 /**
+ * Read-only check: has `key` exceeded `limit` hits for `route` in the last 60 seconds?
+ * Does NOT record anything — safe to call on every request.
+ *
+ * @param key The key to rate limit (userId or IP address)
+ * @param route The route/basePath being accessed (for grouping)
+ * @param limit Maximum hits allowed in the 60-second window (default: 100)
+ * @returns true if the request is limited, false if it is allowed
+ */
+export async function isRateLimited(
+  key: string,
+  route: string,
+  limit: number = 100
+): Promise<boolean> {
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+
+  const count = await prisma.rateLimitLog.count({
+    where: {
+      key,
+      route,
+      timestamp: {
+        gte: oneMinuteAgo,
+      },
+    },
+  });
+
+  return count >= limit;
+}
+
+/**
+ * Records one rate-limit hit for `key`+`route`. Callers decide WHAT counts as a hit
+ * (e.g. the check-in kiosk records only failed identity attempts).
+ */
+export async function recordRateLimitHit(key: string, route: string): Promise<void> {
+  await prisma.rateLimitLog.create({
+    data: {
+      key,
+      route,
+      timestamp: new Date(),
+    },
+  });
+}
+
+/**
  * Sliding window rate limiter.
  * Checks if a key (user ID or IP) has exceeded the request limit in the last 60 seconds.
+ * If allowed, records the request and returns true; if exceeded, returns false without writing.
  *
  * @param key The key to rate limit (userId or IP address)
  * @param route The route/basePath being accessed (for grouping)
@@ -14,34 +58,12 @@ export async function checkRateLimit(
   route: string,
   limit: number = 100
 ): Promise<boolean> {
-  const now = new Date();
-  const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
-
-  // Count requests in the last 60 seconds for this key+route combination
-  const count = await prisma.rateLimitLog.count({
-    where: {
-      key,
-      route,
-      timestamp: {
-        gte: oneMinuteAgo,
-      },
-    },
-  });
-
-  // If under the limit, log this request and allow it
-  if (count < limit) {
-    await prisma.rateLimitLog.create({
-      data: {
-        key,
-        route,
-        timestamp: now,
-      },
-    });
-    return true;
+  if (await isRateLimited(key, route, limit)) {
+    return false;
   }
 
-  // Rate limit exceeded
-  return false;
+  await recordRateLimitHit(key, route);
+  return true;
 }
 
 /**

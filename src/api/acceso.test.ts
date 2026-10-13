@@ -14,7 +14,7 @@ import {
 } from "./acceso";
 import { finDePeriodo } from "@/domains/pago/cuota";
 import { hashPassword, comparePassword } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { isRateLimited, recordRateLimitHit } from "@/lib/rateLimit";
 
 jest.mock("@/lib/db", () => {
   const store = { asistencias: [] as unknown[], auditorias: [] as unknown[] };
@@ -45,7 +45,28 @@ jest.mock("@/lib/auth", () => ({
   hashPassword: jest.fn(async () => "HASH-DEL-PIN"),
   comparePassword: jest.fn(),
 }));
-jest.mock("@/lib/rateLimit", () => ({ checkRateLimit: jest.fn(async () => true) }));
+// Rate limit en memoria: `recordRateLimitHit` incrementa y `isRateLimited` compara.
+// Así se ejercita el flujo real de `handleCheckIn`: sólo los fallos de identidad suman.
+jest.mock("@/lib/rateLimit", () => {
+  let count = 0;
+  const isRateLimited = jest.fn(async (_key: string, _route: string, limit: number) => count >= limit);
+  const recordRateLimitHit = jest.fn(async () => {
+    count += 1;
+  });
+  const checkRateLimit = jest.fn(async () => true);
+  return {
+    isRateLimited,
+    recordRateLimitHit,
+    checkRateLimit,
+    __reset: () => {
+      count = 0;
+      isRateLimited.mockClear();
+      recordRateLimitHit.mockClear();
+      checkRateLimit.mockClear();
+    },
+    __getCount: () => count,
+  };
+});
 
 const d = (iso: string) => new Date(`${iso}-03:00`);
 const CONFIG = { diaLimitePago: 10, periodoGracia: 0 };
@@ -265,15 +286,64 @@ describe("handleCheckIn — decisión y registros", () => {
 
   it("rate limit excedido: DENEGADO RATE_LIMITED sin consultar la base", async () => {
     const prisma = await armarSocio();
-    (checkRateLimit as jest.Mock).mockResolvedValueOnce(false);
+    (isRateLimited as jest.Mock).mockResolvedValueOnce(true);
 
     const r = await handleCheckIn({ dni: "30123456", pin: "1234", ahora: AHORA, ip: "10.0.0.9" });
 
     expect(r.resultado).toBe("DENEGADO");
     expect(r.code).toBe("RATE_LIMITED");
-    expect(checkRateLimit).toHaveBeenCalledWith("10.0.0.9", expect.any(String), LIMITE_INTENTOS_CHECK_IN_POR_MINUTO);
+    expect(isRateLimited).toHaveBeenCalledWith("10.0.0.9", expect.any(String), LIMITE_INTENTOS_CHECK_IN_POR_MINUTO);
     expect(prisma.socio.findUnique).not.toHaveBeenCalled();
     expect(prisma.asistencia.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("handleCheckIn — rate limit sólo cuenta intentos fallidos", () => {
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    (comparePassword as jest.Mock).mockResolvedValue(true);
+    const rl = jest.requireMock("@/lib/rateLimit") as { __reset: () => void };
+    rl.__reset();
+  });
+
+  it("20 identidades fallidas → el intento 21 recibe RATE_LIMITED", async () => {
+    const prisma = await armarSocio();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue(null); // DNI inexistente = fallo
+
+    for (let i = 0; i < 20; i++) {
+      const r = await handleCheckIn({ dni: "00000000", pin: "1234", ahora: AHORA, ip: "10.0.0.9" });
+      expect(r.code).not.toBe("RATE_LIMITED");
+      expect(r.motivo).toBe(MENSAJE_IDENTIDAD_INVALIDA);
+    }
+
+    const r21 = await handleCheckIn({ dni: "00000000", pin: "1234", ahora: AHORA, ip: "10.0.0.9" });
+
+    expect(r21.resultado).toBe("DENEGADO");
+    expect(r21.code).toBe("RATE_LIMITED");
+    expect(recordRateLimitHit).toHaveBeenCalledTimes(20);
+  });
+
+  it("una ráfaga de >20 check-ins exitosos NO se limita", async () => {
+    const prisma = await armarSocio();
+
+    for (let i = 0; i < 25; i++) {
+      const r = await handleCheckIn({ dni: "30123456", pin: "1234", ahora: AHORA, ip: "10.0.0.9" });
+      expect(r.code).not.toBe("RATE_LIMITED");
+      expect(r.resultado).toBe("PERMITIDO");
+    }
+
+    expect(recordRateLimitHit).not.toHaveBeenCalled();
+    expect(prisma.socio.findUnique).toHaveBeenCalledTimes(25);
+  });
+
+  it("un check-in denegado por regla de negocio NO consume el presupuesto", async () => {
+    await armarSocio({ estadoCuota: "INACTIVA" });
+
+    const r = await handleCheckIn({ dni: "30123456", pin: "1234", ahora: AHORA, ip: "10.0.0.9" });
+
+    expect(r.resultado).toBe("DENEGADO");
+    expect(r.code).toBeUndefined();
+    expect(recordRateLimitHit).not.toHaveBeenCalled();
   });
 });
 

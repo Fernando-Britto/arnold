@@ -1,4 +1,9 @@
-import { checkRateLimit, cleanupRateLimitLogsIfNeeded } from "./rateLimit";
+import {
+  checkRateLimit,
+  cleanupRateLimitLogsIfNeeded,
+  isRateLimited,
+  recordRateLimitHit,
+} from "./rateLimit";
 import { prisma } from "@/lib/db";
 
 jest.mock("@/lib/db", () => ({
@@ -145,6 +150,59 @@ describe("Rate Limiting", () => {
           route: "/api/membresias",
         }),
       });
+    });
+  });
+
+  describe("isRateLimited (read-only)", () => {
+    it("does not write when under the limit", async () => {
+      mockPrisma.rateLimitLog.count.mockResolvedValue(5);
+
+      const limited = await isRateLimited("user-1", "/api/socios", 100);
+
+      expect(limited).toBe(false);
+      expect(mockPrisma.rateLimitLog.create).not.toHaveBeenCalled();
+    });
+
+    it("returns true at the limit and still does not write", async () => {
+      mockPrisma.rateLimitLog.count.mockResolvedValue(20);
+
+      const limited = await isRateLimited("ip-1", "acceso:check-in", 20);
+
+      expect(limited).toBe(true);
+      expect(mockPrisma.rateLimitLog.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("recordRateLimitHit", () => {
+    it("inserts a row with key and route", async () => {
+      mockPrisma.rateLimitLog.create.mockResolvedValue({});
+
+      await recordRateLimitHit("ip-1", "acceso:check-in");
+
+      expect(mockPrisma.rateLimitLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ key: "ip-1", route: "acceso:check-in" }),
+      });
+    });
+  });
+
+  describe("checkRateLimit contract (unchanged)", () => {
+    it("allows and records when under the limit", async () => {
+      mockPrisma.rateLimitLog.count.mockResolvedValue(5);
+      mockPrisma.rateLimitLog.create.mockResolvedValue({});
+
+      const allowed = await checkRateLimit("k", "r", 100);
+
+      expect(allowed).toBe(true);
+      expect(mockPrisma.rateLimitLog.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("denies and does NOT record at the limit", async () => {
+      mockPrisma.rateLimitLog.count.mockResolvedValue(100);
+
+      const allowed = await checkRateLimit("k", "r", 100);
+
+      expect(allowed).toBe(false);
+      expect(mockPrisma.rateLimitLog.create).not.toHaveBeenCalled();
     });
   });
 

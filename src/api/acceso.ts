@@ -24,7 +24,7 @@ import {
 } from "@/domains/acceso/check-in";
 import { validarPin } from "@/domains/acceso/pin";
 import { hashPassword, comparePassword } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { isRateLimited, recordRateLimitHit } from "@/lib/rateLimit";
 import { toGymWallClock } from "@/lib/gym-time";
 import { throwIfNotOk } from "@/utils/api-error";
 
@@ -130,8 +130,9 @@ export async function handleCheckIn(input: CheckInInput): Promise<CheckInResulta
   const ip = input.ip?.trim() || "unknown";
   const userAgent = input.userAgent?.trim() || "unknown";
 
-  const dentroDelLimite = await checkRateLimit(ip, RATE_LIMIT_ROUTE, LIMITE_INTENTOS_CHECK_IN_POR_MINUTO);
-  if (!dentroDelLimite) {
+  // El presupuesto cuenta SÓLO intentos de identidad fallidos (fuerza bruta). Un check-in
+  // exitoso (permitido o denegado por regla de negocio) no consume el límite.
+  if (await isRateLimited(ip, RATE_LIMIT_ROUTE, LIMITE_INTENTOS_CHECK_IN_POR_MINUTO)) {
     return { resultado: "DENEGADO", motivo: MENSAJE_RATE_LIMIT, code: "RATE_LIMITED" };
   }
 
@@ -153,6 +154,8 @@ export async function handleCheckIn(input: CheckInInput): Promise<CheckInResulta
   // Identidad: DNI o PIN incorrectos → una sola respuesta genérica + auditoría (sin Asistencia:
   // no se crean ingresos para intentos de identidad fallidos).
   if (!socio || !socio.pinHash || !pinValido) {
+    // Único punto que consume el presupuesto anti fuerza bruta por IP.
+    await recordRateLimitHit(ip, RATE_LIMIT_ROUTE);
     await prisma.auditoriaAcceso.create({
       data: {
         socioId: socio?.id ?? null,
