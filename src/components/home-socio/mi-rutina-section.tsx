@@ -36,7 +36,7 @@ export function MiRutinaSection({
 }: MiRutinaSectionProps) {
   return (
     <section aria-labelledby="mi-rutina-titulo" className="flex flex-col gap-6">
-      <div className="flex flex-col gap-6 rounded-3xl border border-zinc-200 bg-white p-6">
+      <div className="flex flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Dumbbell className="h-6 w-6 text-[#FC4C02]" aria-hidden="true" />
@@ -107,7 +107,7 @@ export function MiRutinaSection({
         )}
       </div>
 
-      <div className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-6">
+      <div className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6">
         <h2 className="text-lg font-bold text-zinc-900">Historial de sesiones</h2>
         {sesiones.length === 0 ? (
           <p className="text-sm text-zinc-500">Todavía no registraste sesiones.</p>

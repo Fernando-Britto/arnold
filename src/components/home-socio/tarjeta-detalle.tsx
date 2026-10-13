@@ -135,7 +135,10 @@ export function TarjetaDetalle({
 
   if (!ejercicio || !ejercicioEnRutina) {
     return (
-      <div className="rounded-lg border border-gray-200 p-6 text-center text-gray-500">
+      <div
+        data-testid="card-detalle"
+        className="rounded-lg border border-[#E4E4E7] bg-white p-6 text-center text-gray-500"
+      >
         Sin rutina asignada
       </div>
     );
@@ -150,7 +153,10 @@ export function TarjetaDetalle({
   };
 
   return (
-    <div className="flex flex-col rounded-3xl border border-zinc-200 bg-white p-5">
+    <div
+      data-testid="card-detalle"
+      className="flex flex-col rounded-lg border border-[#E4E4E7] bg-white p-5"
+    >
       <p className="text-[11px] font-bold text-[#FC4C02]">EJERCICIO ACTUAL</p>
 
       <div className="mt-5 flex flex-col items-center gap-4">

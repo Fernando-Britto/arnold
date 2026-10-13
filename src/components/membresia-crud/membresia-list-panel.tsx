@@ -1,151 +1,102 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { MembresiaList } from "./membresia-list";
+import React, { useMemo } from "react";
 import type { Membresia } from "@/domains/membresia/membresia";
-import { useNotifications } from "@/contexts/notifications";
-import { ApiError, handleApiError, throwIfNotOk } from "@/utils/api-error";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableCell,
+  TableStatusBadge,
+  TableDetailRow,
+  type TableColumn,
+} from "@/components/ui/table";
+import { shortId } from "@/utils/short-id";
 
-interface MembresiaListPanelProps {
-  onEditClick?: (membresia: MembresiaWithCount) => void;
-  activeOnly?: boolean;
+/** Columns exactly as the OpenPencil mockup (relative widths from the spec). */
+export const MEMBRESIA_COLUMNS: TableColumn[] = [
+  { key: "id", label: "ID", width: 100 },
+  { key: "nombre", label: "Nombre" },
+  { key: "precio", label: "Precio", width: 120 },
+  { key: "periodicidad", label: "Periodicidad", width: 150 },
+  { key: "estado", label: "Estado", width: 100 },
+];
+
+export interface MembresiaListPanelProps {
+  membresias: Membresia[];
+  selectedId?: string | null;
+  onSelect?: (membresia: Membresia) => void;
+  searchTerm?: string;
+  isLoading?: boolean;
 }
 
-interface MembresiaWithCount extends Membresia {
-  assignedSocioCount: number;
-}
-
+/**
+ * Presentational table for Membresías. Selection is controlled by the page;
+ * the search term is filtered here (the input lives in the ActionBar).
+ */
 export function MembresiaListPanel({
-  onEditClick,
-  activeOnly = false,
+  membresias,
+  selectedId = null,
+  onSelect,
+  searchTerm = "",
+  isLoading = false,
 }: MembresiaListPanelProps) {
-  const { notify } = useNotifications();
-  const [membresias, setMembresias] = useState<MembresiaWithCount[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"nombre" | "precio" | "periodicidad" | "estado">("nombre");
-  const [reloadKey, setReloadKey] = useState(0);
+  const filtered = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return [...membresias]
+      .filter((m) => !term || m.nombre.toLowerCase().includes(term))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  }, [membresias, searchTerm]);
 
-  // P-27: la carga se define DENTRO del efecto (igual que la página de clientes) para no acceder
-  // a una variable antes de su declaración; `reloadKey` fuerza la recarga desde "Actualizar".
-  useEffect(() => {
-    let cancelled = false;
+  if (isLoading) {
+    return <div className="p-8 text-center text-sm text-[#71717A]">Cargando membresías...</div>;
+  }
 
-    const loadMembresias = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const url = activeOnly ? "/api/membresias?activeOnly=true" : "/api/membresias";
-        const response = await fetch(url);
-
-        await throwIfNotOk(response, "No se pudieron cargar las membresías");
-
-        const data = await response.json();
-        if (!cancelled) setMembresias(Array.isArray(data) ? data : []);
-      } catch (err) {
-        if (!cancelled) setError(handleApiError(err, "No se pudieron cargar las membresías."));
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    loadMembresias();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeOnly, reloadKey]);
-
-  const handleDelete = async (id: string) => {
-    // Confirmation is handled by MembresiaList modal — no need for window.confirm() here
-    setDeleteError(null);
-
-    try {
-      const response = await fetch(`/api/membresias/${id}`, {
-        method: "DELETE",
-      });
-
-      await throwIfNotOk(response, "No se pudo eliminar la membresía");
-
-      // Remove from list
-      setMembresias((prev) => prev.filter((m) => m.id !== id));
-      notify("success", "Membresía eliminada");
-    } catch (err) {
-      // Handle AC-006: delete blocking
-      if (err instanceof ApiError && err.code === "DELETE_BLOCKED_ASSIGNED") {
-        setDeleteError(`No se puede eliminar: ${err.message}`);
-        return;
-      }
-      setDeleteError(handleApiError(err, "No se pudo eliminar la membresía."));
-    }
-  };
-
-  const handleRefresh = () => {
-    setReloadKey((k) => k + 1);
-  };
+  if (membresias.length === 0) {
+    return <div className="p-8 text-center text-sm text-[#71717A]">No hay membresías</div>;
+  }
 
   return (
-    <div className="space-y-4">
-      {error && (
-        <div className="rounded-md bg-red-50 p-4 text-sm text-red-800">
-          {error}
-          <button
-            onClick={handleRefresh}
-            className="ml-2 inline underline font-semibold hover:no-underline"
-          >
-            Reintentar
-          </button>
-        </div>
+    <Table label="Membresías">
+      <TableHeader columns={MEMBRESIA_COLUMNS} />
+      {filtered.map((membresia) => {
+        const isSelected = membresia.id === selectedId;
+        const isActiva = membresia.estado === "ACTIVA";
+        return (
+          <React.Fragment key={membresia.id}>
+            <TableRow selected={isSelected} onClick={() => onSelect?.(membresia)}>
+              <TableCell width={100} variant="secondary">
+                {shortId("MB", membresia.id)}
+              </TableCell>
+              <TableCell>{membresia.nombre}</TableCell>
+              <TableCell width={120} variant="secondary">
+                ${membresia.precio.toFixed(2)}
+              </TableCell>
+              <TableCell width={150} variant="secondary">
+                {membresia.periodicidad} días
+              </TableCell>
+              <TableCell width={100}>
+                <TableStatusBadge variant={isActiva ? "success" : "neutral"}>
+                  {isActiva ? "Activa" : "Inactiva"}
+                </TableStatusBadge>
+              </TableCell>
+            </TableRow>
+            {isSelected && (
+              <TableDetailRow>
+                <div>
+                  <p className="text-[11px] font-bold uppercase text-[#C13D00]">Descripción</p>
+                  <p className="text-sm text-[#333333]">{membresia.descripcion || "-"}</p>
+                </div>
+              </TableDetailRow>
+            )}
+          </React.Fragment>
+        );
+      })}
+      {filtered.length === 0 && searchTerm.trim() !== "" && (
+        <p className="p-6 text-center text-sm text-[#71717A]">
+          {`No se encontraron membresías que coincidan con "${searchTerm}".`}
+        </p>
       )}
-
-      {deleteError && (
-        <div className="rounded-md bg-red-50 p-4 text-sm text-red-800">
-          {deleteError}
-        </div>
-      )}
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-4 pb-4 border-b">
-        <div className="flex-1">
-          <label className="text-sm font-medium text-gray-700">
-            Ordenar por:
-          </label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as "nombre" | "precio" | "estado")}
-            className="mt-1 block w-full max-w-xs rounded-md border-gray-300 shadow-sm"
-          >
-            <option value="nombre">Nombre</option>
-            <option value="precio">Precio</option>
-            <option value="estado">Estado</option>
-          </select>
-        </div>
-
-        <button
-          onClick={handleRefresh}
-          disabled={isLoading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-        >
-          {isLoading ? "Cargando..." : "Actualizar"}
-        </button>
-      </div>
-
-      {/* List */}
-      {isLoading && membresias.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">Cargando membresías...</div>
-      ) : membresias.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">No hay membresías</div>
-      ) : (
-        <MembresiaList
-          membresias={membresias}
-          sortField={sortBy}
-          onSortChange={setSortBy}
-          onEdit={onEditClick || (() => {})}
-          onDelete={handleDelete}
-        />
-      )}
-    </div>
+    </Table>
   );
 }

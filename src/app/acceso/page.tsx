@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth";
 import { KioscoAcceso } from "@/components/acceso/kiosco-acceso";
 import { PanelDefinirPin } from "@/components/acceso/panel-definir-pin";
+import { SectionPageLayout } from "@/components/layout/section-page-layout";
 
 /** Roles que operan el kiosco de recepción (D-47 / matriz de autorización). */
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RECEPCIONISTA"];
@@ -48,28 +49,29 @@ export function AccesoPage() {
   }
 
   return (
-    <div>
-      <h1 className="sr-only">Control de acceso</h1>
-
-      <div className="flex justify-center pt-6">
+    <SectionPageLayout
+      breadcrumb="Control de acceso"
+      actions={
         <button
           type="button"
           aria-expanded={mostrarDefinirPin}
           onClick={() => setMostrarDefinirPin((prev) => !prev)}
-          className="rounded-lg border border-gray-300 bg-white px-6 py-3 text-base font-semibold text-gray-700 hover:bg-gray-100"
+          className="flex items-center gap-2 rounded-lg border border-[#E5E5E5] bg-white px-4 py-2 text-sm font-medium text-[#333333] hover:bg-zinc-50"
         >
           {mostrarDefinirPin ? "Volver al kiosco" : "Definir PIN"}
         </button>
-      </div>
+      }
+    >
+      <h1 className="sr-only">Control de acceso</h1>
 
       {mostrarDefinirPin ? (
-        <div className="flex min-h-screen items-center justify-center bg-[#F1F3F5] p-6">
+        <div className="flex grow items-center justify-center">
           <PanelDefinirPin />
         </div>
       ) : (
         <KioscoAcceso />
       )}
-    </div>
+    </SectionPageLayout>
   );
 }
 

@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth";
 import { PagoForm } from "@/components/pago/pago-form";
+import { SectionPageLayout } from "@/components/layout/section-page-layout";
 
 /** Roles que pueden registrar pagos (D-42 / matriz de autorización). */
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RECEPCIONISTA"];
@@ -44,10 +45,10 @@ export function PagosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F1F3F5] p-12">
+    <SectionPageLayout breadcrumb="Registrar Pago">
       <h1 className="sr-only">Registrar Pago</h1>
       <PagoForm />
-    </div>
+    </SectionPageLayout>
   );
 }
 

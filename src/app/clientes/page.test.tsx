@@ -24,7 +24,6 @@ jest.mock("@/contexts/auth");
 jest.mock("@/contexts/notifications");
 const mockNotify = jest.fn();
 
-// Mock API functions
 jest.mock("@/api/clientes", () => ({
   fetchClientes: jest.fn(),
   createCliente: jest.fn(),
@@ -41,12 +40,23 @@ import * as actual from "@/api/membresias";
 const mockClientesApi = clientesApi as jest.Mocked<typeof clientesApi>;
 const mockMembresasApi = membresasApi as jest.Mocked<typeof actual>;
 
-// Helper to wait for loading to complete
 const waitForLoadingComplete = async () => {
   await waitFor(() => {
     expect(screen.queryByText(/Cargando/i)).not.toBeInTheDocument();
   });
 };
+
+const ana = {
+  id: "cliente-1",
+  nombre: "Ana García",
+  dni: "30123456",
+  email: "ana@example.com",
+  telefono: "+54 9 1234 567890",
+  membresiaAsignada: "gold-1",
+  estadoCuenta: "Activo" as const,
+  fechaAlta: new Date("2024-01-15"),
+};
+const gold = [{ id: "gold-1", nombre: "Gold", precio: 150, estado: "ACTIVA" as const }];
 
 describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => {
   beforeEach(() => {
@@ -64,17 +74,8 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
 
   describe("AC-008: Role-based access control (RN-06)", () => {
     it("should render page for ADMINISTRADOR role", async () => {
-      (useAuth as jest.Mock).mockReturnValue({
-        user: { id: "user1", rol: "ADMINISTRADOR" },
-        isAuthenticated: true,
-        isAdmin: true,
-        isStaff: true,
-      });
-
       render(<ClientesPage />);
       await waitForLoadingComplete();
-
-      // Should NOT redirect (stays on page)
       expect(mockPush).not.toHaveBeenCalled();
     });
 
@@ -85,11 +86,8 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
         isAdmin: false,
         isStaff: true,
       });
-
       render(<ClientesPage />);
       await waitForLoadingComplete();
-
-      // Should NOT redirect (stays on page)
       expect(mockPush).not.toHaveBeenCalled();
     });
 
@@ -100,89 +98,148 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
         isAdmin: false,
         isStaff: false,
       });
-
       render(<ClientesPage />);
-
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith("/home-socio");
-      });
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/home-socio"));
     });
 
     it("should deny unauthenticated access (redirect to /login)", async () => {
-      (useAuth as jest.Mock).mockReturnValue({
-        user: null,
-        isAuthenticated: false,
-      });
-
+      (useAuth as jest.Mock).mockReturnValue({ user: null, isAuthenticated: false });
       render(<ClientesPage />);
-
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith("/login");
-      });
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/login"));
     });
   });
 
   describe("Data Loading", () => {
     it("should fetch clientes and membresias on component mount", async () => {
-      mockClientesApi.fetchClientes.mockResolvedValue([]);
       mockMembresasApi.fetchMembresias.mockResolvedValue([
-        {
-          id: "gold-1",
-          nombre: "Gold",
-          precio: 150.0,
-          estado: "ACTIVA" as const,
-        },
+        { id: "gold-1", nombre: "Gold", precio: 150.0, estado: "ACTIVA" as const },
       ]);
-
       render(<ClientesPage />);
       await waitForLoadingComplete();
-
-      // Verify both APIs were called
       expect(mockClientesApi.fetchClientes).toHaveBeenCalled();
       expect(mockMembresasApi.fetchMembresias).toHaveBeenCalled();
     });
 
     it("should handle fetch errors gracefully", async () => {
-      mockClientesApi.fetchClientes.mockRejectedValue(
-        new TypeError("Failed to fetch")
-      );
-      mockMembresasApi.fetchMembresias.mockResolvedValue([]);
-
+      mockClientesApi.fetchClientes.mockRejectedValue(new TypeError("Failed to fetch"));
       render(<ClientesPage />);
       await waitForLoadingComplete();
-
-      // Error message should appear
-      await waitFor(() => {
-        expect(screen.getByText(/No hay conexión con el servidor/i)).toBeInTheDocument();
-      });
+      await waitFor(() =>
+        expect(screen.getByText(/No hay conexión con el servidor/i)).toBeInTheDocument(),
+      );
     });
   });
 
-  describe("AC-004: Membresía dropdown lists only ACTIVA memberships", () => {
-    it("should fetch and provide membresias to form component", async () => {
-      const mockMembresias = [
-        {
-          id: "gold-1",
-          nombre: "Gold",
-          precio: 150.0,
-          estado: "ACTIVA" as const,
-        },
-        {
-          id: "silver-1",
-          nombre: "Silver",
-          precio: 100.0,
-          estado: "ACTIVA" as const,
-        },
-      ];
-
-      mockClientesApi.fetchClientes.mockResolvedValue([]);
-      mockMembresasApi.fetchMembresias.mockResolvedValue(mockMembresias);
-
+  describe("Table (mockup alignment)", () => {
+    it("renderiza las columnas exactas y el badge de estado de cuota", async () => {
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
       render(<ClientesPage />);
       await waitForLoadingComplete();
 
-      // Verify fetch was called
-      expect(mockMembresasApi.fetchMembresias).toHaveBeenCalled();
+      await screen.findByText("Ana García");
+      const table = screen.getByRole("table", { name: "Clientes" });
+      expect(within(table).getByText("ID")).toBeInTheDocument();
+      expect(within(table).getByText("DNI")).toBeInTheDocument();
+      expect(within(table).getByText("Membresía")).toBeInTheDocument();
+      expect(within(table).getByText("Estado de cuota")).toBeInTheDocument();
+      expect(within(table).getByText("Activo")).toBeInTheDocument();
+    });
+
+    it("no renderiza botones por fila", async () => {
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+      await screen.findByText("Ana García");
+      const table = screen.getByRole("table", { name: "Clientes" });
+      expect(within(table).queryByRole("button", { name: /Editar|Eliminar/i })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "Eliminar" })).toHaveLength(1);
+    });
+  });
+
+  describe("Selección + Modificar + Eliminar", () => {
+    it("Modificar y Eliminar están deshabilitados sin selección", async () => {
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+      await screen.findByText("Ana García");
+      expect(screen.getByRole("button", { name: "Modificar" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Eliminar" })).toBeDisabled();
+    });
+
+    it("click en fila + Modificar carga el cliente en el form y permite actualizar", async () => {
+      const user = userEvent.setup();
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      mockClientesApi.updateCliente.mockResolvedValue(ana);
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+
+      await user.click(await screen.findByText("Ana García"));
+      await user.click(screen.getByRole("button", { name: "Modificar" }));
+
+      await waitFor(() => {
+        expect(screen.getAllByText(/Editar Cliente/i).length).toBeGreaterThan(0);
+      });
+
+      const emailInput = screen.getByDisplayValue("ana@example.com");
+      await user.clear(emailInput);
+      await user.type(emailInput, "ana.garcia@example.com");
+      await user.click(screen.getByRole("button", { name: /Actualizar/i }));
+
+      await waitFor(() =>
+        expect(mockClientesApi.updateCliente).toHaveBeenCalledWith(
+          "cliente-1",
+          expect.objectContaining({ email: "ana.garcia@example.com" }),
+        ),
+      );
+      expect(mockNotify).toHaveBeenCalledWith("success", "Cliente actualizado");
+    });
+
+    it("click en fila + Eliminar confirma y borra el cliente", async () => {
+      const user = userEvent.setup();
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      mockClientesApi.deleteCliente.mockResolvedValue(undefined);
+      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+
+      await user.click(await screen.findByText("Ana García"));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+      await waitFor(() => expect(mockClientesApi.deleteCliente).toHaveBeenCalledWith("cliente-1"));
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente eliminado"));
+      confirmSpy.mockRestore();
+    });
+
+    it("no borra si se cancela la confirmación", async () => {
+      const user = userEvent.setup();
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(false);
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+      await user.click(await screen.findByText("Ana García"));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      expect(mockClientesApi.deleteCliente).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+  });
+
+  describe("Search", () => {
+    it("filtra la tabla desde la ActionBar", async () => {
+      const user = userEvent.setup();
+      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+      await screen.findByText("Ana García");
+
+      await user.click(screen.getByRole("button", { name: "Buscar" }));
+      await user.type(screen.getByLabelText("Buscar clientes"), "zzz");
+      expect(screen.getByText(/No se encontraron clientes/i)).toBeInTheDocument();
     });
   });
 
@@ -199,15 +256,9 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
         estadoCuenta: "Activo" as const,
         fechaAlta: new Date(),
       };
-
       mockClientesApi.fetchClientes.mockResolvedValue([]);
       mockMembresasApi.fetchMembresias.mockResolvedValue([
-        {
-          id: "silver-1",
-          nombre: "Silver",
-          precio: 100.0,
-          estado: "ACTIVA" as const,
-        },
+        { id: "silver-1", nombre: "Silver", precio: 100.0, estado: "ACTIVA" as const },
       ]);
       mockClientesApi.createCliente.mockResolvedValue({
         cliente: newCliente,
@@ -217,21 +268,14 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       render(<ClientesPage />);
       await waitForLoadingComplete();
 
-      // Type in form fields
       await user.type(screen.getByLabelText(/Nombre/i), "Juan Pérez");
       await user.type(screen.getByLabelText(/DNI/i), "35.456.789");
       await user.type(screen.getByLabelText(/Email/i), "juan@example.com");
       await user.type(screen.getByLabelText(/Teléfono/i), "+54 9 2345 678901");
+      await user.selectOptions(screen.getByLabelText(/Membresía/i), "silver-1");
+      await user.click(screen.getByRole("button", { name: /Crear/i }));
 
-      // Select membership
-      const membresiaSelect = screen.getByLabelText(/Membresía/i);
-      await user.selectOptions(membresiaSelect, "silver-1");
-
-      // Submit form - button says "Crear" when creating new cliente
-      const createButton = screen.getByRole("button", { name: /Crear/i });
-      await user.click(createButton);
-
-      await waitFor(() => {
+      await waitFor(() =>
         expect(mockClientesApi.createCliente).toHaveBeenCalledWith(
           expect.objectContaining({
             nombre: "Juan Pérez",
@@ -239,198 +283,34 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
             email: "juan@example.com",
             telefono: "+54 9 2345 678901",
             membresiaAsignada: "silver-1",
-          })
-        );
-      });
+          }),
+        ),
+      );
 
-      // Verify the modal is in the DOM by checking raw HTML first
       expect(document.body.innerHTML).toContain("Contraseña Temporal");
       expect(document.body.innerHTML).toContain("TempPass-ABC123");
-
-      // Also verify it's visible in the rendered tree using getAllByText (handles multiple matches)
-      const modalHeaders = screen.getAllByText(/Contraseña Temporal/i);
-      expect(modalHeaders.length).toBeGreaterThan(0);
-
-      const passwordTexts = screen.getAllByText(/TempPass-ABC123/i);
-      expect(passwordTexts.length).toBeGreaterThan(0);
-    });
-
-    it("should update cliente on form submit after selecting from list", async () => {
-      const user = userEvent.setup();
-      const mockClienteData = {
-        id: "cliente-1",
-        nombre: "Ana García",
-        dni: "30123456",
-        email: "ana@example.com",
-        telefono: "+54 9 1234 567890",
-        membresiaAsignada: "gold-1",
-        estadoCuenta: "Activo" as const,
-        fechaAlta: new Date("2024-01-15"),
-      };
-
-      mockClientesApi.fetchClientes.mockResolvedValue([mockClienteData]);
-      mockMembresasApi.fetchMembresias.mockResolvedValue([
-        {
-          id: "gold-1",
-          nombre: "Gold",
-          precio: 150.0,
-          estado: "ACTIVA" as const,
-        },
-      ]);
-      mockClientesApi.updateCliente.mockResolvedValue(mockClienteData);
-
-      render(<ClientesPage />);
-      await waitForLoadingComplete();
-
-      // Wait for cliente to appear in list
-      await waitFor(() => {
-        expect(screen.getByText("Ana García")).toBeInTheDocument();
-      });
-
-      // Click Editar button
-      const editButtons = screen.getAllByRole("button", {
-        name: /Editar|Edit/i,
-      });
-      await user.click(editButtons[0]);
-
-      // Verify form title changed to "Editar Cliente" (in the form panel header)
-      await waitFor(() => {
-        const editHeaders = screen.getAllByText(/Editar Cliente/i);
-        expect(editHeaders.length).toBeGreaterThan(0);
-      });
-
-      // Modify a field
-      const emailInput = screen.getByDisplayValue("ana@example.com");
-      await user.clear(emailInput);
-      await user.type(emailInput, "ana.garcia@example.com");
-
-      // Submit form - button says "Actualizar" when editing existing cliente
-      await user.click(screen.getByRole("button", { name: /Actualizar/i }));
-
-      // Verify updateCliente was called with the cliente id
-      await waitFor(() => {
-        expect(mockClientesApi.updateCliente).toHaveBeenCalledWith(
-          "cliente-1",
-          expect.objectContaining({
-            email: "ana.garcia@example.com",
-          })
-        );
-      });
-    });
-
-    it("should delete cliente from list", async () => {
-      const user = userEvent.setup();
-      const mockCliente = {
-        id: "cliente-1",
-        nombre: "Ana García",
-        dni: "30123456",
-        email: "ana@example.com",
-        telefono: null,
-        membresiaAsignada: "gold-1",
-        estadoCuenta: "Activo" as const,
-        fechaAlta: new Date("2024-01-15"),
-      };
-
-      mockClientesApi.fetchClientes.mockResolvedValue([mockCliente]);
-      mockMembresasApi.fetchMembresias.mockResolvedValue([]);
-      mockClientesApi.deleteCliente.mockResolvedValue(undefined);
-
-      // Mock global.confirm to return true
-      global.confirm = jest.fn(() => true);
-
-      render(<ClientesPage />);
-      await waitForLoadingComplete();
-
-      // Wait for cliente to appear
-      await waitFor(() => {
-        expect(screen.getByText("Ana García")).toBeInTheDocument();
-      });
-
-      // Click Eliminar button
-      const deleteButtons = screen.getAllByRole("button", {
-        name: /Eliminar|Delete/i,
-      });
-      await user.click(deleteButtons[0]);
-
-      // Verify deleteCliente was called with cliente id
-      await waitFor(() => {
-        expect(mockClientesApi.deleteCliente).toHaveBeenCalledWith("cliente-1");
-      });
-    });
-
-    it("should show form title 'Editar Cliente' after selecting from list", async () => {
-      const user = userEvent.setup();
-      const mockClienteData = {
-        id: "cliente-1",
-        nombre: "Ana García",
-        dni: "30123456",
-        email: "ana@example.com",
-        telefono: "+54 9 1234 567890",
-        membresiaAsignada: "gold-1",
-        estadoCuenta: "Activo" as const,
-        fechaAlta: new Date("2024-01-15"),
-      };
-
-      mockClientesApi.fetchClientes.mockResolvedValue([mockClienteData]);
-      mockMembresasApi.fetchMembresias.mockResolvedValue([
-        {
-          id: "gold-1",
-          nombre: "Gold",
-          precio: 150.0,
-          estado: "ACTIVA" as const,
-        },
-      ]);
-
-      render(<ClientesPage />);
-      await waitForLoadingComplete();
-
-      // Wait for cliente in list
-      await waitFor(() => {
-        expect(screen.getByText("Ana García")).toBeInTheDocument();
-      });
-
-      // Form should show "Nuevo Cliente" initially (from ClienteForm component)
-      expect(screen.getByText(/Nuevo Cliente/i)).toBeInTheDocument();
-
-      // Click Editar button
-      const editButtons = screen.getAllByRole("button", {
-        name: /Editar|Edit/i,
-      });
-      await user.click(editButtons[0]);
-
-      // Form title should change to "Editar Cliente"
-      await waitFor(() => {
-        const editHeaders = screen.getAllByText(/Editar Cliente/i);
-        expect(editHeaders.length).toBeGreaterThan(0);
-      });
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente creado"));
     });
   });
-  describe("P-03: si falla una de las dos cargas, la pantalla no se cae entera", () => {
-    const ana = {
-      id: "c1", nombre: "Ana García", dni: "12345678", email: "ana@example.com",
-      telefono: "+54 9 1234 567890", membresiaAsignada: "gold-1", estadoCuenta: "Activo" as const,
-      fechaAlta: new Date("2026-01-01"), updatedAt: new Date("2026-01-01"),
-    };
 
+  describe("P-03: si falla una de las dos cargas, la pantalla no se cae entera", () => {
     it("falla membresías: la lista de clientes se ve, hay un aviso y no se puede crear", async () => {
       mockClientesApi.fetchClientes.mockResolvedValue([ana]);
       mockMembresasApi.fetchMembresias.mockRejectedValue(new Error("boom"));
-
       render(<ClientesPage />);
       await waitForLoadingComplete();
-
       expect(await screen.findByText("Ana García")).toBeInTheDocument();
       expect(screen.getByRole("alert")).toHaveTextContent(/No se pudieron cargar las membresías/i);
       expect(screen.getByRole("button", { name: /Crear/i })).toBeDisabled();
     });
 
     it("falla clientes: se muestra el error y no hay lista", async () => {
-      mockClientesApi.fetchClientes.mockRejectedValue(new ApiError(500, "prisma exploded", "SERVER_ERROR"));
+      mockClientesApi.fetchClientes.mockRejectedValue(
+        new ApiError(500, "prisma exploded", "SERVER_ERROR"),
+      );
       mockMembresasApi.fetchMembresias.mockResolvedValue([]);
-
       render(<ClientesPage />);
       await waitForLoadingComplete();
-
       expect(await screen.findByText(/No se pudo procesar la solicitud/i)).toBeInTheDocument();
       expect(screen.queryByText(/prisma exploded/i)).not.toBeInTheDocument();
       expect(screen.queryByText("Ana García")).not.toBeInTheDocument();
@@ -441,110 +321,49 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       mockMembresasApi.fetchMembresias.mockResolvedValue([
         { id: "gold-1", nombre: "Gold", precio: 150, estado: "ACTIVA" as const },
       ]);
-
       render(<ClientesPage />);
       await waitForLoadingComplete();
-
       expect(await screen.findByText("Ana García")).toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
   });
 
-  describe("T-023b: avisos de éxito y mensajes de error de la API", () => {
-    const ana = {
-      id: "cliente-1", nombre: "Ana García", dni: "30123456", email: "ana@example.com",
-      telefono: "+54 9 1234 567890", membresiaAsignada: "gold-1", estadoCuenta: "Activo" as const,
-      fechaAlta: new Date("2024-01-15"),
-    };
-    const gold = [{ id: "gold-1", nombre: "Gold", precio: 150, estado: "ACTIVA" as const }];
-
-    it("al eliminar avisa 'Cliente eliminado'", async () => {
-      const user = userEvent.setup();
-      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
-      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
-      mockClientesApi.deleteCliente.mockResolvedValue(undefined);
-      global.confirm = jest.fn(() => true);
-
-      render(<ClientesPage />);
-      await waitForLoadingComplete();
-      await user.click((await screen.findAllByRole("button", { name: /Eliminar/i }))[0]);
-
-      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente eliminado"));
-    });
-
-    it("al editar avisa 'Cliente actualizado'", async () => {
-      const user = userEvent.setup();
-      mockClientesApi.fetchClientes.mockResolvedValue([ana]);
-      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
-      mockClientesApi.updateCliente.mockResolvedValue(ana);
-
-      render(<ClientesPage />);
-      await waitForLoadingComplete();
-      await user.click((await screen.findAllByRole("button", { name: /Editar/i }))[0]);
-      await user.click(await screen.findByRole("button", { name: /Guardar|Actualizar/i }));
-
-      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente actualizado"));
-    });
-
-    it("al crear avisa 'Cliente creado'", async () => {
-      const user = userEvent.setup();
-      mockClientesApi.fetchClientes.mockResolvedValue([]);
-      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
-      mockClientesApi.createCliente.mockResolvedValue({ cliente: ana, tempPassword: "Temp-1" });
-
-      render(<ClientesPage />);
-      await waitForLoadingComplete();
-      await user.type(screen.getByLabelText(/Nombre/i), "Ana García");
-      await user.type(screen.getByLabelText(/DNI/i), "30.123.456");
-      await user.type(screen.getByLabelText(/Email/i), "ana@example.com");
-      await user.type(screen.getByLabelText(/Teléfono/i), "+54 9 1234 567890");
-      await user.selectOptions(screen.getByLabelText(/Membresía/i), "gold-1");
-      await user.click(screen.getByRole("button", { name: /Crear/i }));
-
-      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente creado"));
-    });
-
+  describe("T-023b: mensajes de error de la API", () => {
     it("si falla el borrado muestra el mensaje del servidor y no avisa éxito", async () => {
       const user = userEvent.setup();
       mockClientesApi.fetchClientes.mockResolvedValue([ana]);
       mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
-      mockClientesApi.deleteCliente.mockRejectedValue(new ApiError(400, "El cliente tiene pagos asociados"));
-      global.confirm = jest.fn(() => true);
-
+      mockClientesApi.deleteCliente.mockRejectedValue(
+        new ApiError(400, "El cliente tiene pagos asociados"),
+      );
+      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<ClientesPage />);
       await waitForLoadingComplete();
-      await user.click((await screen.findAllByRole("button", { name: /Eliminar/i }))[0]);
-
+      await user.click(await screen.findByText("Ana García"));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
       expect(await screen.findByText("El cliente tiene pagos asociados")).toBeInTheDocument();
       expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
+      confirmSpy.mockRestore();
     });
 
     it("si la sesión venció (401) al guardar muestra el aviso de sesión", async () => {
       const user = userEvent.setup();
       mockClientesApi.fetchClientes.mockResolvedValue([ana]);
       mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
-      mockClientesApi.updateCliente.mockRejectedValue(new ApiError(401, "TOKEN_INVALID", "TOKEN_INVALID"));
-
+      mockClientesApi.updateCliente.mockRejectedValue(
+        new ApiError(401, "TOKEN_INVALID", "TOKEN_INVALID"),
+      );
       render(<ClientesPage />);
       await waitForLoadingComplete();
-      await user.click((await screen.findAllByRole("button", { name: /Editar/i }))[0]);
-      await user.click(await screen.findByRole("button", { name: /Guardar|Actualizar/i }));
-
+      await user.click(await screen.findByText("Ana García"));
+      await user.click(screen.getByRole("button", { name: "Modificar" }));
+      await user.click(await screen.findByRole("button", { name: /Actualizar/i }));
       expect(await screen.findByText(/Tu sesión venció/i)).toBeInTheDocument();
       expect(screen.queryByText("TOKEN_INVALID")).not.toBeInTheDocument();
     });
   });
 
   describe("P-26: el orden de hooks es estable entre renders", () => {
-    const gold = [
-      { id: "gold-1", nombre: "Gold", precio: 150, estado: "ACTIVA" as const },
-    ];
-    const ana = {
-      id: "c1", nombre: "Ana García", dni: "30123456", email: "ana@example.com",
-      telefono: null, membresiaAsignada: "gold-1", estadoCuenta: "Activo" as const,
-      fechaAlta: new Date("2024-01-15"),
-    };
-
     it("no rompe el orden de hooks al alternar la autenticación y computa el memo", async () => {
       mockClientesApi.fetchClientes.mockResolvedValue([ana]);
       mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
@@ -556,22 +375,17 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
         isStaff: true,
       };
 
-      // Autenticado: este render SÍ llama a `useMemo`.
       (useAuth as jest.Mock).mockReturnValue(admin);
       const { rerender } = render(<ClientesPage />);
       await waitForLoadingComplete();
 
-      // El memo se computó: la fila de la tabla muestra "Nombre - $precio", no el id crudo.
       const table = screen.getByRole("table");
       expect(within(table).getByText("Gold - $150.00")).toBeInTheDocument();
       expect(within(table).queryByText("gold-1")).not.toBeInTheDocument();
 
-      // Sin autenticar: con el bug (`useMemo` debajo de los return tempranos) este render
-      // ejecutaría menos hooks y React tiraría por orden de hooks inconsistente.
       (useAuth as jest.Mock).mockReturnValue({ user: null, isAuthenticated: false });
       expect(() => rerender(<ClientesPage />)).not.toThrow();
 
-      // Volver a autenticar tampoco debe romper el orden de hooks.
       (useAuth as jest.Mock).mockReturnValue(admin);
       expect(() => rerender(<ClientesPage />)).not.toThrow();
 

@@ -20,7 +20,7 @@ export function CrudPageLayout({
   listPanel,
 }: CrudPageLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-[#F7F7F8]">
+    <div className="flex min-h-screen flex-col bg-[#F7F7F7]">
       <AdminTopNav activeSection={section} />
       <ActionBar breadcrumb={breadcrumb}>{actions}</ActionBar>
 
@@ -48,7 +48,7 @@ interface FormPanelShellProps {
 /** Panel izquierdo: tarjeta blanca con línea de acento naranja de la marca. */
 export function FormPanelShell({ title, titleTestId, headerAction, children }: FormPanelShellProps) {
   return (
-    <section className="flex h-fit w-96 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+    <section className="flex h-fit w-[380px] shrink-0 overflow-hidden rounded-lg border border-[#E4E4E7] bg-white">
       <div data-testid="accent-line" className="w-[3px] shrink-0 bg-[#FC4C02]" />
       <div className="flex grow flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
@@ -64,7 +64,7 @@ export function FormPanelShell({ title, titleTestId, headerAction, children }: F
 /** Panel derecho: contenedor de la lista/tabla. */
 export function ListPanelShell({ children }: { children: React.ReactNode }) {
   return (
-    <section className="grow overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
+    <section className="grow overflow-hidden rounded-lg border border-[#E4E4E7] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
       {children}
     </section>
   );

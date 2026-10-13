@@ -24,7 +24,7 @@ export function AforoHoyCard({
 }: AforoHoyCardProps) {
   if (capacidadMaxima <= 0) {
     return (
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 text-center text-zinc-500">
+      <div className="rounded-lg border border-[#E4E4E7] bg-white p-6 text-center text-zinc-500">
         Aforo no configurado
       </div>
     );
@@ -33,7 +33,7 @@ export function AforoHoyCard({
   const max = Math.max(1, ...horas.map((h) => h.ocupacion));
 
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-6">
+    <div className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6">
       <div className="flex items-center justify-between">
         <p className="text-base font-bold text-zinc-900">Aforo actual</p>
         <p className="text-sm font-bold text-emerald-600">{porcentaje}%</p>

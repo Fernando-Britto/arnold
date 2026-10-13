@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Ejercicio } from "@prisma/client";
 import { RutinaForm } from "@/components/rutina-crud/rutina-form";
+import { type EjercicioEnRutinaRow } from "@/components/rutina-crud/ejercicio-en-rutina-list";
 import { RutinaListPanel } from "@/components/rutina-crud/rutina-list";
 import { useAuth } from "@/contexts/auth";
 import { useNotifications } from "@/contexts/notifications";
@@ -17,6 +18,7 @@ import {
 } from "@/api/rutinas";
 import { fetchEjercicios } from "@/api/ejercicios";
 import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
+import { CrudActions } from "@/components/layout/crud-actions";
 
 export function RutinasPage() {
   const router = useRouter();
@@ -25,9 +27,9 @@ export function RutinasPage() {
 
   const [rutinas, setRutinas] = useState<RutinaWithCount[]>([]);
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
-  const [selectedRutina, setSelectedRutina] = useState<RutinaWithCount | null>(
-    null
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<RutinaWithCount | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -79,7 +81,7 @@ export function RutinasPage() {
     duracionEstimada: number;
     nivelDeDificultad: string;
     descripcion?: string;
-    ejercicios?: any[];
+    ejercicios?: EjercicioEnRutinaRow[];
   }) => {
     try {
       setIsSaving(true);
@@ -135,8 +137,9 @@ export function RutinasPage() {
         notify("success", "Rutina creada");
       }
 
-      // Reset form
-      setSelectedRutina(null);
+      // Reset form and selection
+      setEditing(null);
+      setSelectedId(null);
     } catch (err) {
       setError(handleApiError(err, "No se pudo guardar la rutina."));
     } finally {
@@ -144,18 +147,31 @@ export function RutinasPage() {
     }
   };
 
-  const handleModify = (rutina: RutinaWithCount) => {
-    setSelectedRutina(rutina);
+  const handleSelect = (rutina: RutinaWithCount) => {
+    setSelectedId(rutina.id);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleModify = () => {
+    const rutina = rutinas.find((r) => r.id === selectedId) ?? null;
+    if (rutina) setEditing(rutina);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedId) return;
+    const rutina = rutinas.find((r) => r.id === selectedId);
+    if (!rutina) return;
+    if (typeof window !== "undefined" && !window.confirm(`¿Está seguro que desea eliminar "${rutina.nombre}"?`)) {
+      return;
+    }
+
     try {
       setError(null);
-      await deleteRutina(id);
-      setRutinas((prev) => prev.filter((r) => r.id !== id));
-      if (selectedRutina?.id === id) {
-        setSelectedRutina(null);
+      await deleteRutina(selectedId);
+      setRutinas((prev) => prev.filter((r) => r.id !== selectedId));
+      if (editing?.id === selectedId) {
+        setEditing(null);
       }
+      setSelectedId(null);
       notify("success", "Rutina eliminada");
     } catch (err) {
       setError(handleApiError(err, "No se pudo eliminar la rutina."));
@@ -193,14 +209,25 @@ export function RutinasPage() {
         section="rutinas"
         breadcrumb="Rutinas"
         error={error}
+        actions={
+          <CrudActions
+            hasSelection={!!selectedId}
+            onModify={handleModify}
+            onDelete={handleDelete}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchLabel="Buscar rutinas"
+            searchPlaceholder="Buscar por nombre u objetivo..."
+          />
+        }
         formPanel={
           <FormPanelShell
-            title={selectedRutina ? "Editar Rutina" : "Nueva Rutina"}
+            title={editing ? "Editar Rutina" : "Nueva Rutina"}
             headerAction={
-              selectedRutina && (
+              editing && (
                 <button
                   type="button"
-                  onClick={() => setSelectedRutina(null)}
+                  onClick={() => setEditing(null)}
                   className="text-xs font-medium text-[#C13D00] hover:underline"
                 >
                   + Nueva Rutina
@@ -210,7 +237,7 @@ export function RutinasPage() {
           >
             <RutinaForm
               onSave={handleSave}
-              initialData={selectedRutina}
+              initialData={editing}
               availableEjercicios={ejercicios}
               isLoading={isSaving}
             />
@@ -225,8 +252,9 @@ export function RutinasPage() {
             ) : (
               <RutinaListPanel
                 rutinas={rutinas}
-                onModify={handleModify}
-                onDelete={handleDelete}
+                selectedId={selectedId}
+                onSelect={handleSelect}
+                searchTerm={searchTerm}
               />
             )}
           </ListPanelShell>

@@ -32,7 +32,10 @@ export function AforoCard({
 }: AforoCardProps) {
   if (!capacidadMaxima || capacidadMaxima <= 0) {
     return (
-      <div className="rounded-3xl border border-zinc-200 bg-white p-6 text-center text-zinc-500">
+      <div
+        data-testid="card-aforo"
+        className="rounded-lg border border-[#E4E4E7] bg-white p-6 text-center text-zinc-500"
+      >
         Aforo no configurado
       </div>
     );
@@ -41,7 +44,10 @@ export function AforoCard({
   const maxOcupacion = Math.max(1, ...horas.map((h) => h.ocupacion));
 
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-6">
+    <div
+      data-testid="card-aforo"
+      className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6"
+    >
       <p className="text-sm font-medium text-zinc-600">Aforo actual:</p>
       <div className="flex items-center gap-3">
         <span className="h-3 w-3 rounded-full border-2 border-green-700 bg-neutral-300" />

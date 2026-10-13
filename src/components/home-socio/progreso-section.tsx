@@ -71,7 +71,10 @@ export function ProgresoSection({
   const incremento = proximaSesionSugerida - marcaActual;
 
   return (
-    <div className="flex flex-col gap-6 rounded-3xl border border-zinc-200 bg-white p-5">
+    <div
+      data-testid="card-progreso"
+      className="flex flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-5"
+    >
       <div className="flex justify-between">
         <div className="flex flex-col gap-2">
           <p className="text-lg font-bold text-zinc-900">Mi progreso</p>

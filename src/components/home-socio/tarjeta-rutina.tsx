@@ -44,14 +44,20 @@ export function TarjetaRutina({
 }: TarjetaRutinaProps) {
   if (!rutinaNombre) {
     return (
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 text-center text-gray-500">
+      <div
+        data-testid="card-rutina"
+        className="rounded-lg border border-[#E4E4E7] bg-white p-6 text-center text-gray-500"
+      >
         Sin rutina asignada
       </div>
     );
   }
 
   return (
-    <div className="flex grow flex-col gap-6 rounded-3xl border border-gray-200 bg-white p-5">
+    <div
+      data-testid="card-rutina"
+      className="flex flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-5"
+    >
       <div className="flex flex-col gap-1">
         <p className="text-xs font-bold text-gray-500">MI RUTINA ASIGNADA</p>
         <p className="text-lg font-bold text-gray-900">{rutinaNombre}</p>

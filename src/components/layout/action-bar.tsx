@@ -42,7 +42,7 @@ export function ActionButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium ${color} ${
+      className={`flex items-center gap-2 rounded-lg border border-[#E5E5E5] bg-white px-4 py-2 text-sm font-medium ${color} ${
         disabled ? "cursor-not-allowed opacity-50" : "hover:bg-zinc-50"
       }`}
     >

@@ -10,14 +10,17 @@ import { useNotifications } from "@/contexts/notifications";
 import { ApiError, handleApiError } from "@/utils/api-error";
 import { fetchEjercicios, createEjercicio, updateEjercicio, deleteEjercicio } from "@/api/ejercicios";
 import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
+import { CrudActions } from "@/components/layout/crud-actions";
 
 export function EjerciciosPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const { notify } = useNotifications();
-  
+
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
-  const [selectedEjercicio, setSelectedEjercicio] = useState<Ejercicio | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Ejercicio | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -95,8 +98,9 @@ export function EjerciciosPage() {
         notify("success", "Ejercicio creado");
       }
 
-      // Reset form
-      setSelectedEjercicio(null);
+      // Reset form and selection
+      setEditing(null);
+      setSelectedId(null);
     } catch (err) {
       setError(handleApiError(err, "No se pudo guardar el ejercicio."));
     } finally {
@@ -104,18 +108,31 @@ export function EjerciciosPage() {
     }
   };
 
-  const handleModify = (ejercicio: Ejercicio) => {
-    setSelectedEjercicio(ejercicio);
+  const handleSelect = (ejercicio: Ejercicio) => {
+    setSelectedId(ejercicio.id);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleModify = () => {
+    const ejercicio = ejercicios.find((e) => e.id === selectedId) ?? null;
+    if (ejercicio) setEditing(ejercicio);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedId) return;
+    const ejercicio = ejercicios.find((e) => e.id === selectedId);
+    if (!ejercicio) return;
+    if (typeof window !== "undefined" && !window.confirm(`¿Está seguro que desea eliminar "${ejercicio.nombre}"?`)) {
+      return;
+    }
+
     try {
       setError(null);
-      await deleteEjercicio(id);
-      setEjercicios(prev => prev.filter(e => e.id !== id));
-      if (selectedEjercicio?.id === id) {
-        setSelectedEjercicio(null);
+      await deleteEjercicio(selectedId);
+      setEjercicios(prev => prev.filter(e => e.id !== selectedId));
+      if (editing?.id === selectedId) {
+        setEditing(null);
       }
+      setSelectedId(null);
       notify("success", "Ejercicio eliminado");
     } catch (err) {
       // Integridad referencial: el servidor responde 409 DELETE_BLOCKED_ASSIGNED
@@ -159,13 +176,24 @@ export function EjerciciosPage() {
         section="ejercicios"
         breadcrumb="Ejercicios"
         error={error}
+        actions={
+          <CrudActions
+            hasSelection={!!selectedId}
+            onModify={handleModify}
+            onDelete={handleDelete}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchLabel="Buscar ejercicios"
+            searchPlaceholder="Buscar por nombre o grupo muscular..."
+          />
+        }
         formPanel={
           <FormPanelShell
-            title={selectedEjercicio ? "Editar Ejercicio" : "Nuevo Ejercicio"}
+            title={editing ? "Editar Ejercicio" : "Nuevo Ejercicio"}
             headerAction={
-              selectedEjercicio && (
+              editing && (
                 <button
-                  onClick={() => setSelectedEjercicio(null)}
+                  onClick={() => setEditing(null)}
                   className="rounded-md bg-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-400"
                 >
                   Cancelar
@@ -175,7 +203,7 @@ export function EjerciciosPage() {
           >
             <EjercicioForm
               onSave={handleSave}
-              initialData={selectedEjercicio}
+              initialData={editing}
               isLoading={isSaving}
             />
           </FormPanelShell>
@@ -189,8 +217,9 @@ export function EjerciciosPage() {
             ) : (
               <EjercicioListPanel
                 ejercicios={ejercicios}
-                onModify={handleModify}
-                onDelete={handleDelete}
+                selectedId={selectedId}
+                onSelect={handleSelect}
+                searchTerm={searchTerm}
               />
             )}
           </ListPanelShell>

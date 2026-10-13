@@ -20,7 +20,8 @@ export function SocioShell({ active, children }: { active: TopNavLink; children:
         onNavigate={(link) => router.push(topNavHref(link))}
         onLogoutClick={() => void logout()}
       />
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-12">{children}</main>
+      {/* MainContent: same 48px padding / 24px gap as Home_Socio. */}
+      <main className="flex w-full flex-col gap-6 px-12 pb-12">{children}</main>
     </div>
   );
 }

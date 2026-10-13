@@ -129,6 +129,54 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
     expect(screen.getByText("Plan Musculación")).toBeInTheDocument();
   });
 
+  it("renders the three rows (Fila1/2/3) with the six cards of the mockup", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.getByTestId("fila-1")).toBeInTheDocument();
+    expect(screen.getByTestId("fila-2")).toBeInTheDocument();
+    expect(screen.getByTestId("fila-3")).toBeInTheDocument();
+
+    for (const id of [
+      "card-progreso",
+      "card-aforo",
+      "card-rutina",
+      "card-detalle",
+      "card-racha",
+      "card-membresia",
+    ]) {
+      expect(screen.getByTestId(id)).toBeInTheDocument();
+    }
+  });
+
+  it('shows "Trabajando en esto" in the membership card when there is no membership', async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    mockFetch.mockResolvedValue({ ...baseViewModel, membresia: null });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.getByTestId("card-membresia")).toHaveTextContent("Trabajando en esto");
+  });
+
+  it('shows "Trabajando en esto" in the progress card when there is no progress data', async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    mockFetch.mockResolvedValue({ ...baseViewModel, progreso: null });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.getByTestId("card-progreso")).toHaveTextContent("Trabajando en esto");
+  });
+
+  it('shows "Trabajando en esto" in the routine card when there is no active routine', async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    mockFetch.mockResolvedValue({ ...baseViewModel, rutinaActiva: null });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.getByTestId("card-rutina")).toHaveTextContent("Trabajando en esto");
+  });
+
   it("shows an error message and does not crash when the fetch fails", async () => {
     mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
     mockFetch.mockRejectedValue(new Error("network down"));

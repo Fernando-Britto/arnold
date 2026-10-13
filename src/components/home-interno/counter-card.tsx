@@ -23,7 +23,7 @@ export function CounterCard({ label, metric, onClick, disabled = false }: Counte
       onClick={onClick}
       disabled={disabled}
       title={disabled ? SIN_ACCESO_TITLE : undefined}
-      className="flex w-full flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-5 text-left enabled:hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex w-full flex-col gap-1 rounded-lg border border-[#E4E4E7] bg-white p-5 text-left enabled:hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
     >
       <span className="text-sm font-medium text-zinc-500">{label}</span>
       <span className="text-2xl font-bold text-zinc-900">{metric}</span>

@@ -1,469 +1,79 @@
-/**
- * Integration tests for MembresiaListPanel
- * Tests fetch → list display → delete with AC-006 blocking
- */
-
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MembresiaListPanel } from "./membresia-list-panel";
-import { useNotifications } from "@/contexts/notifications";
+import type { Membresia } from "@/domains/membresia/membresia";
 
-jest.mock("@/contexts/notifications");
-const mockNotify = jest.fn();
-
-// Mock fetch globally
-global.fetch = jest.fn();
-
-// Mock window.confirm
-global.confirm = jest.fn(() => true);
+const membresias: Membresia[] = [
+  {
+    id: "11111111gold",
+    nombre: "Gold",
+    precio: 15000,
+    periodicidad: 30,
+    descripcion: "Premium",
+    estado: "ACTIVA",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "22222222silver",
+    nombre: "Silver",
+    precio: 10000,
+    periodicidad: 30,
+    descripcion: null,
+    estado: "INACTIVA",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];
 
 describe("MembresiaListPanel", () => {
-  const mockMembresias = [
-    {
-      id: "1",
-      nombre: "Gold",
-      precio: 15000,
-      periodicidad: 30,
-      descripcion: "Plan Gold",
-      estado: "ACTIVA" as const,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      assignedSocioCount: 5,
-    },
-    {
-      id: "2",
-      nombre: "Silver",
-      precio: 10000,
-      periodicidad: 30,
-      descripcion: "Plan Silver",
-      estado: "ACTIVA" as const,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      assignedSocioCount: 0,
-    },
-  ];
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (global.fetch as jest.Mock).mockClear();
-    (global.confirm as jest.Mock).mockClear();
-    (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
+  it("renderiza las columnas exactas del mockup", () => {
+    render(<MembresiaListPanel membresias={membresias} />);
+    expect(screen.getByText("ID")).toBeInTheDocument();
+    expect(screen.getByText("Nombre")).toBeInTheDocument();
+    expect(screen.getByText("Precio")).toBeInTheDocument();
+    expect(screen.getByText("Periodicidad")).toBeInTheDocument();
+    expect(screen.getByText("Estado")).toBeInTheDocument();
   });
 
-  describe("List fetching and display", () => {
-    it("should fetch and display membresias on mount", async () => {
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => mockMembresias,
-      });
-
-      const { rerender } = render(<MembresiaListPanel />);
-
-      // Wait for membresias to appear
-      await waitFor(() => {
-        expect(screen.getByText("Gold")).toBeInTheDocument();
-        expect(screen.getByText("Silver")).toBeInTheDocument();
-      });
-
-      // Verify fetch was called
-      expect(mockFetch).toHaveBeenCalledWith("/api/membresias");
-    });
-
-    it("should fetch activeOnly when activeOnly prop is true", async () => {
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => [mockMembresias[0]],
-      });
-
-      render(<MembresiaListPanel activeOnly={true} />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Gold")).toBeInTheDocument();
-      });
-
-      expect(mockFetch).toHaveBeenCalledWith("/api/membresias?activeOnly=true");
-    });
-
-    it("should display loading state initially", () => {
-      const mockFetch = global.fetch as jest.Mock;
-      mockFetch.mockImplementationOnce(
-        () =>
-          new Promise((resolve) =>
-            setTimeout(
-              () =>
-                resolve({
-                  ok: true,
-                  json: async () => mockMembresias,
-                } as Response),
-              100
-            )
-          )
-      );
-
-      render(<MembresiaListPanel />);
-
-      expect(screen.getByText(/cargando membresías/i)).toBeInTheDocument();
-    });
-
-    it("should display empty state when no membresias", async () => {
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => [],
-      });
-
-      render(<MembresiaListPanel />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/no hay membresías/i)).toBeInTheDocument();
-      });
-    });
+  it("muestra precio, periodicidad y estado como badge", () => {
+    render(<MembresiaListPanel membresias={membresias} />);
+    expect(screen.getByText("$15000.00")).toBeInTheDocument();
+    expect(screen.getAllByText("30 días")).toHaveLength(2);
+    expect(screen.getByText("Activa")).toBeInTheDocument();
+    expect(screen.getByText("Inactiva")).toBeInTheDocument();
   });
 
-  describe("Sorting", () => {
-    it("should sort by nombre by default", async () => {
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => mockMembresias,
-      });
-
-      render(<MembresiaListPanel />);
-
-      await waitFor(() => {
-        expect(screen.getByDisplayValue(/nombre/i)).toBeInTheDocument();
-      });
-    });
-
-    it("should change list order when sorting option changes", async () => {
-      const user = userEvent.setup();
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => mockMembresias,
-      });
-
-      render(<MembresiaListPanel />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Gold")).toBeInTheDocument();
-      });
-
-      // Change to sort by precio (Silver should come first at 10000 < 15000)
-      const sortSelect = screen.getByDisplayValue(/nombre/i);
-      await user.selectOptions(sortSelect, "precio");
-
-      // Verify the order changed
-      const rows = screen.getAllByRole("row");
-      // Find Silver in the rows (should come before Gold when sorted by price)
-      expect(rows.length).toBeGreaterThan(2);
-    });
-
-    it("should allow sorting by estado", async () => {
-      const user = userEvent.setup();
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => mockMembresias,
-      });
-
-      render(<MembresiaListPanel />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Gold")).toBeInTheDocument();
-      });
-
-      const sortSelect = screen.getByDisplayValue(/nombre/i);
-      await user.selectOptions(sortSelect, "estado");
-
-      expect((sortSelect as HTMLSelectElement).value).toBe("estado");
-    });
+  it("selecciona una fila al hacer click", async () => {
+    const onSelect = jest.fn();
+    render(<MembresiaListPanel membresias={membresias} onSelect={onSelect} />);
+    await userEvent.click(screen.getByText("Gold"));
+    expect(onSelect).toHaveBeenCalledWith(membresias[0]);
   });
 
-  describe("AC-006: Delete blocking", () => {
-    it("should disable delete button when socios are assigned (assignedSocioCount > 0)", async () => {
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => mockMembresias,
-      });
-
-      render(<MembresiaListPanel />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Gold")).toBeInTheDocument();
-      });
-
-      // Find delete button for Gold (assignedSocioCount = 5)
-      const allRows = screen.getAllByRole("row");
-      let goldDeleteButton: HTMLButtonElement | null = null;
-      for (const row of allRows) {
-        if (row.textContent?.includes("Gold")) {
-          const buttons = row.querySelectorAll("button");
-          for (const btn of buttons) {
-            if (btn.textContent?.includes("Eliminar")) {
-              goldDeleteButton = btn as HTMLButtonElement;
-              break;
-            }
-          }
-          break;
-        }
-      }
-
-      if (!goldDeleteButton) {
-        throw new Error("Gold delete button not found");
-      }
-
-      // Button should be disabled
-      expect(goldDeleteButton.disabled).toBe(true);
-
-      // Tooltip should show blocking message
-      const tooltip = goldDeleteButton.closest(".group")?.querySelector("div");
-      expect(tooltip?.textContent).toContain("Esta membresía está asignada a socios");
-    });
-
-    it("should handle 409 DELETE_BLOCKED_ASSIGNED error response", async () => {
-      const user = userEvent.setup();
-      const mockFetch = global.fetch as jest.Mock;
-
-      // Silver has 0 socios, so button is enabled
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockMembresias,
-      });
-
-      // Server returns 409 (race condition: socios got assigned between load and delete)
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 409,
-        json: async () => ({
-          code: "DELETE_BLOCKED_ASSIGNED",
-          message: "3 socios asignados",
-        }),
-      });
-
-      render(<MembresiaListPanel />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Silver")).toBeInTheDocument();
-      });
-
-      // Find and click delete button for Silver (assignedSocioCount = 0, so enabled)
-      const allRows = screen.getAllByRole("row");
-      let silverDeleteButton: HTMLElement | null = null;
-      for (const row of allRows) {
-        if (row.textContent?.includes("Silver")) {
-          const buttons = row.querySelectorAll("button");
-          for (const btn of buttons) {
-            if (btn.textContent?.includes("Eliminar")) {
-              silverDeleteButton = btn;
-              break;
-            }
-          }
-          break;
-        }
-      }
-
-      if (!silverDeleteButton) {
-        throw new Error("Silver delete button not found");
-      }
-
-      await user.click(silverDeleteButton);
-
-      // Confirmation modal appears
-      await waitFor(() => {
-        expect(screen.getByText(/¿Eliminar membresía\?/i)).toBeInTheDocument();
-      });
-
-      // User confirms
-      const acceptButton = screen.getByRole("button", { name: /Aceptar/i });
-      await user.click(acceptButton);
-
-      // handleDelete calls API, receives 409 with DELETE_BLOCKED_ASSIGNED
-      // Error message displays
-      await waitFor(() => {
-        expect(screen.getByText(/3 socios asignados/i)).toBeInTheDocument();
-      });
-
-      // Silver remains in list (not deleted)
-      expect(screen.getByText("Silver")).toBeInTheDocument();
-    });
+  it("marca la fila seleccionada y muestra su detalle", () => {
+    render(<MembresiaListPanel membresias={membresias} selectedId="11111111gold" />);
+    const selected = screen
+      .getAllByRole("row")
+      .find((r) => r.getAttribute("aria-selected") === "true");
+    expect(selected).toHaveClass("bg-[#FC4C02]");
+    expect(screen.getByText("Premium")).toBeInTheDocument();
   });
 
-  describe("Refresh", () => {
-    it("should refetch membresias when refresh button is clicked", async () => {
-      const user = userEvent.setup();
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => mockMembresias,
-      });
-
-      render(<MembresiaListPanel />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Gold")).toBeInTheDocument();
-      });
-
-      const initialCallCount = mockFetch.mock.calls.length;
-
-      const refreshButton = screen.getByRole("button", { name: /Actualizar/i });
-      await user.click(refreshButton);
-
-      // Verify fetch was called again
-      await waitFor(() => {
-        expect(mockFetch.mock.calls.length).toBeGreaterThan(initialCallCount);
-      });
-    });
+  it("filtra por nombre", () => {
+    render(<MembresiaListPanel membresias={membresias} searchTerm="sil" />);
+    expect(screen.getByText("Silver")).toBeInTheDocument();
+    expect(screen.queryByText("Gold")).not.toBeInTheDocument();
   });
 
-  describe("Error handling", () => {
-    it("should display error when fetch fails", async () => {
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
-
-      render(<MembresiaListPanel />);
-
-      // Error state should be displayed
-      await waitFor(() => {
-        expect(screen.getByText(/No hay conexión con el servidor/i)).toBeInTheDocument();
-      }, { timeout: 3000 });
-    });
-
-    it("should show retry button on error", async () => {
-      const mockFetch = global.fetch as jest.Mock;
-
-      mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
-
-      render(<MembresiaListPanel />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/No hay conexión con el servidor/i)).toBeInTheDocument();
-      }, { timeout: 3000 });
-
-      // Verify retry button is present
-      const retryButton = screen.getByRole("button", { name: /Reintentar/i });
-      expect(retryButton).toBeInTheDocument();
-    });
+  it("muestra el estado de carga", () => {
+    render(<MembresiaListPanel membresias={[]} isLoading />);
+    expect(screen.getByText(/Cargando membresías/i)).toBeInTheDocument();
   });
 
-  describe("T-023b: avisos de éxito y mensajes de error de la API", () => {
-    async function clickDeleteSilverAndAccept(user: ReturnType<typeof userEvent.setup>) {
-      await waitFor(() => expect(screen.getByText("Silver")).toBeInTheDocument());
-      const row = screen.getAllByRole("row").find((r) => r.textContent?.includes("Silver"))!;
-      const button = Array.from(row.querySelectorAll("button")).find((b) => b.textContent?.includes("Eliminar"))!;
-      await user.click(button);
-      await user.click(await screen.findByRole("button", { name: /Aceptar/i }));
-    }
-
-    it("al eliminar avisa 'Membresía eliminada'", async () => {
-      const user = userEvent.setup();
-      const mockFetch = global.fetch as jest.Mock;
-      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => mockMembresias });
-      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
-
-      render(<MembresiaListPanel />);
-      await clickDeleteSilverAndAccept(user);
-
-      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Membresía eliminada"));
-    });
-
-    it("el borrado bloqueado muestra 'No se puede eliminar: …' y no avisa éxito", async () => {
-      const user = userEvent.setup();
-      const mockFetch = global.fetch as jest.Mock;
-      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => mockMembresias });
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 409,
-        json: async () => ({ code: "DELETE_BLOCKED_ASSIGNED", message: "3 socios asignados" }),
-      });
-
-      render(<MembresiaListPanel />);
-      await clickDeleteSilverAndAccept(user);
-
-      expect(await screen.findByText("No se puede eliminar: 3 socios asignados")).toBeInTheDocument();
-      expect(mockNotify).not.toHaveBeenCalled();
-    });
-
-    it("otro error al borrar muestra el mensaje del servidor", async () => {
-      const user = userEvent.setup();
-      const mockFetch = global.fetch as jest.Mock;
-      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => mockMembresias });
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        json: async () => ({ code: "NOT_FOUND", message: "Membresía no encontrada" }),
-      });
-
-      render(<MembresiaListPanel />);
-      await clickDeleteSilverAndAccept(user);
-
-      expect(await screen.findByText("Membresía no encontrada")).toBeInTheDocument();
-    });
-
-    it("un 5xx al cargar no muestra el detalle técnico y conserva Reintentar", async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: false,
-        status: 500,
-        json: async () => ({ code: "SERVER_ERROR", message: "prisma exploded" }),
-      });
-
-      render(<MembresiaListPanel />);
-
-      expect(await screen.findByText(/No se pudo procesar la solicitud/i)).toBeInTheDocument();
-      expect(screen.queryByText(/prisma exploded/i)).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Reintentar/i })).toBeInTheDocument();
-    });
-
-    it("un 401 al cargar muestra el aviso de sesión vencida", async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: false,
-        status: 401,
-        json: async () => ({ code: "TOKEN_INVALID", message: "TOKEN_INVALID" }),
-      });
-
-      render(<MembresiaListPanel />);
-
-      expect(await screen.findByText(/Tu sesión venció/i)).toBeInTheDocument();
-    });
-  });
-
-  describe("Edit callback", () => {
-    it("should call onEditClick when edit button is clicked", async () => {
-      const user = userEvent.setup();
-      const mockFetch = global.fetch as jest.Mock;
-      const onEditClick = jest.fn();
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: async () => mockMembresias,
-      });
-
-      render(<MembresiaListPanel onEditClick={onEditClick} />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Gold")).toBeInTheDocument();
-      });
-
-      const editButtons = screen.getAllByRole("button", { name: /Editar/i });
-      await user.click(editButtons[0]);
-
-      expect(onEditClick).toHaveBeenCalledWith(expect.objectContaining({
-        id: "1",
-        nombre: "Gold",
-      }));
-    });
+  it("muestra el estado vacío", () => {
+    render(<MembresiaListPanel membresias={[]} />);
+    expect(screen.getByText(/No hay membresías/i)).toBeInTheDocument();
   });
 });

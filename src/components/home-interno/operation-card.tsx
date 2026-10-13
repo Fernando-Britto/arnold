@@ -29,7 +29,7 @@ export function OperationCard({ label, metric, footer, icon: Icon, onClick, disa
       onClick={onClick}
       disabled={disabled}
       title={disabled ? SIN_ACCESO_TITLE : undefined}
-      className="flex w-full flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-5 text-left disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex w-full flex-col gap-3 rounded-lg border border-[#E4E4E7] bg-white p-5 text-left disabled:cursor-not-allowed disabled:opacity-60"
     >
       <div className="flex justify-between">
         <div className="flex flex-col gap-1">

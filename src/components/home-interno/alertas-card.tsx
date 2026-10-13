@@ -23,7 +23,7 @@ export interface AlertasCardProps {
 
 export function AlertasCard({ items, onVer, verDisabled = false }: AlertasCardProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-6">
+    <div className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6">
       <p className="text-base font-bold text-zinc-900">Alertas críticas</p>
       {items.length === 0 ? (
         <p className="text-sm text-zinc-500">Sin alertas por ahora.</p>

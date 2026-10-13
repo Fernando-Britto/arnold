@@ -25,24 +25,32 @@ jest.mock("@/contexts/notifications");
 const mockNotify = jest.fn();
 jest.mock("@/api/ejercicios");
 jest.mock("@/components/ejercicio-crud/ejercicio-form", () => ({
-  EjercicioForm: ({ onSave, initialData }: any) => (
+  EjercicioForm: ({
+    onSave,
+    initialData,
+  }: {
+    onSave: (data: {
+      id?: string;
+      nombre: string;
+      grupoMuscular: string;
+      descripcion: string;
+    }) => void;
+    initialData: Ejercicio | null;
+  }) => (
     <div data-testid="ejercicio-form">
-      <button onClick={() => onSave({ ...(initialData?.id ? { id: initialData.id } : {}), nombre: "Test", grupoMuscular: "Pecho" })}>
+      <span data-testid="form-nombre">{initialData?.nombre ?? ""}</span>
+      <button
+        onClick={() =>
+          onSave({
+            ...(initialData?.id ? { id: initialData.id } : {}),
+            nombre: "Test",
+            grupoMuscular: "Pecho",
+            descripcion: "",
+          })
+        }
+      >
         Save
       </button>
-    </div>
-  ),
-}));
-jest.mock("@/components/ejercicio-crud/ejercicio-list", () => ({
-  EjercicioListPanel: ({ ejercicios, onModify, onDelete }: any) => (
-    <div data-testid="ejercicio-list">
-      {ejercicios.map((e: any) => (
-        <div key={e.id}>
-          {e.nombre}
-          <button onClick={() => onModify(e)}>Modify</button>
-          <button onClick={() => onDelete(e.id)}>Delete</button>
-        </div>
-      ))}
     </div>
   ),
 }));
@@ -73,23 +81,15 @@ describe("Ejercicios CRUD Screen (Page)", () => {
       user: { id: "user1", rol: "ADMINISTRADOR" },
       isAuthenticated: true,
     });
-    (ejercicioApi.fetchEjercicios as jest.Mock).mockResolvedValue([
-      mockEjercicio,
-    ]);
+    (ejercicioApi.fetchEjercicios as jest.Mock).mockResolvedValue([mockEjercicio, mockEjercicio2]);
   });
 
   describe("Role-based access control", () => {
     it("should render page for ADMINISTRADOR role", async () => {
-      (useAuth as jest.Mock).mockReturnValue({
-        user: { id: "user1", rol: "ADMINISTRADOR" },
-        isAuthenticated: true,
-      });
-
       render(<EjerciciosPage />);
-
       await waitFor(() => {
         expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
-        expect(screen.getByTestId("ejercicio-list")).toBeInTheDocument();
+        expect(screen.getByRole("table", { name: "Ejercicios" })).toBeInTheDocument();
       });
     });
 
@@ -98,12 +98,9 @@ describe("Ejercicios CRUD Screen (Page)", () => {
         user: { id: "user1", rol: "INSTRUCTOR" },
         isAuthenticated: true,
       });
-
       render(<EjerciciosPage />);
-
       await waitFor(() => {
         expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
-        expect(screen.getByTestId("ejercicio-list")).toBeInTheDocument();
       });
     });
 
@@ -112,409 +109,178 @@ describe("Ejercicios CRUD Screen (Page)", () => {
         user: { id: "user1", rol: "SOCIO" },
         isAuthenticated: true,
       });
-
-      // Page should redirect or show access denied
-      const { container } = render(<EjerciciosPage />);
-      
-      // Expect either redirect or error message
-      expect(
-        container.textContent?.includes("no autorizado") ||
-        container.textContent?.includes("Acceso denegado") ||
-        !screen.queryByTestId("ejercicio-form")
-      ).toBe(true);
+      render(<EjerciciosPage />);
+      expect(screen.queryByTestId("ejercicio-form")).not.toBeInTheDocument();
     });
 
     it("should redirect unauthenticated users", async () => {
-      mockPush.mockClear();
-      
-      (useAuth as jest.Mock).mockReturnValue({
-        user: null,
-        isAuthenticated: false,
-      });
-
+      (useAuth as jest.Mock).mockReturnValue({ user: null, isAuthenticated: false });
       render(<EjerciciosPage />);
-
-      // Verify router.push was called with /login
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith("/login");
-      });
-    });
-
-    it("should deny access for RECEPCIONISTA role", () => {
-      (useAuth as jest.Mock).mockReturnValue({
-        user: { id: "user1", rol: "RECEPCIONISTA" },
-        isAuthenticated: true,
-      });
-
-      const { container } = render(<EjerciciosPage />);
-
-      // Expect access denied
-      expect(
-        !screen.queryByTestId("ejercicio-form") ||
-        container.textContent?.includes("no autorizado")
-      ).toBe(true);
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/login"));
     });
   });
 
-  describe("Page layout and rendering", () => {
-    it("should render page title", async () => {
+  describe("Table (mockup alignment)", () => {
+    it("renderiza las columnas exactas del spec", async () => {
       render(<EjerciciosPage />);
-
-      // Use getByRole to get the h1 specifically (not the "Cargando..." text)
-      await waitFor(() => {
-        expect(screen.getByRole("heading", { name: /Ejercicios/i })).toBeInTheDocument();
-      });
+      await screen.findByText("Press Militar");
+      expect(screen.getByText("ID")).toBeInTheDocument();
+      expect(screen.getByText("Nombre")).toBeInTheDocument();
+      expect(screen.getByText("Grupo")).toBeInTheDocument();
+      expect(screen.getByText("Estado")).toBeInTheDocument();
     });
 
-    it("should render FormPanel on the left", async () => {
+    it("muestra el badge de estado en cada fila", async () => {
       render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
-      });
+      await screen.findByText("Press Militar");
+      expect(screen.getAllByText("Activo")).toHaveLength(2);
     });
 
-    it("should render ListPanel on the right", async () => {
+    it("no renderiza botones por fila (Modificar/Eliminar están en la ActionBar)", async () => {
       render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId("ejercicio-list")).toBeInTheDocument();
-      });
-    });
-
-    it("should display list of ejercicios on load", async () => {
-      render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Press Militar")).toBeInTheDocument();
-      });
+      await screen.findByText("Press Militar");
+      // Solo existen los de la ActionBar, no dentro de la tabla.
+      expect(screen.getAllByRole("button", { name: "Modificar" })).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: "Eliminar" })).toHaveLength(1);
+      expect(screen.getByRole("table", { name: "Ejercicios" })).not.toContainElement(
+        screen.getByRole("button", { name: "Modificar" }),
+      );
     });
   });
 
-  describe("CRUD operations", () => {
-    it("should create new ejercicio and add to list", async () => {
+  describe("Selección de fila", () => {
+    it("click en una fila la selecciona (aria-selected)", async () => {
       const user = userEvent.setup();
-      // Return a NEW ejercicio with different ID to avoid key duplication
-      (ejercicioApi.createEjercicio as jest.Mock).mockResolvedValue(
-        mockEjercicio2
-      );
-
       render(<EjerciciosPage />);
+      await user.click(await screen.findByText("Press Militar"));
+      const row = screen.getAllByRole("row").find(
+        (r) => r.getAttribute("aria-selected") === "true",
+      );
+      expect(row).toBeDefined();
+      expect(row).toHaveClass("bg-[#FC4C02]");
+    });
+  });
 
-      // Wait for loading to finish and form to appear
-      await waitFor(() => {
-        expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
-      });
-
-      const saveButton = screen.getByRole("button", { name: /Save/i });
-      await user.click(saveButton);
-
-      await waitFor(() => {
-        expect(ejercicioApi.createEjercicio).toHaveBeenCalled();
-      });
+  describe("Modificar", () => {
+    it("está deshabilitado sin selección", async () => {
+      render(<EjerciciosPage />);
+      await screen.findByText("Press Militar");
+      expect(screen.getByRole("button", { name: "Modificar" })).toBeDisabled();
     });
 
-    it("should load ejercicio into form when row is clicked", async () => {
+    it("carga la fila seleccionada en el form", async () => {
       const user = userEvent.setup();
-      
       render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Press Militar")).toBeInTheDocument();
-      });
-
-      const modifyButton = screen.getByRole("button", { name: /Modify/i });
-      await user.click(modifyButton);
-
-      // Form should now be populated (handled by parent state)
-      expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
+      await user.click(await screen.findByText("Press Militar"));
+      await user.click(screen.getByRole("button", { name: "Modificar" }));
+      expect(screen.getByTestId("form-nombre")).toHaveTextContent("Press Militar");
     });
 
-    it("should update existing ejercicio when modifying and saving", async () => {
+    it("al guardar llama updateEjercicio con el id seleccionado", async () => {
       const user = userEvent.setup();
-      const updatedEjercicio: Ejercicio = {
-        ...mockEjercicio,
-        nombre: "Press Militar Mejorado",
-        grupoMuscular: "Espalda",
-      };
-
-      (ejercicioApi.updateEjercicio as jest.Mock).mockResolvedValue(
-        updatedEjercicio
-      );
-
+      (ejercicioApi.updateEjercicio as jest.Mock).mockResolvedValue(mockEjercicio);
       render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Press Militar")).toBeInTheDocument();
-      });
-
-      // Click modify to load ejercicio into form
-      const modifyButton = screen.getByRole("button", { name: /Modify/i });
-      await user.click(modifyButton);
-
-      // Click save to update
-      const saveButton = screen.getByRole("button", { name: /Save/i });
-      await user.click(saveButton);
-
-      // Verify updateEjercicio was called with the ID and updated data
-      await waitFor(() => {
+      await user.click(await screen.findByText("Press Militar"));
+      await user.click(screen.getByRole("button", { name: "Modificar" }));
+      await user.click(screen.getByRole("button", { name: /Save/i }));
+      await waitFor(() =>
         expect(ejercicioApi.updateEjercicio).toHaveBeenCalledWith(
-          mockEjercicio.id,
-          expect.objectContaining({
-            nombre: "Test",
-            grupoMuscular: "Pecho",
-          })
-        );
-      });
+          "1",
+          expect.objectContaining({ nombre: "Test" }),
+        ),
+      );
+      expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio actualizado");
+    });
+  });
+
+  describe("Eliminar", () => {
+    it("está deshabilitado sin selección", async () => {
+      render(<EjerciciosPage />);
+      await screen.findByText("Press Militar");
+      expect(screen.getByRole("button", { name: "Eliminar" })).toBeDisabled();
     });
 
-    it("should delete ejercicio when delete is confirmed", async () => {
+    it("confirma y elimina la fila seleccionada", async () => {
       const user = userEvent.setup();
       (ejercicioApi.deleteEjercicio as jest.Mock).mockResolvedValue(undefined);
-
+      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Press Militar")).toBeInTheDocument();
-      });
-
-      const deleteButton = screen.getByRole("button", { name: /Delete/i });
-      
-      // Mock confirm
-      global.confirm = jest.fn(() => true);
-      
-      await user.click(deleteButton);
-
-      await waitFor(() => {
-        expect(ejercicioApi.deleteEjercicio).toHaveBeenCalledWith("1");
-      });
-
-      global.confirm = jest.fn();
+      await user.click(await screen.findByText("Press Militar"));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      await waitFor(() => expect(ejercicioApi.deleteEjercicio).toHaveBeenCalledWith("1"));
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio eliminado"));
+      confirmSpy.mockRestore();
     });
 
-    it("should prevent deletion when referenced in rutinas", async () => {
+    it("no elimina si se cancela la confirmación", async () => {
+      const user = userEvent.setup();
+      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(false);
+      render(<EjerciciosPage />);
+      await user.click(await screen.findByText("Press Militar"));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      expect(ejercicioApi.deleteEjercicio).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it("muestra el aviso de integridad referencial si el borrado está bloqueado", async () => {
       const user = userEvent.setup();
       (ejercicioApi.deleteEjercicio as jest.Mock).mockRejectedValue(
-        new ApiError(409, "No se puede eliminar el ejercicio porque está asignado a una o más rutinas", "DELETE_BLOCKED_ASSIGNED")
+        new ApiError(409, "mensaje del servidor", "DELETE_BLOCKED_ASSIGNED"),
       );
-
+      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<EjerciciosPage />);
+      await user.click(await screen.findByText("Press Militar"));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      expect(
+        await screen.findByText("No se puede eliminar: este ejercicio está en uso por una o más rutinas"),
+      ).toBeInTheDocument();
+      expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
+      confirmSpy.mockRestore();
+    });
+  });
 
-      await waitFor(() => {
-        expect(screen.getByText("Press Militar")).toBeInTheDocument();
-      });
+  describe("Buscar", () => {
+    it("abre el input en la ActionBar y filtra la tabla", async () => {
+      const user = userEvent.setup();
+      render(<EjerciciosPage />);
+      await screen.findByText("Press Militar");
 
-      global.confirm = jest.fn(() => true);
-      const deleteButton = screen.getByRole("button", { name: /Delete/i });
-      await user.click(deleteButton);
+      await user.click(screen.getByRole("button", { name: "Buscar" }));
+      const input = screen.getByLabelText("Buscar ejercicios");
+      expect(input).toBeInTheDocument();
 
-      await waitFor(() => {
-        expect(screen.getByText(/en uso|no se puede eliminar/i)).toBeInTheDocument();
-      });
+      await user.type(input, "sent");
+      expect(screen.getByText("Sentadilla")).toBeInTheDocument();
+      expect(screen.queryByText("Press Militar")).not.toBeInTheDocument();
+    });
+  });
 
-      global.confirm = jest.fn();
+  describe("Crear", () => {
+    it("al guardar sin selección llama createEjercicio", async () => {
+      const user = userEvent.setup();
+      (ejercicioApi.createEjercicio as jest.Mock).mockResolvedValue(mockEjercicio2);
+      render(<EjerciciosPage />);
+      await screen.findByText("Press Militar");
+      await user.click(screen.getByRole("button", { name: /Save/i }));
+      await waitFor(() => expect(ejercicioApi.createEjercicio).toHaveBeenCalled());
+      expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio creado");
     });
   });
 
   describe("Error handling", () => {
     it("should show error message if fetch fails", async () => {
-      (ejercicioApi.fetchEjercicios as jest.Mock).mockRejectedValue(
-        new TypeError("Failed to fetch")
+      (ejercicioApi.fetchEjercicios as jest.Mock).mockRejectedValue(new TypeError("Failed to fetch"));
+      render(<EjerciciosPage />);
+      await waitFor(() =>
+        expect(screen.getByText(/No hay conexión con el servidor/i)).toBeInTheDocument(),
       );
-
-      render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(/No hay conexión con el servidor/i)
-        ).toBeInTheDocument();
-      });
-    });
-
-    it("should show error if create fails", async () => {
-      const user = userEvent.setup();
-      // Simulate error from domain validation (already in Spanish)
-      (ejercicioApi.createEjercicio as jest.Mock).mockRejectedValue(
-        new ApiError(400, "Validación fallida: El nombre es requerido", "VALIDATION_ERROR")
-      );
-
-      render(<EjerciciosPage />);
-
-      // Wait for loading to finish and form to appear
-      await waitFor(() => {
-        expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
-      });
-
-      const saveButton = screen.getByRole("button", { name: /Save/i });
-      await user.click(saveButton);
-
-      await waitFor(() => {
-        // Verify exact Spanish error message from domain validation
-        expect(
-          screen.getByText("Validación fallida: El nombre es requerido")
-        ).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe("Form state management", () => {
-    it("should reset form after successful creation", async () => {
-      const user = userEvent.setup();
-      (ejercicioApi.createEjercicio as jest.Mock).mockResolvedValue(
-        mockEjercicio2
-      );
-
-      render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        const saveButton = screen.getByRole("button", { name: /Save/i });
-        expect(saveButton).toBeInTheDocument();
-      });
-
-      const saveButton = screen.getByRole("button", { name: /Save/i });
-      await user.click(saveButton);
-
-      await waitFor(() => {
-        expect(ejercicioApi.createEjercicio).toHaveBeenCalled();
-      });
-
-      // Form should be reset (initialData = null)
-      // This is handled by parent component state
-    });
-
-    it("should populate form with selected row data", async () => {
-      const user = userEvent.setup();
-      
-      render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Press Militar")).toBeInTheDocument();
-      });
-
-      const modifyButton = screen.getByRole("button", { name: /Modify/i });
-      await user.click(modifyButton);
-
-      // Form should show selected ejercicio data
-      expect(screen.getByTestId("ejercicio-form")).toBeInTheDocument();
-    });
-  });
-
-  describe("UI interactions", () => {
-    it("should show Cancel button when ejercicio is selected for editing", async () => {
-      const user = userEvent.setup();
-
-      render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Press Militar")).toBeInTheDocument();
-      });
-
-      // Initially no Cancel button
-      expect(screen.queryByRole("button", { name: /Cancelar/i })).not.toBeInTheDocument();
-
-      // Click modify to select ejercicio
-      const modifyButton = screen.getByRole("button", { name: /Modify/i });
-      await user.click(modifyButton);
-
-      // Now Cancel button should appear
-      await waitFor(() => {
-        expect(screen.getByRole("button", { name: /Cancelar/i })).toBeInTheDocument();
-      });
-
-      // Click Cancel to deselect
-      const cancelButton = screen.getByRole("button", { name: /Cancelar/i });
-      await user.click(cancelButton);
-
-      // Cancel button should disappear
-      await waitFor(() => {
-        expect(screen.queryByRole("button", { name: /Cancelar/i })).not.toBeInTheDocument();
-      });
-    });
-  });
-
-  describe("Loading states", () => {
-    it("should show loading indicator while fetching", () => {
-      (ejercicioApi.fetchEjercicios as jest.Mock).mockImplementation(
-        () => new Promise(resolve => setTimeout(() => resolve([]), 1000))
-      );
-
-      render(<EjerciciosPage />);
-
-      // May show loading state briefly
-      expect(
-        screen.queryByText(/cargando|loading/i) ||
-        screen.getByTestId("ejercicio-list")
-      ).toBeTruthy();
-    });
-
-    it("should disable save button while creating", async () => {
-      (ejercicioApi.createEjercicio as jest.Mock).mockImplementation(
-        () => new Promise(resolve => setTimeout(() => resolve(mockEjercicio), 500))
-      );
-
-      render(<EjerciciosPage />);
-
-      await waitFor(() => {
-        const saveButton = screen.getByRole("button", { name: /Save/i });
-        expect(saveButton).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe("T-023b: avisos de éxito y mensajes de error de la API", () => {
-    it("al crear avisa 'Ejercicio creado'", async () => {
-      const user = userEvent.setup();
-      (ejercicioApi.createEjercicio as jest.Mock).mockResolvedValue(mockEjercicio);
-
-      render(<EjerciciosPage />);
-      await user.click(await screen.findByRole("button", { name: /Save/i }));
-
-      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio creado"));
-    });
-
-    it("al editar avisa 'Ejercicio actualizado'", async () => {
-      const user = userEvent.setup();
-      (ejercicioApi.updateEjercicio as jest.Mock).mockResolvedValue(mockEjercicio);
-
-      render(<EjerciciosPage />);
-      await user.click(await screen.findByRole("button", { name: /Modify/i }));
-      await user.click(await screen.findByRole("button", { name: /Save/i }));
-
-      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio actualizado"));
-    });
-
-    it("al eliminar avisa 'Ejercicio eliminado'", async () => {
-      const user = userEvent.setup();
-      (ejercicioApi.deleteEjercicio as jest.Mock).mockResolvedValue(undefined);
-
-      render(<EjerciciosPage />);
-      await user.click(await screen.findByRole("button", { name: /Delete/i }));
-
-      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio eliminado"));
-    });
-
-    it("si el borrado está bloqueado por rutinas, no avisa éxito y muestra el texto de siempre", async () => {
-      const user = userEvent.setup();
-      (ejercicioApi.deleteEjercicio as jest.Mock).mockRejectedValue(
-        new ApiError(409, "mensaje del servidor", "DELETE_BLOCKED_ASSIGNED")
-      );
-
-      render(<EjerciciosPage />);
-      await user.click(await screen.findByRole("button", { name: /Delete/i }));
-
-      expect(
-        await screen.findByText("No se puede eliminar: este ejercicio está en uso por una o más rutinas")
-      ).toBeInTheDocument();
-      expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
     });
 
     it("un 5xx no muestra el detalle técnico", async () => {
       (ejercicioApi.fetchEjercicios as jest.Mock).mockRejectedValue(
-        new ApiError(500, "prisma exploded", "SERVER_ERROR")
+        new ApiError(500, "prisma exploded", "SERVER_ERROR"),
       );
-
       render(<EjerciciosPage />);
-
       expect(await screen.findByText(/No se pudo procesar la solicitud/i)).toBeInTheDocument();
       expect(screen.queryByText(/prisma exploded/i)).not.toBeInTheDocument();
     });

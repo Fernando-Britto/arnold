@@ -202,7 +202,7 @@ export function EjecucionRutina({
       <div
         data-testid="ejecucion-rutina"
         role="status"
-        className="flex flex-col items-center gap-3 rounded-3xl border border-gray-200 bg-white p-8 text-center"
+        className="flex flex-col items-center gap-3 rounded-lg border border-[#E4E4E7] bg-white p-8 text-center"
       >
         <Check className="h-10 w-10 text-green-700" aria-hidden="true" />
         <p className="text-xl font-bold text-gray-900">¡Rutina completada!</p>
@@ -225,7 +225,7 @@ export function EjecucionRutina({
   return (
     <div
       data-testid="ejecucion-rutina"
-      className="flex grow flex-col gap-5 rounded-3xl border border-gray-200 bg-white p-6"
+      className="flex grow flex-col gap-5 rounded-lg border border-[#E4E4E7] bg-white p-6"
     >
       <div className="flex items-start justify-between">
         <div>

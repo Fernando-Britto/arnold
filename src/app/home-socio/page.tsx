@@ -12,6 +12,20 @@ import { TarjetaDetalle } from "@/components/home-socio/tarjeta-detalle";
 import { RachaSemanal } from "@/components/home-socio/racha-semanal";
 import { MembresiaCard } from "@/components/home-socio/membresia-card";
 import { EjecucionRutina } from "@/components/home-socio/ejecucion-rutina";
+import { PlaceholderPanel } from "@/components/ui/placeholder-panel";
+
+/**
+ * A grid slot whose backing data/feature does not exist yet: renders the shared
+ * "Trabajando en esto" panel instead of inventing content. The slot keeps its
+ * `data-testid` so the row layout stays testable.
+ */
+function MissingCard({ testId }: { testId: string }) {
+  return (
+    <div data-testid={testId} className="flex">
+      <PlaceholderPanel className="w-full" />
+    </div>
+  );
+}
 
 /**
  * Home_Socio — T-019 Page Layout, rebuilt to match the real design
@@ -114,9 +128,10 @@ export function HomeSocioPage() {
     <div className="flex min-h-screen flex-col bg-[#F7F7F7]">
       <TopNav active="inicio" onNavigate={(link) => router.push(topNavHref(link))} onLogoutClick={() => void logout()} />
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-12">
-        {/* Fila1 */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+      {/* MainContent: padding 0/48/48/48, 24px gap (design-alignment.md). */}
+      <main className="flex w-full flex-col gap-6 px-12 pb-12">
+        {/* Fila1 — FilaProgreso (1157) + Aforo (633) */}
+        <div data-testid="fila-1" className="grid gap-6 lg:grid-cols-[1157fr_633fr]">
           {data.progreso ? (
             <ProgresoSection
               ejercicioNombre={data.progreso.ejercicioNombre}
@@ -126,13 +141,7 @@ export function HomeSocioPage() {
               proximaSesionSugerida={data.progreso.proximaSesionSugerida}
             />
           ) : (
-            <ProgresoSection
-              ejercicioNombre=""
-              marcaActual={0}
-              deltaEsteMes={0}
-              progresionCarga={[]}
-              proximaSesionSugerida={0}
-            />
+            <MissingCard testId="card-progreso" />
           )}
           <AforoCard
             ocupacionActual={data.aforo.ocupacionActual}
@@ -142,40 +151,40 @@ export function HomeSocioPage() {
           />
         </div>
 
-        {/* Fila2 */}
-        <div className="flex gap-6">
-          <TarjetaRutina
-            rutinaNombre={data.rutinaActiva?.nombre ?? null}
-            ejercicios={ejercicios}
-            indiceActual={indiceActual}
-            onSeguirRutina={handleSeguirRutina}
-          />
-          <TarjetaDetalle
-            ejercicio={
-              ejercicioActual
-                ? {
-                    nombre: ejercicioActual.nombre,
-                    grupoMuscular: ejercicioActual.grupoMuscular,
-                    descripcion: ejercicioActual.descripcion,
-                  }
-                : null
-            }
-            ejercicioEnRutina={
-              ejercicioActual
-                ? {
-                    series: ejercicioActual.series,
-                    repeticiones: ejercicioActual.repeticiones,
-                    descanso: ejercicioActual.descanso,
-                  }
-                : null
-            }
-          />
+        {/* Fila2 — Tarjeta_Rutina (1201) + Tarjeta_Detalle (589) */}
+        <div data-testid="fila-2" className="grid gap-6 lg:grid-cols-[1201fr_589fr]">
+          {data.rutinaActiva ? (
+            <TarjetaRutina
+              rutinaNombre={data.rutinaActiva.nombre}
+              ejercicios={ejercicios}
+              indiceActual={indiceActual}
+              onSeguirRutina={handleSeguirRutina}
+            />
+          ) : (
+            <MissingCard testId="card-rutina" />
+          )}
+          {ejercicioActual ? (
+            <TarjetaDetalle
+              ejercicio={{
+                nombre: ejercicioActual.nombre,
+                grupoMuscular: ejercicioActual.grupoMuscular,
+                descripcion: ejercicioActual.descripcion,
+              }}
+              ejercicioEnRutina={{
+                series: ejercicioActual.series,
+                repeticiones: ejercicioActual.repeticiones,
+                descanso: ejercicioActual.descanso,
+              }}
+            />
+          ) : (
+            <MissingCard testId="card-detalle" />
+          )}
         </div>
 
-        {/* Fila3 */}
-        <div className="flex gap-6">
+        {/* Fila3 — RachaSemanal (895) + Membresia (895) */}
+        <div data-testid="fila-3" className="grid gap-6 lg:grid-cols-2">
           <RachaSemanal semanasRacha={data.racha.semanasRacha} dias={data.racha.dias} />
-          {data.membresia && (
+          {data.membresia ? (
             <MembresiaCard
               planNombre={data.membresia.planNombre}
               fechaVencimiento={new Date(data.membresia.fechaVencimiento)}
@@ -183,9 +192,11 @@ export function HomeSocioPage() {
               dias28={data.membresia.dias28}
               totalAsistencias={data.membresia.totalAsistencias28Dias}
             />
+          ) : (
+            <MissingCard testId="card-membresia" />
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

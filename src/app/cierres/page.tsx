@@ -10,6 +10,7 @@ import {
   type TotalesDeCaja,
 } from "@/api/cierres";
 import { handleApiError } from "@/utils/api-error";
+import { SectionPageLayout } from "@/components/layout/section-page-layout";
 
 /** Roles que pueden cerrar la caja (D-42 / matriz de autorización). */
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RECEPCIONISTA"];
@@ -57,8 +58,21 @@ export function CierresPage() {
 
   useEffect(() => {
     if (!isAuthorized) return;
-    cargarPreview();
-  }, [isAuthorized, cargarPreview]);
+    let cancelled = false;
+    fetchPreviewCierre()
+      .then((data) => {
+        if (!cancelled) setTotales(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(handleApiError(err, "No se pudo calcular el cierre de caja."));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthorized]);
 
   const handleConfirmar = async () => {
     setError(null);
@@ -93,10 +107,10 @@ export function CierresPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F1F3F5] p-12">
-      <h1 className="mb-6 text-2xl font-bold text-zinc-900">Cierre de Caja</h1>
+    <SectionPageLayout breadcrumb="Cierre de Caja">
+      <h1 className="sr-only">Cierre de Caja</h1>
 
-      <div className="flex w-full max-w-lg flex-col gap-5 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex w-full max-w-lg flex-col gap-5 rounded-lg border border-[#E4E4E7] bg-white p-6">
         <div>
           <p className="text-sm font-medium text-zinc-500">Total del turno</p>
           <p data-testid="cierre-total" className="text-3xl font-bold text-zinc-900">
@@ -137,7 +151,7 @@ export function CierresPage() {
           {confirmando ? "Cerrando..." : "Confirmar cierre"}
         </button>
       </div>
-    </div>
+    </SectionPageLayout>
   );
 }
 

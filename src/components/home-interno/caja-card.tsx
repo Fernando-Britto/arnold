@@ -29,7 +29,7 @@ export function CajaCard({
   cierreDisabled = false,
 }: CajaCardProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-6">
+    <div className="flex flex-col gap-3 rounded-lg border border-[#E4E4E7] bg-white p-6">
       <p className="text-sm font-medium text-zinc-500">Caja de hoy</p>
       <p data-testid="caja-total" className="text-3xl font-bold text-zinc-900">
         {money(total)}
@@ -51,7 +51,7 @@ export function CajaCard({
         onClick={onCierreDeCaja}
         disabled={cierreDisabled}
         title={cierreDisabled ? SIN_ACCESO_TITLE : undefined}
-        className="mt-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1 rounded-lg border border-[#E5E5E5] px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         Cierre de Caja
       </button>

@@ -50,6 +50,14 @@ describe("CierresPage", () => {
     mockPreview.mockResolvedValue(preview);
   });
 
+  it("renderiza el chrome compartido (TopNav + ActionBar)", async () => {
+    render(<CierresPage />);
+    await waitFor(() => expect(mockPreview).toHaveBeenCalled());
+
+    expect(screen.getByLabelText("Navegación principal")).toBeInTheDocument();
+    expect(screen.getByLabelText("Breadcrumb")).toBeInTheDocument();
+  });
+
   it("muestra la previsualización de los totales del turno", async () => {
     render(<CierresPage />);
 

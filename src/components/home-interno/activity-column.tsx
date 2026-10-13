@@ -21,7 +21,7 @@ export interface ActivityColumnProps {
 
 export function ActivityColumn({ items }: ActivityColumnProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-5">
+    <div className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-5">
       <p className="text-[13px] font-bold text-zinc-900">Últimos movimientos</p>
 
       {items.length === 0 ? (

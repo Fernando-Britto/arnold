@@ -55,4 +55,14 @@ describe("PagosPage — guardas de acceso", () => {
     expect(await screen.findByText("Formulario de pago")).toBeInTheDocument();
     expect(mockPush).not.toHaveBeenCalled();
   });
+
+  it("renderiza el chrome compartido (TopNav + ActionBar)", async () => {
+    mockAuth.mockReturnValue({ user: { id: "u1", rol: "ADMINISTRADOR" }, isAuthenticated: true });
+
+    render(<PagosPage />);
+
+    expect(await screen.findByText("Formulario de pago")).toBeInTheDocument();
+    expect(screen.getByLabelText("Navegación principal")).toBeInTheDocument();
+    expect(screen.getByLabelText("Breadcrumb")).toBeInTheDocument();
+  });
 });

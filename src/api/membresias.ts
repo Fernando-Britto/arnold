@@ -1,5 +1,9 @@
 import { validateMembresia, type Membresia as MembresiaDomain, type EstadoMembresia } from "@/domains/membresia/membresia";
 import { MembresiaRepository } from "@/domains/membresia/membresia";
+import { throwIfNotOk } from "@/utils/api-error";
+
+/** Error de negocio con código para el route handler (en lugar de `as any`). */
+type CodedError = Error & { code?: string; assignedCount?: number };
 
 /**
  * Client-side API interface for Membresía (matches domain but adds assignedSocioCount)
@@ -28,7 +32,7 @@ export async function handleMembresiaCreate(
   const validation = validateMembresia(input);
   if (!validation.valid) {
     const error = new Error(`VALIDATION_ERROR: ${validation.errors[0] || "Validation failed"}`);
-    (error as any).code = "VALIDATION_ERROR";
+    (error as CodedError).code = "VALIDATION_ERROR";
     throw error;
   }
 
@@ -98,7 +102,7 @@ export async function handleMembresiaGetById(id: string): Promise<Membresia> {
 
   if (!membresia) {
     const error = new Error("NOT_FOUND: Membresía no encontrada");
-    (error as any).code = "NOT_FOUND";
+    (error as CodedError).code = "NOT_FOUND";
     throw error;
   }
 
@@ -123,7 +127,7 @@ export async function handleMembresiaUpdate(
 
   if (!existing) {
     const error = new Error("NOT_FOUND: Membresía no encontrada");
-    (error as any).code = "NOT_FOUND";
+    (error as CodedError).code = "NOT_FOUND";
     throw error;
   }
 
@@ -140,7 +144,7 @@ export async function handleMembresiaUpdate(
   const validation = validateMembresia(merged);
   if (!validation.valid) {
     const error = new Error(`VALIDATION_ERROR: ${validation.errors[0] || "Validation failed"}`);
-    (error as any).code = "VALIDATION_ERROR";
+    (error as CodedError).code = "VALIDATION_ERROR";
     throw error;
   }
 
@@ -150,8 +154,8 @@ export async function handleMembresiaUpdate(
     if (assignedCount > 0 && input.confirmarDesactivacion !== true) {
       // Warn but don't block — require explicit confirmation
       const error = new Error(`DEACTIVATION_WARNING: ${assignedCount} socios tienen esta membresía asignada`);
-      (error as any).code = "DEACTIVATION_WARNING";
-      (error as any).assignedCount = assignedCount;
+      (error as CodedError).code = "DEACTIVATION_WARNING";
+      (error as CodedError).assignedCount = assignedCount;
       throw error;
     }
     // If confirmarDesactivacion === true, allow the deactivation to proceed
@@ -177,7 +181,7 @@ export async function handleMembresiaDelete(id: string): Promise<void> {
 
   if (!membresia) {
     const error = new Error("NOT_FOUND: Membresía no encontrada");
-    (error as any).code = "NOT_FOUND";
+    (error as CodedError).code = "NOT_FOUND";
     throw error;
   }
 
@@ -185,8 +189,8 @@ export async function handleMembresiaDelete(id: string): Promise<void> {
   const assignedCount = await repository.getAssignedSocioCount(id);
   if (assignedCount > 0) {
     const error = new Error(`DELETE_BLOCKED_ASSIGNED: No se puede eliminar: ${assignedCount} socios asignados`);
-    (error as any).code = "DELETE_BLOCKED_ASSIGNED";
-    (error as any).assignedCount = assignedCount;
+    (error as CodedError).code = "DELETE_BLOCKED_ASSIGNED";
+    (error as CodedError).assignedCount = assignedCount;
     throw error;
   }
 
@@ -213,4 +217,24 @@ export async function fetchMembresias(): Promise<MembresiaDropdown[]> {
   }
   const data = await response.json();
   return data;
+}
+
+/**
+ * Client-side API call: fetch every membresía (management list, T-017).
+ * Distinct from `fetchMembresias` (active-only dropdown for Clientes, AC-004).
+ */
+export async function fetchMembresiasList(): Promise<MembresiaDomain[]> {
+  const response = await fetch("/api/membresias");
+  await throwIfNotOk(response, "No se pudieron cargar las membresías");
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Client-side API call: delete a membresía.
+ * The server guards assigned socios with DELETE_BLOCKED_ASSIGNED (AC-006).
+ */
+export async function deleteMembresia(id: string): Promise<void> {
+  const response = await fetch(`/api/membresias/${id}`, { method: "DELETE" });
+  await throwIfNotOk(response, "No se pudo eliminar la membresía");
 }

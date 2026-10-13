@@ -29,7 +29,7 @@ export function MisEjerciciosSection({ ejercicios }: MisEjerciciosSectionProps) 
             <li
               key={e.id}
               data-testid="ejercicio-card"
-              className="flex flex-col gap-3 rounded-3xl border border-zinc-200 bg-white p-6"
+              className="flex flex-col gap-3 rounded-lg border border-[#E4E4E7] bg-white p-6"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex flex-col">

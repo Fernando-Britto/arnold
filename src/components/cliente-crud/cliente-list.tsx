@@ -1,27 +1,47 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { type EstadoCuenta } from "@/domains/cliente/cliente";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableCell,
+  TableStatusBadge,
+  TableDetailRow,
+  type TableColumn,
+  type TableStatusVariant,
+} from "@/components/ui/table";
+import { shortId } from "@/utils/short-id";
+
+/** Columns exactly as the OpenPencil mockup (relative widths from the spec). */
+export const CLIENTE_COLUMNS: TableColumn[] = [
+  { key: "id", label: "ID", width: 80 },
+  { key: "nombre", label: "Nombre" },
+  { key: "dni", label: "DNI", width: 120 },
+  { key: "membresia", label: "Membresía", width: 180 },
+  { key: "estadoCuota", label: "Estado de cuota", width: 140 },
+];
+
+export interface ClienteRow {
+  id: string;
+  nombre: string;
+  dni: string;
+  email: string;
+  telefono?: string | null;
+  membresiaAsignada: string;
+  estadoCuenta: EstadoCuenta;
+  fechaAlta: Date;
+}
 
 export interface ClienteListProps {
-  clientes: Array<{
-    id: string;
-    nombre: string;
-    dni: string;
-    email: string;
-    telefono?: string | null;
-    membresiaAsignada: string;
-    estadoCuenta: EstadoCuenta;
-    fechaAlta: Date;
-  }>;
-  onModify: (cliente: any) => void;
-  onDelete: (id: string) => Promise<void>;
+  clientes: ClienteRow[];
+  selectedId?: string | null;
+  onSelect?: (cliente: ClienteRow) => void;
+  searchTerm?: string;
   membresiaLabels?: Record<string, string>;
   isLoading?: boolean;
 }
 
-type SortField = "nombre" | "dni" | "email" | "membresiaAsignada" | "estadoCuenta";
-
-function getEstadoCuentaBadgeVariant(estado: EstadoCuenta): BadgeVariant {
+function estadoCuentaVariant(estado: EstadoCuenta): TableStatusVariant {
   switch (estado) {
     case "Activo":
       return "success";
@@ -34,211 +54,85 @@ function getEstadoCuentaBadgeVariant(estado: EstadoCuenta): BadgeVariant {
   }
 }
 
+/**
+ * Presentational table for Clientes. Selection is controlled by the page;
+ * the search term is filtered here (the input lives in the ActionBar).
+ */
 export function ClienteList({
   clientes,
-  onModify,
-  onDelete,
+  selectedId = null,
+  onSelect,
+  searchTerm = "",
   membresiaLabels = {},
   isLoading = false,
 }: ClienteListProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState<SortField>("nombre");
-  const [sortAsc, setSortAsc] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  // Filter clientes by search term (nombre, dni, email)
-  const filteredClientes = useMemo(() => {
-    return clientes.filter((cliente) => {
-      const search = searchTerm.toLowerCase();
-      return (
-        cliente.nombre.toLowerCase().includes(search) ||
-        cliente.dni.toLowerCase().includes(search) ||
-        cliente.email.toLowerCase().includes(search)
-      );
-    });
+  const filtered = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return [...clientes]
+      .filter(
+        (c) =>
+          !term ||
+          c.nombre.toLowerCase().includes(term) ||
+          c.dni.toLowerCase().includes(term) ||
+          c.email.toLowerCase().includes(term)
+      )
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [clientes, searchTerm]);
 
-  // Sort clientes
-  const sortedClientes = useMemo(() => {
-    const sorted = [...filteredClientes];
-    sorted.sort((a, b) => {
-      let aVal: string | number = a[sortField];
-      let bVal: string | number = b[sortField];
+  if (isLoading) {
+    return <div className="p-8 text-center text-sm text-[#71717A]">Cargando...</div>;
+  }
 
-      if (sortField === "estadoCuenta") {
-        // Maintain a consistent order for estado: Activo > Inactivo > Bloqueado
-        const order: Record<EstadoCuenta, number> = {
-          Activo: 0,
-          Inactivo: 1,
-          Bloqueado: 2,
-        };
-        aVal = order[aVal as EstadoCuenta];
-        bVal = order[bVal as EstadoCuenta];
-      }
-
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return sortAsc
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
-      }
-
-      return sortAsc
-        ? Number(aVal) - Number(bVal)
-        : Number(bVal) - Number(aVal);
-    });
-
-    return sorted;
-  }, [filteredClientes, sortField, sortAsc]);
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortField(field);
-      setSortAsc(true);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (confirm("¿Estás seguro de que querés eliminar este cliente?")) {
-      setDeletingId(id);
-      try {
-        await onDelete(id);
-      } catch (error) {
-        console.error("Delete error:", error);
-      } finally {
-        setDeletingId(null);
-      }
-    }
-  };
+  if (clientes.length === 0) {
+    return (
+      <div className="p-8 text-center text-sm text-[#71717A]">No hay clientes registrados</div>
+    );
+  }
 
   return (
-    <div className="flex flex-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="w-[3px] shrink-0 bg-[#FC4C02]" />
-      <div className="flex-1 p-6">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold mb-3">Clientes</h2>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, DNI o email..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {isLoading ? (
-        <div className="text-center py-8 text-gray-500">Cargando...</div>
-      ) : sortedClientes.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          {clientes.length === 0
-            ? "No hay clientes registrados"
-            : "No se encontraron resultados"}
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-4 py-2 text-left font-semibold">
-                  <button
-                    onClick={() => handleSort("nombre")}
-                    className="flex items-center gap-1 hover:text-blue-600"
-                  >
-                    Nombre
-                    {sortField === "nombre" && (
-                      <span>{sortAsc ? "↑" : "↓"}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="px-4 py-2 text-left font-semibold">
-                  <button
-                    onClick={() => handleSort("dni")}
-                    className="flex items-center gap-1 hover:text-blue-600"
-                  >
-                    DNI
-                    {sortField === "dni" && (
-                      <span>{sortAsc ? "↑" : "↓"}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="px-4 py-2 text-left font-semibold">
-                  <button
-                    onClick={() => handleSort("email")}
-                    className="flex items-center gap-1 hover:text-blue-600"
-                  >
-                    Email
-                    {sortField === "email" && (
-                      <span>{sortAsc ? "↑" : "↓"}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="px-4 py-2 text-left font-semibold">
-                  <button
-                    onClick={() => handleSort("membresiaAsignada")}
-                    className="flex items-center gap-1 hover:text-blue-600"
-                  >
-                    Membresía
-                    {sortField === "membresiaAsignada" && (
-                      <span>{sortAsc ? "↑" : "↓"}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="px-4 py-2 text-left font-semibold">
-                  <button
-                    onClick={() => handleSort("estadoCuenta")}
-                    className="flex items-center gap-1 hover:text-blue-600"
-                  >
-                    Estado
-                    {sortField === "estadoCuenta" && (
-                      <span>{sortAsc ? "↑" : "↓"}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="px-4 py-2 text-right font-semibold">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedClientes.map((cliente) => (
-                <tr
-                  key={cliente.id}
-                  className="border-b border-gray-200 hover:bg-gray-50"
-                >
-                  <td className="px-4 py-3">{cliente.nombre}</td>
-                  <td className="px-4 py-3">{cliente.dni}</td>
-                  <td className="px-4 py-3">{cliente.email}</td>
-                  <td className="px-4 py-3">
-                    {membresiaLabels[cliente.membresiaAsignada] ||
-                      cliente.membresiaAsignada}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={getEstadoCuentaBadgeVariant(cliente.estadoCuenta)}>
-                      {cliente.estadoCuenta}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => onModify(cliente)}
-                      className="text-[#C13D00] hover:underline font-medium text-sm mr-3 disabled:text-gray-400"
-                      disabled={deletingId === cliente.id}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(cliente.id)}
-                      disabled={deletingId === cliente.id}
-                      className="text-[#C13D00] hover:underline font-medium text-sm disabled:text-gray-400"
-                    >
-                      {deletingId === cliente.id ? "Eliminando..." : "Eliminar"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <Table label="Clientes">
+      <TableHeader columns={CLIENTE_COLUMNS} />
+      {filtered.map((cliente) => {
+        const isSelected = cliente.id === selectedId;
+        return (
+          <React.Fragment key={cliente.id}>
+            <TableRow selected={isSelected} onClick={() => onSelect?.(cliente)}>
+              <TableCell width={80} variant="secondary">
+                {shortId("CL", cliente.id)}
+              </TableCell>
+              <TableCell>{cliente.nombre}</TableCell>
+              <TableCell width={120} variant="secondary">
+                {cliente.dni}
+              </TableCell>
+              <TableCell width={180} variant="secondary">
+                {membresiaLabels[cliente.membresiaAsignada] || cliente.membresiaAsignada}
+              </TableCell>
+              <TableCell width={140}>
+                <TableStatusBadge variant={estadoCuentaVariant(cliente.estadoCuenta)}>
+                  {cliente.estadoCuenta}
+                </TableStatusBadge>
+              </TableCell>
+            </TableRow>
+            {isSelected && (
+              <TableDetailRow>
+                <div>
+                  <p className="text-[11px] font-bold uppercase text-[#C13D00]">Email</p>
+                  <p className="text-sm text-[#333333]">{cliente.email || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase text-[#C13D00]">Teléfono</p>
+                  <p className="text-sm text-[#333333]">{cliente.telefono || "-"}</p>
+                </div>
+              </TableDetailRow>
+            )}
+          </React.Fragment>
+        );
+      })}
+      {filtered.length === 0 && searchTerm.trim() !== "" && (
+        <p className="p-6 text-center text-sm text-[#71717A]">
+          {`No se encontraron clientes que coincidan con "${searchTerm}".`}
+        </p>
       )}
-      </div>
-    </div>
+    </Table>
   );
 }

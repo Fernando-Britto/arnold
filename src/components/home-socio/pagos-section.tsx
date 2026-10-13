@@ -56,7 +56,7 @@ export function PagosSection({ membresia }: PagosSectionProps) {
         <p className="text-sm text-zinc-500">Todavía no tenés pagos ni membresía registrados.</p>
       ) : (
         <>
-          <div className="flex items-center justify-between rounded-3xl border border-zinc-200 bg-white p-6">
+          <div className="flex items-center justify-between rounded-lg border border-[#E4E4E7] bg-white p-6">
             <div className="flex items-center gap-3">
               <CreditCard className="h-6 w-6 text-[#FC4C02]" aria-hidden="true" />
               <div className="flex flex-col">
@@ -80,7 +80,7 @@ export function PagosSection({ membresia }: PagosSectionProps) {
             </span>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-6">
+          <div className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6">
             <h2 className="text-lg font-bold text-zinc-900">Historial de pagos</h2>
             {membresia.historial.length === 0 ? (
               <p className="text-sm text-zinc-500">Todavía no registraste pagos.</p>

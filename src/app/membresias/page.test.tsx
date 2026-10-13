@@ -1,8 +1,10 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MembresiasPage } from "./page";
 import { useAuth } from "@/contexts/auth";
+import { useNotifications } from "@/contexts/notifications";
+import { ApiError } from "@/utils/api-error";
 
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
@@ -16,55 +18,58 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/contexts/auth");
+jest.mock("@/contexts/notifications");
+const mockNotify = jest.fn();
 
-const mockMembresia = {
-  id: "1",
+jest.mock("@/api/membresias", () => ({
+  fetchMembresiasList: jest.fn(),
+  deleteMembresia: jest.fn(),
+}));
+
+import * as membresiasApi from "@/api/membresias";
+const mockMembresiasApi = membresiasApi as jest.Mocked<typeof membresiasApi>;
+
+jest.mock("@/components/membresia-crud/membresia-form-panel", () => ({
+  MembresiaFormPanel: ({ initialData }: { initialData: { nombre?: string } | null }) => (
+    <div data-testid="membresia-form-panel">
+      <span data-testid="form-nombre">{initialData?.nombre ?? ""}</span>
+    </div>
+  ),
+}));
+
+const gold = {
+  id: "11111111gold",
   nombre: "Gold",
   precio: 15000,
   periodicidad: 30,
-  descripcion: "Premium membership",
+  descripcion: "Premium",
   estado: "ACTIVA" as const,
   createdAt: new Date(),
   updatedAt: new Date(),
-  assignedSocioCount: 5,
 };
 
-jest.mock("@/components/membresia-crud/membresia-form-panel", () => ({
-  MembresiaFormPanel: ({ initialData, onSuccess, onCancel }: any) => (
-    <div data-testid="membresia-form-panel">
-      <button data-testid="form-cancel-btn" onClick={() => onCancel()}>Cancel</button>
-      <button data-testid="form-success-btn" onClick={() => onSuccess({ ...initialData, id: initialData?.id || "new-id" })}>Save</button>
-    </div>
-  ),
-}));
-
-jest.mock("@/components/membresia-crud/membresia-list-panel", () => ({
-  MembresiaListPanel: ({ onEditClick }: any) => (
-    <div data-testid="membresia-list-panel">
-      <button data-testid="list-edit-btn" onClick={() => onEditClick(mockMembresia)}>Edit Gold</button>
-    </div>
-  ),
-}));
-
-describe("Membresias CRUD Screen - T-017", () => {
+describe("Membresias CRUD Screen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
     (useAuth as jest.Mock).mockReturnValue({
       user: { id: "user1", rol: "ADMINISTRADOR" },
       isAuthenticated: true,
     });
+    mockMembresiasApi.fetchMembresiasList.mockResolvedValue([gold]);
   });
 
   describe("Role-based access control", () => {
-    it("should render page for ADMINISTRADOR and redirect non-admin roles", async () => {
+    it("renders for ADMINISTRADOR", async () => {
       render(<MembresiasPage />);
       await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "Membresías" })).toBeInTheDocument();
         expect(screen.getByTestId("membresia-form-panel")).toBeInTheDocument();
-        expect(screen.getByTestId("membresia-list-panel")).toBeInTheDocument();
+        expect(screen.getByRole("table", { name: "Membresías" })).toBeInTheDocument();
       });
     });
 
-    it("should redirect INSTRUCTOR to /home-socio", async () => {
+    it("redirects INSTRUCTOR to /home-socio", async () => {
       (useAuth as jest.Mock).mockReturnValue({
         user: { id: "user1", rol: "INSTRUCTOR" },
         isAuthenticated: true,
@@ -73,106 +78,95 @@ describe("Membresias CRUD Screen - T-017", () => {
       await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/home-socio"));
     });
 
-    it("should redirect RECEPCIONISTA to /home-socio", async () => {
-      (useAuth as jest.Mock).mockReturnValue({
-        user: { id: "user1", rol: "RECEPCIONISTA" },
-        isAuthenticated: true,
-      });
-      render(<MembresiasPage />);
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/home-socio"));
-    });
-
-    it("should redirect unauthenticated users to /login", async () => {
+    it("redirects unauthenticated users to /login", async () => {
       (useAuth as jest.Mock).mockReturnValue({ user: null, isAuthenticated: false });
       render(<MembresiasPage />);
       await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/login"));
     });
 
-    it("should show access denied for unauthorized roles", async () => {
+    it("shows access denied for unauthorized roles", async () => {
       (useAuth as jest.Mock).mockReturnValue({
         user: { id: "user1", rol: "SOCIO" },
         isAuthenticated: true,
       });
       render(<MembresiasPage />);
-      await waitFor(() => {
-        expect(screen.getByText("Acceso Denegado")).toBeInTheDocument();
-      });
+      await waitFor(() => expect(screen.getByText("Acceso Denegado")).toBeInTheDocument());
     });
   });
 
-  describe("Page layout", () => {
-    it("should render title, form panel, and list panel", async () => {
+  describe("Table (mockup alignment)", () => {
+    it("renderiza las columnas exactas y el badge de estado", async () => {
       render(<MembresiasPage />);
-      await waitFor(() => {
-        expect(screen.getByRole("heading", { name: "Membresías" })).toBeInTheDocument();
-        expect(screen.getByTestId("membresia-form-panel")).toBeInTheDocument();
-        expect(screen.getByTestId("membresia-list-panel")).toBeInTheDocument();
-        expect(screen.getByText("Nueva Membresía")).toBeInTheDocument();
-      });
+      await screen.findByText("Gold");
+      expect(screen.getByText("ID")).toBeInTheDocument();
+      expect(screen.getByText("Precio")).toBeInTheDocument();
+      expect(screen.getByText("Periodicidad")).toBeInTheDocument();
+      expect(screen.getByText("Estado")).toBeInTheDocument();
+      expect(screen.getByText("Activa")).toBeInTheDocument();
+    });
+
+    it("no renderiza botones por fila", async () => {
+      render(<MembresiasPage />);
+      await screen.findByText("Gold");
+      const table = screen.getByRole("table", { name: "Membresías" });
+      expect(within(table).queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "Modificar" })).toHaveLength(1);
     });
   });
 
-  describe("Edit flow: select from list → form updates", () => {
-    it("should change title to 'Editar' when membresia is selected and pass initialData", async () => {
+  describe("Selección + Modificar + Eliminar", () => {
+    it("Modificar/Eliminar deshabilitados sin selección", async () => {
+      render(<MembresiasPage />);
+      await screen.findByText("Gold");
+      expect(screen.getByRole("button", { name: "Modificar" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Eliminar" })).toBeDisabled();
+    });
+
+    it("click en fila + Modificar carga la membresía en el form", async () => {
       const user = userEvent.setup();
       render(<MembresiasPage />);
+      await user.click(await screen.findByText("Gold"));
+      await user.click(screen.getByRole("button", { name: "Modificar" }));
+      expect(screen.getByTestId("form-nombre")).toHaveTextContent("Gold");
+    });
 
-      const editBtn = await screen.findByTestId("list-edit-btn");
-      await user.click(editBtn);
+    it("click en fila + Eliminar confirma y borra", async () => {
+      const user = userEvent.setup();
+      mockMembresiasApi.deleteMembresia.mockResolvedValue(undefined);
+      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
+      render(<MembresiasPage />);
+      await user.click(await screen.findByText("Gold"));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      await waitFor(() =>
+        expect(mockMembresiasApi.deleteMembresia).toHaveBeenCalledWith("11111111gold"),
+      );
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Membresía eliminada"));
+      confirmSpy.mockRestore();
+    });
 
-      await waitFor(() => {
-        expect(screen.getByTestId("form-title")).toHaveTextContent("Editar Membresía");
-      });
+    it("muestra el aviso cuando el borrado está bloqueado por socios asignados", async () => {
+      const user = userEvent.setup();
+      mockMembresiasApi.deleteMembresia.mockRejectedValue(
+        new ApiError(409, "2 socios asignados", "DELETE_BLOCKED_ASSIGNED"),
+      );
+      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
+      render(<MembresiasPage />);
+      await user.click(await screen.findByText("Gold"));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      expect(await screen.findByText(/No se puede eliminar: 2 socios asignados/i)).toBeInTheDocument();
+      expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
+      confirmSpy.mockRestore();
     });
   });
 
-  describe("Cancel flow: onCancel clears form", () => {
-    it("should clear form and revert title when cancel is clicked", async () => {
+  describe("Buscar", () => {
+    it("filtra la tabla desde la ActionBar", async () => {
       const user = userEvent.setup();
       render(<MembresiasPage />);
-
-      const editBtn = await screen.findByTestId("list-edit-btn");
-      await user.click(editBtn);
-      await waitFor(() => expect(screen.getByTestId("form-title")).toHaveTextContent("Editar Membresía"));
-
-      const cancelBtn = await screen.findByTestId("form-cancel-btn");
-      await user.click(cancelBtn);
-
-      await waitFor(() => {
-        expect(screen.getByTestId("form-title")).toHaveTextContent("Nueva Membresía");
-      });
-    });
-  });
-
-  describe("Success flow: onSuccess clears form and refreshes list", () => {
-    it("should clear form and refresh list panel when form saves successfully", async () => {
-      const user = userEvent.setup();
-      render(<MembresiasPage />);
-
-      const editBtn = await screen.findByTestId("list-edit-btn");
-      await user.click(editBtn);
-      await waitFor(() => expect(screen.getByTestId("form-title")).toHaveTextContent("Editar Membresía"));
-
-      const successBtn = await screen.findByTestId("form-success-btn");
-      await user.click(successBtn);
-
-      await waitFor(() => {
-        expect(screen.getByTestId("form-title")).toHaveTextContent("Nueva Membresía");
-        expect(screen.getByTestId("membresia-list-panel")).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe("Callback integration", () => {
-    it("should wire onSuccess, onCancel, and onEditClick callbacks properly", async () => {
-      const user = userEvent.setup();
-      render(<MembresiasPage />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId("form-cancel-btn")).toBeInTheDocument();
-        expect(screen.getByTestId("form-success-btn")).toBeInTheDocument();
-        expect(screen.getByTestId("list-edit-btn")).toBeInTheDocument();
-      });
+      await screen.findByText("Gold");
+      await user.click(screen.getByRole("button", { name: "Buscar" }));
+      await user.type(screen.getByLabelText("Buscar membresías"), "zzz");
+      expect(screen.getByText(/No se encontraron membresías/i)).toBeInTheDocument();
     });
   });
 });

@@ -66,7 +66,10 @@ export function MembresiaCard({
         : "bg-red-100 text-red-800";
 
   return (
-    <div className="flex items-center justify-between gap-6 rounded-3xl border border-zinc-200 bg-white p-6">
+    <div
+      data-testid="card-membresia"
+      className="flex items-center justify-between gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6"
+    >
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <p className="text-xl font-bold text-zinc-900">{planNombre}</p>

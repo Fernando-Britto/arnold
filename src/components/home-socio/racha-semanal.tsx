@@ -25,7 +25,10 @@ const DIAS_LABEL = ["L", "M", "X", "J", "V", "S", "D"];
 
 export function RachaSemanal({ semanasRacha, dias, onVerHistorial }: RachaSemanalProps) {
   return (
-    <div className="flex flex-col gap-6 rounded-3xl border border-zinc-200 bg-white p-6">
+    <div
+      data-testid="card-racha"
+      className="flex flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6"
+    >
       <div className="flex items-center gap-10">
         <div className="flex flex-col items-center gap-2.5">
           <div className="flex flex-col gap-1">

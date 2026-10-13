@@ -140,7 +140,7 @@ export function HomeInternoPage() {
   if (!puedeAbrir("/acceso")) accionesDeshabilitadas.push("control-acceso");
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F1F3F5]">
+    <div className="flex min-h-screen flex-col bg-[#F7F7F7]">
       <AdminTopNav />
       <div className="border-t border-zinc-100 bg-white px-12 py-4 text-sm text-slate-600">
         {ROL_LABEL[user?.rol ?? ""] ?? "Staff"} · {formatFechaHeader(data.ahora)}

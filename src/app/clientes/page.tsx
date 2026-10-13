@@ -16,6 +16,7 @@ import {
 import { fetchMembresias, type MembresiaDropdown } from "@/api/membresias";
 import { Cliente } from "@/domains/cliente/cliente";
 import { CrudPageLayout } from "@/components/layout/crud-page-layout";
+import { CrudActions } from "@/components/layout/crud-actions";
 
 export function ClientesPage() {
   const router = useRouter();
@@ -24,7 +25,9 @@ export function ClientesPage() {
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [membresias, setMembresias] = useState<MembresiaDropdown[]>([]);
-  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Cliente | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -155,8 +158,9 @@ export function ClientesPage() {
         }
       }
 
-      // Reset form
-      setSelectedCliente(null);
+      // Reset form and selection
+      setEditing(null);
+      setSelectedId(null);
     } catch (err) {
       setError(handleApiError(err, "No se pudo guardar el cliente."));
     } finally {
@@ -164,18 +168,31 @@ export function ClientesPage() {
     }
   };
 
-  const handleModify = (cliente: Cliente) => {
-    setSelectedCliente(cliente);
+  const handleSelect = (cliente: Cliente) => {
+    setSelectedId(cliente.id);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleModify = () => {
+    const cliente = clientes.find((c) => c.id === selectedId) ?? null;
+    if (cliente) setEditing(cliente);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedId) return;
+    const cliente = clientes.find((c) => c.id === selectedId);
+    if (!cliente) return;
+    if (typeof window !== "undefined" && !window.confirm("¿Estás seguro de que querés eliminar este cliente?")) {
+      return;
+    }
+
     try {
       setError(null);
-      await deleteCliente(id);
-      setClientes((prev) => prev.filter((c) => c.id !== id));
-      if (selectedCliente?.id === id) {
-        setSelectedCliente(null);
+      await deleteCliente(selectedId);
+      setClientes((prev) => prev.filter((c) => c.id !== selectedId));
+      if (editing?.id === selectedId) {
+        setEditing(null);
       }
+      setSelectedId(null);
       notify("success", "Cliente eliminado");
     } catch (err) {
       setError(handleApiError(err, "No se pudo eliminar el cliente."));
@@ -246,22 +263,33 @@ export function ClientesPage() {
         section="clientes"
         breadcrumb="Clientes"
         error={error}
+        actions={
+          <CrudActions
+            hasSelection={!!selectedId}
+            onModify={handleModify}
+            onDelete={handleDelete}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchLabel="Buscar clientes"
+            searchPlaceholder="Buscar por nombre, DNI o email..."
+          />
+        }
         formPanel={
           loading ? null : (
             <ClienteForm
               onSave={handleSave}
-              onCancel={() => setSelectedCliente(null)}
+              onCancel={() => setEditing(null)}
               initialData={
-                selectedCliente
+                editing
                   ? {
-                      id: selectedCliente.id,
-                      nombre: selectedCliente.nombre,
-                      dni: selectedCliente.dni,
-                      email: selectedCliente.email,
-                      telefono: selectedCliente.telefono,
-                      membresiaAsignada: selectedCliente.membresiaAsignada,
-                      estadoCuenta: selectedCliente.estadoCuenta,
-                      fechaAlta: selectedCliente.fechaAlta,
+                      id: editing.id,
+                      nombre: editing.nombre,
+                      dni: editing.dni,
+                      email: editing.email,
+                      telefono: editing.telefono,
+                      membresiaAsignada: editing.membresiaAsignada,
+                      estadoCuenta: editing.estadoCuenta,
+                      fechaAlta: editing.fechaAlta,
                     }
                   : null
               }
@@ -278,8 +306,9 @@ export function ClientesPage() {
           ) : (
             <ClienteList
               clientes={clientes}
-              onModify={handleModify}
-              onDelete={handleDelete}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              searchTerm={searchTerm}
               membresiaLabels={membresiaLabels}
             />
           )

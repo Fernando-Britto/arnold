@@ -35,7 +35,7 @@ export function ProgresoDetalleSection({ progreso }: ProgresoDetalleSectionProps
             <div
               key={p.ejercicioId}
               data-testid="progreso-ejercicio"
-              className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-6"
+              className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6"
             >
               <div className="flex items-center justify-between">
                 <h2 className="font-bold text-zinc-900">{p.ejercicioNombre}</h2>

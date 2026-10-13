@@ -60,6 +60,16 @@ describe("AccesoPage — guardas de acceso", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it("renderiza el chrome compartido (TopNav + ActionBar)", async () => {
+    mockAuth.mockReturnValue({ user: { id: "u1", rol: "RECEPCIONISTA" }, isAuthenticated: true });
+
+    render(<AccesoPage />);
+
+    expect(await screen.findByText("Kiosco de acceso")).toBeInTheDocument();
+    expect(screen.getByLabelText("Navegación principal")).toBeInTheDocument();
+    expect(screen.getByLabelText("Breadcrumb")).toBeInTheDocument();
+  });
+
   it("permite al personal abrir el panel Definir PIN sin perder el flujo del kiosco", async () => {
     mockAuth.mockReturnValue({ user: { id: "u1", rol: "RECEPCIONISTA" }, isAuthenticated: true });
     const user = userEvent.setup();

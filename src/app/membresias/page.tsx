@@ -3,16 +3,26 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth";
+import { useNotifications } from "@/contexts/notifications";
+import { ApiError, handleApiError } from "@/utils/api-error";
 import { Membresia } from "@/domains/membresia/membresia";
 import { MembresiaFormPanel } from "@/components/membresia-crud/membresia-form-panel";
 import { MembresiaListPanel } from "@/components/membresia-crud/membresia-list-panel";
 import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
+import { CrudActions } from "@/components/layout/crud-actions";
+import { fetchMembresiasList, deleteMembresia } from "@/api/membresias";
 
 export function MembresiasPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const [selectedMembresia, setSelectedMembresia] = useState<Membresia | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { notify } = useNotifications();
+
+  const [membresias, setMembresias] = useState<Membresia[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Membresia | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Check authentication and authorization
   useEffect(() => {
@@ -28,6 +38,81 @@ export function MembresiasPage() {
       return;
     }
   }, [isAuthenticated, user, router]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    let cancelled = false;
+    const loadMembresias = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await fetchMembresiasList();
+        if (!cancelled) setMembresias(data);
+      } catch (err) {
+        if (!cancelled) setError(handleApiError(err, "No se pudieron cargar las membresías."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadMembresias();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user]);
+
+  const handleFormSuccess = (membresia: Membresia) => {
+    setMembresias((prev) => {
+      const exists = prev.some((m) => m.id === membresia.id);
+      return exists ? prev.map((m) => (m.id === membresia.id ? membresia : m)) : [...prev, membresia];
+    });
+    setEditing(null);
+    setSelectedId(null);
+  };
+
+  const handleFormCancel = () => {
+    setEditing(null);
+  };
+
+  const handleSelect = (membresia: Membresia) => {
+    setSelectedId(membresia.id);
+  };
+
+  const handleModify = () => {
+    const membresia = membresias.find((m) => m.id === selectedId) ?? null;
+    if (membresia) setEditing(membresia);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedId) return;
+    const membresia = membresias.find((m) => m.id === selectedId);
+    if (!membresia) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(`¿Está seguro que desea eliminar "${membresia.nombre}"?`)
+    ) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await deleteMembresia(selectedId);
+      setMembresias((prev) => prev.filter((m) => m.id !== selectedId));
+      if (editing?.id === selectedId) {
+        setEditing(null);
+      }
+      setSelectedId(null);
+      notify("success", "Membresía eliminada");
+    } catch (err) {
+      // AC-006: no se puede borrar una membresía asignada a socios.
+      if (err instanceof ApiError && err.code === "DELETE_BLOCKED_ASSIGNED") {
+        setError(`No se puede eliminar: ${err.message}`);
+      } else {
+        setError(handleApiError(err, "No se pudo eliminar la membresía."));
+      }
+    }
+  };
 
   // Check if user is authorized before rendering
   const isAuthorized =
@@ -52,20 +137,6 @@ export function MembresiasPage() {
     );
   }
 
-  const handleFormSuccess = (membresia: Membresia) => {
-    // Clear form selection and trigger list refresh
-    setSelectedMembresia(null);
-    setRefreshTrigger(prev => prev + 1);
-  };
-
-  const handleFormCancel = () => {
-    setSelectedMembresia(null);
-  };
-
-  const handleEditMembresia = (membresia: Membresia & { assignedSocioCount: number }) => {
-    setSelectedMembresia(membresia as Membresia);
-  };
-
   return (
     <>
       <h1 className="sr-only">Membresías</h1>
@@ -73,24 +144,39 @@ export function MembresiasPage() {
       <CrudPageLayout
         section="membresias"
         breadcrumb="Membresías"
+        error={error}
+        actions={
+          <CrudActions
+            hasSelection={!!selectedId}
+            onModify={handleModify}
+            onDelete={handleDelete}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchLabel="Buscar membresías"
+            searchPlaceholder="Buscar por nombre..."
+          />
+        }
         formPanel={
           <FormPanelShell
-            title={selectedMembresia ? "Editar Membresía" : "Nueva Membresía"}
+            title={editing ? "Editar Membresía" : "Nueva Membresía"}
             titleTestId="form-title"
           >
             <MembresiaFormPanel
-              initialData={selectedMembresia}
+              initialData={editing}
               onSuccess={handleFormSuccess}
               onCancel={handleFormCancel}
-              isEdit={!!selectedMembresia?.id}
+              isEdit={!!editing?.id}
             />
           </FormPanelShell>
         }
         listPanel={
           <ListPanelShell>
             <MembresiaListPanel
-              key={`membresia-list-${refreshTrigger}`}
-              onEditClick={handleEditMembresia}
+              membresias={membresias}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              searchTerm={searchTerm}
+              isLoading={loading}
             />
           </ListPanelShell>
         }

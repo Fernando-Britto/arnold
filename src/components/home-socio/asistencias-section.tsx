@@ -24,7 +24,7 @@ export function AsistenciasSection({ asistencias }: AsistenciasSectionProps) {
         Mis asistencias
       </h1>
 
-      <div className="flex items-center gap-10 rounded-3xl border border-zinc-200 bg-white p-6">
+      <div className="flex items-center gap-10 rounded-lg border border-[#E4E4E7] bg-white p-6">
         <div className="flex flex-col items-center gap-1">
           <div className="flex items-center gap-2">
             <Flame className="h-7 w-7 text-[#FC4C02]" aria-hidden="true" />
