@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/auth";
 import { checkRateLimit, cleanupRateLimitLogsIfNeeded } from "@/lib/rateLimit";
 import { hasRouteAccess, type HttpMethod, type UserRole } from "@/lib/authorization";
-import { decideAccess, isPublicPath, type SessionState } from "@/lib/access-decision";
+import { decideAccess, isPublicPath, isDevicePath, type SessionState } from "@/lib/access-decision";
 import { AUTH_COOKIE_NAME } from "@/api/auth";
 import { prisma } from "@/lib/db";
 import { recordDeniedAccess } from "@/lib/audit";
@@ -30,6 +30,11 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isPublicPath(pathname)) return NextResponse.next();
+
+  // T-036 (D-43 propuesta 4): la puerta y su API no usan sesión de usuario; el token del
+  // dispositivo lo valida el handler (`autenticarDispositivo`). Carve-out acotado: ninguna otra
+  // página ni ruta de API cambia de comportamiento.
+  if (isDevicePath(pathname)) return NextResponse.next();
 
   // 1. Autenticación
   let session: SessionState = "none";

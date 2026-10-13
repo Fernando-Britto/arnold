@@ -18,6 +18,17 @@ const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/register", "/api/a
 export const isPublicPath = (p: string) =>
   PUBLIC_PATHS.some((x) => p === x || p.startsWith(`${x}/`));
 
+/**
+ * Rutas de dispositivo (T-036, D-43 propuesta 4): la pantalla de la puerta y su API se alcanzan
+ * SIN sesión de usuario. La autenticación la hace `autenticarDispositivo` (token propio) dentro
+ * del handler. El carve-out es a propósito angosto: `/api/dispositivos` (plural, administración)
+ * NO entra y sigue exigiendo sesión de Administrador.
+ */
+const DEVICE_PATHS = ["/puerta", "/api/dispositivo"];
+
+export const isDevicePath = (p: string) =>
+  DEVICE_PATHS.some((x) => p === x || p.startsWith(`${x}/`));
+
 export function decideAccess(input: {
   pathname: string;
   method: HttpMethod;
@@ -25,6 +36,7 @@ export function decideAccess(input: {
 }): AccessDecision {
   const { pathname, method, session } = input;
   if (isPublicPath(pathname)) return { type: "next" };
+  if (isDevicePath(pathname)) return { type: "next" };
   const isApi = pathname.startsWith("/api/");
 
   if (session === "none" || session === "invalid") {

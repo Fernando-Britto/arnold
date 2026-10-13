@@ -30,6 +30,27 @@ describe("decideAccess", () => {
     });
   });
 
+  describe("rutas de dispositivo (T-036, carve-out acotado)", () => {
+    it.each(["/puerta", "/puerta/", "/api/dispositivo/acceso"])(
+      "%s se alcanza SIN sesión de usuario (la valida el token del dispositivo)",
+      (p) => {
+        expect(d(p, "none", "POST")).toEqual({ type: "next" });
+        expect(d(p, "invalid")).toEqual({ type: "next" });
+      }
+    );
+
+    it("no abre la API de administración /api/dispositivos (plural)", () => {
+      expect(d("/api/dispositivos", "none", "GET")).toMatchObject({ type: "json", status: 401 });
+      expect(d("/api/dispositivos", "none", "POST")).toMatchObject({ type: "json", status: 401 });
+    });
+
+    it("no debilita ninguna otra ruta protegida", () => {
+      expect(d("/clientes", "none")).toMatchObject({ type: "redirect" });
+      expect(d("/api/acceso/check-in", "none", "POST")).toMatchObject({ type: "json", status: 401 });
+      expect(d("/api/socios", "none")).toMatchObject({ type: "json", status: 401 });
+    });
+  });
+
   describe("con sesión", () => {
     it.each<UserRole>(["SOCIO", "INSTRUCTOR", "RECEPCIONISTA", "ADMINISTRADOR"])("raíz pasa para %s", (rol) => {
       expect(d("/", { rol })).toEqual({ type: "next" });

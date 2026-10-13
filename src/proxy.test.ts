@@ -83,6 +83,38 @@ describe("proxy — auditoría de accesos denegados (P-15)", () => {
   });
 });
 
+describe("proxy — carve-out de dispositivo (T-036)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    verify.mockReset();
+    findUnique.mockReset();
+  });
+
+  it("la página /puerta pasa sin sesión y ni siquiera verifica un JWT", async () => {
+    const res = await call("/puerta", false);
+    expect(res.status).toBe(200);
+    expect(verify).not.toHaveBeenCalled();
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+
+  it("POST /api/dispositivo/acceso pasa sin sesión (lo autentica el token del dispositivo)", async () => {
+    const res = await call("/api/dispositivo/acceso", false, "POST");
+    expect(res.status).toBe(200);
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("la API de administración /api/dispositivos SIGUE exigiendo sesión", async () => {
+    const res = await call("/api/dispositivos", false);
+    expect(res.status).toBe(401);
+  });
+
+  it("las rutas protegidas de siempre siguen bloqueadas sin sesión", async () => {
+    expect((await call("/api/clientes", false)).status).toBe(401);
+    expect((await call("/api/acceso/check-in", false, "POST")).status).toBe(401);
+    expect((await call("/clientes", false)).status).toBe(307);
+  });
+});
+
 describe("proxy — límite de intentos de login por IP (P-16)", () => {
   const rate = jest.requireMock("@/lib/rateLimit").checkRateLimit as jest.Mock;
   const login = (headers: Record<string, string> = {}) =>
