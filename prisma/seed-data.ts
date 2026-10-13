@@ -13,6 +13,8 @@ import type { PrismaClient } from "@prisma/client";
  */
 export const SEED_EMAIL_DOMAIN = "arnold.test";
 export const DEFAULT_SEED_PASSWORD = "Arnold2026!";
+/** PIN de 4 dígitos de los socios del seed, para probar el check-in por DNI + PIN (T-035/D-47). */
+export const DEFAULT_SEED_PIN = "1234";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MIN_MS = 60 * 1000;
@@ -97,6 +99,7 @@ export async function runSeed(prisma: PrismaClient, opts: SeedOptions): Promise<
   const now = opts.now ?? new Date();
   const password = opts.password ?? DEFAULT_SEED_PASSWORD;
   const passwordHash = await opts.hash(password);
+  const pinHash = await opts.hash(DEFAULT_SEED_PIN);
   const ago = (ms: number) => new Date(now.getTime() - ms);
   const email = (local: string) => `${local}@${SEED_EMAIL_DOMAIN}`;
 
@@ -170,8 +173,8 @@ export async function runSeed(prisma: PrismaClient, opts: SeedOptions): Promise<
     const u = await upsertUsuario(s.nombre, s.local, "SOCIO");
     const socio = await prisma.socio.upsert({
       where: { usuarioId: u.id },
-      update: { membresiaAsignadaId: membresiaId[s.plan] },
-      create: { usuarioId: u.id, dni: s.dni, telefono: s.telefono, membresiaAsignadaId: membresiaId[s.plan], estadoCuota: "AL_DIA" },
+      update: { membresiaAsignadaId: membresiaId[s.plan], pinHash },
+      create: { usuarioId: u.id, dni: s.dni, telefono: s.telefono, membresiaAsignadaId: membresiaId[s.plan], estadoCuota: "AL_DIA", pinHash },
     });
     socioIds.push(socio.id);
     usuarios.push({ email: email(s.local), rol: "SOCIO", nombre: s.nombre });

@@ -62,6 +62,8 @@ model Socio {
   telefono      String?
   fechaAlta     DateTime @default(now())
   estadoCuota   EstadoCuota @default(AL_DIA)
+  /// PIN de 4 dígitos del check-in (DNI + PIN), guardado con bcrypt. Nunca en claro (D-47).
+  pinHash       String?
   updatedAt     DateTime @updatedAt
 
   // Relaciones
@@ -347,6 +349,8 @@ model Asistencia {
   socioId           String
   estado            EstadoAlIngresar @default(PERMITIDO)  // PERMITIDO or DENEGADO
   razon             String?  // Free text reason for DENEGADO (e.g., "Cuota vencida", "Membresía vencida")
+  /// Cómo se identificó el ingreso (D-47). MANUAL para los registros previos.
+  metodo            MetodoIdentificacion @default(MANUAL)
   autorizadoExcepcionalmente Boolean @default(false)
 
   @@index([socioId])
@@ -357,6 +361,12 @@ model Asistencia {
 enum EstadoAlIngresar {
   PERMITIDO
   DENEGADO
+}
+
+enum MetodoIdentificacion {
+  DNI_PIN
+  MANUAL
+  HUELLA
 }
 
 // ============================================================================
@@ -372,8 +382,16 @@ model SesionDeEntrenamiento {
   rutinaAsignada      RutinaAsignada @relation(fields: [rutinaAsignadaId], references: [id], onDelete: Restrict)
   rutinaAsignadaId    String
   estadoDeFinalizacion EstadoSesion
+  /// Ejercicio actual de la sesión para poder retomarla (D-44). Es el `Ejercicio.id`;
+  /// null cuando ya se completaron todas las series.
+  ejercicioActualId   String?
+  /// Número de la serie en curso del `ejercicioActualId` (1-based); null al terminar (D-44).
+  serieActual         Int?
   observaciones       String?
   createdAt           DateTime @default(now())
+
+  // Relaciones
+  registrosProgreso   RegistroDeProgreso[]
 
   @@index([socioId])
   @@index([rutinaAsignadaId])
@@ -381,6 +399,7 @@ model SesionDeEntrenamiento {
 }
 
 enum EstadoSesion {
+  EN_CURSO
   COMPLETADA
   INCOMPLETA
   ABANDONADA
@@ -394,16 +413,25 @@ model RegistroDeProgreso {
   id            String   @id @default(cuid())
   carga         Decimal  @db.Decimal(10, 2) // kg
   repeticiones  Int
-  pesoCorporal  Decimal  @db.Decimal(10, 2) // kg
+  /// Peso corporal del socio (kg). Opcional: un registro por serie no siempre lo tiene (D-48).
+  pesoCorporal  Decimal? @db.Decimal(10, 2)
+  /// RIR (Repeticiones En Reserva): 0–5. Cuántas repeticiones quedaron sin hacer (D-48).
+  rir           Int?
+  /// Número de serie del ejercicio dentro de la sesión (1-based), al registrar por serie (D-48).
+  numeroSerie   Int?
   fecha         DateTime @default(now())
   ejercicio     Ejercicio @relation(fields: [ejercicioId], references: [id], onDelete: Restrict)
   ejercicioId   String
   socio         Socio    @relation(fields: [socioId], references: [id], onDelete: Restrict)
   socioId       String
+  /// Sesión de entrenamiento a la que pertenece la serie (D-48). SetNull: el historial sobrevive.
+  sesion        SesionDeEntrenamiento? @relation(fields: [sesionId], references: [id], onDelete: SetNull)
+  sesionId      String?
 
   @@index([ejercicioId])
   @@index([socioId])
   @@index([fecha])
+  @@index([sesionId])
 }
 
 // ============================================================================
@@ -504,6 +532,34 @@ enum AccionAcceso {
 enum ResultadoAcceso {
   ALLOW
   DENY
+}
+
+// ============================================================================
+// DISPOSITIVOS (puerta / recepción) — T-036, D-43 propuesta 4
+// ============================================================================
+
+/// Pantalla de puerta y controladores con autenticación propia (token con hash, nunca en claro).
+model Dispositivo {
+  id             String            @id @default(cuid())
+  nombre         String
+  tipo           TipoDispositivo   @default(PUERTA)
+  tokenHash      String            @unique // bcrypt hash; NUNCA se guarda el token en claro
+  estado         EstadoDispositivo @default(ACTIVO)
+  ultimoContacto DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([estado])
+}
+
+enum TipoDispositivo {
+  PUERTA
+  RECEPCION
+}
+
+enum EstadoDispositivo {
+  ACTIVO
+  INACTIVO
 }
 
 // ============================================================================
