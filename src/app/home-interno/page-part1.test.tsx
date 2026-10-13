@@ -70,6 +70,24 @@ describe("HomeInternoPage Part 1 (Row_Acciones, Row_Hoy, Row_Operacion)", () => 
     expect(screen.getByText("$200.00")).toBeInTheDocument();
   });
 
+  it("Cierre de Caja navigates to /cierres for ADMINISTRADOR", async () => {
+    mockAuth.mockReturnValue(staff);
+    render(<HomeInternoPage />);
+    await loaded();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Cierre de Caja" }));
+    expect(mockPush).toHaveBeenCalledWith("/cierres");
+  });
+
+  it("INSTRUCTOR cannot open Cierre de Caja (disabled, no navigation)", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: false, isStaff: true, user: { nombre: "Iva", rol: "INSTRUCTOR" } });
+    render(<HomeInternoPage />);
+    await loaded();
+    const boton = screen.getByRole("button", { name: "Cierre de Caja" });
+    expect(boton).toBeDisabled();
+    await userEvent.setup().click(boton);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   it("binds Row_Operacion: the 3 status cards use the spec's data scenarios", async () => {
     mockAuth.mockReturnValue(staff);
     render(<HomeInternoPage />);

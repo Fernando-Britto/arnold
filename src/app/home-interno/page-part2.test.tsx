@@ -13,6 +13,16 @@ jest.mock("next/navigation", () => ({
 }));
 jest.mock("@/contexts/auth");
 jest.mock("@/api/home-interno", () => ({ fetchHomeInternoData: jest.fn() }));
+jest.mock("@/components/rutina/asignar-rutina-modal", () => ({
+  AsignarRutinaModal: ({ onClose }: { onClose: () => void }) => (
+    <div>
+      <span>Modal asignar rutina</span>
+      <button type="button" onClick={onClose}>
+        Cerrar modal
+      </button>
+    </div>
+  ),
+}));
 
 const mockAuth = useAuth as jest.Mock;
 const mockFetch = api.fetchHomeInternoData as jest.MockedFunction<typeof api.fetchHomeInternoData>;
@@ -142,5 +152,86 @@ describe("HomeInternoPage Part 2 (Row_Gestion, Col_Actividad, full integration)"
     expect(screen.getByRole("button", { name: "Nuevo Socio" })).toBeEnabled();
     expect(screen.getByRole("button", { name: /ver/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /socios inactivos/i })).toBeEnabled();
+  });
+
+  it("Registrar Pago navigates to /pagos for ADMINISTRADOR", async () => {
+    render(<HomeInternoPage />);
+    await loaded();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Registrar Pago" }));
+    expect(mockPush).toHaveBeenCalledWith("/pagos");
+  });
+
+  it("Registrar Pago navigates to /pagos for RECEPCIONISTA", async () => {
+    mockAuth.mockReturnValue(asRol("RECEPCIONISTA"));
+    render(<HomeInternoPage />);
+    await loaded();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Registrar Pago" }));
+    expect(mockPush).toHaveBeenCalledWith("/pagos");
+  });
+
+  it("INSTRUCTOR cannot open Registrar Pago (disabled, no navigation)", async () => {
+    mockAuth.mockReturnValue(asRol("INSTRUCTOR"));
+    render(<HomeInternoPage />);
+    await loaded();
+    const boton = screen.getByRole("button", { name: "Registrar Pago" });
+    expect(boton).toBeDisabled();
+    await userEvent.setup().click(boton);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("Asignar Rutina abre el modal para ADMINISTRADOR", async () => {
+    render(<HomeInternoPage />);
+    await loaded();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Asignar Rutina" }));
+    expect(screen.getByText("Modal asignar rutina")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cerrar modal" }));
+    expect(screen.queryByText("Modal asignar rutina")).not.toBeInTheDocument();
+  });
+
+  it("Asignar Rutina abre el modal para INSTRUCTOR", async () => {
+    mockAuth.mockReturnValue(asRol("INSTRUCTOR"));
+    render(<HomeInternoPage />);
+    await loaded();
+    const boton = screen.getByRole("button", { name: "Asignar Rutina" });
+    expect(boton).toBeEnabled();
+    await userEvent.setup().click(boton);
+    expect(screen.getByText("Modal asignar rutina")).toBeInTheDocument();
+  });
+
+  it("RECEPCIONISTA no puede abrir Asignar Rutina (disabled, sin modal)", async () => {
+    mockAuth.mockReturnValue(asRol("RECEPCIONISTA"));
+    render(<HomeInternoPage />);
+    await loaded();
+    const boton = screen.getByRole("button", { name: "Asignar Rutina" });
+    expect(boton).toBeDisabled();
+    expect(boton).toHaveAttribute("title", "Sin acceso con tu rol");
+    await userEvent.setup().click(boton);
+    expect(screen.queryByText("Modal asignar rutina")).not.toBeInTheDocument();
+  });
+
+  it("Control Acceso navega a /acceso para ADMINISTRADOR", async () => {
+    render(<HomeInternoPage />);
+    await loaded();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Control Acceso" }));
+    expect(mockPush).toHaveBeenCalledWith("/acceso");
+  });
+
+  it("Control Acceso navega a /acceso para RECEPCIONISTA", async () => {
+    mockAuth.mockReturnValue(asRol("RECEPCIONISTA"));
+    render(<HomeInternoPage />);
+    await loaded();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Control Acceso" }));
+    expect(mockPush).toHaveBeenCalledWith("/acceso");
+  });
+
+  it("INSTRUCTOR no puede abrir Control Acceso (disabled, sin navegación)", async () => {
+    mockAuth.mockReturnValue(asRol("INSTRUCTOR"));
+    render(<HomeInternoPage />);
+    await loaded();
+    const boton = screen.getByRole("button", { name: "Control Acceso" });
+    expect(boton).toBeDisabled();
+    await userEvent.setup().click(boton);
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

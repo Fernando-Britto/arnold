@@ -14,6 +14,7 @@ import { CajaCard } from "@/components/home-interno/caja-card";
 import { OperationCard } from "@/components/home-interno/operation-card";
 import { CounterCard } from "@/components/home-interno/counter-card";
 import { ActivityColumn } from "@/components/home-interno/activity-column";
+import { AsignarRutinaModal } from "@/components/rutina/asignar-rutina-modal";
 import { ROLE_GATE_MATRIX } from "@/middleware/role-gating";
 
 /**
@@ -22,10 +23,11 @@ import { ROLE_GATE_MATRIX } from "@/middleware/role-gating";
  *
  * SCOPE BOUNDARY (documented, not hidden):
  * - `/api/home-interno` doesn't exist yet — see src/api/home-interno.ts.
- * - Only "Nuevo Socio" has a real destination (/clientes). "Registrar Pago",
- *   "Asignar Rutina" (modal, see openspec/asignar-rutina-flowspec.md) and
- *   "Control Acceso" have no screen/flow yet, so they're intentional no-ops.
- * - "Cierre de Caja" is a no-op: the CierreDeCaja flow isn't built.
+ * - "Nuevo Socio" goes to /clientes, "Registrar Pago" goes to /pagos and
+ *   "Asignar Rutina" opens the modal (T-034, openspec/asignar-rutina-flowspec.md).
+ *   "Control Acceso" opens /acceso, the DNI + PIN check-in kiosk (T-035).
+ * - "Cierre de Caja" opens /cierres (T-040) for roles the matrix allows;
+ *   for the rest it's rendered-but-disabled.
  * - Row_Operacion cards should open FILTERED lists (machines, staff,
  *   inactive socios); none exist. "Socios inactivos" goes to the unfiltered
  *   /clientes list; the other two are no-ops.
@@ -75,6 +77,7 @@ export function HomeInternoPage() {
   const [data, setData] = useState<HomeInternoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [asignarRutinaOpen, setAsignarRutinaOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -115,16 +118,26 @@ export function HomeInternoPage() {
     return <div className="p-6 text-red-600">{error ?? "No se pudo cargar el resumen operativo"}</div>;
   }
 
-  const handleAction = (action: QuickAction) => {
-    if (action === "nuevo-socio") router.push("/clientes");
-    // registrar-pago / asignar-rutina / control-acceso: no destination yet (see header note).
-  };
-
   const puedeAbrir = (ruta: string) =>
     (ROLE_GATE_MATRIX[ruta] as string[] | undefined)?.includes(user?.rol ?? "") ?? false;
 
+  const handleAction = (action: QuickAction) => {
+    if (action === "nuevo-socio" && puedeAbrir("/clientes")) router.push("/clientes");
+    else if (action === "registrar-pago" && puedeAbrir("/pagos")) router.push("/pagos");
+    else if (action === "asignar-rutina" && puedeAbrir("/api/rutinas-asignadas"))
+      setAsignarRutinaOpen(true);
+    else if (action === "control-acceso" && puedeAbrir("/acceso")) router.push("/acceso");
+  };
+
   // /clientes is the destination of Nuevo Socio, Alertas "Ver" and Socios inactivos.
   const sinClientes = !puedeAbrir("/clientes");
+
+  // Quick actions the current role cannot use: rendered but disabled.
+  const accionesDeshabilitadas: QuickAction[] = [];
+  if (sinClientes) accionesDeshabilitadas.push("nuevo-socio");
+  if (!puedeAbrir("/pagos")) accionesDeshabilitadas.push("registrar-pago");
+  if (!puedeAbrir("/api/rutinas-asignadas")) accionesDeshabilitadas.push("asignar-rutina");
+  if (!puedeAbrir("/acceso")) accionesDeshabilitadas.push("control-acceso");
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F1F3F5]">
@@ -134,13 +147,17 @@ export function HomeInternoPage() {
       </div>
 
       <main className="flex flex-col gap-6 p-12">
-        <QuickActions onAction={handleAction} disabledActions={sinClientes ? ["nuevo-socio"] : []} />
+        <QuickActions onAction={handleAction} disabledActions={accionesDeshabilitadas} />
 
         <SectionLabel>HOY</SectionLabel>
         <div className="grid gap-6 lg:grid-cols-[860fr_438fr_438fr]">
           <AlertasCard items={vm.alertas} onVer={() => router.push("/clientes")} verDisabled={sinClientes} />
           <AforoHoyCard {...vm.aforo} />
-          <CajaCard {...vm.caja} onCierreDeCaja={() => {}} />
+          <CajaCard
+            {...vm.caja}
+            onCierreDeCaja={() => router.push("/cierres")}
+            cierreDisabled={!puedeAbrir("/cierres")}
+          />
         </div>
 
         <SectionLabel>OPERACIÓN</SectionLabel>
@@ -172,6 +189,8 @@ export function HomeInternoPage() {
         <SectionLabel>ACTIVIDAD RECIENTE</SectionLabel>
         <ActivityColumn items={vm.actividad} />
       </main>
+
+      {asignarRutinaOpen && <AsignarRutinaModal onClose={() => setAsignarRutinaOpen(false)} />}
     </div>
   );
 }
