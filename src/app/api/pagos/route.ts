@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleRegistrarPago, handleListarPagos } from "@/api/pagos";
 import type { RegistrarPagoInput } from "@/domains/pago/registrar-pago";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { readJsonBody } from "@/lib/request-body";
 import { extractUserFromRequest } from "@/lib/auth";
 
 /** Roles que pueden registrar y consultar pagos (D-42 / matriz de autorización). */
@@ -65,12 +66,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: RegistrarPagoInput;
-  try {
-    body = (await request.json()) as RegistrarPagoInput;
-  } catch {
+  const parsed = await readJsonBody<RegistrarPagoInput>(request);
+  if (!parsed.ok) return parsed.response;
+
+  const body = parsed.body;
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    Array.isArray(body) ||
+    typeof body.socioId !== "string" ||
+    body.socioId.trim() === ""
+  ) {
     return NextResponse.json(
-      { code: "VALIDATION_ERROR", message: "Cuerpo de la solicitud inválido" },
+      { code: "VALIDATION_ERROR", message: "El socio es requerido" },
       { status: 400 }
     );
   }

@@ -7,7 +7,11 @@
  * como `tx` (los modelos son los mismos en el cliente interactivo).
  * D-46: el flujo de pagos NUNCA escribe `Socio.estadoCuota`.
  */
-import { registrarPago, listarPagosDeSocio } from "./registrar-pago";
+import {
+  registrarPago,
+  listarPagosDeSocio,
+  type RegistrarPagoInput,
+} from "./registrar-pago";
 import { finDePeriodo, inicioDePeriodo } from "./cuota";
 
 jest.mock("@/lib/db", () => {
@@ -41,7 +45,13 @@ async function armarSocio(ultimaCuota: { fechaVencimiento: Date } | null = null)
     membresiaAsignadaId: "plan-gold",
     membresiaAsignada: { id: "plan-gold", precio: 30000 },
   });
-  (prisma.cuota.findFirst as jest.Mock).mockResolvedValue(ultimaCuota);
+  // `cuota.findFirst` se usa dos veces: (1) la última cuota para calcular el plan
+  // (sin filtro por `fechaVencimiento`) y (2) el guard anti doble-cobro dentro de la
+  // transacción (con `fechaVencimiento`). Por defecto el guard no encuentra nada.
+  (prisma.cuota.findFirst as jest.Mock).mockImplementation(
+    (args: { where?: { fechaVencimiento?: unknown } } | undefined) =>
+      args?.where?.fechaVencimiento ? Promise.resolve(null) : Promise.resolve(ultimaCuota)
+  );
   (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue(CONFIG);
   (prisma.cuota.create as jest.Mock).mockResolvedValue({ id: "cuota-1", socioId: "socio-1" });
   (prisma.pago.create as jest.Mock).mockResolvedValue({ id: "pago-1", socioId: "socio-1", cuotaId: "cuota-1" });
@@ -161,39 +171,74 @@ describe("registrarPago — alta", () => {
   });
 });
 
-describe("registrarPago — monto", () => {
-  it("usa el monto provisto cuando es finito y >= 0", async () => {
+describe("registrarPago — monto (D-40: el pago cubre una cuota completa)", () => {
+  it("ignora un monto enviado por el cliente y persiste el monto del plan (PG-2)", async () => {
     await armarSocio(null);
 
-    const r = await registrarPago({
+    // El cliente intenta forzar un monto parcial: debe ignorarse y usarse plan.monto.
+    const inputConMonto = {
       socioId: "socio-1",
       metodoPago: "EFECTIVO",
       monto: 5000,
       hoy: d("2026-11-16T18:00:00"),
-    });
-
-    expect(r.plan.monto).toBe(15000);
-    const prisma = await mocks();
-    expect(prisma.pago.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ monto: 5000 }),
-    });
-  });
-
-  it("cae al monto del plan si el monto provisto es inválido", async () => {
-    await armarSocio(null);
-
-    const r = await registrarPago({
-      socioId: "socio-1",
-      metodoPago: "EFECTIVO",
-      monto: -1,
-      hoy: d("2026-11-16T18:00:00"),
-    });
+    };
+    const r = await registrarPago(inputConMonto as RegistrarPagoInput);
 
     expect(r.plan.monto).toBe(15000);
     const prisma = await mocks();
     expect(prisma.pago.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ monto: 15000 }),
     });
+  });
+
+  it("ignora monto 0 y persiste el monto del plan (no crea una cuota gratis)", async () => {
+    await armarSocio(null);
+
+    const inputConMonto = {
+      socioId: "socio-1",
+      metodoPago: "EFECTIVO",
+      monto: 0,
+      hoy: d("2026-11-16T18:00:00"),
+    };
+    const r = await registrarPago(inputConMonto as RegistrarPagoInput);
+
+    expect(r.plan.monto).toBe(15000);
+    const prisma = await mocks();
+    expect(prisma.pago.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ monto: 15000 }),
+    });
+  });
+});
+
+describe("registrarPago — validación de entrada (PG-3)", () => {
+  it("lanza VALIDATION_ERROR si falta socioId", async () => {
+    const prisma = await mocks();
+
+    const inputSinSocio = {
+      metodoPago: "EFECTIVO",
+      hoy: d("2026-11-01T10:00:00"),
+    } as unknown as RegistrarPagoInput;
+
+    await expect(registrarPago(inputSinSocio)).rejects.toThrow(/VALIDATION_ERROR.*socio/i);
+    expect(prisma.socio.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("lanza VALIDATION_ERROR si socioId es una cadena vacía", async () => {
+    const prisma = await mocks();
+
+    await expect(
+      registrarPago({ socioId: "   ", metodoPago: "EFECTIVO", hoy: d("2026-11-01T10:00:00") })
+    ).rejects.toThrow(/VALIDATION_ERROR.*socio/i);
+    expect(prisma.socio.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("lanza VALIDATION_ERROR si el input no es un objeto", async () => {
+    const prisma = await mocks();
+
+    await expect(registrarPago(null as unknown as RegistrarPagoInput)).rejects.toThrow(
+      /VALIDATION_ERROR.*socio/i
+    );
+    expect(prisma.socio.findUnique).not.toHaveBeenCalled();
   });
 });
 
@@ -264,6 +309,51 @@ describe("registrarPago — errores y reglas duras", () => {
     });
 
     expect(r.plan.tipo).toBe("ALTA_COMPLETA");
+  });
+});
+
+describe("registrarPago — anti doble-cobro (PG-4)", () => {
+  it("lanza PAYMENT_ALREADY_REGISTERED si ya existe una cuota para el mismo período", async () => {
+    await armarSocio({ fechaVencimiento: finDePeriodo("2026-10") });
+    const prisma = await mocks();
+    // El período objetivo es 2026-11: ya existe una cuota con ese vencimiento.
+    // Segundo submit concurrente del mismo POST: el guard debe abortar.
+    (prisma.cuota.findFirst as jest.Mock).mockImplementation(
+      (args: { where?: { fechaVencimiento?: unknown } } | undefined) =>
+        args?.where?.fechaVencimiento
+          ? Promise.resolve({ id: "cuota-existente" })
+          : Promise.resolve({ fechaVencimiento: finDePeriodo("2026-10") })
+    );
+
+    await expect(
+      registrarPago({ socioId: "socio-1", metodoPago: "EFECTIVO", hoy: d("2026-11-05T10:00:00") })
+    ).rejects.toThrow(/PAYMENT_ALREADY_REGISTERED/);
+
+    expect(prisma.cuota.create).not.toHaveBeenCalled();
+    expect(prisma.pago.create).not.toHaveBeenCalled();
+  });
+
+  it("corre el guard y la creación en UNA transacción Serializable (PG-4)", async () => {
+    await armarSocio({ fechaVencimiento: finDePeriodo("2026-10") });
+
+    const r = await registrarPago({
+      socioId: "socio-1",
+      metodoPago: "EFECTIVO",
+      hoy: d("2026-11-05T10:00:00"),
+    });
+
+    const prisma = await mocks();
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
+    });
+    // El happy path sigue devolviendo el pago, la cuota, el plan y el estado.
+    expect(r).toEqual({
+      pago: { id: "pago-1", socioId: "socio-1", cuotaId: "cuota-1" },
+      cuota: { id: "cuota-1", socioId: "socio-1" },
+      plan: expect.objectContaining({ tipo: "RENOVACION", monto: 30000 }),
+      estadoCuota: "AL_DIA",
+    });
   });
 });
 

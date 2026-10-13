@@ -71,6 +71,17 @@ describe("handleRegistrarPagoRequest (sin NextRequest)", () => {
     expect(r.status).toBe(400);
     expect((r.body as { code: string }).code).toBe("VALIDATION_ERROR");
   });
+
+  it("409 si el pago ya fue registrado para el período (PG-4)", async () => {
+    mockRegistrar.mockRejectedValueOnce(
+      new Error("PAYMENT_ALREADY_REGISTERED: Ya existe una cuota para el período que se intenta pagar")
+    );
+
+    const r = await handleRegistrarPagoRequest({ socioId: "socio-1", metodoPago: "EFECTIVO" });
+
+    expect(r.status).toBe(409);
+    expect((r.body as { code: string }).code).toBe("PAYMENT_ALREADY_REGISTERED");
+  });
 });
 
 describe("handleListarPagosRequest (sin NextRequest)", () => {
@@ -106,6 +117,30 @@ describe("POST /api/pagos", () => {
     mockUser.mockReturnValue({ id: "u1", rol: "INSTRUCTOR" });
     const res = await POST(postReq({ socioId: "socio-1", metodoPago: "EFECTIVO" }));
     expect(res.status).toBe(403);
+    expect(mockRegistrar).not.toHaveBeenCalled();
+  });
+
+  it("400 con body null (no 500) — PG-3", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+    const res = await POST(postReq(null));
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION_ERROR");
+    expect(mockRegistrar).not.toHaveBeenCalled();
+  });
+
+  it("400 si falta socioId (no 500) — PG-3", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+    const res = await POST(postReq({ metodoPago: "EFECTIVO" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION_ERROR");
+    expect(mockRegistrar).not.toHaveBeenCalled();
+  });
+
+  it("400 si el body no es un objeto JSON — PG-3", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+    const res = await POST(postReq("no-soy-un-objeto"));
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION_ERROR");
     expect(mockRegistrar).not.toHaveBeenCalled();
   });
 
