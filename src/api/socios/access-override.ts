@@ -66,6 +66,10 @@ export async function handleAccessOverride(
     throw new Error("FORBIDDEN: Rol de administrador requerido");
   }
 
+  // Capturado para el callback de la transacción: el narrowing de `req.user` no
+  // sobrevive dentro de una closure async.
+  const approvedByUserId = req.user.id;
+
   // Parse and validate request body
   const body = (req.body || {}) as AccessOverrideRequest;
   const validation = validateAccessOverride(body);
@@ -83,28 +87,33 @@ export async function handleAccessOverride(
     throw new Error("NOT_FOUND: Socio no encontrado");
   }
 
-  // Create audit log (append-only access audit trail)
-  await prisma.auditoriaAcceso.create({
-    data: {
-      usuarioId: req.user.id,
-      socioId: socioId,
-      accion: "OVERRIDE_GRANT",
-      motivo: body.motivo,
-      resultado: "ALLOW",
-      timestamp: new Date(),
-      ipAddress: req.ip || "0.0.0.0",
-      userAgent: (req.headers?.["user-agent"] as string) || "unknown",
-    },
-  });
+  // E: la auditoría (append-only) y la asistencia del override son un único estado
+  // acoplado. Van en UNA transacción: un override no puede quedar auditado sin ingreso
+  // (ni registrar un ingreso sin su rastro de auditoría).
+  await prisma.$transaction(async (tx) => {
+    // Create audit log (append-only access audit trail)
+    await tx.auditoriaAcceso.create({
+      data: {
+        usuarioId: approvedByUserId,
+        socioId: socioId,
+        accion: "OVERRIDE_GRANT",
+        motivo: body.motivo,
+        resultado: "ALLOW",
+        timestamp: new Date(),
+        ipAddress: req.ip || "0.0.0.0",
+        userAgent: (req.headers?.["user-agent"] as string) || "unknown",
+      },
+    });
 
-  // Create asistencia record (member check-in granted via override)
-  await prisma.asistencia.create({
-    data: {
-      socioId: socioId,
-      fechaHora: new Date(),
-      estado: "PERMITIDO",
-      autorizadoExcepcionalmente: true,
-    },
+    // Create asistencia record (member check-in granted via override)
+    await tx.asistencia.create({
+      data: {
+        socioId: socioId,
+        fechaHora: new Date(),
+        estado: "PERMITIDO",
+        autorizadoExcepcionalmente: true,
+      },
+    });
   });
 
   return {

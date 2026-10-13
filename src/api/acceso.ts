@@ -54,6 +54,8 @@ interface PrismaLike {
     create(args: unknown): Promise<unknown>;
   };
   auditoriaAcceso: { create(args: unknown): Promise<unknown> };
+  /** Transacción interactiva: `tx` expone los mismos modelos que el cliente. */
+  $transaction<R>(fn: (tx: PrismaLike) => Promise<R>): Promise<R>;
 }
 
 /**
@@ -190,26 +192,31 @@ export async function handleCheckIn(input: CheckInInput): Promise<CheckInResulta
 
   const permitido = decision.resultado !== "DENEGADO";
 
-  await prisma.asistencia.create({
-    data: {
-      socioId: socio.id,
-      fechaHora: ahora,
-      estado: permitido ? "PERMITIDO" : "DENEGADO",
-      razon: permitido ? null : decision.motivo ?? null,
-      metodo: "DNI_PIN",
-    },
-  });
+  // AC-2: el ingreso (`Asistencia`) y su auditoría son un único estado acoplado.
+  // Van en UNA transacción: nunca queda un ingreso sin su rastro obligatorio
+  // (ni una auditoría de un ingreso que no se persistió).
+  await prisma.$transaction(async (tx) => {
+    await tx.asistencia.create({
+      data: {
+        socioId: socio.id,
+        fechaHora: ahora,
+        estado: permitido ? "PERMITIDO" : "DENEGADO",
+        razon: permitido ? null : decision.motivo ?? null,
+        metodo: "DNI_PIN",
+      },
+    });
 
-  await prisma.auditoriaAcceso.create({
-    data: {
-      socioId: socio.id,
-      accion: "CHECK_IN",
-      resultado: permitido ? "ALLOW" : "DENY",
-      motivo: decision.motivo ?? null,
-      ipAddress: ip,
-      userAgent,
-      timestamp: ahora,
-    },
+    await tx.auditoriaAcceso.create({
+      data: {
+        socioId: socio.id,
+        accion: "CHECK_IN",
+        resultado: permitido ? "ALLOW" : "DENY",
+        motivo: decision.motivo ?? null,
+        ipAddress: ip,
+        userAgent,
+        timestamp: ahora,
+      },
+    });
   });
 
   return {

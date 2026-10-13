@@ -25,6 +25,7 @@ jest.mock("@/lib/db", () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     registroDeProgreso: { create: jest.fn(), findFirst: jest.fn() },
   };
@@ -185,14 +186,24 @@ describe("obtenerSesionEnCurso", () => {
 });
 
 describe("registrarSerie", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(async () => {
+    const prisma = await mocks();
+    // Reset explícito: `mockClear` no vacía la cola de `mockResolvedValueOnce`.
+    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockReset();
+    (prisma.sesionDeEntrenamiento.updateMany as jest.Mock).mockReset();
+    (prisma.registroDeProgreso.create as jest.Mock).mockReset();
+    // La actualización condicional normalmente encuentra la fila (count = 1).
+    (prisma.sesionDeEntrenamiento.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+  });
 
   it("crea el RegistroDeProgreso con la serie actual y avanza serieActual", async () => {
     const prisma = await mocks();
-    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockResolvedValue(sesionEnCurso());
-    (prisma.registroDeProgreso.create as jest.Mock).mockResolvedValue({ id: "reg-1" });
+    const inicial = sesionEnCurso();
     const actualizada = { id: "sesion-1", ejercicioActualId: "ej-1", serieActual: 2 };
-    (prisma.sesionDeEntrenamiento.update as jest.Mock).mockResolvedValue(actualizada);
+    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock)
+      .mockResolvedValueOnce(inicial)
+      .mockResolvedValueOnce(actualizada);
+    (prisma.registroDeProgreso.create as jest.Mock).mockResolvedValue({ id: "reg-1" });
 
     const r = await registrarSerie({
       sesionId: "sesion-1",
@@ -213,8 +224,13 @@ describe("registrarSerie", () => {
         numeroSerie: 1,
       }),
     });
-    expect(prisma.sesionDeEntrenamiento.update).toHaveBeenCalledWith({
-      where: { id: "sesion-1" },
+    expect(prisma.sesionDeEntrenamiento.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "sesion-1",
+        estadoDeFinalizacion: "EN_CURSO",
+        serieActual: 1,
+        ejercicioActualId: "ej-1",
+      },
       data: { ejercicioActualId: "ej-1", serieActual: 2 },
     });
     expect(r).toEqual({ registro: { id: "reg-1" }, sesion: actualizada });
@@ -223,12 +239,10 @@ describe("registrarSerie", () => {
   it("al terminar las series del ejercicio avanza al siguiente y vuelve a serie 1", async () => {
     const prisma = await mocks();
     // ej-1 tiene 2 series: esta es la última (serieActual 2).
-    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockResolvedValue(
-      sesionEnCurso({ serieActual: 2 })
-    );
+    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock)
+      .mockResolvedValueOnce(sesionEnCurso({ serieActual: 2 }))
+      .mockResolvedValueOnce({ id: "sesion-1", ejercicioActualId: "ej-2", serieActual: 1 });
     (prisma.registroDeProgreso.create as jest.Mock).mockResolvedValue({ id: "reg-2" });
-    const actualizada = { id: "sesion-1", ejercicioActualId: "ej-2", serieActual: 1 };
-    (prisma.sesionDeEntrenamiento.update as jest.Mock).mockResolvedValue(actualizada);
 
     await registrarSerie({
       sesionId: "sesion-1",
@@ -241,8 +255,13 @@ describe("registrarSerie", () => {
     expect(prisma.registroDeProgreso.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ numeroSerie: 2, rir: null }),
     });
-    expect(prisma.sesionDeEntrenamiento.update).toHaveBeenCalledWith({
-      where: { id: "sesion-1" },
+    expect(prisma.sesionDeEntrenamiento.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "sesion-1",
+        estadoDeFinalizacion: "EN_CURSO",
+        serieActual: 2,
+        ejercicioActualId: "ej-1",
+      },
       data: { ejercicioActualId: "ej-2", serieActual: 1 },
     });
   });
@@ -250,11 +269,10 @@ describe("registrarSerie", () => {
   it("al terminar la última serie del último ejercicio deja la sesión lista para cerrar", async () => {
     const prisma = await mocks();
     // ej-2 tiene 1 serie y es el último: no hay siguiente.
-    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockResolvedValue(
-      sesionEnCurso({ ejercicioActualId: "ej-2", serieActual: 1 })
-    );
+    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock)
+      .mockResolvedValueOnce(sesionEnCurso({ ejercicioActualId: "ej-2", serieActual: 1 }))
+      .mockResolvedValueOnce({ id: "sesion-1", ejercicioActualId: null, serieActual: null });
     (prisma.registroDeProgreso.create as jest.Mock).mockResolvedValue({ id: "reg-3" });
-    (prisma.sesionDeEntrenamiento.update as jest.Mock).mockResolvedValue({ id: "sesion-1" });
 
     await registrarSerie({
       sesionId: "sesion-1",
@@ -264,17 +282,21 @@ describe("registrarSerie", () => {
       rir: 1,
     });
 
-    expect(prisma.sesionDeEntrenamiento.update).toHaveBeenCalledWith({
-      where: { id: "sesion-1" },
+    expect(prisma.sesionDeEntrenamiento.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "sesion-1",
+        estadoDeFinalizacion: "EN_CURSO",
+        serieActual: 1,
+        ejercicioActualId: "ej-2",
+      },
       data: { ejercicioActualId: null, serieActual: null },
     });
   });
 
-  it("usa UNA transacción para crear el registro y actualizar la sesión", async () => {
+  it("usa UNA transacción para leer, crear el registro y actualizar la sesión", async () => {
     const prisma = await mocks();
     (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockResolvedValue(sesionEnCurso());
     (prisma.registroDeProgreso.create as jest.Mock).mockResolvedValue({ id: "reg-1" });
-    (prisma.sesionDeEntrenamiento.update as jest.Mock).mockResolvedValue({ id: "sesion-1" });
 
     await registrarSerie({
       sesionId: "sesion-1",
@@ -284,6 +306,36 @@ describe("registrarSerie", () => {
     });
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("lee y revalida la sesión DENTRO de la transacción (no antes)", async () => {
+    const prisma = await mocks();
+    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockResolvedValue(sesionEnCurso());
+    (prisma.registroDeProgreso.create as jest.Mock).mockResolvedValue({ id: "reg-1" });
+
+    await registrarSerie({
+      sesionId: "sesion-1",
+      ejercicioId: "ej-1",
+      carga: 40,
+      repeticiones: 10,
+    });
+
+    const txOrder = (prisma.$transaction as jest.Mock).mock.invocationCallOrder[0];
+    const readOrder = (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mock
+      .invocationCallOrder[0];
+    expect(txOrder).toBeLessThan(readOrder);
+  });
+
+  it("rechaza un doble envío concurrente (serieActual ya avanzada) sin crear el registro", async () => {
+    const prisma = await mocks();
+    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockResolvedValue(sesionEnCurso());
+    // Otro request avanzó serieActual entre la lectura y la escritura: el guard no matchea.
+    (prisma.sesionDeEntrenamiento.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+
+    await expect(
+      registrarSerie({ sesionId: "sesion-1", ejercicioId: "ej-1", carga: 40, repeticiones: 10 })
+    ).rejects.toThrow(/VALIDATION_ERROR.*concurren/i);
+    expect(prisma.registroDeProgreso.create).not.toHaveBeenCalled();
   });
 
   it("rechaza registrar si la sesión no está EN_CURSO", async () => {
@@ -336,7 +388,6 @@ describe("registrarSerie", () => {
     const prisma = await mocks();
     (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockResolvedValue(sesionEnCurso());
     (prisma.registroDeProgreso.create as jest.Mock).mockResolvedValue({ id: "reg-1" });
-    (prisma.sesionDeEntrenamiento.update as jest.Mock).mockResolvedValue({ id: "sesion-1" });
 
     await expect(
       registrarSerie({ sesionId: "sesion-1", ejercicioId: "ej-1", carga: 40, repeticiones: 10 })

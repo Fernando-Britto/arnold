@@ -17,6 +17,7 @@ import { hashPassword, comparePassword } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 
 jest.mock("@/lib/db", () => {
+  const store = { asistencias: [] as unknown[], auditorias: [] as unknown[] };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const prisma: any = {
     socio: { findUnique: jest.fn(), update: jest.fn() },
@@ -25,6 +26,19 @@ jest.mock("@/lib/db", () => {
     asistencia: { findFirst: jest.fn(), create: jest.fn() },
     auditoriaAcceso: { create: jest.fn() },
   };
+  // `$transaction(callback)` con rollback sobre un store en memoria: si el callback
+  // rechaza, las escrituras de `tx` se descartan (como la transacción real de Prisma).
+  prisma.$transaction = jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => {
+    const snapshot = { asistencias: [...store.asistencias], auditorias: [...store.auditorias] };
+    try {
+      return await callback(prisma);
+    } catch (error) {
+      store.asistencias = snapshot.asistencias;
+      store.auditorias = snapshot.auditorias;
+      throw error;
+    }
+  });
+  prisma.__store = store;
   return { prisma };
 });
 jest.mock("@/lib/auth", () => ({
@@ -260,6 +274,43 @@ describe("handleCheckIn — decisión y registros", () => {
     expect(checkRateLimit).toHaveBeenCalledWith("10.0.0.9", expect.any(String), LIMITE_INTENTOS_CHECK_IN_POR_MINUTO);
     expect(prisma.socio.findUnique).not.toHaveBeenCalled();
     expect(prisma.asistencia.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("handleCheckIn — atomicidad (Asistencia + Auditoría en UNA transacción)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (comparePassword as jest.Mock).mockResolvedValue(true);
+  });
+
+  it("registra el ingreso y su auditoría dentro de una sola transacción", async () => {
+    const prisma = await armarSocio();
+
+    const r = await handleCheckIn({ dni: "30123456", pin: "1234", ahora: AHORA });
+
+    expect(r.resultado).toBe("PERMITIDO");
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.asistencia.create).toHaveBeenCalledTimes(1);
+    expect(prisma.auditoriaAcceso.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("si falla la auditoría, NO persiste el ingreso (rollback)", async () => {
+    const prisma = await armarSocio();
+    const store = (prisma as unknown as { __store: { asistencias: unknown[] } }).__store;
+    (prisma.asistencia.create as jest.Mock).mockImplementation(async ({ data }: { data: unknown }) => {
+      store.asistencias.push(data);
+      return { id: "asist-1" };
+    });
+    (prisma.auditoriaAcceso.create as jest.Mock).mockImplementation(async () => {
+      throw new Error("boom-auditoria");
+    });
+
+    await expect(
+      handleCheckIn({ dni: "30123456", pin: "1234", ahora: AHORA })
+    ).rejects.toThrow("boom-auditoria");
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(store.asistencias).toHaveLength(0);
   });
 });
 

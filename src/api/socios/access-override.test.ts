@@ -6,7 +6,43 @@ import {
 import * as fineGrainedAuth from "@/lib/fine-grained-auth";
 
 jest.mock("@/lib/fine-grained-auth");
-jest.mock("@/lib/db");
+jest.mock("@/lib/db", () => {
+  const store = { auditorias: [] as unknown[], asistencias: [] as unknown[] };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prisma: any = {
+    socio: { findUnique: jest.fn() },
+    auditoriaAcceso: { create: jest.fn() },
+    asistencia: { create: jest.fn() },
+  };
+  // `$transaction(callback)` con rollback sobre un store en memoria.
+  prisma.$transaction = jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => {
+    const snapshot = { auditorias: [...store.auditorias], asistencias: [...store.asistencias] };
+    try {
+      return await callback(prisma);
+    } catch (error) {
+      store.auditorias = snapshot.auditorias;
+      store.asistencias = snapshot.asistencias;
+      throw error;
+    }
+  });
+  prisma.__store = store;
+  return { prisma };
+});
+
+async function mocks() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { prisma } = (await import("@/lib/db")) as unknown as { prisma: any };
+  return prisma;
+}
+
+function adminReq(motivo = "Próximo pago confirmado para 2026-08-15") {
+  return {
+    user: { id: "admin1", rol: "ADMINISTRADOR" },
+    body: { motivo },
+    ip: "192.168.1.1",
+    headers: { "user-agent": "Mozilla/5.0" },
+  } as unknown as Parameters<typeof handleAccessOverride>[0];
+}
 
 describe("Access Override Authorization (T-025)", () => {
   describe("Validation", () => {
@@ -174,6 +210,47 @@ describe("Access Override Authorization (T-025)", () => {
 
       expect(result.success).toBe(true);
       expect(result.message).toContain("Acceso otorgado");
+    });
+  });
+
+  describe("Atomicity (audit + asistencia in ONE transaction)", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      (fineGrainedAuth.canApproveAccessOverride as jest.Mock).mockReturnValue(true);
+    });
+
+    it("creates the audit row and the asistencia inside a single transaction", async () => {
+      const prisma = await mocks();
+      (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio1" });
+      (prisma.auditoriaAcceso.create as jest.Mock).mockResolvedValue({ id: "aud-1" });
+      (prisma.asistencia.create as jest.Mock).mockResolvedValue({ id: "asist-1" });
+
+      const result = await handleAccessOverride(adminReq(), "socio1");
+
+      expect(result.success).toBe(true);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.auditoriaAcceso.create).toHaveBeenCalledTimes(1);
+      expect(prisma.asistencia.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not persist the audit row if the asistencia fails (rollback)", async () => {
+      const prisma = await mocks();
+      const store = prisma.__store;
+      (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio1" });
+      (prisma.auditoriaAcceso.create as jest.Mock).mockImplementation(
+        async ({ data }: { data: unknown }) => {
+          store.auditorias.push(data);
+          return { id: "aud-1" };
+        }
+      );
+      (prisma.asistencia.create as jest.Mock).mockImplementation(async () => {
+        throw new Error("boom-asistencia");
+      });
+
+      await expect(handleAccessOverride(adminReq(), "socio1")).rejects.toThrow("boom-asistencia");
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(store.auditorias).toHaveLength(0);
     });
   });
 

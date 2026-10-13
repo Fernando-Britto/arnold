@@ -282,51 +282,75 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
   }
   const rir = validarRir(input.rir ?? null);
 
-  const sesion = (await prisma.sesionDeEntrenamiento.findUnique({
-    where: { id: input.sesionId },
-    include: {
-      rutinaAsignada: {
-        include: {
-          rutina: { include: { ejercicios: { orderBy: { orden: "asc" } } } },
+  return prisma.$transaction(async (tx) => {
+    // SE-2: la lectura y revalidación de la sesión van DENTRO de la transacción. Si se
+    // leyera afuera, un doble envío concurrente podría calcular el mismo `numeroSerie`
+    // a partir del mismo `serieActual` y perder el avance.
+    const sesion = (await tx.sesionDeEntrenamiento.findUnique({
+      where: { id: input.sesionId },
+      include: {
+        rutinaAsignada: {
+          include: {
+            rutina: { include: { ejercicios: { orderBy: { orden: "asc" } } } },
+          },
         },
       },
-    },
-  })) as unknown as SesionConRutina | null;
+    })) as unknown as SesionConRutina | null;
 
-  if (!sesion) throw new Error("NOT_FOUND");
-  if (sesion.estadoDeFinalizacion !== "EN_CURSO") {
-    throw new Error("VALIDATION_ERROR: La sesión no está en curso");
-  }
-  if (sesion.serieActual === null || sesion.ejercicioActualId === null) {
-    throw new Error("VALIDATION_ERROR: La sesión no tiene un ejercicio en curso");
-  }
-  if (sesion.ejercicioActualId !== input.ejercicioId) {
-    throw new Error("VALIDATION_ERROR: El ejercicio no es el actual de la sesión");
-  }
-
-  const ejercicios = sesion.rutinaAsignada.rutina.ejercicios;
-  const idxActual = ejercicios.findIndex((e) => e.ejercicioId === sesion.ejercicioActualId);
-  if (idxActual < 0) {
-    throw new Error("VALIDATION_ERROR: El ejercicio actual no pertenece a la rutina de la sesión");
-  }
-
-  const actual = ejercicios[idxActual];
-  const numeroSerie = sesion.serieActual;
-
-  let siguienteEjercicioId: string | null = sesion.ejercicioActualId;
-  let siguienteSerie: number | null = numeroSerie + 1;
-  if (numeroSerie >= actual.series) {
-    const siguiente = ejercicios[idxActual + 1];
-    if (siguiente) {
-      siguienteEjercicioId = siguiente.ejercicioId;
-      siguienteSerie = 1;
-    } else {
-      siguienteEjercicioId = null;
-      siguienteSerie = null;
+    if (!sesion) throw new Error("NOT_FOUND");
+    if (sesion.estadoDeFinalizacion !== "EN_CURSO") {
+      throw new Error("VALIDATION_ERROR: La sesión no está en curso");
     }
-  }
+    if (sesion.serieActual === null || sesion.ejercicioActualId === null) {
+      throw new Error("VALIDATION_ERROR: La sesión no tiene un ejercicio en curso");
+    }
+    if (sesion.ejercicioActualId !== input.ejercicioId) {
+      throw new Error("VALIDATION_ERROR: El ejercicio no es el actual de la sesión");
+    }
 
-  const { registro, sesion: sesionActualizada } = await prisma.$transaction(async (tx) => {
+    const ejercicios = sesion.rutinaAsignada.rutina.ejercicios;
+    const idxActual = ejercicios.findIndex((e) => e.ejercicioId === sesion.ejercicioActualId);
+    if (idxActual < 0) {
+      throw new Error("VALIDATION_ERROR: El ejercicio actual no pertenece a la rutina de la sesión");
+    }
+
+    const actual = ejercicios[idxActual];
+    const numeroSerie = sesion.serieActual;
+
+    let siguienteEjercicioId: string | null = sesion.ejercicioActualId;
+    let siguienteSerie: number | null = numeroSerie + 1;
+    if (numeroSerie >= actual.series) {
+      const siguiente = ejercicios[idxActual + 1];
+      if (siguiente) {
+        siguienteEjercicioId = siguiente.ejercicioId;
+        siguienteSerie = 1;
+      } else {
+        siguienteEjercicioId = null;
+        siguienteSerie = null;
+      }
+    }
+
+    // Guarda optimista: solo avanza si el estado sigue siendo el que leímos. Si otro
+    // request ya avanzó `serieActual` (o movió el ejercicio), `count === 0` y abortamos
+    // en vez de duplicar el `numeroSerie` y pisar el avance.
+    const guardado = await tx.sesionDeEntrenamiento.updateMany({
+      where: {
+        id: sesion.id,
+        estadoDeFinalizacion: "EN_CURSO",
+        serieActual: numeroSerie,
+        ejercicioActualId: sesion.ejercicioActualId,
+      },
+      data: {
+        ejercicioActualId: siguienteEjercicioId,
+        serieActual: siguienteSerie,
+      },
+    });
+    if (guardado.count === 0) {
+      throw new Error(
+        "VALIDATION_ERROR: La sesión fue modificada por un registro concurrente; recargá e intentá de nuevo"
+      );
+    }
+
     const registro = await tx.registroDeProgreso.create({
       data: {
         socioId: sesion.socioId,
@@ -339,17 +363,11 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
         fecha: input.ahora,
       },
     });
-    const sesionActualizada = await tx.sesionDeEntrenamiento.update({
+    const sesionActualizada = await tx.sesionDeEntrenamiento.findUnique({
       where: { id: sesion.id },
-      data: {
-        ejercicioActualId: siguienteEjercicioId,
-        serieActual: siguienteSerie,
-      },
     });
     return { registro, sesion: sesionActualizada };
   });
-
-  return { registro, sesion: sesionActualizada };
 }
 
 /**
