@@ -5,7 +5,6 @@ import {
   TableHeader,
   TableRow,
   TableCell,
-  TableStatusBadge,
   TableDetailRow,
   type TableColumn,
 } from "@/components/ui/table";
@@ -67,9 +66,9 @@ export function EjercicioListPanel({
               <TableCell width={118} variant="secondary">
                 {ejercicio.grupoMuscular}
               </TableCell>
-              <TableCell width={102}>
-                {/* El modelo no tiene estado: el catálogo existe y está operativo. */}
-                <TableStatusBadge>Activo</TableStatusBadge>
+              <TableCell width={102} variant="secondary">
+                {/* El modelo no tiene estado: se deja vacío, no se inventa dato. */}
+                —
               </TableCell>
             </TableRow>
             {isSelected && (

@@ -133,7 +133,7 @@ describe("Ejercicios CRUD Screen (Page)", () => {
     it("muestra el badge de estado en cada fila", async () => {
       render(<EjerciciosPage />);
       await screen.findByText("Press Militar");
-      expect(screen.getAllByText("Activo")).toHaveLength(2);
+      expect(screen.getAllByText("—")).toHaveLength(2);
     });
 
     it("no renderiza botones por fila (Modificar/Eliminar están en la ActionBar)", async () => {

@@ -5,7 +5,6 @@ import {
   TableHeader,
   TableRow,
   TableCell,
-  TableStatusBadge,
   TableDetailRow,
   type TableColumn,
 } from "@/components/ui/table";
@@ -83,9 +82,9 @@ export function RutinaListPanel({
                   ? NIVEL_LABEL[rutina.nivelDeDificultad] ?? rutina.nivelDeDificultad
                   : "-"}
               </TableCell>
-              <TableCell width={120}>
-                {/* El modelo no tiene estado: la rutina existe y está operativa. */}
-                <TableStatusBadge>Activo</TableStatusBadge>
+              <TableCell width={120} variant="secondary">
+                {/* El modelo no tiene estado: se deja vacío, no se inventa dato. */}
+                —
               </TableCell>
             </TableRow>
             {isSelected && (

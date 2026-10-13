@@ -45,7 +45,7 @@ describe("EjercicioListPanel", () => {
     expect(screen.getByText("Press Militar")).toBeInTheDocument();
     expect(screen.getByText("Sentadilla")).toBeInTheDocument();
     expect(screen.getByText("Press Banca")).toBeInTheDocument();
-    expect(screen.getAllByText("Activo")).toHaveLength(3);
+    expect(screen.getAllByText("—")).toHaveLength(3);
   });
 
   it("no renderiza botones por fila (Modificar/Eliminar viven en la ActionBar)", () => {
