@@ -84,47 +84,79 @@ export function calcularTotales(pagos: PagoParaCierre[]): TotalesDeCaja {
   };
 }
 
+/** Código de conflicto cuando el turno ya fue cerrado (spec `home-interno-dashboard`). */
+export const CASH_CLOSE_CONFLICT =
+  "CASH_CLOSE_CONFLICT: Ya existe un cierre de caja para el turno";
+
 /**
  * Cierra la caja del turno: en UNA transacción crea el `CierreDeCaja` con los
  * totales y marca con `cierreDeCajaId` exactamente los pagos confirmados del rango
  * que todavía no pertenecían a ningún cierre. Devuelve el cierre creado con sus pagos.
+ *
+ * Anti doble-cierre (CC-1, sin cambio de schema):
+ * 1. La transacción corre con `isolationLevel: "Serializable"`: dos cierres
+ *    concurrentes del mismo turno se serializan y uno falla con `P2034` (el
+ *    mapper lo traduce a 409 `CASH_CLOSE_CONFLICT`).
+ * 2. GUARD: no hay FK de turno en `CierreDeCaja`, así que "el turno ya cerrado" se
+ *    detecta por regla documentada: existe un `CierreDeCaja` cuyo `createdAt` cae
+ *    dentro del rango `[desde, hasta]`. Si existe, se aborta con
+ *    `CASH_CLOSE_CONFLICT` (y la transacción no crea nada).
+ * 3. La asignación de pagos sólo toma filas con `cierreDeCajaId: null`; si
+ *    `updateMany.count !== pagos.length` otro cierre se adelantó → se aborta con
+ *    `CASH_CLOSE_CONFLICT`. La transacción hace rollback → no hay cierre ni pagos
+ *    contados dos veces.
  */
 export async function cerrarCaja(input: CerrarCajaInput): Promise<CierreDeCajaCreado> {
   const { prisma } = await import("@/lib/db");
   const { responsableId, desde, hasta } = input;
 
-  return prisma.$transaction(async (tx) => {
-    const pagos = (await tx.pago.findMany({
-      where: {
-        estado: "CONFIRMADO",
-        cierreDeCajaId: null,
-        fechaPago: { gte: desde, lte: hasta },
-      },
-    })) as PagoParaCierre[];
-
-    const totales = calcularTotales(pagos);
-
-    const cierre = await tx.cierreDeCaja.create({
-      data: {
-        responsableId,
-        totalRecaudado: totales.totalRecaudado,
-        totalEfectivo: totales.totalEfectivo,
-        totalTransferencia: totales.totalTransferencia,
-        totalTarjeta: totales.totalTarjeta,
-        cantidadOperaciones: totales.cantidadOperaciones,
-      },
-    });
-
-    if (pagos.length > 0) {
-      await tx.pago.updateMany({
-        where: { id: { in: pagos.map((p) => p.id) } },
-        data: { cierreDeCajaId: cierre.id },
+  return prisma.$transaction(
+    async (tx) => {
+      const cierreExistente = await tx.cierreDeCaja.findFirst({
+        where: { createdAt: { gte: desde, lte: hasta } },
+        select: { id: true },
       });
-    }
+      if (cierreExistente) {
+        throw new Error(CASH_CLOSE_CONFLICT);
+      }
 
-    // Prisma devuelve `Decimal` en los totales; la API los serializa a string/número.
-    return { ...cierre, pagos } as unknown as CierreDeCajaCreado;
-  });
+      const pagos = (await tx.pago.findMany({
+        where: {
+          estado: "CONFIRMADO",
+          cierreDeCajaId: null,
+          fechaPago: { gte: desde, lte: hasta },
+        },
+      })) as PagoParaCierre[];
+
+      const totales = calcularTotales(pagos);
+
+      const cierre = await tx.cierreDeCaja.create({
+        data: {
+          responsableId,
+          totalRecaudado: totales.totalRecaudado,
+          totalEfectivo: totales.totalEfectivo,
+          totalTransferencia: totales.totalTransferencia,
+          totalTarjeta: totales.totalTarjeta,
+          cantidadOperaciones: totales.cantidadOperaciones,
+        },
+      });
+
+      if (pagos.length > 0) {
+        const { count } = await tx.pago.updateMany({
+          where: { id: { in: pagos.map((p) => p.id) }, cierreDeCajaId: null },
+          data: { cierreDeCajaId: cierre.id },
+        });
+        if (count !== pagos.length) {
+          // Otro cierre concurrente tomó algunos pagos: rollback total.
+          throw new Error(CASH_CLOSE_CONFLICT);
+        }
+      }
+
+      // Prisma devuelve `Decimal` en los totales; la API los serializa a string/número.
+      return { ...cierre, pagos } as unknown as CierreDeCajaCreado;
+    },
+    { isolationLevel: "Serializable" }
+  );
 }
 
 /**

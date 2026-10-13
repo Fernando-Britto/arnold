@@ -19,7 +19,7 @@ jest.mock("@/lib/db", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const prisma: any = {
     pago: { findMany: jest.fn(), updateMany: jest.fn() },
-    cierreDeCaja: { create: jest.fn(), findMany: jest.fn() },
+    cierreDeCaja: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
     empleado: { findUnique: jest.fn() },
   };
   prisma.$transaction = jest.fn((ops) =>
@@ -79,7 +79,12 @@ describe("calcularTotales (puro)", () => {
 });
 
 describe("cerrarCaja (servicio)", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const prisma = await mocks();
+    // Por defecto el turno no tiene cierre previo: el guard pasa.
+    (prisma.cierreDeCaja.findFirst as jest.Mock).mockResolvedValue(null);
+  });
 
   it("crea el cierre con los totales y marca EXACTAMENTE los pagos traídos", async () => {
     const prisma = await mocks();
@@ -89,6 +94,7 @@ describe("cerrarCaja (servicio)", () => {
     ];
     (prisma.pago.findMany as jest.Mock).mockResolvedValue(pagos);
     (prisma.cierreDeCaja.create as jest.Mock).mockResolvedValue({ id: "cierre-1", responsableId: "emp-1" });
+    (prisma.pago.updateMany as jest.Mock).mockResolvedValue({ count: 2 });
 
     const desde = d("2026-10-12T03:00:00.000Z");
     const hasta = d("2026-10-12T21:00:00.000Z");
@@ -112,10 +118,63 @@ describe("cerrarCaja (servicio)", () => {
       },
     });
     expect(prisma.pago.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["p1", "p2"] } },
+      // El guard `cierreDeCajaId: null` evita robar pagos ya asignados a otro cierre.
+      where: { id: { in: ["p1", "p2"] }, cierreDeCajaId: null },
       data: { cierreDeCajaId: "cierre-1" },
     });
     expect(r).toMatchObject({ id: "cierre-1", pagos });
+  });
+
+  it("lanza CASH_CLOSE_CONFLICT si el turno ya tiene un cierre (no crea nada)", async () => {
+    const prisma = await mocks();
+    (prisma.cierreDeCaja.findFirst as jest.Mock).mockResolvedValue({ id: "cierre-existente" });
+
+    await expect(
+      cerrarCaja({
+        responsableId: "emp-1",
+        desde: d("2026-10-12T03:00:00.000Z"),
+        hasta: d("2026-10-12T21:00:00.000Z"),
+      })
+    ).rejects.toThrow(/CASH_CLOSE_CONFLICT/);
+
+    expect(prisma.cierreDeCaja.create).not.toHaveBeenCalled();
+    expect(prisma.pago.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("lanza CASH_CLOSE_CONFLICT si la asignación no marca todos los pagos (carrera)", async () => {
+    const prisma = await mocks();
+    const pagos = [
+      { id: "p1", monto: 1000, metodoPago: "EFECTIVO", estado: "CONFIRMADO", cierreDeCajaId: null },
+      { id: "p2", monto: 200, metodoPago: "TARJETA", estado: "CONFIRMADO", cierreDeCajaId: null },
+    ];
+    (prisma.pago.findMany as jest.Mock).mockResolvedValue(pagos);
+    (prisma.cierreDeCaja.create as jest.Mock).mockResolvedValue({ id: "cierre-1", responsableId: "emp-1" });
+    // Otro cierre concurrente ya tomó uno de los pagos: count < pagos.length.
+    (prisma.pago.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+    await expect(
+      cerrarCaja({
+        responsableId: "emp-1",
+        desde: d("2026-10-12T03:00:00.000Z"),
+        hasta: d("2026-10-12T21:00:00.000Z"),
+      })
+    ).rejects.toThrow(/CASH_CLOSE_CONFLICT/);
+  });
+
+  it("corre la transacción con isolationLevel Serializable (serializa cierres concurrentes)", async () => {
+    const prisma = await mocks();
+    (prisma.pago.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.cierreDeCaja.create as jest.Mock).mockResolvedValue({ id: "cierre-3", responsableId: "emp-1" });
+
+    await cerrarCaja({
+      responsableId: "emp-1",
+      desde: d("2026-10-12T03:00:00.000Z"),
+      hasta: d("2026-10-12T21:00:00.000Z"),
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
+    });
   });
 
   it("sin pagos pendientes crea un cierre válido en cero y no toca pagos", async () => {

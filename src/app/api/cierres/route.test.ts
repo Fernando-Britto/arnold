@@ -71,6 +71,28 @@ describe("handleCerrarCajaRequest (sin NextRequest)", () => {
     expect(r.status).toBe(400);
     expect((r.body as { code: string }).code).toBe("VALIDATION_ERROR");
   });
+
+  it("409 si el turno ya tiene un cierre (CASH_CLOSE_CONFLICT)", async () => {
+    mockCerrar.mockRejectedValueOnce(
+      new Error("CASH_CLOSE_CONFLICT: Ya existe un cierre de caja para el turno")
+    );
+
+    const r = await handleCerrarCajaRequest("u-rec");
+
+    expect(r.status).toBe(409);
+    expect((r.body as { code: string }).code).toBe("CASH_CLOSE_CONFLICT");
+  });
+
+  it("409 si Prisma detecta un fallo de serialización (P2034)", async () => {
+    mockCerrar.mockRejectedValueOnce(
+      Object.assign(new Error("write conflict"), { code: "P2034" })
+    );
+
+    const r = await handleCerrarCajaRequest("u-rec");
+
+    expect(r.status).toBe(409);
+    expect((r.body as { code: string }).code).toBe("CASH_CLOSE_CONFLICT");
+  });
 });
 
 describe("handleListarCierresRequest / handlePrevisualizarCierreRequest", () => {
@@ -159,6 +181,18 @@ describe("POST /api/cierres", () => {
     const res = await POST(postReq({ desde: "no-es-fecha" }));
     expect(res.status).toBe(400);
     expect(mockCerrar).not.toHaveBeenCalled();
+  });
+
+  it("409 cuando ya existe un cierre para el turno", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+    mockCerrar.mockRejectedValueOnce(
+      new Error("CASH_CLOSE_CONFLICT: Ya existe un cierre de caja para el turno")
+    );
+
+    const res = await POST(postReq());
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("CASH_CLOSE_CONFLICT");
   });
 });
 

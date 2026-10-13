@@ -39,6 +39,10 @@ export interface ErrorMapperOptions {
  * - "MEMBERSHIP_NO_LONGER_ACTIVE: ..." → 400 MEMBERSHIP_NO_LONGER_ACTIVE
  * - "DEACTIVATION_WARNING: ..." → 400 DEACTIVATION_WARNING (AC-005)
  * - "DELETE_BLOCKED_ASSIGNED: ..." → 409 DELETE_BLOCKED_ASSIGNED (AC-006)
+ * - "DELETE_BLOCKED_REFERENCES: ..." → 409 DELETE_BLOCKED_REFERENCES (PG-6/H2)
+ * - "CASH_CLOSE_CONFLICT: ..." → 409 CASH_CLOSE_CONFLICT (cierre de caja duplicado)
+ * - "PAYMENT_ALREADY_REGISTERED: ..." → 409 PAYMENT_ALREADY_REGISTERED (pago duplicado, PG-4)
+ * - Prisma "P2034" (fallo de serialización/deadlock) → 409 CASH_CLOSE_CONFLICT
  * - "FORBIDDEN: ..." → 403 FORBIDDEN (with custom message per route)
  * - "NOT_FOUND: ..." → 404 NOT_FOUND (with resource-specific name)
  * - Other → 500 SERVER_ERROR
@@ -51,7 +55,7 @@ export function mapErrorToResponse(
   options: ErrorMapperOptions = {}
 ): ErrorResponse {
   const message = error instanceof Error ? error.message : "Unknown error";
-  const code = (error as any)?.code;
+  const code = (error as { code?: unknown } | null | undefined)?.code;
   const {
     forbiddenMessage = "Se requiere rol de administrador",
     resourceName = "Recurso",
@@ -73,6 +77,30 @@ export function mapErrorToResponse(
         status: 409,
       };
     }
+    if (code === "DELETE_BLOCKED_REFERENCES") {
+      return {
+        code: "DELETE_BLOCKED_REFERENCES",
+        message: message,
+        status: 409,
+      };
+    }
+    // Cierre de caja duplicado: código explícito o fallo de serialización de Prisma
+    // (P2034) cuando dos cierres concurrentes del mismo turno chocan.
+    if (code === "CASH_CLOSE_CONFLICT" || code === "P2034") {
+      return {
+        code: "CASH_CLOSE_CONFLICT",
+        message: "Ya existe un cierre de caja para el turno",
+        status: 409,
+      };
+    }
+    // Pago duplicado del mismo período (PG-4, anti doble-cobro): la cuota ya existe.
+    if (code === "PAYMENT_ALREADY_REGISTERED") {
+      return {
+        code: "PAYMENT_ALREADY_REGISTERED",
+        message: "Ya existe una cuota para el período que se intenta pagar",
+        status: 409,
+      };
+    }
     if (code === "NOT_FOUND") {
       return {
         code: "NOT_FOUND",
@@ -84,12 +112,15 @@ export function mapErrorToResponse(
 
   // Extract specific error codes from message prefix (VALIDATION_XXX, MEMBERSHIP_XXX, NOT_FOUND, etc.)
   const validationCodeMatch = message.match(
-    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|NOT_FOUND):\s*(.+)$/
+    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_REFERENCES|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|NOT_FOUND):\s*(.+)$/
   );
   if (validationCodeMatch) {
     const [, errorCode, errorMessage] = validationCodeMatch;
     let status = 400;
     if (errorCode === "DELETE_BLOCKED_ASSIGNED") status = 409;
+    if (errorCode === "DELETE_BLOCKED_REFERENCES") status = 409;
+    if (errorCode === "CASH_CLOSE_CONFLICT") status = 409;
+    if (errorCode === "PAYMENT_ALREADY_REGISTERED") status = 409;
     if (errorCode === "NOT_FOUND") status = 404;
     
     // For NOT_FOUND, use localized resourceName message instead of generic message

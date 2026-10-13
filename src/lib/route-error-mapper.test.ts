@@ -47,3 +47,115 @@ describe("mapErrorToResponse — errores inesperados", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+describe("mapErrorToResponse — conflicto de cierre de caja (CASH_CLOSE_CONFLICT)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el prefijo CASH_CLOSE_CONFLICT a 409 con el mensaje del dominio", () => {
+    const res = mapErrorToResponse(
+      new Error("CASH_CLOSE_CONFLICT: Ya existe un cierre de caja para el turno")
+    );
+
+    expect(res).toEqual({
+      code: "CASH_CLOSE_CONFLICT",
+      message: "Ya existe un cierre de caja para el turno",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea el fallo de serialización de Prisma (P2034) a 409, no a 500", () => {
+    const prismaLike = Object.assign(
+      new Error("Transaction failed due to a write conflict or a deadlock. Please retry your transaction"),
+      { code: "P2034" }
+    );
+
+    const res = mapErrorToResponse(prismaLike);
+
+    expect(res.status).toBe(409);
+    expect(res.code).toBe("CASH_CLOSE_CONFLICT");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea un código explícito CASH_CLOSE_CONFLICT a 409", () => {
+    const conCodigo = Object.assign(new Error("choque de cierre"), { code: "CASH_CLOSE_CONFLICT" });
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res.status).toBe(409);
+    expect(res.code).toBe("CASH_CLOSE_CONFLICT");
+  });
+});
+
+describe("mapErrorToResponse — pago duplicado (PAYMENT_ALREADY_REGISTERED)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el prefijo PAYMENT_ALREADY_REGISTERED a 409 con el mensaje del dominio", () => {
+    const res = mapErrorToResponse(
+      new Error(
+        "PAYMENT_ALREADY_REGISTERED: Ya existe una cuota para el período que se intenta pagar"
+      )
+    );
+
+    expect(res).toEqual({
+      code: "PAYMENT_ALREADY_REGISTERED",
+      message: "Ya existe una cuota para el período que se intenta pagar",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea un código explícito PAYMENT_ALREADY_REGISTERED a 409", () => {
+    const conCodigo = Object.assign(new Error("cuota duplicada"), {
+      code: "PAYMENT_ALREADY_REGISTERED",
+    });
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res.status).toBe(409);
+    expect(res.code).toBe("PAYMENT_ALREADY_REGISTERED");
+  });
+});
+
+describe("mapErrorToResponse — borrado bloqueado por referencias (DELETE_BLOCKED_REFERENCES)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el prefijo DELETE_BLOCKED_REFERENCES a 409 con el mensaje del dominio", () => {
+    const res = mapErrorToResponse(
+      new Error(
+        "DELETE_BLOCKED_REFERENCES: No se puede eliminar el cliente porque tiene historial (asistencias, sesiones, progreso, pagos o cuotas)"
+      )
+    );
+
+    expect(res).toEqual({
+      code: "DELETE_BLOCKED_REFERENCES",
+      message:
+        "No se puede eliminar el cliente porque tiene historial (asistencias, sesiones, progreso, pagos o cuotas)",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea un código explícito DELETE_BLOCKED_REFERENCES a 409", () => {
+    const conCodigo = Object.assign(new Error("con historial"), {
+      code: "DELETE_BLOCKED_REFERENCES",
+    });
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res.status).toBe(409);
+    expect(res.code).toBe("DELETE_BLOCKED_REFERENCES");
+  });
+});
