@@ -1,11 +1,12 @@
 "use client";
 
 import React from "react";
+import { SIN_ACCESO_TITLE } from "./sin-acceso";
 
 /**
  * Row_Hoy · Caja (AC-004). Totals come from computeCajaHoy (Efectivo + Transferencia + Tarjeta). The "Cierre de
- * Caja" flow itself (creates CierreDeCaja on confirm) is NOT part of T-021a —
- * this card only exposes the trigger.
+ * Caja" flow itself lives at /cierres (T-040); this card only exposes the trigger,
+ * rendered-but-disabled for roles that cannot open it.
  */
 export interface CajaCardProps {
   efectivo: number;
@@ -13,11 +14,20 @@ export interface CajaCardProps {
   tarjeta: number;
   total: number;
   onCierreDeCaja: () => void;
+  /** true when the current role cannot open /cierres. */
+  cierreDisabled?: boolean;
 }
 
 const money = (n: number) => `$${n.toFixed(2)}`;
 
-export function CajaCard({ efectivo, transferencia, tarjeta, total, onCierreDeCaja }: CajaCardProps) {
+export function CajaCard({
+  efectivo,
+  transferencia,
+  tarjeta,
+  total,
+  onCierreDeCaja,
+  cierreDisabled = false,
+}: CajaCardProps) {
   return (
     <div className="flex flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-6">
       <p className="text-sm font-medium text-zinc-500">Caja de hoy</p>
@@ -39,7 +49,9 @@ export function CajaCard({ efectivo, transferencia, tarjeta, total, onCierreDeCa
       <button
         type="button"
         onClick={onCierreDeCaja}
-        className="mt-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+        disabled={cierreDisabled}
+        title={cierreDisabled ? SIN_ACCESO_TITLE : undefined}
+        className="mt-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         Cierre de Caja
       </button>

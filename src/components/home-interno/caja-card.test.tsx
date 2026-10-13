@@ -29,4 +29,23 @@ describe("CajaCard (AC-004: Efectivo / Transferencia / Total)", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Cierre de Caja" }));
     expect(onCierre).toHaveBeenCalledTimes(1);
   });
+
+  it("deshabilita el botón para los roles sin acceso (con tooltip)", async () => {
+    const onCierre = jest.fn();
+    render(
+      <CajaCard
+        efectivo={0}
+        transferencia={0}
+        tarjeta={0}
+        total={0}
+        onCierreDeCaja={onCierre}
+        cierreDisabled
+      />
+    );
+    const boton = screen.getByRole("button", { name: "Cierre de Caja" });
+    expect(boton).toBeDisabled();
+    expect(boton).toHaveAttribute("title", "Sin acceso con tu rol");
+    await userEvent.setup().click(boton);
+    expect(onCierre).not.toHaveBeenCalled();
+  });
 });
