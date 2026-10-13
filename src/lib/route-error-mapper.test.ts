@@ -48,6 +48,58 @@ describe("mapErrorToResponse — errores inesperados", () => {
   });
 });
 
+describe("mapErrorToResponse — el mensaje no expone el prefijo CODE: al usuario (N2)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("quita el prefijo DEACTIVATION_WARNING del mensaje del dominio", () => {
+    const conCodigo = Object.assign(
+      new Error("DEACTIVATION_WARNING: 3 socios tienen esta membresía asignada"),
+      { code: "DEACTIVATION_WARNING" }
+    );
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res).toEqual({
+      code: "DEACTIVATION_WARNING",
+      message: "3 socios tienen esta membresía asignada",
+      status: 400,
+    });
+    expect(res.message).not.toMatch(/^[A-Z_]+:\s/);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("quita el prefijo DELETE_BLOCKED_ASSIGNED del mensaje del dominio", () => {
+    const conCodigo = Object.assign(
+      new Error("DELETE_BLOCKED_ASSIGNED: No se puede eliminar: 2 socios asignados"),
+      { code: "DELETE_BLOCKED_ASSIGNED" }
+    );
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res).toEqual({
+      code: "DELETE_BLOCKED_ASSIGNED",
+      message: "No se puede eliminar: 2 socios asignados",
+      status: 409,
+    });
+  });
+
+  it("quita el prefijo DELETE_BLOCKED_REFERENCES del mensaje del dominio", () => {
+    const conCodigo = Object.assign(new Error("DELETE_BLOCKED_REFERENCES: tiene historial"), {
+      code: "DELETE_BLOCKED_REFERENCES",
+    });
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res.code).toBe("DELETE_BLOCKED_REFERENCES");
+    expect(res.message).toBe("tiene historial");
+    expect(res.status).toBe(409);
+  });
+});
+
 describe("mapErrorToResponse — conflicto de cierre de caja (CASH_CLOSE_CONFLICT)", () => {
   let spy: jest.SpyInstance;
   beforeEach(() => {

@@ -60,6 +60,14 @@ describe("AdminTopNav", () => {
     expect(screen.getByRole("link", { name: "Ejercicios" })).not.toHaveAttribute("aria-current");
   });
 
+  it("la campana de notificaciones no es interactiva: no hay feature todavía (HI-1)", () => {
+    mockUseAuth.mockReturnValue(userWithRole("ADMINISTRADOR"));
+    render(<AdminTopNav activeSection="ejercicios" />);
+    const bell = screen.getByLabelText("Notificaciones");
+    expect(bell).toBeDisabled();
+    expect(bell.getAttribute("title")).toMatch(/disponible/i);
+  });
+
   it("muestra la inicial del usuario en el avatar", () => {
     mockUseAuth.mockReturnValue(userWithRole("ADMINISTRADOR", "Ana Pérez"));
     render(<AdminTopNav activeSection="ejercicios" />);

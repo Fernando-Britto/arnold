@@ -140,9 +140,9 @@ Failed authentication and denied authorization **SHOULD** be written to `Auditor
 | `/api/clientes` | GET, POST, PUT, DELETE | ✔ | — | ✔ | — | |
 | `/api/membresias` | GET, POST, PUT, DELETE | ✔ | — | — | — | Management is Administrador-only (RN-06) |
 | `/api/membresias/activas` | GET | ✔ | — | ✔ | — | Read-only list of **active** membresías for the Clientes form dropdown (membresias-crud AC-004); added by fix `ebeec5d` |
-| `/api/socios` | GET | ✔ | ✔ | ✔ | ✔ | Socio: own record only (handler filter). R also POST, PUT |
+| `/api/socios` | GET | ✔ | ✔ | ✔ | — | R also POST, PUT. Socio has no access (B1): own record only, via `/api/home-socio` |
 | `/api/socios/{id}/access-override` | POST | ✔ | — | — | — | The proxy lets R through `/api/socios` (POST); the handler then **requires ADMINISTRADOR** |
-| `/api/pagos` | GET | ✔ | — | ✔ | ✔ | Socio: own payments (handler filter). R also POST |
+| `/api/pagos` | GET | ✔ | — | ✔ | — | R also POST. Socio has no access (B1): own payments via `/api/home-socio` |
 | `/api/sesiones` | GET, POST / GET, PUT | ✔ | GET, PUT | — | GET, POST | I: view and update sessions; S: own sessions |
 | `/api/cierres` | GET, POST | ✔ | — | ✔ | — | |
 

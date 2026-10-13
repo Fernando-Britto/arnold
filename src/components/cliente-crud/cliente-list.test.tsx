@@ -76,6 +76,17 @@ describe("ClienteList", () => {
     expect(screen.queryByText("Ana García")).not.toBeInTheDocument();
   });
 
+  it("encuentra por DNI con puntos (normaliza el término de búsqueda)", () => {
+    render(<ClienteList clientes={clientes} searchTerm="30.123.456" />);
+    expect(screen.getByText("Ana García")).toBeInTheDocument();
+    expect(screen.queryByText("Bruno Díaz")).not.toBeInTheDocument();
+  });
+
+  it("sigue encontrando por DNI sin puntos", () => {
+    render(<ClienteList clientes={clientes} searchTerm="30123456" />);
+    expect(screen.getByText("Ana García")).toBeInTheDocument();
+  });
+
   it("muestra el estado vacío", () => {
     render(<ClienteList clientes={[]} />);
     expect(screen.getByText(/No hay clientes registrados/i)).toBeInTheDocument();

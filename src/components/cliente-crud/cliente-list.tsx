@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { type EstadoCuenta } from "@/domains/cliente/cliente";
+import { normalizeDNI, type EstadoCuenta } from "@/domains/cliente/cliente";
 import {
   Table,
   TableHeader,
@@ -68,13 +68,18 @@ export function ClienteList({
 }: ClienteListProps) {
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
+    // Los DNI se guardan sin puntos (normalizeDNI). Si el término es un DNI
+    // (sólo dígitos y separadores), se compara normalizado para que "30.123.456"
+    // encuentre "30123456". Para nombre/email se usa el término tal cual.
+    const dniTerm = normalizeDNI(term);
+    const isDniSearch = dniTerm.length > 0 && /^[\d.\s-]+$/.test(term);
     return [...clientes]
       .filter(
         (c) =>
           !term ||
           c.nombre.toLowerCase().includes(term) ||
-          c.dni.toLowerCase().includes(term) ||
-          c.email.toLowerCase().includes(term)
+          c.email.toLowerCase().includes(term) ||
+          (isDniSearch && c.dni.includes(dniTerm))
       )
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [clientes, searchTerm]);

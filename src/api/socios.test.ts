@@ -111,6 +111,19 @@ describe("handleBuscarSocio", () => {
 
     await expect(handleBuscarSocio("00000000", d("2026-11-05T10:00:00"))).rejects.toThrow("NOT_FOUND");
   });
+
+  it("normaliza el DNI con puntos antes de buscar (30.123.456 → 30123456)", async () => {
+    const prisma = await armarSocio();
+    (prisma.cuota.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const r = await handleBuscarSocio("30.123.456", d("2026-11-05T10:00:00"));
+
+    expect(prisma.socio.findUnique).toHaveBeenCalledWith({
+      where: { dni: "30123456" },
+      include: { usuario: true, membresiaAsignada: true },
+    });
+    expect(r.dni).toBe("30123456");
+  });
 });
 
 describe("fetchSocioPorDni (fetch client)", () => {

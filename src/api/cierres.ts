@@ -33,6 +33,22 @@ export interface PrevisualizarCierreRequest {
   ahora?: Date;
 }
 
+/**
+ * Totales de la previsualización + el rango efectivamente usado (ISO). El cliente
+ * debe cerrar con ESE rango: si la pantalla quedó abierta cruzando la medianoche,
+ * `new Date()` en el POST daría un día distinto al previsualizado (CC-2).
+ */
+export interface PreviewCierreResult extends TotalesDeCaja {
+  desde: string;
+  hasta: string;
+}
+
+/** Rango que el POST de cierre acepta en el cuerpo (ISO). */
+export interface RangoCierreDTO {
+  desde: string;
+  hasta: string;
+}
+
 /** Rango del turno: el enviado, o el día del gimnasio hasta ahora. */
 function rangoPorDefecto(input: { desde?: Date; hasta?: Date; ahora?: Date }) {
   const ahora = input.ahora ?? new Date();
@@ -57,11 +73,17 @@ export async function handleListarCierres() {
   return listarCierres();
 }
 
-/** Handle GET /api/cierres?preview=1 — totales pendientes de cierre (sin persistir). */
+/** Handle GET /api/cierres?preview=1 — totales pendientes de cierre (sin persistir) + rango usado. */
 export async function handlePrevisualizarCierre(
   input: PrevisualizarCierreRequest = {}
-): Promise<TotalesDeCaja> {
-  return previsualizarCierre(rangoPorDefecto(input));
+): Promise<PreviewCierreResult> {
+  const rango = rangoPorDefecto(input);
+  const totales = await previsualizarCierre(rango);
+  return {
+    ...totales,
+    desde: rango.desde.toISOString(),
+    hasta: rango.hasta.toISOString(),
+  };
 }
 
 /**
@@ -77,8 +99,8 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/** Client-side API call: totales pendientes de cierre del turno. */
-export async function fetchPreviewCierre(): Promise<TotalesDeCaja> {
+/** Client-side API call: totales pendientes de cierre del turno + rango usado. */
+export async function fetchPreviewCierre(): Promise<PreviewCierreResult> {
   const response = await fetch("/api/cierres?preview=1", {
     headers: { ...getAuthHeaders() },
   });
@@ -86,14 +108,19 @@ export async function fetchPreviewCierre(): Promise<TotalesDeCaja> {
   return response.json();
 }
 
-/** Client-side API call: confirmar el cierre de caja. */
-export async function createCierre(): Promise<CierreDeCajaCreado> {
+/**
+ * Client-side API call: confirmar el cierre de caja. Si se pasa `rango`, se envía
+ * en el cuerpo para cerrar exactamente lo previsualizado (CC-2); sin rango, el
+ * server usa el día del gimnasio hasta ahora.
+ */
+export async function createCierre(rango?: RangoCierreDTO): Promise<CierreDeCajaCreado> {
   const response = await fetch("/api/cierres", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...getAuthHeaders(),
     },
+    body: rango ? JSON.stringify(rango) : undefined,
   });
   await throwIfNotOk(response, "No se pudo cerrar la caja");
   return response.json();

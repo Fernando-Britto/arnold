@@ -102,4 +102,29 @@ describe("POST /api/dispositivo/acceso", () => {
     expect(res.status).toBe(429);
     expect((await res.json()).code).toBe("RATE_LIMITED");
   });
+
+  it("mapea un error inesperado del check-in a 500 SERVER_ERROR (no un throw crudo) (AC-1)", async () => {
+    mockAuth.mockResolvedValueOnce(dispositivo);
+    mockCheckIn.mockRejectedValueOnce(new Error("boom"));
+
+    const res = await POST(postReq({ dni: "30123456", pin: "1234" }));
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.code).toBe("SERVER_ERROR");
+    expect(body.message).toBe("No se pudo procesar la solicitud");
+    expect(JSON.stringify(body)).not.toContain("boom");
+  });
+
+  it("mapea un error de dominio (NOT_FOUND) al status correcto (AC-1)", async () => {
+    mockAuth.mockResolvedValueOnce(dispositivo);
+    mockCheckIn.mockRejectedValueOnce(
+      Object.assign(new Error("NOT_FOUND: Socio no encontrado"), { code: "NOT_FOUND" })
+    );
+
+    const res = await POST(postReq({ dni: "30123456", pin: "1234" }));
+
+    expect(res.status).toBe(404);
+    expect((await res.json()).code).toBe("NOT_FOUND");
+  });
 });

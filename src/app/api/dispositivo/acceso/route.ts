@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleCheckIn, type CheckInResultado } from "@/api/acceso";
 import { autenticarDispositivo } from "@/lib/dispositivo-auth";
 import { getTrustedClientIp } from "@/lib/client-ip";
+import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import type { AccesoPuertaRespuesta } from "@/api/dispositivos";
 
 const MAX_USER_AGENT = 255;
@@ -55,13 +56,23 @@ export async function POST(request: NextRequest) {
   const ip = getTrustedClientIp(request);
   const userAgent = (request.headers.get("user-agent") || "unknown").slice(0, MAX_USER_AGENT);
 
-  const result = await handleCheckIn({ dni, pin, ip, userAgent });
-  if (result.code === "RATE_LIMITED") {
+  try {
+    const result = await handleCheckIn({ dni, pin, ip, userAgent });
+    if (result.code === "RATE_LIMITED") {
+      return NextResponse.json(
+        { code: "RATE_LIMITED", message: result.motivo ?? "Demasiados intentos. Probá de nuevo en un minuto." },
+        { status: 429 }
+      );
+    }
+
+    return NextResponse.json(aRespuestaPuerta(result), { status: 200 });
+  } catch (error) {
+    // Mismo envelope de error que recepción: un fallo inesperado del check-in
+    // no debe escapar como 500 crudo (AC-1).
+    const mapped = mapErrorToResponse(error, { resourceName: "Socio" });
     return NextResponse.json(
-      { code: "RATE_LIMITED", message: result.motivo ?? "Demasiados intentos. Probá de nuevo en un minuto." },
-      { status: 429 }
+      { code: mapped.code, message: mapped.message },
+      { status: mapped.status }
     );
   }
-
-  return NextResponse.json(aRespuestaPuerta(result), { status: 200 });
 }

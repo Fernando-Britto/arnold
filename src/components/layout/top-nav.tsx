@@ -22,7 +22,6 @@ export interface TopNavProps {
   active?: TopNavLink;
   onNavigate?: (link: TopNavLink) => void;
   onSearchClick?: () => void;
-  onNotificationsClick?: () => void;
   onAvatarClick?: () => void;
   /** Cierra la sesión (P-06: sin esto el Socio no tenía forma de salir ni de revocar su token). */
   onLogoutClick?: () => void;
@@ -55,7 +54,6 @@ export function TopNav({
   active = "inicio",
   onNavigate,
   onSearchClick,
-  onNotificationsClick,
   onAvatarClick,
   onLogoutClick,
 }: TopNavProps) {
@@ -100,11 +98,14 @@ export function TopNav({
         >
           <Search className="h-5 w-5 text-zinc-500" />
         </button>
+        {/* HI-1: no hay feature de notificaciones todavía; se deshabilita para no
+            dejar un control clickeable sin acción. */}
         <button
           type="button"
+          disabled
           aria-label="Notificaciones"
-          onClick={onNotificationsClick}
-          className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100"
+          title="Las notificaciones no están disponibles todavía"
+          className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-lg bg-zinc-100 opacity-40"
         >
           <Bell className="h-5 w-5 text-zinc-500" />
         </button>

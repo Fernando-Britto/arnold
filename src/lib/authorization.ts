@@ -25,10 +25,10 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
   paths: {
     '/home-socio': ['GET'],
     '/api/home-socio': ['GET'],
-    '/api/socios': ['GET'],
+    // se quitó '/api/socios' GET y '/api/pagos' GET (B1): eran grants fantasma, los
+    // handlers los rechazan y el Socio obtiene su propia data por /api/home-socio.
     // se quitó '/api/rutinas' GET: RN-06 limita Rutinas a Admin/Instructor;
     // el Socio ve su rutina vía /api/home-socio
-    '/api/pagos': ['GET'],
     // PUT para finalizar la sesión de entrenamiento (D-44); GET/POST ya existían.
     '/api/sesiones': ['GET', 'POST', 'PUT'],
     '/api/auth/logout': ['POST'],

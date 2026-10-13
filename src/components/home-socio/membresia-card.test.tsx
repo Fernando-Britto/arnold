@@ -11,7 +11,7 @@ describe("MembresiaCard (matches Home_Socio_1x §Fila3 Membresia)", () => {
     render(
       <MembresiaCard
         planNombre="Plan Musculación"
-        fechaVencimiento={new Date("2026-10-15T00:00:00Z")}
+        fechaVencimiento={new Date("2026-10-15T03:00:00Z")}
         diasTotalMembresia={30}
         hoy={hoy}
         dias28={dias28}
@@ -23,11 +23,27 @@ describe("MembresiaCard (matches Home_Socio_1x §Fila3 Membresia)", () => {
     expect(screen.getByText(/vencimiento: 15 de octubre, 2026/i)).toBeInTheDocument();
   });
 
+  it("muestra el mes del gimnasio, no el de UTC, cuando el vencimiento cae el 1º UTC (NEW-1)", () => {
+    render(
+      <MembresiaCard
+        planNombre="Plan Musculación"
+        // 2026-11-01 00:00 UTC = 2026-10-31 21:00 en el gimnasio (UTC-3)
+        fechaVencimiento={new Date("2026-11-01T00:00:00Z")}
+        diasTotalMembresia={30}
+        hoy={new Date("2026-10-20T12:00:00Z")}
+        dias28={dias28}
+        totalAsistencias={12}
+      />
+    );
+    expect(screen.getByText(/vencimiento: 31 de octubre, 2026/i)).toBeInTheDocument();
+    expect(screen.queryByText(/vencimiento: 1 de noviembre/i)).not.toBeInTheDocument();
+  });
+
   it('shows "Quedan N de M días"', () => {
     render(
       <MembresiaCard
         planNombre="Plan Musculación"
-        fechaVencimiento={new Date("2026-10-15T00:00:00Z")}
+        fechaVencimiento={new Date("2026-10-15T03:00:00Z")}
         diasTotalMembresia={30}
         hoy={hoy}
         dias28={dias28}
@@ -41,7 +57,7 @@ describe("MembresiaCard (matches Home_Socio_1x §Fila3 Membresia)", () => {
     render(
       <MembresiaCard
         planNombre="Plan Musculación"
-        fechaVencimiento={new Date("2026-10-15T00:00:00Z")}
+        fechaVencimiento={new Date("2026-10-15T03:00:00Z")}
         diasTotalMembresia={30}
         hoy={hoy}
         dias28={dias28}
@@ -55,7 +71,7 @@ describe("MembresiaCard (matches Home_Socio_1x §Fila3 Membresia)", () => {
     const { rerender } = render(
       <MembresiaCard
         planNombre="Plan Musculación"
-        fechaVencimiento={new Date("2026-10-15T00:00:00Z")}
+        fechaVencimiento={new Date("2026-10-15T03:00:00Z")}
         diasTotalMembresia={30}
         hoy={hoy}
         dias28={dias28}
@@ -67,7 +83,7 @@ describe("MembresiaCard (matches Home_Socio_1x §Fila3 Membresia)", () => {
     rerender(
       <MembresiaCard
         planNombre="Plan Musculación"
-        fechaVencimiento={new Date("2026-09-26T00:00:00Z")}
+        fechaVencimiento={new Date("2026-09-26T03:00:00Z")}
         diasTotalMembresia={30}
         hoy={hoy}
         dias28={dias28}
@@ -81,7 +97,7 @@ describe("MembresiaCard (matches Home_Socio_1x §Fila3 Membresia)", () => {
     render(
       <MembresiaCard
         planNombre="Plan Musculación"
-        fechaVencimiento={new Date("2026-10-15T00:00:00Z")}
+        fechaVencimiento={new Date("2026-10-15T03:00:00Z")}
         diasTotalMembresia={30}
         hoy={hoy}
         dias28={dias28}
@@ -101,7 +117,7 @@ describe("MembresiaCard (matches Home_Socio_1x §Fila3 Membresia)", () => {
     render(
       <MembresiaCard
         planNombre="Plan Musculación"
-        fechaVencimiento={new Date("2026-09-26T00:00:00Z")}
+        fechaVencimiento={new Date("2026-09-26T03:00:00Z")}
         diasTotalMembresia={30}
         hoy={hoy}
         dias28={dias28}

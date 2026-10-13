@@ -76,6 +76,20 @@ describe("KioscoPuerta", () => {
     expect(screen.getByText("Acceso denegado")).toBeInTheDocument();
   });
 
+  it("en 401 muestra un mensaje del dispositivo, no el de una sesión de usuario (AC-6)", async () => {
+    const user = userEvent.setup();
+    mockAcceso.mockRejectedValueOnce(new ApiError(401, "Dispositivo no autorizado"));
+    render(<KioscoPuerta token="tok-dev" />);
+
+    await ingresarDni(user, "30123456");
+    await ingresarPin(user, "1111");
+
+    expect(
+      await screen.findByText("Dispositivo no autorizado. Reconfigurá el token.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Tu sesión venció/i)).not.toBeInTheDocument();
+  });
+
   it("se limpia solo a los ~5 segundos y vuelve al inicio", async () => {
     jest.useFakeTimers();
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });

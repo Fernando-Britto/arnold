@@ -7,7 +7,7 @@ import { useNotifications } from "@/contexts/notifications";
 import {
   fetchPreviewCierre,
   createCierre,
-  type TotalesDeCaja,
+  type PreviewCierreResult,
 } from "@/api/cierres";
 import { handleApiError } from "@/utils/api-error";
 import { SectionPageLayout } from "@/components/layout/section-page-layout";
@@ -27,7 +27,7 @@ export function CierresPage() {
   const { user, isAuthenticated } = useAuth();
   const { notify } = useNotifications();
 
-  const [totales, setTotales] = useState<TotalesDeCaja | null>(null);
+  const [totales, setTotales] = useState<PreviewCierreResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +78,10 @@ export function CierresPage() {
     setError(null);
     setConfirmando(true);
     try {
-      const cierre = await createCierre();
+      // CC-2: cerrar exactamente el rango previsualizado, no un `new Date()` nuevo.
+      const cierre = await createCierre(
+        totales ? { desde: totales.desde, hasta: totales.hasta } : undefined
+      );
       notify(
         "success",
         `Cierre registrado: ${money(cierre.totalRecaudado)} · ${cierre.cantidadOperaciones} operaciones`

@@ -28,6 +28,14 @@ export interface ErrorMapperOptions {
 }
 
 /**
+ * Quita un prefijo `CODE: ` del mensaje para no exponer el código interno al
+ * usuario. El código real viaja aparte en el campo `code` del envelope.
+ */
+function stripCodePrefix(message: string): string {
+  return message.replace(/^[A-Z_]+:\s*/, "");
+}
+
+/**
  * Map error messages to HTTP response codes per API spec
  * Shared across all route.ts files
  *
@@ -66,21 +74,21 @@ export function mapErrorToResponse(
     if (code === "DEACTIVATION_WARNING") {
       return {
         code: "DEACTIVATION_WARNING",
-        message: message,
+        message: stripCodePrefix(message),
         status: 400,
       };
     }
     if (code === "DELETE_BLOCKED_ASSIGNED") {
       return {
         code: "DELETE_BLOCKED_ASSIGNED",
-        message: message,
+        message: stripCodePrefix(message),
         status: 409,
       };
     }
     if (code === "DELETE_BLOCKED_REFERENCES") {
       return {
         code: "DELETE_BLOCKED_REFERENCES",
-        message: message,
+        message: stripCodePrefix(message),
         status: 409,
       };
     }

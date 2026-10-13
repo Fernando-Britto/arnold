@@ -83,13 +83,30 @@ describe("handleListarCierres", () => {
 describe("handlePrevisualizarCierre", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("previsualiza con el rango por defecto", async () => {
+  it("previsualiza con el rango por defecto y expone el rango usado en ISO (CC-2)", async () => {
     mockPreview.mockResolvedValueOnce(cierreFalso as never);
 
     const r = await handlePrevisualizarCierre({ ahora });
 
-    expect(r).toEqual(cierreFalso);
     expect(mockPreview).toHaveBeenCalledWith({ desde: startOfGymDay(ahora), hasta: ahora });
+    expect(r).toEqual({
+      ...cierreFalso,
+      desde: startOfGymDay(ahora).toISOString(),
+      hasta: ahora.toISOString(),
+    });
+    expect(r.desde).toBe("2026-10-12T03:00:00.000Z");
+    expect(r.hasta).toBe("2026-10-12T15:00:00.000Z");
+  });
+
+  it("expone el rango explícito cuando se envía", async () => {
+    mockPreview.mockResolvedValueOnce(cierreFalso as never);
+    const desde = new Date("2026-10-11T03:00:00.000Z");
+    const hasta = new Date("2026-10-11T21:00:00.000Z");
+
+    const r = await handlePrevisualizarCierre({ desde, hasta, ahora });
+
+    expect(r.desde).toBe(desde.toISOString());
+    expect(r.hasta).toBe(hasta.toISOString());
   });
 });
 
@@ -118,6 +135,18 @@ describe("helpers de fetch del cliente", () => {
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/cierres",
       expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("createCierre envía el rango previsualizado en el body (CC-2)", async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => cierreFalso });
+    const rango = { desde: "2026-10-12T03:00:00.000Z", hasta: "2026-10-12T15:00:00.000Z" };
+
+    await createCierre(rango);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/cierres",
+      expect.objectContaining({ method: "POST", body: JSON.stringify(rango) })
     );
   });
 

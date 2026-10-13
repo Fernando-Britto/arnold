@@ -33,6 +33,8 @@ const preview = {
   totalTransferencia: 0,
   totalTarjeta: 200,
   cantidadOperaciones: 2,
+  desde: "2026-10-12T03:00:00.000Z",
+  hasta: "2026-10-12T15:00:00.000Z",
 };
 
 const asRol = (rol: string) => ({
@@ -91,6 +93,8 @@ describe("CierresPage", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: /confirmar cierre/i }));
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
+    // CC-2: el POST cierra exactamente el rango que se previsualizó.
+    expect(mockCreate).toHaveBeenCalledWith({ desde: preview.desde, hasta: preview.hasta });
     expect(mockNotify).toHaveBeenCalledWith("success", expect.stringContaining("1200.00"));
     await waitFor(() =>
       expect(screen.getByTestId("cierre-total")).toHaveTextContent("$0.00")

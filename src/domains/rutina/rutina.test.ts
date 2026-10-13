@@ -200,6 +200,31 @@ describe("Rutina Domain Model", () => {
       expect(validation.errors.join(" ")).toMatch(/objetivo/i);
     });
 
+    // U9a: filas legadas con objetivoPrincipal "General" deben seguir siendo editables.
+    it("acepta el valor legado 'General' por compatibilidad", () => {
+      const validation = validateRutina({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+        objetivoPrincipal: "General",
+      });
+
+      expect(validation.valid).toBe(true);
+    });
+
+    it("sigue rechazando un objetivo inventado distinto de 'General'", () => {
+      const validation = validateRutina({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+        objetivoPrincipal: "ObjetivoInventado",
+      });
+
+      expect(validation.valid).toBe(false);
+    });
+
     // NF-10: frecuenciaSemanal y duracionEstimada deben ser enteros (Prisma Int).
     it("rechaza frecuenciaSemanal no entera (3.5)", () => {
       const validation = validateRutina({

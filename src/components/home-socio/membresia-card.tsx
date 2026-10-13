@@ -2,6 +2,7 @@
 
 import React from "react";
 import { computeMembresiaStatus } from "@/domains/home-socio/home-socio";
+import { toGymWallClock } from "@/lib/gym-time";
 
 /**
  * Membresia — plan status + "Últimas 4 semanas" attendance widget, Fila3 of
@@ -33,7 +34,10 @@ const MESES = [
 ];
 
 function formatFechaLarga(fecha: Date): string {
-  return `${fecha.getUTCDate()} de ${MESES[fecha.getUTCMonth()]}, ${fecha.getUTCFullYear()}`;
+  // Formatear en la hora de pared del gimnasio (UTC-3): un instante como
+  // 2026-11-01T00:00:00Z cae el 31/10 en el gimnasio, no el 1/11 (NEW-1).
+  const gym = toGymWallClock(fecha);
+  return `${gym.getUTCDate()} de ${MESES[gym.getUTCMonth()]}, ${gym.getUTCFullYear()}`;
 }
 
 const DIAS_LABEL = ["L", "M", "X", "J", "V", "S", "D"];

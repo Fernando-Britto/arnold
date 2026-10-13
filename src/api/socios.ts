@@ -18,6 +18,7 @@ import {
   DIA_LIMITE_PAGO_DEFAULT,
   PERIODO_GRACIA_DEFAULT,
 } from "@/domains/pago/registrar-pago";
+import { normalizeDNI } from "@/domains/cliente/cliente";
 import { throwIfNotOk } from "@/utils/api-error";
 
 /** Membresía asignada, reducida a lo que la pantalla de pago necesita mostrar. */
@@ -72,7 +73,7 @@ export async function handleBuscarSocio(dni: string, hoy: Date = new Date()): Pr
   const { prisma } = await import("@/lib/db");
 
   const socio = await prisma.socio.findUnique({
-    where: { dni },
+    where: { dni: normalizeDNI(dni) },
     include: { usuario: true, membresiaAsignada: true },
   });
   if (!socio) throw new Error("NOT_FOUND");

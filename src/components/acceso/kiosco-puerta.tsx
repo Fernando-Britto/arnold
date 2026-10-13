@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { accesoDispositivo, type AccesoPuertaRespuesta } from "@/api/dispositivos";
-import { handleApiError } from "@/utils/api-error";
+import { ApiError, handleApiError } from "@/utils/api-error";
 import { TecladoNumerico } from "./teclado-numerico";
 import { MS_AUTO_CLEAR, PanelResultado } from "./panel-resultado";
 
@@ -71,7 +71,13 @@ export function KioscoPuerta({ token, onReconfigurar }: KioscoPuertaProps) {
     try {
       setResultado(await accesoDispositivo({ dni: dni.trim(), pin }, token));
     } catch (error) {
-      setResultado({ resultado: "DENEGADO", motivo: handleApiError(error, "No se pudo registrar el ingreso.") });
+      // La puerta no usa sesión de usuario: un 401 significa token de dispositivo
+      // inválido, no "sesión vencida" (AC-6).
+      const motivo =
+        error instanceof ApiError && error.status === 401
+          ? "Dispositivo no autorizado. Reconfigurá el token."
+          : handleApiError(error, "No se pudo registrar el ingreso.");
+      setResultado({ resultado: "DENEGADO", motivo });
     } finally {
       setEnviando(false);
       setPaso("RESULTADO");

@@ -46,3 +46,15 @@ describe("Recepcionista y Membresías: solo el dropdown, nunca la gestión", () 
     expect(hasRouteAccess(S, "/api/membresias/activas", "GET").allowed).toBe(false);
   });
 });
+
+describe("Socio: sin accesos fantasma a /api/socios ni /api/pagos (B1)", () => {
+  it("no pasa por /api/socios: su propia data sale de /api/home-socio", () => {
+    expect(hasRouteAccess(S, "/api/socios", "GET").allowed).toBe(false);
+    expect(hasRouteAccess(S, "/api/home-socio", "GET").allowed).toBe(true);
+  });
+
+  it("no pasa por /api/pagos: sus pagos salen de /api/home-socio", () => {
+    expect(hasRouteAccess(S, "/api/pagos", "GET").allowed).toBe(false);
+    expect(hasRouteAccess(S, "/api/home-socio", "GET").allowed).toBe(true);
+  });
+});

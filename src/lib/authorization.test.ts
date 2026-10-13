@@ -9,10 +9,10 @@ describe("homeRouteForRole", () => {
 
 describe("Authorization Matrix", () => {
   describe("SOCIO role", () => {
-    it("should allow SOCIO to GET /api/socios", () => {
+    it("should deny SOCIO to GET /api/socios (los handlers lo rechazan; usa /api/home-socio)", () => {
       const result = hasRouteAccess("SOCIO", "/api/socios", "GET");
-      expect(result.allowed).toBe(true);
-      expect(result.basePath).toBe("/api/socios");
+      expect(result.allowed).toBe(false);
+      expect(result.basePath).toBeNull();
     });
 
     it("should deny SOCIO to POST /api/socios", () => {
@@ -30,9 +30,9 @@ describe("Authorization Matrix", () => {
       expect(result.allowed).toBe(false);
     });
 
-    it("should allow SOCIO to GET /api/pagos", () => {
+    it("should deny SOCIO to GET /api/pagos (sus pagos salen de /api/home-socio)", () => {
       const result = hasRouteAccess("SOCIO", "/api/pagos", "GET");
-      expect(result.allowed).toBe(true);
+      expect(result.allowed).toBe(false);
     });
 
     it("should allow SOCIO to POST /api/sesiones", () => {

@@ -40,25 +40,24 @@ describe("TopNav (matches Home_Socio_1x §TopNav)", () => {
     expect(screen.getByTestId("nav-link-inicio")).toHaveAttribute("data-active", "false");
   });
 
-  it("calls onSearchClick / onNotificationsClick / onAvatarClick", async () => {
+  it("calls onSearchClick / onAvatarClick", async () => {
     const onSearchClick = jest.fn();
-    const onNotificationsClick = jest.fn();
     const onAvatarClick = jest.fn();
     const user = userEvent.setup();
     render(
-      <TopNav
-        active="inicio"
-        onSearchClick={onSearchClick}
-        onNotificationsClick={onNotificationsClick}
-        onAvatarClick={onAvatarClick}
-      />
+      <TopNav active="inicio" onSearchClick={onSearchClick} onAvatarClick={onAvatarClick} />
     );
     await user.click(screen.getByRole("button", { name: /buscar/i }));
-    await user.click(screen.getByRole("button", { name: /notificaciones/i }));
     await user.click(screen.getByRole("button", { name: /perfil/i }));
     expect(onSearchClick).toHaveBeenCalledTimes(1);
-    expect(onNotificationsClick).toHaveBeenCalledTimes(1);
     expect(onAvatarClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("la campana de notificaciones no es interactiva: no hay feature todavía (HI-1)", () => {
+    render(<TopNav active="inicio" />);
+    const bell = screen.getByLabelText("Notificaciones");
+    expect(bell).toBeDisabled();
+    expect(bell.getAttribute("title")).toMatch(/disponible/i);
   });
 
   it("tiene un botón 'Cerrar sesión' que llama a onLogoutClick (el Socio no tenía forma de salir)", async () => {

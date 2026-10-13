@@ -58,10 +58,14 @@ export function AdminTopNav({ activeSection }: TopNavProps) {
       </nav>
 
       <div className="flex items-center gap-3">
+        {/* HI-1: las notificaciones no existen todavía. Se muestra deshabilitado
+            (no un control clickeable inerte) con un título que lo explica. */}
         <button
           type="button"
+          disabled
           aria-label="Notificaciones"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100"
+          title="Las notificaciones no están disponibles todavía"
+          className="flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-full bg-zinc-100 opacity-40"
         >
           <Bell size={18} className="text-gray-500" />
         </button>

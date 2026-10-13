@@ -20,6 +20,13 @@ export const OBJETIVOS_PRINCIPALES: string[] = [
 export const DEFAULT_OBJETIVO_PRINCIPAL = "Acondicionamiento General";
 
 /**
+ * Valores legados aceptados sólo por compatibilidad (U9a): el default viejo del
+ * servidor era "General", así que las filas existentes con ese valor deben seguir
+ * pudiendo editarse. No se ofrecen para altas nuevas.
+ */
+export const OBJETIVOS_LEGACY: string[] = ["General"];
+
+/**
  * Map Spanish difficulty level names or enum values to Prisma enum
  */
 export function mapNivelDeDificultad(nivel: string): NivelDeDificultad {
@@ -114,11 +121,13 @@ export function validateRutina(data: Partial<Rutina>): ValidationResult {
   }
 
   // Validate objetivoPrincipal (NF-4): si viene, debe pertenecer a la lista.
+  // Se acepta además el valor legado "General" (U9a) para no romper la edición de filas viejas.
   if (
     data.objetivoPrincipal !== undefined &&
     data.objetivoPrincipal !== null &&
     data.objetivoPrincipal !== "" &&
-    !OBJETIVOS_PRINCIPALES.includes(data.objetivoPrincipal)
+    !OBJETIVOS_PRINCIPALES.includes(data.objetivoPrincipal) &&
+    !OBJETIVOS_LEGACY.includes(data.objetivoPrincipal)
   ) {
     errors.push(`El objetivo principal debe ser uno de: ${OBJETIVOS_PRINCIPALES.join(", ")}`);
   }
