@@ -5,6 +5,7 @@ import { HomeSocioPage } from "./page";
 import { useAuth } from "@/contexts/auth";
 import * as homeSocioApi from "@/api/home-socio";
 import type { HomeSocioViewModel } from "@/api/home-socio";
+import { fetchSesionEnCurso, iniciarSesionDeEntrenamiento } from "@/api/sesiones";
 
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
@@ -15,10 +16,15 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/contexts/auth");
 jest.mock("@/api/home-socio", () => ({ fetchHomeSocioData: jest.fn() }));
+jest.mock("@/api/sesiones");
 
 const mockAuth = useAuth as jest.Mock;
 const mockFetch = homeSocioApi.fetchHomeSocioData as jest.MockedFunction<
   typeof homeSocioApi.fetchHomeSocioData
+>;
+const mockEnCurso = fetchSesionEnCurso as jest.MockedFunction<typeof fetchSesionEnCurso>;
+const mockIniciar = iniciarSesionDeEntrenamiento as jest.MockedFunction<
+  typeof iniciarSesionDeEntrenamiento
 >;
 
 const baseViewModel: HomeSocioViewModel = {
@@ -40,6 +46,7 @@ const baseViewModel: HomeSocioViewModel = {
   },
   rutinaActiva: {
     nombre: "Hipertrofia - Empuje A",
+    rutinaAsignadaId: "asig-1",
     ejercicios: [
       {
         id: "e1",
@@ -131,15 +138,36 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
     );
   });
 
-  it('clicking "Seguir rutina" marks the session in progress', async () => {
+  it('clicking "Seguir rutina" opens the run screen (T-038)', async () => {
     mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    mockEnCurso.mockResolvedValueOnce({
+      sesion: null,
+      ejercicios: [],
+      ultimaSerie: null,
+      cargaActual: null,
+    });
+    mockIniciar.mockResolvedValueOnce({
+      sesion: {
+        id: "s1",
+        rutinaAsignadaId: "asig-1",
+        estadoDeFinalizacion: "EN_CURSO",
+        horaInicio: "2026-10-12T13:00:00.000Z",
+        ejercicioActualId: "e1",
+        serieActual: 1,
+      },
+      ejercicios: [
+        { id: "e1", nombre: "Press de Banca", series: 4, repeticiones: 8, descanso: 120, orden: 0 },
+      ],
+    });
     const user = userEvent.setup();
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
     await user.click(screen.getByRole("button", { name: /seguir rutina/i }));
-    // The exercise state for e1 (before indiceActual) should read "completado"
-    expect(screen.getByTestId("ejercicio-e1")).toHaveAttribute("data-estado", "completado");
+
+    expect(await screen.findByTestId("ejecucion-rutina")).toBeInTheDocument();
+    expect(mockIniciar).toHaveBeenCalledWith("asig-1");
+    expect(screen.getByRole("button", { name: /serie hecha/i })).toBeInTheDocument();
   });
 
   it('el botón "Cerrar sesión" del TopNav cierra la sesión (logout del contexto)', async () => {

@@ -4,13 +4,14 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth";
 import { fetchHomeSocioData, type HomeSocioViewModel } from "@/api/home-socio";
-import { TopNav } from "@/components/layout/top-nav";
+import { TopNav, topNavHref } from "@/components/layout/top-nav";
 import { ProgresoSection } from "@/components/home-socio/progreso-section";
 import { AforoCard } from "@/components/home-socio/aforo-card";
 import { TarjetaRutina } from "@/components/home-socio/tarjeta-rutina";
 import { TarjetaDetalle } from "@/components/home-socio/tarjeta-detalle";
 import { RachaSemanal } from "@/components/home-socio/racha-semanal";
 import { MembresiaCard } from "@/components/home-socio/membresia-card";
+import { EjecucionRutina } from "@/components/home-socio/ejecucion-rutina";
 
 /**
  * Home_Socio — T-019 Page Layout, rebuilt to match the real design
@@ -21,9 +22,8 @@ import { MembresiaCard } from "@/components/home-socio/membresia-card";
  * SCOPE BOUNDARY (documented, not hidden):
  * - Data comes from `GET /api/home-socio` (T-028); the page tests mock
  *   `fetchHomeSocioData` (see src/api/home-socio.ts).
- * - "Seguir rutina" only updates local UI state (starts the session, then
- *   advances the current exercise); there's no SesionDeEntrenamiento API to
- *   persist it against yet.
+ * - "Seguir rutina" opens EjecucionRutina (T-038, D-48), which starts or resumes the
+ *   session against the sessions API and logs each serie with peso/reps/RIR.
  * - TopNav's non-Inicio links (Mi rutina/Mi membresía/Mi progreso) have no
  *   routes yet — see src/components/layout/top-nav.tsx.
  */
@@ -35,8 +35,8 @@ export function HomeSocioPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [sesionEnProgreso, setSesionEnProgreso] = useState(false);
   const [indiceActual, setIndiceActual] = useState(0);
+  const [modoEjecucion, setModoEjecucion] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -57,7 +57,6 @@ export function HomeSocioPage() {
       .then((result) => {
         if (cancelled) return;
         setData(result);
-        setSesionEnProgreso(result.sesionEnProgreso);
         setIndiceActual(result.rutinaActiva?.indiceActual ?? 0);
       })
       .catch(() => {
@@ -75,13 +74,8 @@ export function HomeSocioPage() {
   }, [isAuthenticated, isMember]);
 
   const handleSeguirRutina = useCallback(() => {
-    // TODO: POST/PATCH a SesionDeEntrenamiento once that API exists.
-    setSesionEnProgreso(true);
-    setIndiceActual((prev) => {
-      const total = data?.rutinaActiva?.ejercicios.length ?? 1;
-      return Math.min(prev + 1, total - 1);
-    });
-  }, [data]);
+    setModoEjecucion(true);
+  }, []);
 
   if (!isAuthenticated || !isMember) {
     return null;
@@ -99,12 +93,26 @@ export function HomeSocioPage() {
     );
   }
 
+  if (modoEjecucion) {
+    return (
+      <div className="flex min-h-screen flex-col bg-[#F7F7F7]">
+        <TopNav active="inicio" onNavigate={(link) => router.push(topNavHref(link))} onLogoutClick={() => void logout()} />
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-12">
+          <EjecucionRutina
+            rutinaAsignadaId={data.rutinaActiva?.rutinaAsignadaId ?? null}
+            onCerrar={() => setModoEjecucion(false)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   const ejercicios = data.rutinaActiva?.ejercicios ?? [];
   const ejercicioActual = ejercicios[indiceActual] ?? null;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F7F7F7]">
-      <TopNav active="inicio" onLogoutClick={() => void logout()} />
+      <TopNav active="inicio" onNavigate={(link) => router.push(topNavHref(link))} onLogoutClick={() => void logout()} />
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-12">
         {/* Fila1 */}

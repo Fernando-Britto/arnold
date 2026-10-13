@@ -48,6 +48,11 @@ export interface EjercicioEnRutinaDTO {
 export interface RutinaActivaDTO {
   nombre: string;
   /**
+   * `RutinaAsignada.id` de la asignación activa. Lo necesita la pantalla de ejecución
+   * (T-038) para iniciar la sesión de entrenamiento (`POST /api/sesiones`).
+   */
+  rutinaAsignadaId: string;
+  /**
    * Full detail per exercise, in routine order. Deliberately NOT split into
    * a separate "thumb" (id/nombre only) + "current exercise detail" shape:
    * if the Socio advances locally to the next exercise, Tarjeta_Detalle

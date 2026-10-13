@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TopNav } from "./top-nav";
+import { TopNav, topNavHref } from "./top-nav";
 
 describe("TopNav (matches Home_Socio_1x §TopNav)", () => {
   it("renders the two-tone logo", () => {
@@ -10,11 +10,28 @@ describe("TopNav (matches Home_Socio_1x §TopNav)", () => {
     expect(screen.getByText("GYM")).toBeInTheDocument();
   });
 
-  it("renders the 4 nav links", () => {
+  it("renders the nav links for every socio section (T-039)", () => {
     render(<TopNav active="inicio" />);
-    ["Inicio", "Mi rutina", "Mi membresía", "Mi progreso"].forEach((label) =>
+    ["Inicio", "Mi rutina", "Mis ejercicios", "Mi progreso", "Mi membresía", "Mis asistencias"].forEach((label) =>
       expect(screen.getByText(label)).toBeInTheDocument()
     );
+  });
+
+  it("maps each link to its real route", () => {
+    expect(topNavHref("inicio")).toBe("/home-socio");
+    expect(topNavHref("rutina")).toBe("/home-socio/mi-rutina");
+    expect(topNavHref("ejercicios")).toBe("/home-socio/mis-ejercicios");
+    expect(topNavHref("progreso")).toBe("/home-socio/progreso");
+    expect(topNavHref("membresia")).toBe("/home-socio/mi-membresia");
+    expect(topNavHref("asistencias")).toBe("/home-socio/mis-asistencias");
+  });
+
+  it("calls onNavigate with the clicked link", async () => {
+    const onNavigate = jest.fn();
+    const user = userEvent.setup();
+    render(<TopNav active="inicio" onNavigate={onNavigate} />);
+    await user.click(screen.getByTestId("nav-link-rutina"));
+    expect(onNavigate).toHaveBeenCalledWith("rutina");
   });
 
   it("marks only the active link, driven by the `active` prop (not hardcoded to Inicio)", () => {

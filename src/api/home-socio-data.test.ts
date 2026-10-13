@@ -129,6 +129,7 @@ describe("buildHomeSocioPayload", () => {
     seed();
     const res = await buildHomeSocioPayload("u1", NOW);
     expect(res?.rutinaActiva?.nombre).toBe("Fuerza A");
+    expect(res?.rutinaActiva?.rutinaAsignadaId).toBe("ra1");
     expect(res?.rutinaActiva?.indiceActual).toBe(0);
     expect(res?.rutinaActiva?.ejercicios.map((e) => e.nombre)).toEqual(["Press banca", "Remo"]);
     expect(res?.rutinaActiva?.ejercicios[0]).toEqual({

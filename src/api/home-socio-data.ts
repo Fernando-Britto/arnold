@@ -23,7 +23,8 @@ import {
  *   `ventanaAforoMinutos` (90 por defecto) y mismas barras de 2 h (buildAforoHoras).
  * - Racha: se miran hasta 53 semanas de asistencias PERMITIDO del socio (tope de la racha).
  * - Sesión en progreso: SesionDeEntrenamiento sin `horaFin` iniciada hoy (hora del gimnasio).
- * - indiceActual = 0: no se guarda en qué ejercicio va la sesión (no hay API de sesiones aún).
+ * - indiceActual = 0: Home_Socio solo muestra la rutina; el avance real de la sesión lo lleva
+ *   la pantalla de ejecución (T-038) contra GET /api/sesiones?enCurso=1.
  * - Máquinas (RN-05, footer de Tarjeta_Detalle): Ejercicio no tiene relación con Maquina en el
  *   schema, así que el payload no trae estado de máquina.
  */
@@ -140,6 +141,7 @@ export async function buildHomeSocioPayload(
     rutinaActiva: rutina
       ? {
           nombre: rutina.nombre,
+          rutinaAsignadaId: rutinaAsignada?.id ?? "",
           indiceActual: 0,
           ejercicios: rutina.ejercicios.map((e) => ({
             id: e.ejercicio.id,

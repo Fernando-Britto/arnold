@@ -12,12 +12,11 @@ import { Bell, LogOut, Search } from "lucide-react";
  * porque son dos diseños de nav distintos (Home_Socio_1x vs los mockups de
  * gestión). `CrudPageLayout` usa `AdminTopNav`, no este.
  *
- * SCOPE GAP (documented): only /home-socio exists today. "Mi rutina",
- * "Mi membresía" and "Mi progreso" have no routes yet, so those links call
- * onNavigate (no-op by default) instead of a real next/link — wiring real
- * routes is follow-up work once those pages exist.
+ * Navegación (T-039): cada solapa apunta a una ruta real de las secciones del socio.
+ * El componente sigue siendo presentacional: expone `onNavigate` y cada pantalla resuelve
+ * el destino con `topNavHref` (evita acoplar el nav a next/navigation en los tests).
  */
-export type TopNavLink = "inicio" | "rutina" | "membresia" | "progreso";
+export type TopNavLink = "inicio" | "rutina" | "ejercicios" | "progreso" | "membresia" | "asistencias";
 
 export interface TopNavProps {
   active?: TopNavLink;
@@ -32,9 +31,25 @@ export interface TopNavProps {
 const LINKS: { key: TopNavLink; label: string }[] = [
   { key: "inicio", label: "Inicio" },
   { key: "rutina", label: "Mi rutina" },
-  { key: "membresia", label: "Mi membresía" },
+  { key: "ejercicios", label: "Mis ejercicios" },
   { key: "progreso", label: "Mi progreso" },
+  { key: "membresia", label: "Mi membresía" },
+  { key: "asistencias", label: "Mis asistencias" },
 ];
+
+const HREFS: Record<TopNavLink, string> = {
+  inicio: "/home-socio",
+  rutina: "/home-socio/mi-rutina",
+  ejercicios: "/home-socio/mis-ejercicios",
+  progreso: "/home-socio/progreso",
+  membresia: "/home-socio/mi-membresia",
+  asistencias: "/home-socio/mis-asistencias",
+};
+
+/** Ruta de cada solapa del nav del socio (T-039). */
+export function topNavHref(link: TopNavLink): string {
+  return HREFS[link];
+}
 
 export function TopNav({
   active = "inicio",
