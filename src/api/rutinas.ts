@@ -37,6 +37,15 @@ export interface EjercicioEnRutinaInput {
 }
 
 /**
+ * NF-3: `0` es un descanso legítimo, así que no se puede usar `Number(x) || 60`
+ * (convertiría 0 en 60). Solo se aplica el default cuando no es un número finito.
+ */
+function normalizarDescanso(value: unknown): number {
+  const numero = Number(value);
+  return Number.isFinite(numero) ? numero : 60;
+}
+
+/**
  * Handle POST /api/rutinas
  * Creates a new rutina with optional EjercicioEnRutina rows
  */
@@ -68,7 +77,7 @@ export async function handleRutinaCreate(
           ejercicioId: ej.ejercicioId,
           series: Number(ej.series) || 3,
           repeticiones: Number(ej.repeticiones) || 10,
-          descanso: Number(ej.descanso) || 60,
+          descanso: normalizarDescanso(ej.descanso),
           orden: typeof ej.orden === "number" ? ej.orden : index,
         })),
       });
@@ -163,7 +172,7 @@ export async function handleRutinaUpdate(
             ejercicioId: ej.ejercicioId,
             series: Number(ej.series) || 3,
             repeticiones: Number(ej.repeticiones) || 10,
-            descanso: Number(ej.descanso) || 60,
+            descanso: normalizarDescanso(ej.descanso),
             orden: typeof ej.orden === "number" ? ej.orden : index,
           })),
         });

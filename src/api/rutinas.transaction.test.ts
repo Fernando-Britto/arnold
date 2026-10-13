@@ -118,6 +118,18 @@ describe("handleRutinaCreate — atomicidad (rutina + ejercicios en UNA transacc
     expect(prisma.ejercicioEnRutina.createMany).not.toHaveBeenCalled();
     expect(prisma.__store.rutinas).toHaveLength(1);
   });
+
+  // NF-3: descanso 0 es un valor legítimo; no debe reemplazarse por 60.
+  it("preserva descanso 0 al crear (no lo reemplaza por 60)", async () => {
+    const prisma = await mocks();
+
+    await handleRutinaCreate({
+      ...rutinaInput,
+      ejercicios: [{ ejercicioId: "ej-0", series: 3, repeticiones: 10, descanso: 0, orden: 0 }],
+    });
+
+    expect(prisma.__store.ejercicios[0]?.descanso).toBe(0);
+  });
 });
 
 describe("handleRutinaUpdate — atomicidad (update + delete + create en UNA transacción)", () => {
@@ -159,6 +171,22 @@ describe("handleRutinaUpdate — atomicidad (update + delete + create en UNA tra
     expect(prisma.ejercicioEnRutina.createMany).toHaveBeenCalledTimes(1);
     expect(prisma.__store.ejercicios).toHaveLength(2);
     expect(prisma.__store.rutinas[0]?.nombre).toBe("Rutina Nueva");
+  });
+
+  // NF-3: descanso 0 es un valor legítimo; no debe reemplazarse por 60.
+  it("preserva descanso 0 al actualizar (no lo reemplaza por 60)", async () => {
+    const prisma = await seedRutina();
+
+    await handleRutinaUpdate("rut-1", {
+      nombre: "Rutina Nueva",
+      frecuenciaSemanal: 4,
+      duracionEstimada: 75,
+      nivelDeDificultad: "AVANZADO",
+      objetivoPrincipal: "Hipertrofia",
+      ejercicios: [{ ejercicioId: "ej-0", series: 3, repeticiones: 10, descanso: 0, orden: 0 }],
+    });
+
+    expect(prisma.__store.ejercicios[0]?.descanso).toBe(0);
   });
 
   it("si falla la creación de ejercicios, revierte el update de la rutina", async () => {

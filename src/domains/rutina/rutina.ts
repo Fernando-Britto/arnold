@@ -2,6 +2,24 @@ import { Prisma, Rutina as PrismaRutina, NivelDeDificultad } from "@prisma/clien
 import { prisma } from "@/lib/db";
 
 /**
+ * Canonical list of training objectives (NF-4). Single source of truth: the
+ * rutina form imports it instead of redefining its own copy.
+ */
+export const OBJETIVOS_PRINCIPALES: string[] = [
+  "Hipertrofia",
+  "Fuerza",
+  "Resistencia",
+  "Pérdida de Peso",
+  "Acondicionamiento General",
+];
+
+/**
+ * Default objective used when none is provided. Must be a member of
+ * `OBJETIVOS_PRINCIPALES` so the stored value is always valid.
+ */
+export const DEFAULT_OBJETIVO_PRINCIPAL = "Acondicionamiento General";
+
+/**
  * Map Spanish difficulty level names or enum values to Prisma enum
  */
 export function mapNivelDeDificultad(nivel: string): NivelDeDificultad {
@@ -76,18 +94,33 @@ export function validateRutina(data: Partial<Rutina>): ValidationResult {
     errors.push("El nombre no puede exceder 100 caracteres");
   }
 
-  // Validate frecuenciaSemanal
+  // Validate frecuenciaSemanal (NF-10: debe ser entero, Prisma lo persiste como Int)
   if (
     data.frecuenciaSemanal === undefined ||
+    !Number.isInteger(data.frecuenciaSemanal) ||
     data.frecuenciaSemanal < 1 ||
     data.frecuenciaSemanal > 7
   ) {
     errors.push("La frecuencia semanal debe estar entre 1 y 7");
   }
 
-  // Validate duracionEstimada
-  if (!data.duracionEstimada || data.duracionEstimada <= 0) {
+  // Validate duracionEstimada (NF-10: debe ser entero, Prisma lo persiste como Int)
+  if (
+    !data.duracionEstimada ||
+    !Number.isInteger(data.duracionEstimada) ||
+    data.duracionEstimada <= 0
+  ) {
     errors.push("La duración estimada debe ser mayor a 0");
+  }
+
+  // Validate objetivoPrincipal (NF-4): si viene, debe pertenecer a la lista.
+  if (
+    data.objetivoPrincipal !== undefined &&
+    data.objetivoPrincipal !== null &&
+    data.objetivoPrincipal !== "" &&
+    !OBJETIVOS_PRINCIPALES.includes(data.objetivoPrincipal)
+  ) {
+    errors.push(`El objetivo principal debe ser uno de: ${OBJETIVOS_PRINCIPALES.join(", ")}`);
   }
 
   // Validate nivelDeDificultad (accept both Spanish names and enum values)
@@ -143,7 +176,7 @@ export class RutinaRepository {
         duracionEstimada: data.duracionEstimada,
         nivelDeDificultad: mapNivelDeDificultad(data.nivelDeDificultad),
         descripcion: data.descripcion,
-        objetivoPrincipal: data.objetivoPrincipal || "General",
+        objetivoPrincipal: data.objetivoPrincipal || DEFAULT_OBJETIVO_PRINCIPAL,
       },
     });
   }
@@ -181,7 +214,8 @@ export class RutinaRepository {
       data.nombre !== undefined ||
       data.frecuenciaSemanal !== undefined ||
       data.duracionEstimada !== undefined ||
-      data.nivelDeDificultad !== undefined
+      data.nivelDeDificultad !== undefined ||
+      data.objetivoPrincipal !== undefined
     ) {
       const current = await client.rutina.findUnique({ where: { id } });
       if (!current) return null;

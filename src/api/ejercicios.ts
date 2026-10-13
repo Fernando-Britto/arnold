@@ -58,24 +58,6 @@ export async function handleEjercicioDelete(id: string): Promise<boolean> {
 }
 
 /**
- * Check if an ejercicio exists
- * @param id Ejercicio ID to check
- * @returns true if exists, false otherwise
- */
-export async function ejercicioExists(id: string): Promise<boolean> {
-  const ejercicio = await ejercicioRepository.getById(id);
-  return ejercicio !== null;
-}
-
-/**
- * Get total count of ejercicios
- * @returns Total number of ejercicios
- */
-export async function getEjercicioCount(): Promise<number> {
-  return ejercicioRepository.count();
-}
-
-/**
  * Client-side API call: fetch all ejercicios
  */
 export async function fetchEjercicios(): Promise<Ejercicio[]> {

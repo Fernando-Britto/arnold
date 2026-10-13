@@ -1,4 +1,5 @@
 import { createEjercicio, validateEjercicio, EjercicioRepository } from "./ejercicio";
+import * as EjercicioDomain from "./ejercicio";
 
 // Prisma simulado en memoria (FX-16, P-19): este test NO debe tocar la base real. Antes cada corrida
 // creaba ejercicios en la base de desarrollo y el primer test dependía de la latencia de la conexión.
@@ -35,7 +36,14 @@ jest.mock("@/lib/db", () => {
       return {};
     }),
   };
-  return { prisma: { ejercicio } };
+  const client = { ejercicio };
+  return {
+    prisma: {
+      ...client,
+      // H-4: el repositorio debe envolver lectura + escritura en UNA transacción.
+      $transaction: jest.fn(async (cb: (tx: typeof client) => Promise<unknown>) => cb(client)),
+    },
+  };
 });
 
 describe("Ejercicio Domain Model", () => {
@@ -135,7 +143,7 @@ describe("Ejercicio Domain Model", () => {
     it("should accept minimum valid nombre (3 chars)", () => {
       const validation = validateEjercicio({
         nombre: "abs",
-        grupoMuscular: "Abdominales",
+        grupoMuscular: "Abdomen",
       });
 
       expect(validation.valid).toBe(true);
@@ -149,6 +157,67 @@ describe("Ejercicio Domain Model", () => {
       });
 
       expect(validation.valid).toBe(true);
+    });
+
+    // H-1 (AC-002): grupoMuscular debe pertenecer a la lista predefinida.
+    it("expone la lista canónica de grupos musculares como fuente de verdad", () => {
+      const grupos = (EjercicioDomain as { GRUPOS_MUSCULARES?: string[] }).GRUPOS_MUSCULARES;
+
+      expect(grupos).toEqual(
+        expect.arrayContaining([
+          "Pecho",
+          "Espalda",
+          "Piernas",
+          "Hombros",
+          "Brazos",
+          "Abdomen",
+        ])
+      );
+    });
+
+    it("rechaza un grupo muscular fuera de la lista predefinida (AC-002)", () => {
+      const validation = validateEjercicio({
+        nombre: "Press Militar",
+        grupoMuscular: "GrupoInventado",
+      });
+
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.join(" ")).toMatch(/grupo muscular/i);
+    });
+
+    it("acepta todos los grupos musculares de la lista predefinida", () => {
+      const grupos = (EjercicioDomain as { GRUPOS_MUSCULARES?: string[] }).GRUPOS_MUSCULARES ?? [];
+
+      for (const grupo of grupos) {
+        const validation = validateEjercicio({ nombre: "Press Militar", grupoMuscular: grupo });
+        expect(validation.valid).toBe(true);
+      }
+    });
+
+    // H-5: un body no-objeto (null/undefined/primitivo) no debe lanzar TypeError (500 → 400).
+    it("no lanza ante data nulo: devuelve inválido", () => {
+      expect(() => validateEjercicio(null as never)).not.toThrow();
+
+      const validation = validateEjercicio(null as never);
+
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.length).toBeGreaterThan(0);
+    });
+
+    it("no lanza ante data undefined: devuelve inválido", () => {
+      expect(() => validateEjercicio(undefined as never)).not.toThrow();
+
+      const validation = validateEjercicio(undefined as never);
+
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.length).toBeGreaterThan(0);
+    });
+
+    it("no lanza ante data primitivo: devuelve inválido", () => {
+      const validation = validateEjercicio("no-soy-un-objeto" as never);
+
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.length).toBeGreaterThan(0);
     });
   });
 
@@ -239,6 +308,26 @@ describe("Ejercicio Domain Model", () => {
 
     it("should return false when deleting a non-existent ejercicio", async () => {
       await expect(repository.delete("non-existent-id")).resolves.toBe(false);
+    });
+
+    // H-3: un fallo de infraestructura NO debe enmascararse como 404 (false).
+    it("re-lanza un error de infraestructura al eliminar (no lo enmascara como no encontrado)", async () => {
+      const { prisma } = jest.requireMock("@/lib/db");
+      const created = await repository.create({ nombre: "Remo con barra", grupoMuscular: "Espalda" });
+      prisma.ejercicio.delete.mockRejectedValueOnce(new Error("connection reset by peer"));
+
+      await expect(repository.delete(created.id)).rejects.toThrow("connection reset by peer");
+    });
+
+    // H-4: update debe ser atómico (lectura + escritura en una sola transacción).
+    it("ejecuta la actualización dentro de una transacción (sin read-then-write fuera de ella)", async () => {
+      const { prisma } = jest.requireMock("@/lib/db");
+      const created = await repository.create({ nombre: "Press Militar", grupoMuscular: "Hombros" });
+      prisma.$transaction.mockClear();
+
+      await repository.update(created.id, { descripcion: "Empuje vertical" });
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
     it("should list all ejercicios", async () => {

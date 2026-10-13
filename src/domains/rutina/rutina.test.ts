@@ -1,4 +1,5 @@
 import { createRutina, validateRutina, RutinaRepository } from "./rutina";
+import * as RutinaDomain from "./rutina";
 
 let memoryRutinas: any[] = [];
 
@@ -169,6 +170,60 @@ describe("Rutina Domain Model", () => {
       });
       expect(validation.valid).toBe(true);
     });
+
+    // NF-4: objetivoPrincipal debe pertenecer a la lista predefinida.
+    it("expone la lista canónica de objetivos principales", () => {
+      const objetivos = (RutinaDomain as { OBJETIVOS_PRINCIPALES?: string[] })
+        .OBJETIVOS_PRINCIPALES;
+
+      expect(objetivos).toEqual(
+        expect.arrayContaining([
+          "Hipertrofia",
+          "Fuerza",
+          "Resistencia",
+          "Pérdida de Peso",
+          "Acondicionamiento General",
+        ])
+      );
+    });
+
+    it("rechaza un objetivoPrincipal fuera de la lista", () => {
+      const validation = validateRutina({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+        objetivoPrincipal: "ObjetivoInventado",
+      });
+
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.join(" ")).toMatch(/objetivo/i);
+    });
+
+    // NF-10: frecuenciaSemanal y duracionEstimada deben ser enteros (Prisma Int).
+    it("rechaza frecuenciaSemanal no entera (3.5)", () => {
+      const validation = validateRutina({
+        nombre: "Routine",
+        frecuenciaSemanal: 3.5,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+      });
+
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.join(" ")).toMatch(/frecuencia/i);
+    });
+
+    it("rechaza duracionEstimada no entera (2.5)", () => {
+      const validation = validateRutina({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 2.5,
+        nivelDeDificultad: "Básico",
+      });
+
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.join(" ")).toMatch(/duraci/i);
+    });
   });
 
   describe("Rutina Repository", () => {
@@ -189,6 +244,21 @@ describe("Rutina Domain Model", () => {
       expect(created).toBeDefined();
       expect(created.nombre).toBe("Push/Pull/Legs");
       expect(created.id).toBeDefined();
+    });
+
+    // NF-4: el objetivo por defecto debe ser un miembro válido de la lista.
+    it("usa un objetivoPrincipal por defecto válido cuando no se provee", async () => {
+      const objetivos =
+        (RutinaDomain as { OBJETIVOS_PRINCIPALES?: string[] }).OBJETIVOS_PRINCIPALES ?? [];
+
+      const created = await repository.create({
+        nombre: "Push/Pull/Legs",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 75,
+        nivelDeDificultad: "Intermedio",
+      });
+
+      expect(objetivos).toContain(created.objetivoPrincipal);
     });
 
     it("should retrieve rutina by ID", async () => {

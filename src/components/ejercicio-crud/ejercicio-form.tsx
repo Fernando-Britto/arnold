@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Ejercicio } from "@prisma/client";
-
-const GRUPO_MUSCULAR_OPTIONS = [
-  "Pecho",
-  "Espalda",
-  "Piernas",
-  "Hombros",
-  "Brazos",
-  "Abdomen",
-];
+import { GRUPOS_MUSCULARES } from "@/domains/ejercicio/ejercicio";
 
 export interface EjercicioFormProps {
   onSave: (data: {
@@ -235,7 +227,7 @@ export function EjercicioForm({
           }`}
         >
           <option value="">Seleccionar...</option>
-          {GRUPO_MUSCULAR_OPTIONS.map(option => (
+          {GRUPOS_MUSCULARES.map(option => (
             <option key={option} value={option}>
               {option}
             </option>

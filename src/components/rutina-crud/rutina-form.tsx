@@ -4,15 +4,7 @@ import {
   EjercicioEnRutinaList,
   EjercicioEnRutinaRow,
 } from "./ejercicio-en-rutina-list";
-import { validateRutina } from "@/domains/rutina/rutina";
-
-const OBJETIVO_OPTIONS = [
-  "Hipertrofia",
-  "Fuerza",
-  "Resistencia",
-  "Pérdida de Peso",
-  "Acondicionamiento General",
-];
+import { validateRutina, OBJETIVOS_PRINCIPALES } from "@/domains/rutina/rutina";
 
 const NIVEL_OPTIONS = [
   { label: "Básico", value: "Básico" },
@@ -52,8 +44,8 @@ interface FormState {
   id?: string;
   nombre: string;
   objetivoPrincipal: string;
-  frecuenciaSemanal: number;
-  duracionEstimada: number;
+  frecuenciaSemanal: number | "";
+  duracionEstimada: number | "";
   nivelDeDificultad: string;
   descripcion: string;
 }
@@ -331,7 +323,7 @@ duracionEstimada: Number(formData.duracionEstimada),
           }`}
         >
           <option value="">Seleccionar...</option>
-          {OBJETIVO_OPTIONS.map(option => (
+          {OBJETIVOS_PRINCIPALES.map(option => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -394,7 +386,10 @@ duracionEstimada: Number(formData.duracionEstimada),
             min="1"
             value={formData.duracionEstimada}
             onChange={e =>
-              handleFieldChange("duracionEstimada", parseInt(e.target.value))
+              handleFieldChange(
+                "duracionEstimada",
+                e.target.value === "" ? "" : parseInt(e.target.value, 10)
+              )
             }
             onBlur={() => handleBlur("duracionEstimada")}
             disabled={isDisabled}

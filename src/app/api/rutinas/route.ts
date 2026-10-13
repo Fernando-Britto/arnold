@@ -6,7 +6,6 @@ import {
   handleRutinaGet,
   handleRutinaUpdate,
   handleRutinaDelete,
-  type RutinaInput,
 } from "@/api/rutinas";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
@@ -31,30 +30,6 @@ export type UpdateError = { code: string; message: string; status: number };
 
 export type DeleteSuccess = { message: string; status: 204 };
 export type DeleteError = { code: string; message: string; status: number };
-
-/**
- * Type guards for discriminated union responses
- * Internal use only, not exported
- */
-function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateSuccess {
-  return "id" in result && (result as any).status === 201;
-}
-
-function isGetSuccess(result: GetSuccess | GetError): result is GetSuccess {
-  return "id" in result && !("status" in result) && !("code" in result);
-}
-
-function isListSuccess(result: ListSuccess | ListError): result is ListSuccess {
-  return Array.isArray(result);
-}
-
-function isUpdateSuccess(result: UpdateSuccess | UpdateError): result is UpdateSuccess {
-  return "id" in result && (result as any).status === 200;
-}
-
-function isDeleteSuccess(result: DeleteSuccess | DeleteError): result is DeleteSuccess {
-  return "message" in result && (result as any).status === 204;
-}
 
 /**
  * Core handler logic for POST /api/rutinas

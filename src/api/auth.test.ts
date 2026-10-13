@@ -39,6 +39,19 @@ describe('handleLoginRequest', () => {
     expect(r.status).toBe(401);
   });
 
+  it('400 VALIDATION_ERROR si la contraseña es solo espacios (no llega a comparar)', async () => {
+    const r = await handleLoginRequest({ email: 'recepcion@arnold.gym', password: '   ' });
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ code: 'VALIDATION_ERROR', recoverable: true });
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it('no recorta la contraseña usada para comparar (los espacios cuentan)', async () => {
+    findFirst.mockResolvedValue(usuario());
+    const r = await handleLoginRequest({ email: 'recepcion@arnold.gym', password: ' Secreta123 ' });
+    expect(r.status).toBe(401);
+  });
+
   it.each(['INACTIVO', 'BLOQUEADO'])('403 AUTH_DISABLED con estado %s y contraseña correcta', async (estado) => {
     findFirst.mockResolvedValue(usuario({ estado }));
     const r = await handleLoginRequest({ email: 'recepcion@arnold.gym', password: 'Secreta123' });

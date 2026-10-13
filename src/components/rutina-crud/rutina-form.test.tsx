@@ -36,6 +36,33 @@ const mockEjercicios: Ejercicio[] = [
 ];
 
 describe("RutinaForm Component", () => {
+  describe("Form input safety", () => {
+    // NF-7: parseInt("") === NaN no debe llegar al `value` del input (warning de React).
+    // Debe ser el primer test que vacía un input numérico: React emite el warning una sola vez.
+    it("no setea NaN en Duración Estimada al vaciar el campo", async () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+      const user = userEvent.setup();
+
+      render(
+        <RutinaForm
+          onSave={jest.fn()}
+          initialData={null}
+          availableEjercicios={mockEjercicios}
+        />
+      );
+
+      const input = screen.getByLabelText(/Duración Estimada/i) as HTMLInputElement;
+      await user.clear(input);
+
+      const recibioNaN = errorSpy.mock.calls.some(call =>
+        String(call[0]).includes("Received NaN")
+      );
+      expect(recibioNaN).toBe(false);
+      expect(input.value).not.toBe("NaN");
+      errorSpy.mockRestore();
+    });
+  });
+
   describe("Form rendering", () => {
     it("should render all 6 fields in create mode", () => {
       const onSave = jest.fn();

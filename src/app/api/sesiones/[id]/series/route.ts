@@ -67,7 +67,15 @@ export async function POST(
       );
     }
 
-    const rir = typeof body.rir === "number" ? body.rir : null;
+    // SE-5: un `rir` presente pero no numérico es un error de validación (400),
+    // no un valor que se coaccione silenciosamente a null.
+    let rir: number | null = null;
+    if (body.rir !== undefined) {
+      if (typeof body.rir !== "number" || Number.isNaN(body.rir)) {
+        return errorResponse(400, "VALIDATION_ERROR", "El RIR debe ser un número");
+      }
+      rir = body.rir;
+    }
 
     const resultado = await handleRegistrarSerie({
       sesionId,

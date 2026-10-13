@@ -40,7 +40,7 @@ const UNKNOWN_CONTEXT: AuditContext = { ip: 'unknown', userAgent: 'unknown' };
 
 export async function handleLoginRequest(body: unknown, context: AuditContext = UNKNOWN_CONTEXT): Promise<LoginResult> {
   const { email, password } = (body ?? {}) as Record<string, unknown>;
-  if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
+  if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password?.trim()) {
     return fail('VALIDATION_ERROR');
   }
 

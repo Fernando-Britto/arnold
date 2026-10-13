@@ -1,6 +1,19 @@
 import { prisma } from "@/lib/db";
 import { Ejercicio } from "@prisma/client";
 
+/**
+ * Canonical list of muscle groups (AC-002). This is the single source of truth:
+ * the exercise form imports it instead of redefining its own copy.
+ */
+export const GRUPOS_MUSCULARES: string[] = [
+  "Pecho",
+  "Espalda",
+  "Piernas",
+  "Hombros",
+  "Brazos",
+  "Abdomen",
+];
+
 export interface EjercicioInput {
   nombre: string;
   grupoMuscular: string;
@@ -39,6 +52,12 @@ export function createEjercicio(
 export function validateEjercicio(data: any): ValidationResult {
   const errors: string[] = [];
 
+  // H-5: un body no-objeto (null/undefined/primitivo) no debe lanzar TypeError
+  // (que el mapper convertiría en 500). Se devuelve inválido → 400.
+  if (data === null || typeof data !== "object") {
+    return { valid: false, errors: ["Los datos del ejercicio son inválidos"] };
+  }
+
   // Validate nombre
   const nombre = typeof data.nombre === "string" ? data.nombre.trim() : "";
   if (!nombre) {
@@ -49,9 +68,11 @@ export function validateEjercicio(data: any): ValidationResult {
     errors.push("El nombre no puede exceder 100 caracteres");
   }
 
-  // Validate grupoMuscular
+  // Validate grupoMuscular (AC-002: debe pertenecer a la lista predefinida)
   if (!data.grupoMuscular || typeof data.grupoMuscular !== "string") {
     errors.push("El grupo muscular es requerido");
+  } else if (!GRUPOS_MUSCULARES.includes(data.grupoMuscular)) {
+    errors.push(`El grupo muscular debe ser uno de: ${GRUPOS_MUSCULARES.join(", ")}`);
   }
 
   // Validate descripcion (optional)
@@ -140,29 +161,32 @@ export class EjercicioRepository {
     id: string,
     data: Partial<EjercicioInput>
   ): Promise<Ejercicio | null> {
-    // Check existence first, regardless of which fields are being updated
-    const currentEjercicio = await this.getById(id);
-    if (!currentEjercicio) return null;
+    // H-6: la lectura de validación y la escritura van en UNA sola transacción
+    // para eliminar la ventana TOCTOU del read-then-write.
+    return prisma.$transaction(async (tx) => {
+      const currentEjercicio = await tx.ejercicio.findUnique({ where: { id } });
+      if (!currentEjercicio) return null;
 
-    // Merge current data with updates to validate complete record
-    const updateData = {
-      ...currentEjercicio,
-      ...data,
-    };
+      // Merge current data with updates to validate complete record
+      const updateData = {
+        ...currentEjercicio,
+        ...data,
+      };
 
-    // Validate merged data (ensures no invalid partial updates)
-    const validation = validateEjercicio(updateData);
-    if (!validation.valid) {
-      throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
-    }
+      // Validate merged data (ensures no invalid partial updates)
+      const validation = validateEjercicio(updateData);
+      if (!validation.valid) {
+        throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
+      }
 
-    return prisma.ejercicio.update({
-      where: { id },
-      data: {
-        ...(data.nombre !== undefined && { nombre: data.nombre }),
-        ...(data.grupoMuscular !== undefined && { grupoMuscular: data.grupoMuscular }),
-        ...(data.descripcion !== undefined && { descripcion: data.descripcion || null }),
-      },
+      return tx.ejercicio.update({
+        where: { id },
+        data: {
+          ...(data.nombre !== undefined && { nombre: data.nombre }),
+          ...(data.grupoMuscular !== undefined && { grupoMuscular: data.grupoMuscular }),
+          ...(data.descripcion !== undefined && { descripcion: data.descripcion || null }),
+        },
+      });
     });
   }
 
@@ -186,38 +210,14 @@ export class EjercicioRepository {
           { code: "DELETE_BLOCKED_ASSIGNED" }
         );
       }
-      // Other errors (e.g., record not found) return false
-      return false;
+      // P2025: record not found → false (404 handled by the caller).
+      if (error?.code === "P2025") {
+        return false;
+      }
+      // H-3: cualquier otro fallo es de infraestructura y debe propagarse (→ 500),
+      // no enmascararse como "no encontrado".
+      throw error;
     }
-  }
-
-  /**
-   * Find ejercicios by muscle group
-   * @param grupoMuscular Muscle group to filter by
-   * @returns Array of matching ejercicios
-   */
-  async findByMuscleGroup(grupoMuscular: string): Promise<Ejercicio[]> {
-    return prisma.ejercicio.findMany({
-      where: { grupoMuscular },
-      orderBy: { nombre: "asc" },
-    });
-  }
-
-  /**
-   * Search ejercicios by name
-   * @param query Search query (partial name match)
-   * @returns Array of matching ejercicios
-   */
-  async searchByName(query: string): Promise<Ejercicio[]> {
-    return prisma.ejercicio.findMany({
-      where: {
-        nombre: {
-          contains: query,
-          mode: "insensitive",
-        },
-      },
-      orderBy: { nombre: "asc" },
-    });
   }
 
   /**
