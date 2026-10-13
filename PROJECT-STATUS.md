@@ -1,6 +1,6 @@
 # Arnold — Estado del proyecto
 
-**Actualizado**: 2026-10-11 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
+**Actualizado**: 2026-10-12 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
 **Decisiones y defectos**: [`openspec/decisions.md`](openspec/decisions.md) · **Modo**: Strict TDD
 
 Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19, Prisma 6 sobre PostgreSQL, Jest.
@@ -39,8 +39,10 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-023b | Utilidades de UI (validación, formato, errores de API, notificaciones) | ✅ `PR-009-D`; conectada a las cuatro pantallas CRUD (D-37, D-39) |
 | T-024 | Fixtures y factories (`tests/factories/`) | ✅ (D-38) |
 | T-031 ➕ | Cuotas mensuales: reglas de cálculo (vence el 10, alta con prorrateo o cuota doble) | ✅ 28 tests; **migración sin verificar** (P-29); sin API ni pantalla todavía (D-40) |
-| T-032 ➕ | `POST /api/pagos`: registrar pago (crea `Pago` + `Cuota`) | ⏳ |
-| T-033 ➕ | Pantalla "Registrar Pago" y "Mis pagos" | ⏳ |
+| T-032 ➕ | `POST /api/pagos`: registrar pago (crea `Pago` + `Cuota`) | ✅ (D-40, D-46) |
+| T-033 ➕ | Pantalla "Registrar Pago" (`/pagos`) + búsqueda `GET /api/socios?dni=` | ✅ ("Mis pagos" del socio → T-039) |
+| T-034 ➕ | Asignar rutina: modal + `/api/rutinas-asignadas` (RN-04: una activa) | ✅ |
+| T-035 ➕ | Check-in por DNI + PIN de 4 dígitos (`/acceso`) | ✅ código · **migración sin aplicar** (D-47) |
 
 ➕ = agregada durante la ejecución, no estaba en el plan. El detalle de por qué T-021 pasó de 400 a 1.806 LOC y se
 partió en 7 PRs está en `decisions.md` (D-01).
@@ -138,19 +140,20 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 
 ## Ampliación en curso
 
-Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`, cambios como `.patch`). Cada bloque va en varios patches de ≤400 LOC, con tests primero.
-El orden es una **propuesta** (Fernando arrancó por pagos); lo que está decidido y lo que no se marca en cada D-xx:
+Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`). Decisiones nuevas: **D-46** (P-31), **D-47** (acceso DNI + PIN), **D-48** (registro por serie), **D-49** (secuencia de cierre). El plan de ejecución está en `odd/tasks/ampliacion-mvp.md`.
 
-1. **Pagos y cuotas** (D-40) — reglas de cálculo hechas (T-031); faltan la API (T-032) y las pantallas (T-033).
-2. **Asignar rutina** (T-034; modal + `/api/rutinas-asignadas`; hoy solo el seed asigna rutinas).
-3. **Check-in por DNI** (T-035, D-43) desde recepción, con auditoría y el override existente (spec `member-access-check`).
-4. **Pantalla de puerta** (T-036, D-43; tablet) con token de dispositivo y anti-passback.
-5. **Sesión de entrenamiento** (T-037, T-038, D-44): serie por serie con kg y repeticiones, cronómetro de descanso, `RegistroDeProgreso`.
-6. **Secciones del socio** (T-039, D-45): Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias.
-7. **Cierre de caja** (T-040).
-8. **Molinete y huella** (T-041, D-43; depende del hardware que se elija).
+1. **Pagos y cuotas** (D-40) — ✅ reglas (T-031), ✅ API (T-032), ✅ `/pagos` (T-033), ✅ "Mis pagos" del socio (T-039).
+2. **Asignar rutina** (T-034) — ✅ modal + `/api/rutinas-asignadas`.
+3. **Check-in por DNI + PIN** (T-035, D-47) — ✅ dominio, API, kiosco `/acceso`, anti-passback, rate limit. Migración de T-035 **aplicada**.
+4. **Pantalla de puerta** (T-036, D-47) — ✅ `/puerta` con auth de dispositivo + modelo `Dispositivo` (token hasheado, se muestra una vez). **Migración pendiente de generar**.
+5. **Sesión de entrenamiento** (T-037, T-038, D-48) — ✅ `EN_CURSO`, registrar serie con peso/reps/**RIR**, cronómetro por hora guardada, `ultimaCarga` para precargar. **Migración pendiente de generar**.
+6. **Secciones del socio** (T-039, D-45) — ✅ Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias (ownership server-side).
+7. **Cierre de caja** (T-040) — ✅ `/cierres` + totales por método.
+8. **Molinete y huella** (T-041, D-49; fase final, depende del hardware). ⏳
 
-Sugeridos y sin confirmar: usuarios internos, configuración y máquinas, cambio de contraseña (T-042 a T-044). Antes de conectar un dispositivo real conviene cerrar P-20 y P-28.
+Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-040). Falta que Fernando genere y aplique **una** migración (`sesion_en_curso_y_dispositivo`) y pruebe en dev.
+
+Sugeridos y sin confirmar: usuarios internos, configuración y máquinas, cambio de contraseña (T-042 a T-044). Despliegue y refresh token (P-20/P-28) **después** de terminar la ampliación (D-49).
 
 ## Pendientes principales
 
@@ -174,12 +177,12 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-26 | `src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos (lo marca `eslint`; riesgo de error por cambio en el orden de hooks) | Media |
 | P-27 | Errores de `eslint` que ya existían en `membresia-form-panel.tsx` y `membresia-list-panel.tsx`, y `any` en varias pantallas | Baja |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) | Media |
-| P-29 | Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago` (SQL escrito a mano, sin validar con Prisma) | Media |
-| P-30 | Elegir hardware de molinete y huella y confirmar lo legal de datos biométricos (D-43) | Media |
-| P-31 | Qué hace el registro de pagos con `Socio.estadoCuota` (propuesta en `decisions.md`) | Media |
+| P-29 | ~~Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`~~ → aplicada por Fernando (2026-10-12); SQL coincide con `schema.prisma` | — |
+| P-30 | Elegir hardware de molinete y huella y confirmar lo legal de datos biométricos → diferido a la fase final (D-49) | Baja |
+| P-31 | ~~Qué hace el registro de pagos con `Socio.estadoCuota`~~ → resuelto (D-46): la columna es estado de cuenta; el pago se calcula | — |
 | P-32 | Confirmar con el negocio la política de cobro (pago tardío, reingreso, día de corte) | Baja |
-| P-33 | Parámetros del control de acceso: anti-passback, PIN, salida (D-43) | Media |
-| P-34 | Registro de rutina por serie o por ejercicio (D-44) | Media |
+| P-33 | Parámetros del control de acceso (anti-passback, PIN olvidado) → decidido DNI + PIN en D-47; quedan valores por defecto (anti-passback 60 min) | Baja |
+| P-34 | ~~Registro de rutina por serie o por ejercicio~~ → resuelto (D-48): por serie, con RIR | — |
 | P-35 | `README` dice "una rama por tarea"; se acordó trabajar en `dev` (D-41) | Baja |
 | P-36 | `.patch` sueltos en la raíz del repo | Baja |
 | P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |

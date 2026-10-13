@@ -661,6 +661,41 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Dependencias**: Mis pagos depende de D-40 (T-032/T-033); Mis asistencias de D-43; Progreso y Mi rutina de D-44; todas de que existan rutinas asignadas (T-034).
 - **Nota**: P-18 (botón de salir del Socio) ya se resolvió en FX-19.
 
+### D-46 · P-31: qué hace el registro de pagos con `Socio.estadoCuota` (T-032)
+- **Origen**: Fernando delegó la decisión ("hacé lo óptimo pensando en el producto final", 2026-10-12).
+- **Decisión**: se separan **cuenta** y **pago**, y no se mezclan más.
+  - `Socio.estadoCuota` deja de describir el pago: queda como **estado de la cuenta** con solo `AL_DIA`, `INACTIVA` y `BLOQUEADA` (los tres que ya usa la pantalla de Clientes por D-27). El flujo de pagos **no lo escribe**.
+  - El **estado de pago** (`AL_DIA`/`PENDIENTE`/`VENCIDA`/`SIN_CUOTA`) es **calculado** por `estadoCuotaSocio` (D-40) a partir de `Cuota`/`Pago`: nunca se persiste. `Pago` + `Cuota` son la única fuente de verdad del pago.
+  - El acceso (T-035) decide en dos pasos: primero la cuenta (`INACTIVA`/`BLOQUEADA` → niega sin importar el pago) y después el pago calculado.
+- **Por qué**: con pagos, cuotas, renovaciones y check-in en el mismo sistema, tener el estado de pago duplicado en una columna garantiza que se desincronice. Calcularlo siempre y dejar la columna para la decisión humana (cuenta dada de baja o bloqueada) es lo que menos deuda deja cuando esto crece.
+- **Consecuencia**: `EstadoCuota.VENCIDA`/`PENDIENTE` quedan en el enum solo por compatibilidad (P-24); `Socio.estadoCuota` con valor `AL_DIA` significa "cuenta activa", no "pagó el mes".
+
+### D-47 · P-33: control de acceso con DNI + PIN de 4 dígitos (huella al final)
+- **Origen**: Fernando (**decidido**, 2026-10-12): "solo con el usuario ingresando su DNI y un PIN de 4 dígitos, después ampliamos a huella digital". Pidió además una pantalla que se muestre constantemente para el ingreso; la forma exacta es propuesta de Claude.
+- **Decisión 1 — identidad en dos factores.** Cada socio tiene un **PIN de 4 dígitos** (guardado con `bcrypt`, nunca en claro) que define recepción la primera vez. El ingreso en la puerta pide **DNI + PIN**: el DNI identifica, el PIN autentica. Esto resuelve el riesgo de D-43 ("el DNI no es un secreto"): conocer el DNI de otro no alcanza.
+- **Decisión 2 — la decisión de acceso es la que ya existe.** `estadoCuotaSocio` (D-40) + la cuenta (D-46): `AL_DIA` permite; `PENDIENTE` permite con aviso ("Cuota a pagar hasta el día N"); `VENCIDA`/`SIN_CUOTA` o cuenta `INACTIVA`/`BLOQUEADA` niegan, con el override manual ya implementado (T-025) disponible en recepción. Se registra en `Asistencia` y en `AuditoriaAcceso` (`CHECK_IN`).
+- **Decisión 3 — dos superficies distintas.**
+  - **Recepción (kiosco de mostrador):** pantalla que queda abierta, con teclado numérico grande para DNI y PIN, y un panel de resultado (nombre, foto/plan y estado) que se limpia solo tras unos segundos. Es la que opera un recepcionista hoy.
+  - **Puerta (tablet del molinete):** la misma lógica, pero con autenticación de **dispositivo** (modelo `Dispositivo` con token, propuesta 4 de D-43) y sin sesión de usuario. Llega en T-036.
+- **Decisión 4 — anti-abuso.** Ventana de **anti-passback** configurable (no permite un segundo ingreso del mismo socio dentro de ella) y límite de intentos por dispositivo reutilizando `rateLimit`. La pantalla de la puerta no muestra más datos que el nombre y el estado (propuesta de D-43, sin confirmar los valores: P-33 sigue abierto solo por los parámetros).
+- **Decisión 5 — huella al final.** T-041 (huella + molinete) queda para la fase final (ver D-49). Preferencia firme: lector que compare por su cuenta y mande solo el id del socio, **sin guardar plantillas biométricas** en Arnold (Ley 25.326, P-30).
+- **Cambios de schema previstos**: `Socio.pinHash` (String?); `Asistencia.metodo` (`EstadoAlMetodo`: `DNI_PIN` | `MANUAL` | `HUELLA`); modelo `Dispositivo` (T-036). Migración a mano, la aplica Fernando (D-41).
+- **Pendiente**: valores de la ventana de anti-passback y política de PIN olvidado (se resuelven con T-035, no bloquean el diseño).
+
+### D-48 · P-34: el registro de rutina es por serie (peso, reps, RIR y cronómetro)
+- **Origen**: Fernando (**decidido**, 2026-10-12): registro **por serie**; al terminar cada serie arranca el cronómetro de descanso y queda registrado peso y repeticiones. Pantalla con datos precargados de la rutina y botones +/- para peso y reps, con **RIR**.
+- **Decisión**: se registra **una fila de `RegistroDeProgreso` por serie** (no por ejercicio). Cada fila guarda `carga` (kg), `repeticiones`, `rir` (0–5, cuántas repeticiones quedaban en reserva) y queda ligada a la sesión y al número de serie.
+- **UI (T-038)**: cada serie muestra el objetivo de la rutina (`Repeticiones × kg` de `EjercicioEnRutina`, precargado con lo de la última vez si existe) con botones para sumar/restar una repetición y sumar/restar el disco de peso, y un selector de RIR. Al marcar "Serie hecha" se guarda y arranca el **cronómetro de descanso** con el `descanso` del ejercicio ("saltar" + aviso al terminar).
+- **Cronómetro**: se calcula con la **hora de inicio guardada** (no con un contador en memoria), para que sobreviva a recarga o celular bloqueado.
+- **Cambios de schema previstos** (migración, la aplica Fernando): estado `EN_CURSO` en `EstadoSesion`; `SesionDeEntrenamiento.ejercicioActualId` + `serieActual` para retomar; `RegistroDeProgreso.sesionId` + `numeroSerie` + `rir`; `pesoCorporal` opcional (hoy obligatorio en cada fila).
+- **Cierra P-34.**
+
+### D-49 · P-30, P-20 y P-28: secuencia de cierre
+- **Origen**: Fernando (2026-10-12).
+- **P-30 (huella/molinete)**: pasa a la **fase final** (T-041), después de que el resto de la ampliación esté andando. No bloquea nada más.
+- **P-20 (refresh token) y P-28 (despliegue)**: **primero se termina la ampliación y se manda a producción**; el refresh con rotación se hace "cuando sobre tiempo". El despliegue se evalúa con el pooler de Supabase (D-35) antes de conectar hardware real.
+- **Consecuencia**: T-032 … T-040 son la prioridad; T-041 (hardware) queda para el final y P-20 no bloquea el cierre.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -727,12 +762,12 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-27 | `eslint` marca errores que ya existían en `membresia-form-panel.tsx` (`useState<any>`) y `membresia-list-panel.tsx` (`fetchMembresias` usada en el `useEffect` antes de declararse), además de `any` en varias pantallas | Baja | No se tocaron en D-39. |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | Salió de P-07 y D-35 ("pendiente aparte"). Fuera de Next la base responde bien (consulta ≈ 212 ms, 14 a la vez ≈ 203 ms, conexión nueva ≈ 2,2 s); falta probarlo con el build de producción y el pooler. El `curl` a `/api/home-interno` debería dejar el proxy cerca de 0,2 s y `datos` cerca de 0,4 s |
 | P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él. **Actualización D-40**: el estado de pago (`AL_DIA`/`PENDIENTE`/`VENCIDA`/`SIN_CUOTA`) se calcula con `estadoCuotaSocio`; falta decidir qué pasa con `Socio.estadoCuota` (T-032) |
-| P-29 | Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago` | Media | El SQL se escribió a mano (el motor de Prisma no se pudo descargar en el entorno de Claude). Correr `npx prisma migrate dev` (o `migrate deploy`), `npx prisma generate` y `npx prisma migrate status`; si `migrate dev` propone una migración nueva, hay una diferencia entre el SQL y `schema.prisma` |
-| P-30 | Elegir el hardware del molinete y del lector de huella, y confirmar los requisitos legales de datos biométricos (Ley 25.326) | Media | Bloquea T-041. Claude no conoce los modelos disponibles; propuesta en D-43 (lector que compara por su cuenta, sin guardar plantillas en Arnold) |
-| P-31 | Decidir qué hace el registro de pagos con `Socio.estadoCuota` | Media | Propuesta de Claude, sin confirmar: no volver a escribir `PENDIENTE`/`VENCIDA` (se calculan, D-40) y dejar la columna para el estado de la cuenta (`AL_DIA`/`INACTIVA`/`BLOQUEADA`). Se resuelve en T-032 |
+| P-29 | ~~Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`~~ | — | **Resuelto** (Fernando la aplicó, 2026-10-12). El SQL se comparó con `schema.prisma` y coincide (`diaLimitePago`/`diaCorteAltaTardia` default 10/20, `Cuota.membresiaId` + FK `SetNull`); `npx prisma validate` pasa. No se pudo correr `migrate status` porque la base de Supabase no es alcanzable por la conexión directa desde el entorno del asistente |
+| P-30 | Elegir el hardware del molinete y del lector de huella, y confirmar los requisitos legales de datos biométricos (Ley 25.326) | Baja | **Diferido a la fase final** por D-49 (T-041), después de la ampliación y el despliegue. Propuesta vigente en D-43 (lector que compara por su cuenta, sin guardar plantillas en Arnold) |
+| P-31 | ~~Decidir qué hace el registro de pagos con `Socio.estadoCuota`~~ | — | **Resuelto** en D-46: `Socio.estadoCuota` = estado de la cuenta (`AL_DIA`/`INACTIVA`/`BLOQUEADA`); el estado de pago se calcula (D-40) y no se persiste. Se implementa en T-032 |
 | P-32 | Confirmar con el negocio la política de cobro: pago tardío = mes completo sin recargo, reingreso = alta sin deuda retroactiva, día de corte 20, gracia 0 | Baja | Supuestos 13–15. Cambiarlos es editar la configuración o una función |
-| P-33 | Definir los parámetros del control de acceso: ventana de anti-passback, PIN opcional, si se registra la salida | Media | D-43. Bloquea T-035 y T-036 |
-| P-34 | Confirmar si el registro de rutina es por serie (propuesto) o por ejercicio | Media | D-44. Bloquea T-037 |
+| P-33 | Definir los parámetros del control de acceso | Baja | **Decidido** en D-47: DNI + PIN de 4 dígitos (huella al final); solo quedan abiertos los valores de la ventana de anti-passback y el PIN olvidado, que no bloquean T-035/T-036 |
+| P-34 | ~~Confirmar si el registro es por serie o por ejercicio~~ | — | **Resuelto** en D-48: por serie, con peso, reps, RIR y cronómetro. Habilita T-037/T-038 |
 | P-35 | El `README` (línea 71) dice "una rama por tarea creada desde `main`"; se acordó trabajar siempre en `dev` | Baja | D-41. Actualizar al cerrar la etapa, junto con el merge a `main` |
 | P-36 | Archivos sueltos en la raíz del repo: `tests-clientes-update.patch` y `tests-enum-estadoCuota.patch` | Baja | Parecen restos de parches viejos. Confirmar con Fernando antes de borrarlos |
 
