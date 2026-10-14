@@ -187,6 +187,8 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-36 | `.patch` sueltos en la raíz del repo | Baja |
 | P-24 | ~~Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27)~~ → **resuelto (D-50)**: el enum queda en `AL_DIA`/`INACTIVA`/`BLOQUEADA` (estado de la cuenta) y el pago se calcula | — |
 | P-25 | ~~Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado)~~ → **resuelto (D-53)**: Postgres efímero en Docker + `npm run test:integration`; `npm test` sigue sin Docker | — |
+| P-37 | `scripts/test-integration.mjs` puede declarar "Postgres listo" durante el `initdb` (socket unix vs TCP) | Baja |
+| P-38 | `npm run test:integration --keep` reusa cualquier container con el nombre esperado, sin validarlo | Baja |
 
 ## Cambios recientes (2026-10-07 al 2026-10-11)
 

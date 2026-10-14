@@ -103,3 +103,23 @@ Archivos: `scripts/test-integration.mjs`, `jest.integration.config.ts`,
 
 Pendiente fuera de alcance (no autorizado): tests de integración de los otros repositorios y CI.
 
+## Revisión nativa (RDD)
+
+Commit `9f6957d`, lente única `review-reliability`, tier `medium`, 472 líneas, 10 archivos.
+
+Camino que funcionó: STATUS (`collect`) → `gentle-ai review lens-context` a archivo → un modelo
+fresco produjo el JSON → `capture-result --preflight --input` (`accepted`) → `capture-result --input`
+→ STATUS → el `acknowledge-approved` que devolvió la transición, corrido literal.
+
+Resultado: `approved` → `gentle-ai.review-acknowledged/v1`, `authority: burned` (revisión
+`68e4080e…`).
+
+Dos hallazgos, ambos **advisory**: la clausura declaró explícitamente que no abren corrección y
+que no habilitan volver a revisar este candidato. Quedan como trabajo aparte en **P-37**
+(`R3-docker-readiness-race`, WARNING) y **P-38** (`R3-keep-reuse-unvalidated`, SUGGESTION).
+
+Nota honesta para quien lea esto después: las primeras cuatro capturas fallaron por un error de
+invocación del orquestador — se fabricó el prompt del reviewer en lugar de pasar
+`provider_task.prompt` tal cual o el material que emite `gentle-ai review lens-context`. La
+revisión terminó cerrándose por el camino de relevo (`--input`).
+
