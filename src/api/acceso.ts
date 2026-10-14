@@ -101,8 +101,12 @@ export interface CheckInInput {
   ahora?: Date;
 }
 
-/** Datos del socio que puede ver la pantalla de recepción (D-43: sólo nombre y plan). */
+/**
+ * Datos del socio que puede ver la pantalla de recepción (D-43: sólo nombre y plan).
+ * `id` viaja para que recepción pueda dirigir una autorización excepcional (AC-3) al socio.
+ */
 export interface SocioAccesoDTO {
+  id: string;
   nombre: string;
   membresia: string | null;
 }
@@ -225,7 +229,11 @@ export async function handleCheckIn(input: CheckInInput): Promise<CheckInResulta
   return {
     resultado: decision.resultado,
     ...(decision.motivo ? { motivo: decision.motivo } : {}),
-    socio: { nombre: socio.usuario?.nombre ?? "", membresia: socio.membresiaAsignada?.nombre ?? null },
+    socio: {
+      id: socio.id,
+      nombre: socio.usuario?.nombre ?? "",
+      membresia: socio.membresiaAsignada?.nombre ?? null,
+    },
     estadoCuota,
   };
 }

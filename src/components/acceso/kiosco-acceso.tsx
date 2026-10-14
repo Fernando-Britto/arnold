@@ -5,6 +5,7 @@ import { checkIn, type CheckInResultado } from "@/api/acceso";
 import { handleApiError } from "@/utils/api-error";
 import { TecladoNumerico } from "./teclado-numerico";
 import { MS_AUTO_CLEAR, PanelResultado } from "./panel-resultado";
+import { OverrideAcceso } from "./override-acceso";
 
 const LARGO_DNI_MAX = 8;
 const LARGO_PIN = 4;
@@ -21,6 +22,9 @@ export function KioscoAcceso() {
   const [pin, setPin] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<CheckInResultado | null>(null);
+  // Mientras el diálogo de override está abierto no se limpia el resultado: el operador
+  // necesita tiempo para escribir el motivo (el auto-clear de 5 s lo borraría).
+  const [overrideAbierto, setOverrideAbierto] = useState(false);
 
   const reiniciar = useCallback(() => {
     setPaso("DNI");
@@ -28,13 +32,25 @@ export function KioscoAcceso() {
     setPin("");
     setResultado(null);
     setEnviando(false);
+    setOverrideAbierto(false);
   }, []);
 
   useEffect(() => {
-    if (paso !== "RESULTADO") return;
+    if (paso !== "RESULTADO" || overrideAbierto) return;
     const id = setTimeout(reiniciar, MS_AUTO_CLEAR);
     return () => clearTimeout(id);
-  }, [paso, reiniciar]);
+  }, [paso, reiniciar, overrideAbierto]);
+
+  const handleOverrideOtorgado = useCallback(() => {
+    // El override ya registró el ingreso: mostramos el estado otorgado en vez de repetir el
+    // check-in (que volvería a negar por anti-passback al detectar el ingreso recién creado).
+    setResultado((prev) =>
+      prev
+        ? { ...prev, resultado: "PERMITIDO", motivo: "Acceso otorgado por autorización excepcional" }
+        : prev
+    );
+    setOverrideAbierto(false);
+  }, []);
 
   const handleDigito = (digito: string) => {
     if (enviando) return;
@@ -73,14 +89,25 @@ export function KioscoAcceso() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-[#F1F3F5] p-6">
       {paso === "RESULTADO" && resultado ? (
-        <PanelResultado
-          resultado={{
-            resultado: resultado.resultado,
-            motivo: resultado.motivo,
-            nombre: resultado.socio?.nombre,
-            membresia: resultado.socio?.membresia,
-          }}
-        />
+        <>
+          <PanelResultado
+            resultado={{
+              resultado: resultado.resultado,
+              motivo: resultado.motivo,
+              nombre: resultado.socio?.nombre,
+              membresia: resultado.socio?.membresia,
+            }}
+          />
+          {resultado.resultado === "DENEGADO" && resultado.socio && (
+            <OverrideAcceso
+              socio={resultado.socio}
+              motivoDenegacion={resultado.motivo}
+              abierto={overrideAbierto}
+              onAbiertoChange={setOverrideAbierto}
+              onOtorgado={handleOverrideOtorgado}
+            />
+          )}
+        </>
       ) : (
         <>
           <h1 className="text-3xl font-bold text-gray-900">

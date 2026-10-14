@@ -32,7 +32,7 @@ describe("KioscoAcceso", () => {
     const user = userEvent.setup();
     mockCheckIn.mockResolvedValueOnce({
       resultado: "PERMITIDO",
-      socio: { nombre: "Ana García", membresia: "Gold" },
+      socio: { id: "socio-1", nombre: "Ana García", membresia: "Gold" },
       estadoCuota: "AL_DIA",
     });
     render(<KioscoAcceso />);
@@ -51,7 +51,7 @@ describe("KioscoAcceso", () => {
     mockCheckIn.mockResolvedValueOnce({
       resultado: "PERMITIDO_CON_AVISO",
       motivo: "Cuota a pagar hasta el día 10",
-      socio: { nombre: "Ana García", membresia: "Gold" },
+      socio: { id: "socio-1", nombre: "Ana García", membresia: "Gold" },
       estadoCuota: "PENDIENTE",
     });
     render(<KioscoAcceso />);
@@ -92,7 +92,7 @@ describe("KioscoAcceso", () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     mockCheckIn.mockResolvedValueOnce({
       resultado: "PERMITIDO",
-      socio: { nombre: "Ana García", membresia: "Gold" },
+      socio: { id: "socio-1", nombre: "Ana García", membresia: "Gold" },
       estadoCuota: "AL_DIA",
     });
     render(<KioscoAcceso />);

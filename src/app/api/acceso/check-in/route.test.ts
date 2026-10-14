@@ -22,7 +22,7 @@ const mockUser = extractUserFromRequest as jest.Mock;
 
 const permitido = {
   resultado: "PERMITIDO" as const,
-  socio: { nombre: "Ana García", membresia: "Gold" },
+  socio: { id: "socio-1", nombre: "Ana García", membresia: "Gold" },
   estadoCuota: "AL_DIA" as const,
 };
 

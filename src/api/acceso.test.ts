@@ -198,7 +198,7 @@ describe("handleCheckIn — decisión y registros", () => {
 
     expect(r.resultado).toBe("PERMITIDO");
     expect(r.estadoCuota).toBe("AL_DIA");
-    expect(r.socio).toEqual({ nombre: "Ana García", membresia: "Gold" });
+    expect(r.socio).toEqual({ id: "socio-1", nombre: "Ana García", membresia: "Gold" });
     expect(prisma.asistencia.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ socioId: "socio-1", estado: "PERMITIDO", metodo: "DNI_PIN" }),
     });
