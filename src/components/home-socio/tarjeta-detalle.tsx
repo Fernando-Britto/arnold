@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Dumbbell, Wrench } from "lucide-react";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 
 /**
  * Tarjeta_Detalle — Current Exercise Display
@@ -132,6 +133,9 @@ export function TarjetaDetalle({
   onOpenDetail,
 }: TarjetaDetalleProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const closeModal = useCallback(() => setIsModalOpen(false), []);
+  // Esc + focus-trap + foco de retorno al disparador (accesibilidad del diálogo).
+  const modalRef = useModalA11y<HTMLDivElement>(isModalOpen, closeModal);
 
   if (!ejercicio || !ejercicioEnRutina) {
     return (
@@ -220,14 +224,17 @@ export function TarjetaDetalle({
           aria-label={ejercicio.nombre}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
         >
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+          <div
+            ref={modalRef}
+            className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg"
+          >
             <div className="flex items-start justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
                 {ejercicio.nombre}
               </h2>
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
                 aria-label="Cerrar"
                 className="text-gray-400 hover:text-gray-600"
               >

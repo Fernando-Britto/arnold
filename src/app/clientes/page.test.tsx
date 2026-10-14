@@ -393,4 +393,75 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       expect(within(await screen.findByRole("table")).getByText("Gold - $ 150")).toBeInTheDocument();
     });
   });
+
+  describe("Accesibilidad del modal de contraseña temporal (Esc + focus-trap)", () => {
+    const silver = [
+      { id: "silver-1", nombre: "Silver", precio: 100.0, estado: "ACTIVA" as const },
+    ];
+    const nuevoCliente = {
+      id: "cliente-new",
+      nombre: "Juan Pérez",
+      dni: "35456789",
+      email: "juan@example.com",
+      telefono: undefined,
+      membresiaAsignada: "silver-1",
+      estadoCuenta: "Activo" as const,
+      fechaAlta: new Date(),
+    };
+
+    async function abrirModal(user: ReturnType<typeof userEvent.setup>) {
+      mockClientesApi.fetchClientes.mockResolvedValue([]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue(silver);
+      mockClientesApi.createCliente.mockResolvedValue({
+        cliente: nuevoCliente,
+        tempPassword: "TempPass-ABC123",
+      });
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+
+      await user.type(screen.getByLabelText(/Nombre/i), "Juan Pérez");
+      await user.type(screen.getByLabelText(/DNI/i), "35.456.789");
+      await user.type(screen.getByLabelText(/Email/i), "juan@example.com");
+      await user.selectOptions(screen.getByLabelText(/Membresía/i), "silver-1");
+      await user.click(screen.getByRole("button", { name: /Crear/i }));
+
+      return screen.findByRole("dialog");
+    }
+
+    it("expone el modal como diálogo accesible (role, aria-modal y nombre)", async () => {
+      const user = userEvent.setup();
+      const dialog = await abrirModal(user);
+
+      expect(dialog).toHaveAttribute("aria-modal", "true");
+      expect(dialog).toHaveAccessibleName(/contraseña temporal/i);
+    });
+
+    it("mueve el foco inicial a la acción primaria (Aceptar)", async () => {
+      const user = userEvent.setup();
+      await abrirModal(user);
+
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Aceptar" }));
+    });
+
+    it("mantiene el foco dentro del modal al tabular (focus-trap)", async () => {
+      const user = userEvent.setup();
+      await abrirModal(user);
+      const aceptar = screen.getByRole("button", { name: "Aceptar" });
+
+      await user.tab();
+
+      expect(document.activeElement).toBe(aceptar);
+    });
+
+    it("cierra con Escape y devuelve el foco al botón que lo abrió", async () => {
+      const user = userEvent.setup();
+      await abrirModal(user);
+      const crear = screen.getByRole("button", { name: /Crear/i });
+
+      await user.keyboard("{Escape}");
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(crear);
+    });
+  });
 });

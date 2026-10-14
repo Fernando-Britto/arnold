@@ -17,6 +17,7 @@ import { fetchMembresias, type MembresiaDropdown } from "@/api/membresias";
 import { Cliente } from "@/domains/cliente/cliente";
 import { CrudPageLayout } from "@/components/layout/crud-page-layout";
 import { CrudActions } from "@/components/layout/crud-actions";
+import { useModalA11y } from "@/hooks/use-modal-a11y";
 import { formatMoney } from "@/utils/formatting";
 
 export function ClientesPage() {
@@ -38,6 +39,14 @@ export function ClientesPage() {
   }>({ visible: false, password: "" });
 
   const [membresiasError, setMembresiasError] = useState(false);
+
+  // Esc + focus-trap + foco de retorno al trigger para el modal de contraseña temporal.
+  const closeTempPassword = () =>
+    setTempPasswordModal({ visible: false, password: "" });
+  const tempPasswordDialogRef = useModalA11y<HTMLDivElement>(
+    tempPasswordModal.visible,
+    closeTempPassword
+  );
 
   // Check authentication and authorization
   useEffect(() => {
@@ -237,8 +246,16 @@ export function ClientesPage() {
       {/* Temp password modal */}
       {tempPasswordModal.visible && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm">
-            <h2 className="text-xl font-bold mb-4">Contraseña Temporal</h2>
+          <div
+            ref={tempPasswordDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="temp-password-title"
+            className="bg-white rounded-lg p-6 max-w-sm"
+          >
+            <h2 id="temp-password-title" className="text-xl font-bold mb-4">
+              Contraseña Temporal
+            </h2>
             <p className="text-gray-600 mb-4">
               La contraseña temporal para el nuevo cliente es:
             </p>
@@ -249,9 +266,8 @@ export function ClientesPage() {
               Comunica esta contraseña al cliente. Deberá cambiarla en su primer login.
             </p>
             <button
-              onClick={() =>
-                setTempPasswordModal({ visible: false, password: "" })
-              }
+              type="button"
+              onClick={closeTempPassword}
               className="w-full bg-[#FC4C02] text-white py-2 rounded hover:bg-[#C13D00]"
             >
               Aceptar

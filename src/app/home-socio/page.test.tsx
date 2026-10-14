@@ -150,31 +150,83 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
     }
   });
 
-  it('shows "Trabajando en esto" in the membership card when there is no membership', async () => {
+  it("con datos vacíos muestra el estado vacío propio de cada tarjeta, no el placeholder 'Trabajando en esto'", async () => {
     mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    mockFetch.mockResolvedValue({ ...baseViewModel, membresia: null });
+    mockFetch.mockResolvedValue({
+      ...baseViewModel,
+      progreso: null,
+      rutinaActiva: null,
+      membresia: null,
+    });
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
-    expect(screen.getByTestId("card-membresia")).toHaveTextContent("Trabajando en esto");
+    // ProgresoSection empty state (not the shared placeholder).
+    expect(screen.getByTestId("card-progreso")).toHaveTextContent(
+      /todavía no registraste entrenamientos/i
+    );
+    // TarjetaRutina + Tarjeta_Detalle empty states.
+    expect(screen.getByTestId("card-rutina")).toHaveTextContent(/sin rutina asignada/i);
+    expect(screen.getByTestId("card-detalle")).toHaveTextContent(/sin rutina asignada/i);
+    // MembresiaCard empty state.
+    expect(screen.getByTestId("card-membresia")).toHaveTextContent(/sin membresía asignada/i);
+
+    expect(screen.queryByText(/trabajando en esto/i)).not.toBeInTheDocument();
   });
 
-  it('shows "Trabajando en esto" in the progress card when there is no progress data', async () => {
+  it("enlaza 'Ver todos los ejercicios' con /home-socio/mis-ejercicios", async () => {
     mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    mockFetch.mockResolvedValue({ ...baseViewModel, progreso: null });
+    const user = userEvent.setup();
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
-    expect(screen.getByTestId("card-progreso")).toHaveTextContent("Trabajando en esto");
+    await user.click(screen.getByRole("button", { name: /ver todos los ejercicios/i }));
+
+    expect(mockPush).toHaveBeenCalledWith("/home-socio/mis-ejercicios");
   });
 
-  it('shows "Trabajando en esto" in the routine card when there is no active routine', async () => {
+  it("enlaza 'Ver mi historial completo' con /home-socio/mis-asistencias", async () => {
     mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    mockFetch.mockResolvedValue({ ...baseViewModel, rutinaActiva: null });
+    const user = userEvent.setup();
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
-    expect(screen.getByTestId("card-rutina")).toHaveTextContent("Trabajando en esto");
+    await user.click(screen.getByRole("button", { name: /ver mi historial completo/i }));
+
+    expect(mockPush).toHaveBeenCalledWith("/home-socio/mis-asistencias");
+  });
+
+  it("enlaza 'Ver membresía' y 'Renovar ahora' con /home-socio/mi-membresia", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    mockFetch.mockResolvedValue({
+      ...baseViewModel,
+      membresia: { ...baseViewModel.membresia!, fechaVencimiento: "2020-01-01" },
+    });
+    const user = userEvent.setup();
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    await user.click(screen.getByRole("button", { name: /ver membresía/i }));
+    await user.click(screen.getByRole("button", { name: /renovar ahora/i }));
+
+    expect(mockPush).toHaveBeenCalledWith("/home-socio/mi-membresia");
+    expect(mockPush).toHaveBeenCalledTimes(2);
+  });
+
+  it("Buscar, Notificaciones y Perfil no son interactivos: no tienen destino todavía", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    const buscar = screen.getByRole("button", { name: /buscar/i });
+    const notificaciones = screen.getByRole("button", { name: /notificaciones/i });
+    const perfil = screen.getByRole("button", { name: /perfil/i });
+
+    expect(buscar).toBeDisabled();
+    expect(notificaciones).toBeDisabled();
+    expect(perfil).toBeDisabled();
+    expect(buscar.getAttribute("title")).toMatch(/no est|todav/i);
+    expect(perfil.getAttribute("title")).toMatch(/no est|todav/i);
   });
 
   it("shows an error message and does not crash when the fetch fails", async () => {

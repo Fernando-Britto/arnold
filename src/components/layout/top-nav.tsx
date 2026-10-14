@@ -21,8 +21,6 @@ export type TopNavLink = "inicio" | "rutina" | "ejercicios" | "progreso" | "memb
 export interface TopNavProps {
   active?: TopNavLink;
   onNavigate?: (link: TopNavLink) => void;
-  onSearchClick?: () => void;
-  onAvatarClick?: () => void;
   /** Cierra la sesión (P-06: sin esto el Socio no tenía forma de salir ni de revocar su token). */
   onLogoutClick?: () => void;
 }
@@ -53,8 +51,6 @@ export function topNavHref(link: TopNavLink): string {
 export function TopNav({
   active = "inicio",
   onNavigate,
-  onSearchClick,
-  onAvatarClick,
   onLogoutClick,
 }: TopNavProps) {
   return (
@@ -90,16 +86,18 @@ export function TopNav({
       </div>
 
       <div className="flex items-center gap-3">
+        {/* HI-1 / NEW-2: Buscar, Notificaciones y Perfil no tienen feature ni
+            ruta todavía; se deshabilitan para no dejar controles clickeables
+            sin acción (con `title` que explica por qué). */}
         <button
           type="button"
+          disabled
           aria-label="Buscar"
-          onClick={onSearchClick}
-          className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100"
+          title="La búsqueda no está disponible todavía"
+          className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-lg bg-zinc-100 opacity-40"
         >
           <Search className="h-5 w-5 text-zinc-500" />
         </button>
-        {/* HI-1: no hay feature de notificaciones todavía; se deshabilita para no
-            dejar un control clickeable sin acción. */}
         <button
           type="button"
           disabled
@@ -119,9 +117,10 @@ export function TopNav({
         </button>
         <button
           type="button"
+          disabled
           aria-label="Perfil"
-          onClick={onAvatarClick}
-          className="h-10 w-10 rounded-lg bg-zinc-200"
+          title="El perfil no está disponible todavía"
+          className="h-10 w-10 cursor-not-allowed rounded-lg bg-zinc-200 opacity-40"
         />
       </div>
     </div>

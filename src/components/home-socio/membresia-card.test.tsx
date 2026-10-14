@@ -131,4 +131,19 @@ describe("MembresiaCard (matches Home_Socio_1x §Fila3 Membresia)", () => {
     expect(onVerMembresia).toHaveBeenCalledTimes(1);
     expect(onRenovar).toHaveBeenCalledTimes(1);
   });
+
+  it('muestra "Sin membresía asignada" cuando el socio no tiene plan (estado vacío propio)', () => {
+    render(
+      <MembresiaCard
+        planNombre={null}
+        fechaVencimiento={new Date("2026-10-15T03:00:00Z")}
+        diasTotalMembresia={0}
+        dias28={[]}
+        totalAsistencias={0}
+      />
+    );
+
+    expect(screen.getByTestId("card-membresia")).toHaveTextContent(/sin membresía asignada/i);
+    expect(screen.queryByRole("button", { name: /ver membresía/i })).not.toBeInTheDocument();
+  });
 });

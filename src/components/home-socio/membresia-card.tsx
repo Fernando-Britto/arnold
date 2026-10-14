@@ -9,7 +9,8 @@ import { toGymWallClock } from "@/lib/gym-time";
  * Home_Socio. Matches Home_Socio_1x design.
  */
 export interface MembresiaCardProps {
-  planNombre: string;
+  /** Plan name, or null when the Socio has no membership (renders the empty state). */
+  planNombre: string | null;
   fechaVencimiento: Date;
   /** Length of the current billing cycle, in days (e.g. 30). */
   diasTotalMembresia: number;
@@ -52,6 +53,17 @@ export function MembresiaCard({
   onVerMembresia,
   onRenovar,
 }: MembresiaCardProps) {
+  if (!planNombre) {
+    return (
+      <div
+        data-testid="card-membresia"
+        className="rounded-lg border border-[#E4E4E7] bg-white p-6 text-center text-gray-500"
+      >
+        Sin membresía asignada
+      </div>
+    );
+  }
+
   const { diasRestantes, estado, mostrarRenovar } = computeMembresiaStatus(
     fechaVencimiento,
     hoy

@@ -40,17 +40,16 @@ describe("TopNav (matches Home_Socio_1x §TopNav)", () => {
     expect(screen.getByTestId("nav-link-inicio")).toHaveAttribute("data-active", "false");
   });
 
-  it("calls onSearchClick / onAvatarClick", async () => {
-    const onSearchClick = jest.fn();
-    const onAvatarClick = jest.fn();
-    const user = userEvent.setup();
-    render(
-      <TopNav active="inicio" onSearchClick={onSearchClick} onAvatarClick={onAvatarClick} />
-    );
-    await user.click(screen.getByRole("button", { name: /buscar/i }));
-    await user.click(screen.getByRole("button", { name: /perfil/i }));
-    expect(onSearchClick).toHaveBeenCalledTimes(1);
-    expect(onAvatarClick).toHaveBeenCalledTimes(1);
+  it("Buscar y Perfil no son interactivos: no hay destino todavía (mismo criterio que Notificaciones)", () => {
+    render(<TopNav active="inicio" />);
+
+    const buscar = screen.getByRole("button", { name: /buscar/i });
+    const perfil = screen.getByRole("button", { name: /perfil/i });
+
+    expect(buscar).toBeDisabled();
+    expect(perfil).toBeDisabled();
+    expect(buscar.getAttribute("title")).toMatch(/disponible/i);
+    expect(perfil.getAttribute("title")).toMatch(/disponible/i);
   });
 
   it("la campana de notificaciones no es interactiva: no hay feature todavía (HI-1)", () => {

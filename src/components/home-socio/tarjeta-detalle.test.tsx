@@ -204,4 +204,48 @@ describe("TarjetaDetalle", () => {
     expect(onOpenDetail).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("cierra el modal con Escape (accesibilidad del diálogo)", async () => {
+    const user = userEvent.setup();
+    render(
+      <TarjetaDetalle ejercicio={ejercicio} ejercicioEnRutina={ejercicioEnRutina} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Press de banca" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("atrapa el foco dentro del modal al tabular (focus-trap)", async () => {
+    const user = userEvent.setup();
+    render(
+      <TarjetaDetalle ejercicio={ejercicio} ejercicioEnRutina={ejercicioEnRutina} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Press de banca" }));
+    const cerrar = screen.getByRole("button", { name: /cerrar/i });
+
+    expect(document.activeElement).toBe(cerrar);
+    await user.tab();
+    expect(document.activeElement).toBe(cerrar);
+    expect(document.activeElement).not.toBe(
+      screen.getByRole("button", { name: "Press de banca" })
+    );
+  });
+
+  it("devuelve el foco al disparador al cerrar el modal", async () => {
+    const user = userEvent.setup();
+    render(
+      <TarjetaDetalle ejercicio={ejercicio} ejercicioEnRutina={ejercicioEnRutina} />
+    );
+    const disparador = screen.getByRole("button", { name: "Press de banca" });
+
+    await user.click(disparador);
+    await user.keyboard("{Escape}");
+
+    expect(document.activeElement).toBe(disparador);
+  });
 });

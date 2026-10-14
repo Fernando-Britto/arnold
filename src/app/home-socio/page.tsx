@@ -12,20 +12,6 @@ import { TarjetaDetalle } from "@/components/home-socio/tarjeta-detalle";
 import { RachaSemanal } from "@/components/home-socio/racha-semanal";
 import { MembresiaCard } from "@/components/home-socio/membresia-card";
 import { EjecucionRutina } from "@/components/home-socio/ejecucion-rutina";
-import { PlaceholderPanel } from "@/components/ui/placeholder-panel";
-
-/**
- * A grid slot whose backing data/feature does not exist yet: renders the shared
- * "Trabajando en esto" panel instead of inventing content. The slot keeps its
- * `data-testid` so the row layout stays testable.
- */
-function MissingCard({ testId }: { testId: string }) {
-  return (
-    <div data-testid={testId} className="flex">
-      <PlaceholderPanel className="w-full" />
-    </div>
-  );
-}
 
 /**
  * Home_Socio — T-019 Page Layout, rebuilt to match the real design
@@ -38,8 +24,11 @@ function MissingCard({ testId }: { testId: string }) {
  *   `fetchHomeSocioData` (see src/api/home-socio.ts).
  * - "Seguir rutina" opens EjecucionRutina (T-038, D-48), which starts or resumes the
  *   session against the sessions API and logs each serie with peso/reps/RIR.
- * - TopNav's non-Inicio links (Mi rutina/Mi membresía/Mi progreso) have no
- *   routes yet — see src/components/layout/top-nav.tsx.
+ * - TopNav's section links point to real routes via `topNavHref` (T-039). The
+ *   page wires each card's action to its section route; TopNav's Buscar/Perfil
+ *   have no destination yet and stay disabled (see top-nav.tsx).
+ * - Empty data (no progreso/rutina/membresía) renders each component's own
+ *   empty state — there is no "Trabajando en esto" placeholder left here.
  */
 export function HomeSocioPage() {
   const router = useRouter();
@@ -132,17 +121,15 @@ export function HomeSocioPage() {
       <main className="flex w-full flex-col gap-6 px-12 pb-12">
         {/* Fila1 — FilaProgreso (1157) + Aforo (633) */}
         <div data-testid="fila-1" className="grid gap-6 lg:grid-cols-[1157fr_633fr]">
-          {data.progreso ? (
-            <ProgresoSection
-              ejercicioNombre={data.progreso.ejercicioNombre}
-              marcaActual={data.progreso.marcaActual}
-              deltaEsteMes={data.progreso.deltaEsteMes}
-              progresionCarga={data.progreso.progresionCarga}
-              proximaSesionSugerida={data.progreso.proximaSesionSugerida}
-            />
-          ) : (
-            <MissingCard testId="card-progreso" />
-          )}
+          {/* Sin registros en la ventana → la sección muestra su propio estado vacío (no un placeholder). */}
+          <ProgresoSection
+            ejercicioNombre={data.progreso?.ejercicioNombre ?? ""}
+            marcaActual={data.progreso?.marcaActual ?? 0}
+            deltaEsteMes={data.progreso?.deltaEsteMes ?? 0}
+            progresionCarga={data.progreso?.progresionCarga ?? []}
+            proximaSesionSugerida={data.progreso?.proximaSesionSugerida ?? 0}
+            onVerTodosLosEjercicios={() => router.push("/home-socio/mis-ejercicios")}
+          />
           <AforoCard
             ocupacionActual={data.aforo.ocupacionActual}
             capacidadMaxima={data.aforo.capacidadMaxima}
@@ -153,16 +140,13 @@ export function HomeSocioPage() {
 
         {/* Fila2 — Tarjeta_Rutina (1201) + Tarjeta_Detalle (589) */}
         <div data-testid="fila-2" className="grid gap-6 lg:grid-cols-[1201fr_589fr]">
-          {data.rutinaActiva ? (
-            <TarjetaRutina
-              rutinaNombre={data.rutinaActiva.nombre}
-              ejercicios={ejercicios}
-              indiceActual={indiceActual}
-              onSeguirRutina={handleSeguirRutina}
-            />
-          ) : (
-            <MissingCard testId="card-rutina" />
-          )}
+          {/* Sin rutina asignada → ambas tarjetas muestran su propio estado vacío. */}
+          <TarjetaRutina
+            rutinaNombre={data.rutinaActiva?.nombre ?? null}
+            ejercicios={ejercicios}
+            indiceActual={indiceActual}
+            onSeguirRutina={handleSeguirRutina}
+          />
           {ejercicioActual ? (
             <TarjetaDetalle
               ejercicio={{
@@ -177,24 +161,29 @@ export function HomeSocioPage() {
               }}
             />
           ) : (
-            <MissingCard testId="card-detalle" />
+            <TarjetaDetalle ejercicio={null} ejercicioEnRutina={null} />
           )}
         </div>
 
         {/* Fila3 — RachaSemanal (895) + Membresia (895) */}
         <div data-testid="fila-3" className="grid gap-6 lg:grid-cols-2">
-          <RachaSemanal semanasRacha={data.racha.semanasRacha} dias={data.racha.dias} />
-          {data.membresia ? (
-            <MembresiaCard
-              planNombre={data.membresia.planNombre}
-              fechaVencimiento={new Date(data.membresia.fechaVencimiento)}
-              diasTotalMembresia={data.membresia.diasTotalMembresia}
-              dias28={data.membresia.dias28}
-              totalAsistencias={data.membresia.totalAsistencias28Dias}
-            />
-          ) : (
-            <MissingCard testId="card-membresia" />
-          )}
+          <RachaSemanal
+            semanasRacha={data.racha.semanasRacha}
+            dias={data.racha.dias}
+            onVerHistorial={() => router.push("/home-socio/mis-asistencias")}
+          />
+          {/* Sin membresía → la tarjeta muestra su propio estado vacío. */}
+          <MembresiaCard
+            planNombre={data.membresia?.planNombre ?? null}
+            fechaVencimiento={
+              data.membresia ? new Date(data.membresia.fechaVencimiento) : new Date(0)
+            }
+            diasTotalMembresia={data.membresia?.diasTotalMembresia ?? 0}
+            dias28={data.membresia?.dias28 ?? []}
+            totalAsistencias={data.membresia?.totalAsistencias28Dias ?? 0}
+            onVerMembresia={() => router.push("/home-socio/mi-membresia")}
+            onRenovar={() => router.push("/home-socio/mi-membresia")}
+          />
         </div>
       </main>
     </div>
