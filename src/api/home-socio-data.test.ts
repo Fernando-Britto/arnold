@@ -139,6 +139,31 @@ describe("buildHomeSocioPayload", () => {
     expect(res?.sesionEnProgreso).toBe(true);
   });
 
+  // SE-4: con una sesión EN_CURSO, el índice actual sale del `ejercicioActualId` para
+  // reanudar donde quedó el socio (no siempre 0).
+  it("con sesión EN_CURSO: indiceActual sale de ejercicioActualId", async () => {
+    seed();
+    db.sesionDeEntrenamiento.findFirst.mockResolvedValue({
+      id: "s1",
+      ejercicioActualId: "e2",
+    });
+
+    const res = await buildHomeSocioPayload("u1", NOW);
+
+    expect(res?.sesionEnProgreso).toBe(true);
+    expect(res?.rutinaActiva?.indiceActual).toBe(1);
+  });
+
+  it("sin sesión EN_CURSO: indiceActual 0 y sesionEnProgreso false", async () => {
+    seed();
+    db.sesionDeEntrenamiento.findFirst.mockResolvedValue(null);
+
+    const res = await buildHomeSocioPayload("u1", NOW);
+
+    expect(res?.sesionEnProgreso).toBe(false);
+    expect(res?.rutinaActiva?.indiceActual).toBe(0);
+  });
+
   it("todas las consultas del socio van filtradas por su socioId", async () => {
     seed();
     await buildHomeSocioPayload("u1", NOW);

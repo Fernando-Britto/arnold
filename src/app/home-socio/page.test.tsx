@@ -281,4 +281,35 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
 
     expect(logout).toHaveBeenCalledTimes(1);
   });
+
+  // SE-4: al recargar en medio de una sesión, el inicio refleja el estado "retomar" y el
+  // ejercicio actual sale del índice devuelto por el servidor.
+  it("con una sesión en curso muestra 'Retomar sesión' y el ejercicio actual del índice", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    mockFetch.mockResolvedValue({
+      ...baseViewModel,
+      sesionEnProgreso: true,
+      rutinaActiva: { ...baseViewModel.rutinaActiva!, indiceActual: 1 },
+    });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    // CTA de retomar en vez de "Seguir rutina".
+    expect(screen.getByRole("button", { name: /retomar sesión/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /seguir rutina/i })).not.toBeInTheDocument();
+    // Tarjeta_Detalle muestra el ejercicio en indiceActual (1 → Press Militar), no el 0.
+    expect(screen.getByText("Hombros")).toBeInTheDocument();
+  });
+
+  // SE-4 (sin sesión): el estado normal es "empezar" y el índice vuelve a 0.
+  it("sin sesión en curso mantiene 'Seguir rutina' y el primer ejercicio", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    mockFetch.mockResolvedValue({ ...baseViewModel, sesionEnProgreso: false });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.getByRole("button", { name: /seguir rutina/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /retomar sesión/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Pecho")).toBeInTheDocument();
+  });
 });

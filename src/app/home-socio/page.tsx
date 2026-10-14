@@ -145,6 +145,7 @@ export function HomeSocioPage() {
             rutinaNombre={data.rutinaActiva?.nombre ?? null}
             ejercicios={ejercicios}
             indiceActual={indiceActual}
+            sesionEnProgreso={data.sesionEnProgreso}
             onSeguirRutina={handleSeguirRutina}
           />
           {ejercicioActual ? (

@@ -158,6 +158,102 @@ describe("iniciarSesion", () => {
     ).rejects.toThrow(/VALIDATION_ERROR.*activa/i);
     expect(prisma.sesionDeEntrenamiento.create).not.toHaveBeenCalled();
   });
+
+  // SE-1: ABANDONADA tiene que persistirse con un disparador real. Regla elegida: iniciar
+  // una sesión cuando ya hay una EN_CURSO deja la anterior en ABANDONADA (con horaFin).
+  it("marca ABANDONADA (con horaFin) la sesión EN_CURSO previa del socio", async () => {
+    const prisma = await mocks();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio-1" });
+    (prisma.rutinaAsignada.findUnique as jest.Mock).mockResolvedValue(asignacionActiva());
+    (prisma.sesionDeEntrenamiento.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (prisma.sesionDeEntrenamiento.create as jest.Mock).mockResolvedValue({
+      id: "sesion-2",
+      socioId: "socio-1",
+      estadoDeFinalizacion: "EN_CURSO",
+    });
+
+    const ahora = new Date("2026-10-12T14:00:00.000Z");
+    await iniciarSesion({ socioId: "socio-1", rutinaAsignadaId: "asig-1", ahora });
+
+    expect(prisma.sesionDeEntrenamiento.updateMany).toHaveBeenCalledWith({
+      where: { socioId: "socio-1", estadoDeFinalizacion: "EN_CURSO" },
+      data: { estadoDeFinalizacion: "ABANDONADA", horaFin: ahora },
+    });
+  });
+
+  // SE-3: el abandono de la previa y la creación de la nueva van en UNA transacción,
+  // abandonando ANTES de crear (así nunca queda más de una EN_CURSO por socio).
+  it("abandona la previa y crea la nueva en UNA transacción, en ese orden", async () => {
+    const prisma = await mocks();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio-1" });
+    (prisma.rutinaAsignada.findUnique as jest.Mock).mockResolvedValue(asignacionActiva());
+    (prisma.sesionDeEntrenamiento.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (prisma.sesionDeEntrenamiento.create as jest.Mock).mockResolvedValue({ id: "sesion-2" });
+
+    await iniciarSesion({ socioId: "socio-1", rutinaAsignadaId: "asig-1" });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    const txOrder = (prisma.$transaction as jest.Mock).mock.invocationCallOrder[0];
+    const abandonOrder = (prisma.sesionDeEntrenamiento.updateMany as jest.Mock).mock
+      .invocationCallOrder[0];
+    const createOrder = (prisma.sesionDeEntrenamiento.create as jest.Mock).mock
+      .invocationCallOrder[0];
+    expect(txOrder).toBeLessThan(abandonOrder);
+    expect(abandonOrder).toBeLessThan(createOrder);
+  });
+
+  // SE-3 (invariante): tras dos inicios quedan a lo sumo UNA EN_CURSO por socio y la
+  // anterior queda ABANDONADA. Emula el estado de la tabla para verificar el invariante.
+  it("tras dos inicios, a lo sumo una EN_CURSO por socio y la previa queda ABANDONADA", async () => {
+    const prisma = await mocks();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio-1" });
+    (prisma.rutinaAsignada.findUnique as jest.Mock).mockResolvedValue(asignacionActiva());
+
+    type Fila = {
+      id: string;
+      socioId: string;
+      estadoDeFinalizacion: string;
+      horaInicio: Date;
+      horaFin: Date | null;
+    };
+    const tabla: Fila[] = [];
+    (prisma.sesionDeEntrenamiento.create as jest.Mock).mockImplementation(
+      async ({ data }: { data: Omit<Fila, "id" | "horaFin"> }) => {
+        const fila: Fila = { id: `sesion-${tabla.length + 1}`, horaFin: null, ...data };
+        tabla.push(fila);
+        return fila;
+      }
+    );
+    (prisma.sesionDeEntrenamiento.updateMany as jest.Mock).mockImplementation(
+      async ({ where, data }: { where: { socioId: string; estadoDeFinalizacion: string }; data: Partial<Fila> }) => {
+        let count = 0;
+        for (const fila of tabla) {
+          if (
+            fila.socioId === where.socioId &&
+            fila.estadoDeFinalizacion === where.estadoDeFinalizacion
+          ) {
+            Object.assign(fila, data);
+            count++;
+          }
+        }
+        return { count };
+      }
+    );
+
+    const primera = new Date("2026-10-12T13:00:00.000Z");
+    const segunda = new Date("2026-10-12T14:00:00.000Z");
+    await iniciarSesion({ socioId: "socio-1", rutinaAsignadaId: "asig-1", ahora: primera });
+    await iniciarSesion({ socioId: "socio-1", rutinaAsignadaId: "asig-1", ahora: segunda });
+
+    const enCurso = tabla.filter((s) => s.estadoDeFinalizacion === "EN_CURSO");
+    expect(enCurso).toHaveLength(1);
+    expect(enCurso[0].id).toBe("sesion-2");
+
+    const abandonadas = tabla.filter((s) => s.estadoDeFinalizacion === "ABANDONADA");
+    expect(abandonadas).toHaveLength(1);
+    expect(abandonadas[0].id).toBe("sesion-1");
+    expect(abandonadas[0].horaFin).toEqual(segunda);
+  });
 });
 
 describe("obtenerSesionEnCurso", () => {

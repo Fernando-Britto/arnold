@@ -103,4 +103,30 @@ describe("TarjetaRutina (spec: matches Home_Socio_1x §Fila2, horizontal sequenc
     await user.click(screen.getByRole("button", { name: /seguir rutina/i }));
     expect(onSeguirRutina).toHaveBeenCalledTimes(1);
   });
+
+  // SE-4: con una sesión en curso el CTA debe invitar a retomarla, no a empezar de cero.
+  it('shows "Retomar sesión" when there is a session in progress', () => {
+    render(
+      <TarjetaRutina
+        rutinaNombre="Hipertrofia - Empuje A"
+        ejercicios={ejercicios}
+        indiceActual={1}
+        sesionEnProgreso
+      />
+    );
+    expect(screen.getByRole("button", { name: /retomar sesión/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /seguir rutina/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps "Seguir rutina" when there is no session in progress', () => {
+    render(
+      <TarjetaRutina
+        rutinaNombre="Hipertrofia - Empuje A"
+        ejercicios={ejercicios}
+        indiceActual={0}
+        sesionEnProgreso={false}
+      />
+    );
+    expect(screen.getByRole("button", { name: /seguir rutina/i })).toBeInTheDocument();
+  });
 });

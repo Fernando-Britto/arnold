@@ -22,9 +22,9 @@ import {
  * - Aforo: idéntico a Home_Interno (AC-005): mismas asistencias PERMITIDO, misma ventana
  *   `ventanaAforoMinutos` (90 por defecto) y mismas barras de 2 h (buildAforoHoras).
  * - Racha: se miran hasta 53 semanas de asistencias PERMITIDO del socio (tope de la racha).
- * - Sesión en progreso: SesionDeEntrenamiento sin `horaFin` iniciada hoy (hora del gimnasio).
- * - indiceActual = 0: Home_Socio solo muestra la rutina; el avance real de la sesión lo lleva
- *   la pantalla de ejecución (T-038) contra GET /api/sesiones?enCurso=1.
+ * - Sesión en progreso: SesionDeEntrenamiento en `EN_CURSO` (mismo criterio que la pantalla
+ *   de ejecución, GET /api/sesiones?enCurso=1). El `indiceActual` se deriva del
+ *   `ejercicioActualId` para retomar el ejercicio correcto tras una recarga (SE-4).
  * - Máquinas (RN-05, footer de Tarjeta_Detalle): Ejercicio no tiene relación con Maquina en el
  *   schema, así que el payload no trae estado de máquina.
  */
@@ -96,8 +96,9 @@ export async function buildHomeSocioPayload(
       },
     }),
     prisma.sesionDeEntrenamiento.findFirst({
-      where: { socioId: socio.id, horaFin: null, horaInicio: { gte: inicioDia } },
-      select: { id: true },
+      where: { socioId: socio.id, estadoDeFinalizacion: "EN_CURSO" },
+      orderBy: { horaInicio: "desc" },
+      select: { id: true, ejercicioActualId: true },
     }),
   ]);
 
@@ -121,6 +122,13 @@ export async function buildHomeSocioPayload(
   const cuota = socio.cuotas[0];
   const dias28 = compute28DiasAsistencia(fechas, hoy);
 
+  // SE-4: si hay sesión EN_CURSO, retomamos en el ejercicio actual (por `ejercicioActualId`).
+  const ejerciciosDeRutina = rutina?.ejercicios ?? [];
+  const idxSesion = sesion?.ejercicioActualId
+    ? ejerciciosDeRutina.findIndex((e) => e.ejercicio.id === sesion.ejercicioActualId)
+    : -1;
+  const indiceActual = idxSesion >= 0 ? idxSesion : 0;
+
   return {
     progreso: computeProgresoActual(
       registros.map((r) => ({
@@ -142,8 +150,8 @@ export async function buildHomeSocioPayload(
       ? {
           nombre: rutina.nombre,
           rutinaAsignadaId: rutinaAsignada?.id ?? "",
-          indiceActual: 0,
-          ejercicios: rutina.ejercicios.map((e) => ({
+          indiceActual,
+          ejercicios: ejerciciosDeRutina.map((e) => ({
             id: e.ejercicio.id,
             nombre: e.ejercicio.nombre,
             grupoMuscular: e.ejercicio.grupoMuscular,

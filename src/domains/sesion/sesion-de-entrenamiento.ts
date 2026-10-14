@@ -128,6 +128,10 @@ function validarRir(rir: number | null): number | null {
  * Inicia una sesión de entrenamiento para un socio a partir de una rutina asignada activa.
  * Crea `SesionDeEntrenamiento` en `EN_CURSO` apuntando al primer ejercicio (por `orden`).
  *
+ * Regla de abandono (SE-1/SE-3): si el socio ya tiene una sesión `EN_CURSO`, se marca como
+ * `ABANDONADA` (con `horaFin`) dentro de la misma transacción antes de crear la nueva. Así
+ * `ABANDONADA` tiene un disparador real y se cumple "a lo sumo una `EN_CURSO` por socio".
+ *
  * @throws Error("NOT_FOUND") si el socio o la asignación no existen.
  * @throws Error("VALIDATION_ERROR: ...") si la asignación no está activa o no es del socio.
  */
@@ -164,16 +168,31 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
 
   const ejercicios = asignada.rutina.ejercicios;
   const primero = ejercicios[0] ?? null;
+  const ahora = input.ahora ?? new Date();
 
-  const sesion = await prisma.sesionDeEntrenamiento.create({
-    data: {
-      socioId: input.socioId,
-      rutinaAsignadaId: input.rutinaAsignadaId,
-      estadoDeFinalizacion: "EN_CURSO",
-      horaInicio: input.ahora ?? new Date(),
-      ejercicioActualId: primero ? primero.ejercicioId : null,
-      serieActual: primero ? 1 : null,
-    },
+  // SE-1/SE-3: una sesión nueva cuando ya hay una EN_CURSO deja la anterior en ABANDONADA
+  // (con horaFin). Así `ABANDONADA` tiene un disparador real y se mantiene el invariante
+  // "a lo sumo una EN_CURSO por socio". El abandono y la creación van en UNA transacción.
+  //
+  // Sin un índice único parcial (no se puede sin cambio de schema), dos inicios 100%
+  // concurrentes y sin sesión previa todavía podrían crear dos EN_CURSO. La transacción
+  // cubre el caso secuencial (el habitual: el socio recarga y vuelve a empezar).
+  const sesion = await prisma.$transaction(async (tx) => {
+    await tx.sesionDeEntrenamiento.updateMany({
+      where: { socioId: input.socioId, estadoDeFinalizacion: "EN_CURSO" },
+      data: { estadoDeFinalizacion: "ABANDONADA", horaFin: ahora },
+    });
+
+    return tx.sesionDeEntrenamiento.create({
+      data: {
+        socioId: input.socioId,
+        rutinaAsignadaId: input.rutinaAsignadaId,
+        estadoDeFinalizacion: "EN_CURSO",
+        horaInicio: ahora,
+        ejercicioActualId: primero ? primero.ejercicioId : null,
+        serieActual: primero ? 1 : null,
+      },
+    });
   });
 
   return { sesion, ejercicios: mapearEjercicios(ejercicios) };

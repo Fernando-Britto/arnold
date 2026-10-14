@@ -27,6 +27,8 @@ export interface TarjetaRutinaProps {
   rutinaNombre: string | null;
   ejercicios: EjercicioSecuencia[];
   indiceActual: number;
+  /** `true` cuando el socio ya tiene una sesión `EN_CURSO`: el CTA invita a retomarla (SE-4). */
+  sesionEnProgreso?: boolean;
   onSeguirRutina?: () => void;
 }
 
@@ -40,6 +42,7 @@ export function TarjetaRutina({
   rutinaNombre,
   ejercicios,
   indiceActual,
+  sesionEnProgreso = false,
   onSeguirRutina,
 }: TarjetaRutinaProps) {
   if (!rutinaNombre) {
@@ -141,7 +144,7 @@ export function TarjetaRutina({
         className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#FC4C02] text-[15px] font-bold text-white"
       >
         <Play className="h-[18px] w-[18px]" aria-hidden="true" />
-        Seguir rutina
+        {sesionEnProgreso ? "Retomar sesión" : "Seguir rutina"}
       </button>
     </div>
   );
