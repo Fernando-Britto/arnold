@@ -11,7 +11,7 @@ function respond(status: number, body: unknown): void {
 
 const input = {
   nombre: "Ana García", dni: "30123456", email: "ana@example.com",
-  membresiaAsignada: "gold-1", estadoCuenta: "Activo" as const,
+  membresiaAsignada: "gold-1", estadoCuenta: "Activa" as const,
 };
 
 describe("API de Clientes (lado cliente): los errores llegan como ApiError", () => {

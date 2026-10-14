@@ -92,7 +92,7 @@ describe("Cliente API Routes", () => {
         dni: "30.123.456",
         email: "ana@example.com",
         membresiaAsignada: "gold-123",
-        estadoCuenta: "Activo",
+        estadoCuenta: "Activa",
       });
 
       // Check that result is success (has status 201 and id)

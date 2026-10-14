@@ -1,4 +1,5 @@
 import { runSeed, SEED_EMAIL_DOMAIN } from "../prisma/seed-data";
+import { estadoCuotaSocio, periodoDe } from "@/domains/pago/cuota";
 
 /**
  * Prisma simulado: cada `prisma.modelo.metodo(args)` queda registrado.
@@ -92,6 +93,34 @@ describe("runSeed", () => {
     expect(creados("pago").length).toBeGreaterThan(0);
     expect(creados("sesionDeEntrenamiento").length).toBeGreaterThan(0);
     expect(creados("rutinaAsignada").every((c) => c.args.data.activa === true)).toBe(true);
+  });
+
+  it("P-24: el socio2 queda con la cuenta AL_DIA; el atraso es del PAGO calculado, no de la cuenta", async () => {
+    const { prisma, calls } = fakePrisma();
+    await run(prisma);
+
+    // La cuenta es la decisión humana (D-46): nunca se escribe un estado de pago (VENCIDA/PENDIENTE).
+    const estadosDeCuenta = calls
+      .filter((c) => c.model === "socio")
+      .flatMap((c) => [c.args.data?.estadoCuota, c.args.create?.estadoCuota])
+      .filter(Boolean);
+    expect(estadosDeCuenta).not.toContain("VENCIDA");
+    expect(estadosDeCuenta).not.toContain("PENDIENTE");
+
+    // El socio2 conserva una cuota con el vencimiento en el pasado (alerta de Home_Interno)…
+    const cuotas = calls.filter((c) => c.model === "cuota" && c.method === "create");
+    const cuotaAtrasada = cuotas.find((c) => c.args.data.fechaVencimiento.getTime() < NOW.getTime());
+    expect(cuotaAtrasada).toBeDefined();
+
+    // …y el estado de pago calculado (D-40) la marca VENCIDA una vez pasado el día límite.
+    const periodo = periodoDe(cuotaAtrasada!.args.data.fechaVencimiento);
+    const vencida = estadoCuotaSocio({
+      ultimoPeriodoCubierto: periodo,
+      hoy: new Date("2026-10-11T10:00:00-03:00"),
+      diaLimite: 10,
+      gracia: 0,
+    });
+    expect(vencida).toBe("VENCIDA");
   });
 
   it("devuelve las credenciales sin hashes", async () => {

@@ -47,11 +47,11 @@ export interface ClienteListProps {
 
 function estadoCuentaVariant(estado: EstadoCuenta): TableStatusVariant {
   switch (estado) {
-    case "Activo":
+    case "Activa":
       return "success";
-    case "Inactivo":
+    case "Inactiva":
       return "warning";
-    case "Bloqueado":
+    case "Bloqueada":
       return "danger";
     default:
       return "neutral";

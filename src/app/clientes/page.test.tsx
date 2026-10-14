@@ -53,7 +53,7 @@ const ana = {
   email: "ana@example.com",
   telefono: "+54 9 1234 567890",
   membresiaAsignada: "gold-1",
-  estadoCuenta: "Activo" as const,
+  estadoCuenta: "Activa" as const,
   fechaAlta: new Date("2024-01-15"),
 };
 const gold = [{ id: "gold-1", nombre: "Gold", precio: 150, estado: "ACTIVA" as const }];
@@ -143,7 +143,7 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       expect(within(table).getByText("DNI")).toBeInTheDocument();
       expect(within(table).getByText("Membresía")).toBeInTheDocument();
       expect(within(table).getByText("Estado de cuota")).toBeInTheDocument();
-      expect(within(table).getByText("Activo")).toBeInTheDocument();
+      expect(within(table).getByText("Activa")).toBeInTheDocument();
     });
 
     it("no renderiza botones por fila", async () => {
@@ -253,7 +253,7 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
         email: "juan@example.com",
         telefono: "+54 9 2345 678901",
         membresiaAsignada: "silver-1",
-        estadoCuenta: "Activo" as const,
+        estadoCuenta: "Activa" as const,
         fechaAlta: new Date(),
       };
       mockClientesApi.fetchClientes.mockResolvedValue([]);
@@ -301,7 +301,7 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
         email: "juan@example.com",
         telefono: undefined,
         membresiaAsignada: "silver-1",
-        estadoCuenta: "Activo" as const,
+        estadoCuenta: "Activa" as const,
         fechaAlta: new Date(),
       };
       mockClientesApi.fetchClientes.mockResolvedValue([]);
@@ -444,7 +444,7 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       email: "juan@example.com",
       telefono: undefined,
       membresiaAsignada: "silver-1",
-      estadoCuenta: "Activo" as const,
+      estadoCuenta: "Activa" as const,
       fechaAlta: new Date(),
     };
 

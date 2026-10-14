@@ -15,7 +15,8 @@ import { UserRole } from '@/lib/authorization';
 
 /**
  * Check if a role is allowed to approve access overrides.
- * Only ADMINISTRADOR can approve overrides (manual authorization decisions).
+ * Only ADMINISTRADOR can approve overrides (manual authorization decisions), including a
+ * BLOQUEADA account: the Recepcionista (kiosco) cannot override a block (P-24).
  * This check happens INSIDE the /api/socios/{id}/access-override handler, not middleware.
  *
  * @param rol The user's role

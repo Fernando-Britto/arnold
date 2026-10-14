@@ -271,4 +271,51 @@ describe("Access Override Authorization (T-025)", () => {
       });
     });
   });
+
+  describe("BLOQUEADA override — sólo el ADMINISTRADOR (P-24)", () => {
+    // El módulo está mockeado arriba: usamos la implementación REAL para blindar la regla.
+    const realAuth = jest.requireActual<typeof fineGrainedAuth>("@/lib/fine-grained-auth");
+
+    it("canApproveAccessOverride permite al ADMINISTRADOR y niega al recepcionista", () => {
+      expect(realAuth.canApproveAccessOverride("ADMINISTRADOR")).toBe(true);
+      expect(realAuth.canApproveAccessOverride("RECEPCIONISTA")).toBe(false);
+    });
+
+    it("un RECEPCIONISTA NO puede autorizar el ingreso de una cuenta BLOQUEADA", async () => {
+      (fineGrainedAuth.canApproveAccessOverride as jest.Mock).mockImplementation(
+        realAuth.canApproveAccessOverride
+      );
+      const prisma = await mocks();
+      (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio1", estadoCuota: "BLOQUEADA" });
+
+      const recepcionista = {
+        user: { id: "recep1", rol: "RECEPCIONISTA" },
+        body: { motivo: "Insistió en ingresar" },
+        ip: "192.168.1.9",
+        headers: { "user-agent": "Mozilla/5.0" },
+      } as unknown as Parameters<typeof handleAccessOverride>[0];
+
+      await expect(handleAccessOverride(recepcionista, "socio1")).rejects.toThrow(
+        "Rol de administrador requerido"
+      );
+      expect(prisma.auditoriaAcceso.create).not.toHaveBeenCalled();
+      expect(prisma.asistencia.create).not.toHaveBeenCalled();
+    });
+
+    it("un ADMINISTRADOR sí puede autorizar el ingreso de una cuenta BLOQUEADA", async () => {
+      (fineGrainedAuth.canApproveAccessOverride as jest.Mock).mockImplementation(
+        realAuth.canApproveAccessOverride
+      );
+      const prisma = await mocks();
+      (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio1", estadoCuota: "BLOQUEADA" });
+      (prisma.auditoriaAcceso.create as jest.Mock).mockResolvedValue({ id: "aud-1" });
+      (prisma.asistencia.create as jest.Mock).mockResolvedValue({ id: "asist-1" });
+
+      const result = await handleAccessOverride(adminReq(), "socio1");
+
+      expect(result.success).toBe(true);
+      expect(prisma.auditoriaAcceso.create).toHaveBeenCalledTimes(1);
+      expect(prisma.asistencia.create).toHaveBeenCalledTimes(1);
+    });
+  });
 });

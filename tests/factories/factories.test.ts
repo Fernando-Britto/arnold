@@ -86,7 +86,7 @@ describe("Cliente", () => {
   });
 
   it("estado Activo y membresía asignada por defecto", () => {
-    expect(buildCliente()).toMatchObject({ estadoCuenta: "Activo" });
+    expect(buildCliente()).toMatchObject({ estadoCuenta: "Activa" });
     expect(buildCliente().membresiaAsignada).toBeTruthy();
   });
 });

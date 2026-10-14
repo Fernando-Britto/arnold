@@ -189,14 +189,15 @@ export async function runSeed(prisma: PrismaClient, opts: SeedOptions): Promise<
   await prisma.asistencia.deleteMany({ where: delos });
   await prisma.registroDeProgreso.deleteMany({ where: delos });
 
-  // Socio 1 al día; socio 2 con la cuota vencida y sin visitas recientes (alertas de Home_Interno).
+  // Socio 1 al día; socio 2 con una cuota atrasada (alerta de Home_Interno). La cuenta de ambos
+  // es AL_DIA: el atraso es del PAGO calculado (D-40/D-46), nunca un estado de cuenta persistido.
   const cuotaVigente = await prisma.cuota.create({
     data: { socioId: socio1, fechaInicio: ago(10 * DAY_MS), fechaVencimiento: new Date(now.getTime() + 20 * DAY_MS), estado: "VIGENTE" },
   });
   await prisma.cuota.create({
     data: { socioId: socio2, fechaInicio: ago(45 * DAY_MS), fechaVencimiento: ago(15 * DAY_MS), estado: "VENCIDA" },
   });
-  await prisma.socio.update({ where: { id: socio2 }, data: { estadoCuota: "VENCIDA" } });
+  await prisma.socio.update({ where: { id: socio2 }, data: { estadoCuota: "AL_DIA" } });
 
   // Asistencias del socio 1: una hace 30 min (cuenta en el aforo) y el resto repartido en 5 semanas.
   const visitas = [30 * MIN_MS, ...[2, 3, 7, 9, 10, 14, 16, 21, 23, 28, 30].map((d) => d * DAY_MS)];

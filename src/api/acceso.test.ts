@@ -5,6 +5,7 @@
 import {
   handleSetPin,
   handleCheckIn,
+  estadoCuentaDe,
   validarPin,
   checkIn,
   setPin,
@@ -102,6 +103,16 @@ describe("validarPin", () => {
   });
   it.each(["", "123", "12345", "12a4", "12 4", "abcd", "12.4"])("rechaza %s", (pin) => {
     expect(validarPin(pin)).toBe(false);
+  });
+});
+
+describe("estadoCuentaDe (D-46/P-24): estado de la cuenta, no del pago", () => {
+  it.each([
+    ["AL_DIA", "AL_DIA"],
+    ["INACTIVA", "INACTIVA"],
+    ["BLOQUEADA", "BLOQUEADA"],
+  ] as const)("mapea %s → %s", (entrada, esperado) => {
+    expect(estadoCuentaDe(entrada)).toBe(esperado);
   });
 });
 

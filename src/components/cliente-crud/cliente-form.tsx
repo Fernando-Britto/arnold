@@ -86,7 +86,7 @@ export function ClienteForm({
     email: initialData?.email || "",
     telefono: initialData?.telefono || "",
     membresiaAsignada: initialData?.membresiaAsignada || "",
-    estadoCuenta: initialData?.estadoCuenta || "Activo",
+    estadoCuenta: initialData?.estadoCuenta || "Activa",
     pin: "",
   });
 
@@ -121,7 +121,7 @@ export function ClienteForm({
         email: "",
         telefono: "",
         membresiaAsignada: "",
-        estadoCuenta: "Activo",
+        estadoCuenta: "Activa",
         pin: "",
       });
       setFechaAlta(undefined);
@@ -247,7 +247,7 @@ export function ClienteForm({
           email: "",
           telefono: "",
           membresiaAsignada: "",
-          estadoCuenta: "Activo",
+          estadoCuenta: "Activa",
           pin: "",
         });
         setFechaAlta(undefined);
@@ -474,9 +474,9 @@ export function ClienteForm({
                 : "border-gray-300"
             }`}
           >
-            <option value="Activo">Activo</option>
-            <option value="Inactivo">Inactivo</option>
-            <option value="Bloqueado">Bloqueado</option>
+            <option value="Activa">Activa</option>
+            <option value="Inactiva">Inactiva</option>
+            <option value="Bloqueada">Bloqueada</option>
           </select>
           {errors.estadoCuenta && (
             <p className="text-red-600 text-sm mt-1">{errors.estadoCuenta}</p>

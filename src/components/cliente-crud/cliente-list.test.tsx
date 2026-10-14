@@ -11,7 +11,7 @@ const clientes = [
     email: "ana@example.com",
     telefono: "+54 9 1234 567890",
     membresiaAsignada: "gold-1",
-    estadoCuenta: "Activo" as const,
+    estadoCuenta: "Activa" as const,
     fechaAlta: new Date("2024-01-15"),
   },
   {
@@ -21,7 +21,7 @@ const clientes = [
     email: "bruno@example.com",
     telefono: null,
     membresiaAsignada: "silver-1",
-    estadoCuenta: "Bloqueado" as const,
+    estadoCuenta: "Bloqueada" as const,
     fechaAlta: new Date("2024-02-20"),
   },
 ];
@@ -38,8 +38,8 @@ describe("ClienteList", () => {
 
   it("muestra el estado de cuota como badge", () => {
     render(<ClienteList clientes={clientes} />);
-    expect(screen.getByText("Activo")).toBeInTheDocument();
-    expect(screen.getByText("Bloqueado")).toBeInTheDocument();
+    expect(screen.getByText("Activa")).toBeInTheDocument();
+    expect(screen.getByText("Bloqueada")).toBeInTheDocument();
   });
 
   it("resuelve el label de membresía", () => {

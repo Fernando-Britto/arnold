@@ -55,7 +55,7 @@ describe("Cliente API Handlers", () => {
           dni: "30.123.456",
           email: "ana@example.com",
           membresiaAsignada: "gold-123",
-          estadoCuenta: "Activo",
+          estadoCuenta: "Activa",
         });
         fail("Expected error for empty nombre");
       } catch (error) {
@@ -78,7 +78,7 @@ describe("Cliente API Handlers", () => {
           dni: "30.123.456", // Same DNI
           email: "ana@example.com",
           membresiaAsignada: "gold-123",
-          estadoCuenta: "Activo",
+          estadoCuenta: "Activa",
         });
         fail("Expected error for duplicate DNI");
       } catch (error) {
@@ -104,7 +104,7 @@ describe("Cliente API Handlers", () => {
           dni: "30.123.456",
           email: "ana@example.com",
           membresiaAsignada: "gold-123",
-          estadoCuenta: "Activo",
+          estadoCuenta: "Activa",
         });
         fail("Expected error for inactive membership");
       } catch (error) {
@@ -147,7 +147,7 @@ describe("Cliente API Handlers", () => {
         dni: "30.123.456",
         email: "ana@example.com",
         membresiaAsignada: "gold-123",
-        estadoCuenta: "Activo",
+        estadoCuenta: "Activa",
       });
 
       expect(result.cliente.id).toBe("cliente-123");
@@ -177,7 +177,7 @@ describe("Cliente API Handlers", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].nombre).toBe("Ana García");
-      expect(result[0].estadoCuenta).toBe("Activo");
+      expect(result[0].estadoCuenta).toBe("Activa");
     });
   });
 
@@ -317,7 +317,7 @@ describe("Cliente API Handlers", () => {
           dni: "30123456",
           email: "ana@example.com",
           membresiaAsignada: "gold-123",
-          estadoCuenta: "Activo",
+          estadoCuenta: "Activa",
           tempPassword: "TempPass-ABC123",
           status: 201,
         }),
@@ -328,7 +328,7 @@ describe("Cliente API Handlers", () => {
         dni: "30.123.456",
         email: "ana@example.com",
         membresiaAsignada: "gold-123",
-        estadoCuenta: "Activo",
+        estadoCuenta: "Activa",
       });
 
       expect(result.cliente.nombre).toBe("Ana García");
@@ -347,7 +347,7 @@ describe("Cliente API Handlers", () => {
             dni: "30123456",
             email: "ana@example.com",
             membresiaAsignada: "gold-123",
-            estadoCuenta: "Activo",
+            estadoCuenta: "Activa",
           },
         ],
       });
@@ -372,7 +372,7 @@ describe("Cliente API Handlers", () => {
           dni: "30123456",
           email: "ana@example.com",
           membresiaAsignada: "gold-123",
-          estadoCuenta: "Activo",
+          estadoCuenta: "Activa",
         }),
       });
 

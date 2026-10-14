@@ -116,7 +116,7 @@ export function ClientesPage() {
     email: string;
     telefono?: string;
     membresiaAsignada: string;
-    estadoCuenta: "Activo" | "Inactivo" | "Bloqueado";
+    estadoCuenta: "Activa" | "Inactiva" | "Bloqueada";
     pin?: string;
   }) => {
     try {

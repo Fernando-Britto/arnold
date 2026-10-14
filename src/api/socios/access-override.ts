@@ -61,7 +61,8 @@ export async function handleAccessOverride(
     throw new Error("UNAUTHORIZED: User not authenticated");
   }
 
-  // Validate ADMIN role
+  // Sólo ADMINISTRADOR puede autorizar el override (D-47/P-24): ni el recepcionista ni el
+  // instructor pueden saltar una cuenta INACTIVA/BLOQUEADA. La regla vive en `canApproveAccessOverride`.
   if (!canApproveAccessOverride(req.user.rol)) {
     throw new Error("FORBIDDEN: Rol de administrador requerido");
   }

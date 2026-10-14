@@ -87,11 +87,13 @@ model Socio {
 }
 
 enum EstadoCuota {
+  // Estado de la CUENTA del socio (D-46/P-24): NO describe el pago. El pago se calcula
+  // (`estadoCuotaSocio`, D-40) a partir de `Cuota`/`Pago` y nunca se persiste.
+  // AL_DIA: cuenta habilitada (no significa "pagó el mes").
   AL_DIA
-  VENCIDA
-  PENDIENTE
-  // Estado de la cuenta elegido en Clientes (D-27): no describen un pago sino la cuenta
+  // INACTIVA: cuenta deshabilitada por el gimnasio (baja/pausa).
   INACTIVA
+  // BLOQUEADA: sanción/problema grave; deniega siempre.
   BLOQUEADA
 }
 

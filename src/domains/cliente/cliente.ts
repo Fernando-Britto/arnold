@@ -2,15 +2,15 @@
  * Cliente domain model
  * Represents a Socio (member/client) with membership and account status
  */
-import type { Prisma } from "@prisma/client";
+import type { EstadoCuota, Prisma } from "@prisma/client";
 import { hashPassword } from "@/lib/auth";
 import { validarPin } from "@/domains/acceso/pin";
 import { validateDNI, validateEmail, validatePhone } from "@/utils/validation";
 
 /**
- * Estado de Cuenta enum
+ * Estado de Cuenta enum (UI): la cuenta es femenina y `AL_DIA` = "Activa" (cuenta habilitada).
  */
-export type EstadoCuenta = "Activo" | "Inactivo" | "Bloqueado";
+export type EstadoCuenta = "Activa" | "Inactiva" | "Bloqueada";
 
 /**
  * Cliente domain model
@@ -72,40 +72,35 @@ export function generateTemporaryPassword(): string {
 }
 
 /**
- * Map Socio.estadoCuota to Cliente.estadoCuenta (D-27)
- * Cliente exposes account status (Activo, Inactivo, Bloqueado).
- * Socio.estadoCuota: AL_DIA | INACTIVA | BLOQUEADA son los estados de cuenta que escribe esta pantalla;
- * VENCIDA y PENDIENTE son valores de pago que ya existían (seed, flujos futuros) y se muestran como Inactivo.
+ * Map Socio.estadoCuota to Cliente.estadoCuenta (D-27, P-24)
+ * `Socio.estadoCuota` es el estado de la CUENTA (AL_DIA | INACTIVA | BLOQUEADA); "Debe plata"
+ * es un estado de pago calculado (D-40) y no se persiste acá. `AL_DIA` se muestra como "Activa"
+ * (cuenta habilitada, no "pagó el mes").
  */
-export function mapEstadoCuotaToEstadoCuenta(estadoCuota: string): EstadoCuenta {
+export function mapEstadoCuotaToEstadoCuenta(estadoCuota: EstadoCuota): EstadoCuenta {
   switch (estadoCuota) {
     case "AL_DIA":
-      return "Activo";
+      return "Activa";
     case "INACTIVA":
-    case "VENCIDA":
-    case "PENDIENTE":
-      return "Inactivo";
+      return "Inactiva";
     case "BLOQUEADA":
-      return "Bloqueado";
-    default:
-      return "Activo";
+      return "Bloqueada";
   }
 }
 
 /**
- * Map Cliente.estadoCuenta to Socio.estadoCuota (D-27)
- * Client exposes account status (Activo, Inactivo, Bloqueado); se guarda en su propio valor del enum.
- * Siempre devuelve un valor que existe en `EstadoCuota` (antes devolvía VENCIDA/PENDIENTE, que describen pagos).
+ * Map Cliente.estadoCuenta to Socio.estadoCuota (D-27, P-24)
+ * Los tres estados de la pantalla tienen su propio valor en el enum, que ya no contiene estados de pago.
  */
 export function mapEstadoCuentaToEstadoCuota(
   estado: EstadoCuenta
 ): "AL_DIA" | "INACTIVA" | "BLOQUEADA" {
   switch (estado) {
-    case "Activo":
+    case "Activa":
       return "AL_DIA";
-    case "Inactivo":
+    case "Inactiva":
       return "INACTIVA";
-    case "Bloqueado":
+    case "Bloqueada":
       return "BLOQUEADA";
     default:
       return "AL_DIA";
@@ -164,8 +159,8 @@ export function validateCliente(data: Partial<Cliente>): ValidationResult {
   // Validate estadoCuenta (required, one of the enum values)
   if (!data.estadoCuenta) {
     errors.push("El estado de cuenta es requerido");
-  } else if (!["Activo", "Inactivo", "Bloqueado"].includes(data.estadoCuenta)) {
-    errors.push("El estado de cuenta debe ser uno de: Activo, Inactivo, Bloqueado");
+  } else if (!["Activa", "Inactiva", "Bloqueada"].includes(data.estadoCuenta)) {
+    errors.push("El estado de cuenta debe ser uno de: Activa, Inactiva, Bloqueada");
   }
 
   return {

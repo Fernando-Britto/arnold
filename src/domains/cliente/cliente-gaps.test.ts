@@ -87,7 +87,7 @@ describe("GAP 2: Stale membership cache - INACTIVA membership accepted", () => {
       dni: "30.123.456",
       email: "test@example.com",
       membresiaAsignada: "gold-1", // Could be ACTIVA or INACTIVA, we don't know yet
-      estadoCuenta: "Activo",
+      estadoCuenta: "Activa",
     };
     
     // validateCliente is intentionally NOT responsible for this
@@ -115,35 +115,27 @@ describe("GAP 2: Stale membership cache - INACTIVA membership accepted", () => {
   });
 });
 
-describe("GAP 3: estadoCuenta hardcoded to 'Activo'", () => {
-  it("should document that mapSocioToCliente hardcodes estadoCuenta", () => {
-    // mapSocioToCliente currently returns estadoCuenta: "Activo" always
-    // But Socio has estadoCuota: AL_DIA | VENCIDA | PENDIENTE | INACTIVA | BLOQUEADA
-    // There's no mapping between these concepts
+describe("GAP 3: estadoCuenta was hardcoded to 'Activo'", () => {
+  it("should document that mapSocioToCliente used to hardcode estadoCuenta", () => {
+    // mapSocioToCliente used to return estadoCuenta: "Activo" always.
+    // Now the account state (Socio.estadoCuota: AL_DIA | INACTIVA | BLOQUEADA) is mapped
+    // to the UI label; the payment state is a separate, calculated value (D-40/D-46/P-24).
     
-    // Example:
-    // - Socio.estadoCuota = "VENCIDA" (user has overdue payment)
-    // - mapSocioToCliente returns estadoCuenta: "Activo" (lies to frontend)
-    // - Frontend shows user as active even though payment is overdue
-    
-    console.log("❌ GAP 3: estadoCuota is always mapped to 'Activo'");
-    console.log("   Real Socio.estadoCuota values: AL_DIA | VENCIDA | PENDIENTE | INACTIVA | BLOQUEADA");
-    console.log("   Frontend expects Cliente.estadoCuenta: Activo | Inactivo | Bloqueado");
-    console.log("   Mapping strategy needed:");
-    console.log("     - AL_DIA → Activo");
-    console.log("     - INACTIVA / VENCIDA / PENDIENTE → Inactivo");
-    console.log("     - BLOQUEADA → Bloqueado");
+    console.log("✅ GAP 3 FIX: estadoCuota is mapped to estadoCuenta, not hardcoded");
+    console.log("   Real Socio.estadoCuota values (account): AL_DIA | INACTIVA | BLOQUEADA");
+    console.log("   Cliente.estadoCuenta labels: Activa | Inactiva | Bloqueada");
+    console.log("   Mapping strategy:");
+    console.log("     - AL_DIA → Activa");
+    console.log("     - INACTIVA → Inactiva");
+    console.log("     - BLOQUEADA → Bloqueada");
   });
 
   it("should properly map estadoCuota to estadoCuenta", () => {
     // After fix, mapEstadoCuotaToEstadoCuenta handles the mapping
-    
-    expect(mapEstadoCuotaToEstadoCuenta("AL_DIA")).toBe("Activo");
-    expect(mapEstadoCuotaToEstadoCuenta("INACTIVA")).toBe("Inactivo");
-    expect(mapEstadoCuotaToEstadoCuenta("VENCIDA")).toBe("Inactivo");
-    expect(mapEstadoCuotaToEstadoCuenta("PENDIENTE")).toBe("Inactivo");
-    expect(mapEstadoCuotaToEstadoCuenta("BLOQUEADA")).toBe("Bloqueado");
-    expect(mapEstadoCuotaToEstadoCuenta("UNKNOWN")).toBe("Activo"); // Fallback
+
+    expect(mapEstadoCuotaToEstadoCuenta("AL_DIA")).toBe("Activa");
+    expect(mapEstadoCuotaToEstadoCuenta("INACTIVA")).toBe("Inactiva");
+    expect(mapEstadoCuotaToEstadoCuenta("BLOQUEADA")).toBe("Bloqueada");
   });
 
   it("should now map real estadoCuota from Socio model (FIXED)", () => {
@@ -151,8 +143,8 @@ describe("GAP 3: estadoCuenta hardcoded to 'Activo'", () => {
     // instead of hardcoding "Activo"
     
     console.log("✅ GAP 3 FIX: mapSocioToCliente now maps real estadoCuota");
-    console.log("   AL_DIA → Activo");
-    console.log("   INACTIVA / VENCIDA / PENDIENTE → Inactivo");
-    console.log("   BLOQUEADA → Bloqueado");
+    console.log("   AL_DIA → Activa");
+    console.log("   INACTIVA → Inactiva");
+    console.log("   BLOQUEADA → Bloqueada");
   });
 });

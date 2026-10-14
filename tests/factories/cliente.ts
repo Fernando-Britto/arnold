@@ -11,7 +11,7 @@ export function buildCliente(overrides: Partial<Cliente> = {}): Cliente {
     telefono: `+54 9 3764 ${String(100000 + n)}`,
     email: `cliente${n}@arnold.test`,
     membresiaAsignada: "membresia-1",
-    estadoCuenta: "Activo",
+    estadoCuenta: "Activa",
     fechaAlta: fixedDate(),
     createdAt: fixedDate(),
     updatedAt: fixedDate(),

@@ -245,7 +245,7 @@ describe("ClienteForm", () => {
             dni: "30.123.456",
             email: "ana@example.com",
             membresiaAsignada: "gold-1",
-            estadoCuenta: "Activo",
+            estadoCuenta: "Activa",
           })
         );
       });
@@ -296,7 +296,7 @@ describe("ClienteForm", () => {
       email: "ana@example.com",
       telefono: "+54 9 1234 567890",
       membresiaAsignada: "gold-1",
-      estadoCuenta: "Activo" as const,
+      estadoCuenta: "Activa" as const,
       fechaAlta: new Date("2024-01-15"), // ISO string, will arrive like this from API
     };
 
@@ -519,7 +519,7 @@ describe("ClienteForm", () => {
         email: "ana@example.com",
         telefono: "+54 9 1234 567890",
         membresiaAsignada: "gold-1",
-        estadoCuenta: "Activo" as const,
+        estadoCuenta: "Activa" as const,
         fechaAlta: new Date("2024-01-15"),
       };
       render(
@@ -610,7 +610,7 @@ describe("ClienteForm", () => {
         email: "ana@example.com",
         telefono: "+54 9 1234 567890",
         membresiaAsignada: "gold-1",
-        estadoCuenta: "Activo" as const,
+        estadoCuenta: "Activa" as const,
         fechaAlta: new Date("2024-01-15"),
       };
       render(

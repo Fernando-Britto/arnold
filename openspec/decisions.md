@@ -304,7 +304,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Decisión vigente (2026-10-08, FX-17)**: se agregan `INACTIVA` y `BLOQUEADA` al enum `EstadoCuota` (migración
   `20261008190000_add_estado_cuota_inactiva_bloqueada`). Activo ↔ `AL_DIA`, Inactivo ↔ `INACTIVA`, Bloqueado ↔ `BLOQUEADA`.
   Al leer, los valores de pago que ya existían (`VENCIDA`, `PENDIENTE`; el seed deja un socio en `VENCIDA`) se muestran
-  como Inactivo.
+  como Inactivo. **Actualización D-50 (P-24)**: `VENCIDA`/`PENDIENTE` se eliminaron del enum y el label de `AL_DIA` pasó a "Activa"; ya no hay valores de pago que leer.
 - **Por qué solo estos dos valores (alcance)**: la spec `clientes-crud` define tres estados de cuenta distintos
   (Bloqueado en rojo y separado de la membresía, ligado al control de acceso), así que no se unificaron Inactivo y Bloqueado.
   Para el alcance actual alcanza con darle a cada estado de la pantalla su propio valor; hoy `estadoCuota` solo lo usa la
@@ -668,7 +668,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   - El **estado de pago** (`AL_DIA`/`PENDIENTE`/`VENCIDA`/`SIN_CUOTA`) es **calculado** por `estadoCuotaSocio` (D-40) a partir de `Cuota`/`Pago`: nunca se persiste. `Pago` + `Cuota` son la única fuente de verdad del pago.
   - El acceso (T-035) decide en dos pasos: primero la cuenta (`INACTIVA`/`BLOQUEADA` → niega sin importar el pago) y después el pago calculado.
 - **Por qué**: con pagos, cuotas, renovaciones y check-in en el mismo sistema, tener el estado de pago duplicado en una columna garantiza que se desincronice. Calcularlo siempre y dejar la columna para la decisión humana (cuenta dada de baja o bloqueada) es lo que menos deuda deja cuando esto crece.
-- **Consecuencia**: `EstadoCuota.VENCIDA`/`PENDIENTE` quedan en el enum solo por compatibilidad (P-24); `Socio.estadoCuota` con valor `AL_DIA` significa "cuenta activa", no "pagó el mes".
+- **Consecuencia**: `EstadoCuota.VENCIDA`/`PENDIENTE` quedaron en el enum por compatibilidad; **se eliminaron en D-50 (P-24)**. `Socio.estadoCuota` con valor `AL_DIA` significa "cuenta activa", no "pagó el mes".
 
 ### D-47 · P-33: control de acceso con DNI + PIN de 4 dígitos (huella al final)
 - **Origen**: Fernando (**decidido**, 2026-10-12): "solo con el usuario ingresando su DNI y un PIN de 4 dígitos, después ampliamos a huella digital". Pidió además una pantalla que se muestre constantemente para el ingreso; la forma exacta es propuesta de Claude.
@@ -695,6 +695,32 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **P-30 (huella/molinete)**: pasa a la **fase final** (T-041), después de que el resto de la ampliación esté andando. No bloquea nada más.
 - **P-20 (refresh token) y P-28 (despliegue)**: **primero se termina la ampliación y se manda a producción**; el refresh con rotación se hace "cuando sobre tiempo". El despliegue se evalúa con el pooler de Supabase (D-35) antes de conectar hardware real.
 - **Consecuencia**: T-032 … T-040 son la prioridad; T-041 (hardware) queda para el final y P-20 no bloquea el cierre.
+
+### D-50 · P-24: semántica final de `EstadoCuota` (la cuenta, nunca el pago)
+- **Origen**: Fernando (2026-10-13/14), criterio explícito: "`Socio.estadoCuota` = estado de la CUENTA solamente".
+- **Decisión**: el enum `EstadoCuota` queda con **tres** valores, y cada uno significa una decisión humana sobre la cuenta — no sobre el pago:
+  - `AL_DIA`: **cuenta habilitada** (el socio puede ingresar). **NO** significa "pagó el mes".
+  - `INACTIVA`: **cuenta deshabilitada por el gimnasio** (baja/pausa). **NO** significa "debe plata".
+  - `BLOQUEADA`: **sanción/problema grave**; deniega siempre.
+- **Pago es calculado, nunca a mano**: "debe plata" es sólo el estado de pago (`EstadoCuotaSocio`: `AL_DIA`/`PENDIENTE`/`VENCIDA`/`SIN_CUOTA`), calculado por `estadoCuotaSocio` (D-40) a partir de `Cuota`/`Pago`. Nunca se escribe a `Socio.estadoCuota`.
+- **Un pago NO reactiva una cuenta `INACTIVA`**: cobrar no cambia el estado de cuenta. Reactivarla es una acción del staff en la pantalla de Clientes (o dar de baja/bloquear).
+- **Limpieza del enum**: se eliminan `VENCIDA` y `PENDIENTE` de `EstadoCuota` (mezclaban cuenta y pago, y hacían que socios que pagaban fueran rechazados como "Cuenta inactiva"). Las filas legacy se migran a **`AL_DIA`** — migrarlas a `INACTIVA` habría conservado el bug. Migración `20261014050622_estado_cuota_limpieza` (la aplica Fernando).
+- **UI (Clientes)**: `AL_DIA` se muestra como **"Activa"** en `EstadoCuenta`; `INACTIVA`/`BLOQUEADA` se muestran como "Inactivo"/"Bloqueado". El mapeo ya no maneja valores de pago.
+- **BLOQUEADA + override**: el override manual de recepción sigue siendo **sólo del ADMINISTRADOR** (`canApproveAccessOverride`); un recepcionista no puede levantar una cuenta `BLOQUEADA`. Queda cubierto por un test que lo blinda.
+- **Cierra P-24.**
+
+### D-51 · P-11: el proxy sigue consultando la base en cada request (diferido)
+- **Origen**: Fernando (2026-10-13).
+- **Decisión (P-11, diferido)**: el proxy consulta la base en cada request (revocación inmediata, D-34). Se mantiene así por ahora. Si la base se vuelve cuello de botella o el sistema crece, evaluar un **cache corto en memoria por `jti`** (TTL ~15-30s) con invalidación explícita en logout, de modo que la revocación siga siendo prácticamente inmediata.
+- **Disparador para revisarlo**: latencia/carga de la base.
+- **Estado**: **P-11 sigue abierto** (no resuelto); esta entrada sólo documenta el aplazamiento y el camino de salida.
+
+### D-52 · P-25: plan de tests de integración de repositorios (Postgres efímero con Docker)
+- **Origen**: Fernando (2026-10-13).
+- **Problema (P-25)**: falta test de integración de los repositorios (Prisma está mockeado; la FK `Restrict`/P2003, el `mode: insensitive` y el P2025 reales no se verifican).
+- **Plan**: Postgres efímero con **Docker** (gratis) + `prisma migrate deploy` + seed mínimo, empezando por el repositorio de Ejercicio.
+- **Descartado**: **Supabase Database Branching NO es gratis** — requiere plan Pro ($25/mes) y se cobra $0.01344 por branch-hora (no está incluido en el plan Free).
+- **Estado**: **P-25 sigue abierto** (no resuelto); esta entrada sólo documenta el plan.
 
 ---
 
@@ -744,7 +770,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto y verificado** en D-30 (`npm run seed`): Fernando lo corrió contra la base y Home_Interno coincide con el seed (D-35) |
 | P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |
-| P-11 | El proxy consulta la base en cada navegación de página (incluido el prefetch) | Baja | Compromiso aceptado: un usuario deshabilitado queda afuera al instante |
+| P-11 | El proxy consulta la base en cada navegación de página (incluido el prefetch) | Baja | **Sigue abierto** (no resuelto). D-51: se mantiene así por ahora (revocación inmediata, D-34); si la base se vuelve cuello de botella o el sistema crece, evaluar un cache corto en memoria por `jti` (TTL ~15-30s). Disparador: latencia/carga de la base |
 | P-12 | Deuda de lint: 115 errores / 41 warnings en 52 archivos | Baja | Ver D-14 |
 | P-13 | ~~T-023b (utilidades)~~ hecho (D-37); ~~T-024 (factories)~~ hecho (D-38) | — | Según el plan |
 | P-14 | ~~Código muerto: `getAuthHeaders()` en `src/api/clientes.ts`~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): la función siempre devolvía `{}` (nada escribe `localStorage`); se eliminó |
@@ -757,11 +783,11 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-21 | ~~Probar la edición de clientes contra la base real~~ | — | **Resuelto** el 2026-10-10: confirmado por Fernando con las migraciones al día (`prisma migrate status`: 5 migraciones). Los clientes editados mientras FX-09 estaba abierto: la consulta de `Usuario` y `Socio` desfasados dio 0 filas (2026-10-11) |
 | P-22 | ~~Reescribir el spec `authentication-login`~~ | — | **Resuelto** el 2026-10-10 (D-36): spec reescrito según el código; el refresh con rotación queda como *Deferred* (P-20) |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
-| P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo) | Baja | `ejercicio.test.ts` ahora usa Prisma simulado (FX-16): ya no comprueba lo que hace la base real, como el borrado bloqueado por clave foránea (P2003) o la búsqueda sin distinguir mayúsculas. El test de P2003 prueba solo la traducción del error |
+| P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo) | Baja | **Sigue abierto** (no resuelto). `ejercicio.test.ts` ahora usa Prisma simulado (FX-16): ya no comprueba lo que hace la base real, como el borrado bloqueado por clave foránea (P2003) o la búsqueda sin distinguir mayúsculas. El test de P2003 prueba solo la traducción del error. D-52: plan con Postgres efímero en Docker (gratis) + `migrate deploy` + seed mínimo, empezando por Ejercicio |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | Salió de P-07 y D-35 ("pendiente aparte"). Fuera de Next la base responde bien (consulta ≈ 212 ms, 14 a la vez ≈ 203 ms, conexión nueva ≈ 2,2 s); falta probarlo con el build de producción y el pooler. El `curl` a `/api/home-interno` debería dejar el proxy cerca de 0,2 s y `datos` cerca de 0,4 s |
-| P-24 | Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo | Baja | Por alcance (D-27) solo se agregaron `INACTIVA` y `BLOQUEADA`; falta definir los estados de pagos cuando existan esos flujos y decidir si el estado de la cuenta se separa del de la cuota cuando el check-in dependa de él. **Actualización D-40**: el estado de pago (`AL_DIA`/`PENDIENTE`/`VENCIDA`/`SIN_CUOTA`) se calcula con `estadoCuotaSocio`; falta decidir qué pasa con `Socio.estadoCuota` (T-032) |
+| P-24 | ~~Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo~~ | — | **Resuelto** en D-50: `EstadoCuota` = la **cuenta** (`AL_DIA`/`INACTIVA`/`BLOQUEADA`); se quitaron `VENCIDA`/`PENDIENTE`; el pago se calcula (D-40) y nunca se persiste. Un pago no reactiva una cuenta `INACTIVA` |
 | P-29 | ~~Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`~~ | — | **Resuelto** (Fernando la aplicó, 2026-10-12). El SQL se comparó con `schema.prisma` y coincide (`diaLimitePago`/`diaCorteAltaTardia` default 10/20, `Cuota.membresiaId` + FK `SetNull`); `npx prisma validate` pasa. No se pudo correr `migrate status` porque la base de Supabase no es alcanzable por la conexión directa desde el entorno del asistente |
 | P-30 | Elegir el hardware del molinete y del lector de huella, y confirmar los requisitos legales de datos biométricos (Ley 25.326) | Baja | **Diferido a la fase final** por D-49 (T-041), después de la ampliación y el despliegue. Propuesta vigente en D-43 (lector que compara por su cuenta, sin guardar plantillas en Arnold) |
 | P-31 | ~~Decidir qué hace el registro de pagos con `Socio.estadoCuota`~~ | — | **Resuelto** en D-46: `Socio.estadoCuota` = estado de la cuenta (`AL_DIA`/`INACTIVA`/`BLOQUEADA`); el estado de pago se calcula (D-40) y no se persiste. Se implementa en T-032 |

@@ -63,14 +63,19 @@ interface PrismaLike {
 }
 
 /**
- * Estado de la cuenta a partir de `Socio.estadoCuota` (D-46). Los valores de pago que quedaron
- * en el enum por compatibilidad (VENCIDA / PENDIENTE, P-24) se leen como cuenta inactiva (D-27).
+ * Estado de la cuenta a partir de `Socio.estadoCuota` (D-46, P-24). El enum sólo tiene estados
+ * de CUENTA: `AL_DIA` (habilitada), `INACTIVA` (dada de baja/pausa) y `BLOQUEADA` (sanción).
+ * El estado de pago no vive acá: se calcula con `estadoCuotaSocio` (D-40).
  */
 export function estadoCuentaDe(estado: PrismaEstadoCuota): EstadoCuenta {
-  if (estado === "INACTIVA") return "INACTIVA";
-  if (estado === "BLOQUEADA") return "BLOQUEADA";
-  if (estado === "AL_DIA") return "AL_DIA";
-  return "INACTIVA";
+  switch (estado) {
+    case "AL_DIA":
+      return "AL_DIA";
+    case "INACTIVA":
+      return "INACTIVA";
+    case "BLOQUEADA":
+      return "BLOQUEADA";
+  }
 }
 
 /**

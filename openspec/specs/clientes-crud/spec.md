@@ -18,11 +18,11 @@ The system **MUST** restrict access to Clientes CRUD to Administrador and Recepc
 
 ### Requirement: Cliente Creation Validation
 
-The system **MUST** validate `nombre` (required, 5–100 chars), `dni` (required, unique, format XX.XXX.XXX or XXXXXXXX), `telefono` (optional, format +54 9 XXXX XXXXXX), `email` (required, valid email format), `membresiaAsignada` (required, active memberships only), `estadoCuenta` (required, one of Activo/Inactivo/Bloqueado).
+The system **MUST** validate `nombre` (required, 5–100 chars), `dni` (required, unique, format XX.XXX.XXX or XXXXXXXX), `telefono` (optional, format +54 9 XXXX XXXXXX), `email` (required, valid email format), `membresiaAsignada` (required, active memberships only), `estadoCuenta` (required, one of Activa/Inactiva/Bloqueada).
 
 #### Scenario: Valid creation succeeds
 
-- GIVEN nombre="Ana García", dni="30.123.456", email="ana@example.com", membresiaAsignada="Gold" (Activa), estadoCuenta="Activo"
+- GIVEN nombre="Ana García", dni="30.123.456", email="ana@example.com", membresiaAsignada="Gold" (Activa), estadoCuenta="Activa"
 - WHEN the user submits the FormPanel
 - THEN the system creates the Socio, sets fechaAlta to the current date, populates the read-only ID, and adds it to ListPanel
 
@@ -72,13 +72,13 @@ The system **MUST** load an existing Socio's data into FormPanel when selected, 
 
 ### Requirement: Estado de Cuenta Status Badge
 
-The system **MUST** render Estado in ListPanel as a color-coded badge: Activo=status-success, Inactivo=status-warning, Bloqueado=status-error, always paired with the text label (not color alone, per accessibility requirement in sdd-design.md §7.4).
+The system **MUST** render Estado in ListPanel as a color-coded badge: Activa=status-success, Inactiva=status-warning, Bloqueada=status-error, always paired with the text label (not color alone, per accessibility requirement in sdd-design.md §7.4).
 
-#### Scenario: Bloqueado renders with error color and text
+#### Scenario: Bloqueada renders with error color and text
 
-- GIVEN a Socio has estadoCuenta="Bloqueado"
+- GIVEN a Socio has estadoCuenta="Bloqueada"
 - WHEN ListPanel renders that row
-- THEN the badge shows status-error background with visible text "Bloqueado"
+- THEN the badge shows status-error background with visible text "Bloqueada"
 
 ### Requirement: ListPanel Search and Sort
 
@@ -114,7 +114,7 @@ The system **MUST** support sorting on Nombre, DNI, Email, Membresía, Estado, a
 - **Telefono omitted**: Valid; telefono is optional and MUST NOT block submission when empty.
 - **No active memberships exist**: The "Membresía asignada" dropdown MUST show an empty/disabled state with a message (e.g., "No hay membresías activas") rather than an empty silent dropdown, and form submission MUST be blocked since the field is required.
 - **Assigning an Inactiva membership via stale dropdown cache**: If a membership is deactivated between page load and form submit, the system MUST re-validate estado=Activa server-side and reject with an error, not silently accept a stale selection.
-- **Changing estadoCuenta to Bloqueado**: MUST NOT delete or alter membresiaAsignada; blocking is independent of membership state (interacts with access control checks defined in `openspec/specs/member-access-check/spec.md`, out of scope here).
+- **Changing estadoCuenta to Bloqueada**: MUST NOT delete or alter membresiaAsignada; blocking is independent of membership state (interacts with access control checks defined in `openspec/specs/member-access-check/spec.md`, out of scope here).
 
 ## Data Scenarios
 
@@ -124,7 +124,7 @@ The system **MUST** support sorting on Nombre, DNI, Email, Membresía, Estado, a
 | email="ana@example.com" | Accepted |
 | email="ana@" | Rejected: "Formato de email inválido" |
 | membresiaAsignada dropdown, 2 Activa + 1 Inactiva memberships | Dropdown shows only the 2 Activa options |
-| estadoCuenta="Bloqueado" | Badge: status-error, text "Bloqueado" |
+| estadoCuenta="Bloqueada" | Badge: status-error, text "Bloqueada" |
 
 ## Error Handling
 
