@@ -733,6 +733,36 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Control positivo**: se borra la fila hija y ese mismo ejercicio se puede borrar, lo que fija que el bloqueo venía de la clave foránea y no de otra causa.
 - **Sin defectos nuevos**: los 9 tests pasan con `EjercicioRepository` **sin cambios**; no se tocó `src/`.
 - **Config**: `openspec/config.yaml` pasa a `integration_available: true` con `integration_command: npm run test:integration`.
+
+### D-54 · Oferta automática de reactivación y panel de parámetros (diseño aprobado, sin código)
+- **Origen**: Fernando (2026-10-14) pidió que, cuando un socio deje de asistir un mes, se active una oferta automática sobre el precio de la membresía, con el
+  descuento y el tiempo de activación configurables desde un panel de parámetros del Administrador. Un amigo suyo escribió una propuesta; Claude la contrastó con
+  el código de `dev` y Fernando **aceptó las recomendaciones** de Claude (todas las que figuran abajo como decididas).
+- **Verificado en el código** (2026-10-14): no hay API ni pantalla de configuración (solo el seed escribe `ConfiguracionDelSistema`); hay **6** lecturas
+  (`home-socio-data`, `home-socio-secciones-data`, `home-interno-data`, `socios`, `acceso`, `registrar-pago`), tres con `orderBy: updatedAt desc` y tres sin orden;
+  `descuentoReactivacion` y `diasInactividad` existen pero nada cobra con ellos (D-40); `registrarPago` calcula el monto en el servidor y crea `Cuota` + `Pago` en una
+  transacción `Serializable`; `Pago.estado = ANULADO` existe pero **ningún código lo escribe** (P-39); `Asistencia` tiene `estado` (`PERMITIDO`/`DENEGADO`) y
+  `autorizadoExcepcionalmente`.
+- **Decisión 1 — regla determinística y derivada.** La elegibilidad se calcula al consultar (cuota `VENCIDA`, cuenta `AL_DIA`, sin asistir `diasSinAsistirParaOferta`
+  días, fuera del enfriamiento); no hay proceso programado. Detalle en la spec `oferta-reactivacion`. No es un modelo predictivo.
+- **Decisión 2 — alcance: solo cuota vencida.** Decidido por Fernando. Hoy una cuota vencida ya bloquea el ingreso en la puerta (D-47), así que es el socio que necesita
+  pagar para volver. A un socio al día que no viene no se le ofrece nada. "Todos los inactivos" queda como posible parámetro futuro.
+- **Decisión 3 — qué cuenta como asistencia.** Decidido por Fernando: un ingreso `PERMITIDO` cuenta, **incluido** el autorizado por excepción; los `DENEGADO` no cuentan.
+  Si nunca asistió, se mide desde `Socio.fechaAlta`.
+- **Decisión 4 — descuento sobre el cobro completo, con tope de 50 %.** Decidido por Fernando. Se aplica una sola vez sobre `plan.monto` (un reingreso con dos períodos se
+  descuenta sobre el total). Con 100 % habría pagos de $0, de ahí el tope; el rango es 1–50.
+- **Decisión 5 — sin antigüedad mínima.** Decidido por Fernando: el enfriamiento (`enfriamientoOfertaDias`, 180 por defecto) es la única defensa contra quien deja de ir a
+  propósito. Oferta **apagada por defecto**, para que el despliegue no cambie precios.
+- **Decisión 6 — `Pago.monto` sigue siendo lo cobrado.** El cierre de caja no cambia. Se agregan `montoLista` y `descuentoPct` (nulables) para el comprobante y la
+  auditoría; el enfriamiento se deduce de los pagos `CONFIRMADO` con descuento. El recepcionista no puede fijar ni quitar el descuento. La vista previa va en
+  `GET /api/socios?dni=` y el `POST /api/pagos` acepta `montoEsperado` (409 `AMOUNT_CHANGED` si el cálculo cambió).
+- **Decisión 7 — el panel de parámetros es la T-043 (confirmada), sin la parte de máquinas.** Un lector único `getConfiguracion()` reemplaza las 6 lecturas (T-043a),
+  `GET`/`PUT /api/configuracion` solo para Administrador con auditoría de valor anterior y nuevo en `RegistroDeAuditoria` (T-043b) y la pantalla `/configuracion` (T-043c).
+  Spec `configuracion-sistema`. **Propuesta de Claude, sin confirmar**: los rangos de cada parámetro y los valores por defecto 30 días / 180 días.
+- **Orden de trabajo**: T-043a → T-045a (función pura) → T-045b (migración a mano, la aplica Fernando) → T-043b → T-043c → T-045c (cobro y vista previa) → T-045d (avisos).
+  Cada uno es un patch con tests primero y de hasta 400 líneas.
+- **Fuera de alcance**: avisos por email o WhatsApp (canal, planificador y consentimiento), anulación de pagos (P-39), reportes de descuentos otorgados.
+- **Sin código todavía**: este cambio es solo documentación y specs.
 - **Cierra P-25.**
 
 ---
@@ -792,13 +822,15 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-17 | ~~Campos numéricos de Rutinas quedan en `NaN` al borrarlos~~ | — | **Resuelto** en FX-15 / D-28 |
 | P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
 | P-19 | Tests lentos o ruidosos: avisos `act(...)` (`ejercicios/page.test.tsx`, `cliente-form.test.tsx`) y `rutina-form.test.tsx` de 15–20 s (`ejercicio.test.ts` ya no usa la base, FX-16) | Baja | Envolver en `act(...)` y revisar los tests lentos |
-| P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Con la revocación (D-34) un token robado se puede cortar con el logout, pero la sesión sigue venciendo a las 24 h sin renovarse |
+| P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Con la revocación (D-34) un token robado se puede cortar con el logout, pero la sesión sigue venciendo a las 24 h sin renovarse. **Actualización 2026-10-14**: el commit `94089ca` agrega la rotación y la detección de reuso, con tests y la migración `20261014120000_refresh_token`. Falta documentar la decisión y verificarlo contra la base; este registro no confirma que la migración esté aplicada |
 | P-21 | ~~Probar la edición de clientes contra la base real~~ | — | **Resuelto** el 2026-10-10: confirmado por Fernando con las migraciones al día (`prisma migrate status`: 5 migraciones). Los clientes editados mientras FX-09 estaba abierto: la consulta de `Usuario` y `Socio` desfasados dio 0 filas (2026-10-11) |
 | P-22 | ~~Reescribir el spec `authentication-login`~~ | — | **Resuelto** el 2026-10-10 (D-36): spec reescrito según el código; el refresh con rotación queda como *Deferred* (P-20) |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
 | P-25 | ~~Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo)~~ | — | **Resuelto** en D-53: Postgres efímero en Docker (`postgres:17-alpine`) + `prisma migrate deploy` + `npm run test:integration`. Verifica de verdad la FK `Restrict` (P2003), el P2025, el `mode: "insensitive"`, el `$transaction` de `update` y el `@@unique` (P2002). `npm test` sigue sin Docker (162 suites / 2038 tests). Con guarda que impide apuntar a la base de desarrollo |
 | P-37 | ~~`scripts/test-integration.mjs` puede declarar "Postgres listo" durante el `initdb`~~ | — | **Resuelto.** Hallazgo `R3-docker-readiness-race` de la revisión nativa de P-25. **Carrera reproducida**: muestreando dentro del contenedor, 1 de 88 lecturas dio `pg_isready` por socket OK con TCP todavía caído (ventana ~100 ms). El server temporal del `initdb` usa `listen_addresses=''` y no cambia el socket dir, así que su socket queda en `/var/run/postgresql` — justo donde mira `pg_isready` sin `-h`. Fix: el gate ahora fuerza TCP (`pg_isready -h 127.0.0.1 -p 5432 -U arnold -d arnold_test`) |
 | P-38 | ~~`npm run test:integration --keep` reusa cualquier container que tenga el nombre esperado~~ | — | **Resuelto.** Hallazgo `R3-keep-reuse-unvalidated` de la revisión nativa de P-25. Con `--keep` ahora se inspecciona el container y se reutiliza sólo si coinciden imagen, usuario, base y el mapeo `127.0.0.1:<puerto>→5432`; si no coincide, avisa y lo recrea. Verificado con un señuelo del mismo nombre y base distinta: salió el aviso y las 12 migraciones se aplicaron desde cero |
+| P-39 | No existe un flujo para anular un pago: `Pago.estado = ANULADO` está en el enum y Home_Interno y el cierre de caja lo leen, pero ningún código lo escribe. Anular un pago tampoco revertiría su `Cuota`, que es la que usa `planDePago` | Baja | Surgió al diseñar la oferta de reactivación (D-54). Si se agrega, definir qué pasa con la `Cuota` y con la oferta usada |
+| P-40 | Confirmar con el negocio los valores de la oferta de reactivación (30 días sin asistir, enfriamiento de 180, tope de 50 %) y que el descuento se acumule sobre el cobro de un reingreso (D-40) | Baja | Valores por defecto propuestos por Claude (D-54); se cambian desde el panel de parámetros |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | Salió de P-07 y D-35 ("pendiente aparte"). Fuera de Next la base responde bien (consulta ≈ 212 ms, 14 a la vez ≈ 203 ms, conexión nueva ≈ 2,2 s); falta probarlo con el build de producción y el pooler. El `curl` a `/api/home-interno` debería dejar el proxy cerca de 0,2 s y `datos` cerca de 0,4 s |

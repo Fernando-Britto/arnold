@@ -12,8 +12,8 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 - **Todas las tareas del plan original están hechas.** Desde el 2026-10-11 hay una etapa de ampliación (pagos → asistencia → registro de rutina), ver *Ampliación en curso*. T-023b (utilidades de UI) está conectada a las cuatro pantallas CRUD (D-39); T-024 dejó factories en `tests/factories/` que todavía no reemplazan a los mocks viejos (D-38).
 - Lo hecho hasta el 2026-10-10 está **verificado** (ver *Qué se verificó y qué no*). Lo del 2026-10-11 (T-023b conectada a las pantallas, T-024) se
   probó en el entorno de Claude, pero **falta correr `npm test` y `npx tsc --noEmit` en la máquina de Fernando** antes del merge (paso 11 de *Antes de seguir*).
-- Quedan: el refresh token (P-20), el despliegue (P-28: pooler de Supabase y build de producción, D-35) y el proxy consultando
-  la base en cada request (P-11, diferido por D-51). P-24, P-25 y P-27 ya están cerrados (D-50, D-53 y `a9adb51`).
+- Quedan: el despliegue (P-28: pooler de Supabase y build de producción, D-35), la oferta de reactivación con su panel de parámetros (D-54, sin código) y el proxy consultando
+  la base en cada request (P-11, diferido por D-51). El refresh token (P-20) tiene código en `94089ca`, pero falta documentarlo y verificarlo. P-24, P-25 y P-27 ya están cerrados (D-50, D-53 y `a9adb51`).
 
 ## Tareas
 
@@ -150,10 +150,11 @@ Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`).
 6. **Secciones del socio** (T-039, D-45) — ✅ Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias (ownership server-side).
 7. **Cierre de caja** (T-040) — ✅ `/cierres` + totales por método.
 8. **Molinete y huella** (T-041, D-49; fase final, depende del hardware). ⏳
+9. **Panel de parámetros y oferta de reactivación** (T-043a–c, T-045a–d, D-54) — ⏳ diseñada (specs `configuracion-sistema` y `oferta-reactivacion`), **sin código**. Descuento y tiempo de activación configurables por el Administrador; oferta apagada por defecto.
 
 Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-040). Falta que Fernando genere y aplique **una** migración (`sesion_en_curso_y_dispositivo`) y pruebe en dev.
 
-Sugeridos y sin confirmar: usuarios internos, configuración y máquinas, cambio de contraseña (T-042 a T-044). Despliegue y refresh token (P-20/P-28) **después** de terminar la ampliación (D-49).
+Sugeridos y sin confirmar: usuarios internos y cambio de contraseña (T-042, T-044). La configuración (T-043) quedó confirmada en D-54, sin la parte de máquinas. Despliegue y refresh token (P-20/P-28) **después** de terminar la ampliación (D-49).
 
 ## Pendientes principales
 
@@ -171,7 +172,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto y verificado (`npm run seed`, D-30; Fernando lo corrió y Home_Interno coincide con el seed, D-35) | Baja |
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
 | P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
-| P-20 | Refresh token con rotación (la revocación ya está, D-34) | Media |
+| P-20 | Refresh token con rotación (la revocación ya está, D-34) → código en `94089ca`; falta documentarlo y verificarlo contra la base | Media |
 | P-21 | ~~Probar la edición de clientes contra la base~~ → resuelto (2026-10-10) | Baja |
 | P-22 | ~~Reescribir el spec `authentication-login`~~ → resuelto (D-36) | Baja |
 | P-26 | ~~`useMemo` después de `return` tempranos en Clientes~~ → resuelto (2026-10-13, `a9adb51`) | — |
@@ -189,6 +190,8 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-25 | ~~Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado)~~ → **resuelto (D-53)**: Postgres efímero en Docker + `npm run test:integration`; `npm test` sigue sin Docker | — |
 | P-37 | ~~`scripts/test-integration.mjs` puede declarar "Postgres listo" durante el `initdb` (socket unix vs TCP)~~ → **resuelto**: el gate fuerza TCP; carrera reproducida (1/88 muestras) | — |
 | P-38 | ~~`npm run test:integration --keep` reusa cualquier container con el nombre esperado, sin validarlo~~ → **resuelto**: valida imagen/base/puerto y recrea si no coincide | — |
+| P-39 | No existe un flujo para anular un pago (`ANULADO` nadie lo escribe) | Baja |
+| P-40 | Confirmar con el negocio los valores de la oferta de reactivación (D-54) | Baja |
 
 ## Cambios recientes (2026-10-07 al 2026-10-11)
 

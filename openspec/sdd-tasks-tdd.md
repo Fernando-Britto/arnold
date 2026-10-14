@@ -64,7 +64,14 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-039 ➕ Secciones del socio | ⏳ | — | — | Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias (D-45) |
 | T-040 ➕ Cierre de caja | ⏳ | — | — | Group the shift's `Pago` rows by method |
 | T-041 ➕ Molinete y huella | ⏳ | — | — | Hardware not chosen; blocked by P-30 (D-43) |
-| T-042 – T-044 ➕ Usuarios internos, configuración y máquinas, cambio de contraseña | ⏳ | — | — | Suggested by Claude, not yet confirmed (D-42) |
+| T-042, T-044 ➕ Usuarios internos y cambio de contraseña | ⏳ | — | — | Suggested by Claude, not yet confirmed (D-42) |
+| T-043a ➕ Lector único `getConfiguracion()` | ⏳ | — | — | Replaces the 6 loose reads, same behavior; spec `configuracion-sistema` (D-54) |
+| T-043b ➕ `GET/PUT /api/configuracion` | ⏳ | — | — | Admin only; audit with previous and new value in `RegistroDeAuditoria` (D-54) |
+| T-043c ➕ Pantalla `/configuracion` | ⏳ | — | — | All parameters, validated; the "machines" part of the old T-043 is not confirmed (D-54) |
+| T-045a ➕ Oferta de reactivación: elegibilidad y descuento (puro) | ⏳ | — | — | Pure functions with boundary tests; spec `oferta-reactivacion` (D-54) |
+| T-045b ➕ Migración de la oferta | ⏳ | — | — | New config fields + `Pago.montoLista` / `descuentoPct`; written by hand, applied by Fernando (D-41) |
+| T-045c ➕ Cobro con oferta y vista previa | ⏳ | — | — | Inside the `Serializable` transaction of `registrarPago`; `montoEsperado` → 409 `AMOUNT_CHANGED` (D-54) |
+| T-045d ➕ Avisos de la oferta | ⏳ | — | — | Pagos screen, Home_Interno card and Home_Socio notice; not the door screen (D-47) |
 
 ## Scope changes during apply
 
