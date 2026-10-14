@@ -123,3 +123,15 @@ invocación del orquestador — se fabricó el prompt del reviewer en lugar de p
 `provider_task.prompt` tal cual o el material que emite `gentle-ai review lens-context`. La
 revisión terminó cerrándose por el camino de relevo (`--input`).
 
+**Cierre de los hallazgos (2026-10-14).** Se arreglaron, no sólo se anotaron:
+
+- **P-37**: el gate de readiness ahora fuerza TCP (`pg_isready -h 127.0.0.1 -p 5432`). La carrera se
+  **reprodujo**: muestreando dentro del contenedor, 1 de 88 lecturas dio socket OK con TCP caído
+  (ventana ~100 ms). El primer intento no la vio —dos `docker exec` por vuelta hacían el muestreo
+  demasiado lento— y me llevó a dudar del hallazgo; con un exec por muestra y `pg_isready -q`
+  apareció. El server temporal del `initdb` corre con `listen_addresses=''` y sin override de socket
+  dir, así que su socket queda en `/var/run/postgresql`, justo donde mira `pg_isready` sin `-h`.
+- **P-38**: con `--keep` se inspecciona el container y sólo se reutiliza si coinciden imagen, usuario,
+  base y el mapeo `127.0.0.1:<puerto>→5432`; si no, avisa y lo recrea. Verificado con un señuelo de
+  mismo nombre y base distinta: salió el aviso y las 12 migraciones se aplicaron desde cero.
+

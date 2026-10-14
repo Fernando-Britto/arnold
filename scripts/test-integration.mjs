@@ -34,15 +34,48 @@ function verificarDocker() {
   }
 }
 
-function contenedorCorriendo() {
-  const inspeccion = spawnSync("docker", ["inspect", "-f", "{{.State.Running}}", CONTENEDOR], { encoding: "utf8" });
-  return inspeccion.status === 0 && inspeccion.stdout.trim() === "true";
+/**
+ * P-38 (R3-keep-reuse-unvalidated): sólo se reutiliza un contenedor que coincida con la
+ * configuración esperada. Mirar nada más que el nombre dejaría que un container viejo
+ * absorbiera la migración y los borrados del test.
+ */
+function contenedorReutilizable() {
+  const inspeccion = spawnSync("docker", ["inspect", "-f", "{{json .}}", CONTENEDOR], { encoding: "utf8" });
+  if (inspeccion.status !== 0) return false;
+
+  let datos;
+  try {
+    datos = JSON.parse(inspeccion.stdout);
+  } catch {
+    return false;
+  }
+
+  if (datos?.State?.Running !== true) return false;
+  if (datos?.Config?.Image !== IMAGEN) return false;
+
+  const entorno = datos?.Config?.Env ?? [];
+  const esperado = [`POSTGRES_USER=${USUARIO}`, `POSTGRES_PASSWORD=${CLAVE}`, `POSTGRES_DB=${BASE}`];
+  if (!esperado.every((clave) => entorno.includes(clave))) return false;
+
+  const mapeos = datos?.HostConfig?.PortBindings?.["5432/tcp"] ?? [];
+  return mapeos.some((mapeo) => mapeo.HostIp === "127.0.0.1" && mapeo.HostPort === PUERTO);
+}
+
+function contenedorExiste() {
+  return spawnSync("docker", ["inspect", CONTENEDOR], { stdio: "ignore" }).status === 0;
 }
 
 function prepararContenedor() {
-  if (KEEP && contenedorCorriendo()) {
+  if (KEEP && contenedorReutilizable()) {
     console.log(`Se reutiliza el contenedor ${CONTENEDOR} (--keep).`);
     return;
+  }
+
+  if (KEEP && contenedorExiste()) {
+    console.warn(
+      `El contenedor ${CONTENEDOR} existe pero no coincide con lo esperado ` +
+        `(imagen ${IMAGEN}, puerto ${PUERTO}, base ${BASE}); se recrea.`
+    );
   }
 
   // Normalmente no existe: el fallo del rm se ignora a propósito.
@@ -75,9 +108,15 @@ function prepararContenedor() {
 async function esperarListo() {
   const limite = Date.now() + TIMEOUT_MS;
   while (Date.now() < limite) {
-    const listo = spawnSync("docker", ["exec", CONTENEDOR, "pg_isready", "-U", USUARIO, "-d", BASE], {
-      stdio: "ignore",
-    });
+    // P-37 (R3-docker-readiness-race): con `-h` explícito el chequeo va por TCP, que es lo que
+    // después necesita `prisma migrate deploy`. Sin `-h`, pg_isready usa el socket unix, y el
+    // servidor temporal que la imagen levanta durante el initdb escucha SÓLO por ahí: el gate
+    // daba "listo" antes de tiempo y la migración fallaba con connection refused.
+    const listo = spawnSync(
+      "docker",
+      ["exec", CONTENEDOR, "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", USUARIO, "-d", BASE],
+      { stdio: "ignore" }
+    );
     if (listo.status === 0) {
       console.log("Postgres listo.");
       return;
