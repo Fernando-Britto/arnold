@@ -1,6 +1,6 @@
 # Arnold — Estado del proyecto
 
-**Actualizado**: 2026-10-12 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
+**Actualizado**: 2026-10-14 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
 **Decisiones y defectos**: [`openspec/decisions.md`](openspec/decisions.md) · **Modo**: Strict TDD
 
 Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19, Prisma 6 sobre PostgreSQL, Jest.
@@ -12,8 +12,8 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 - **Todas las tareas del plan original están hechas.** Desde el 2026-10-11 hay una etapa de ampliación (pagos → asistencia → registro de rutina), ver *Ampliación en curso*. T-023b (utilidades de UI) está conectada a las cuatro pantallas CRUD (D-39); T-024 dejó factories en `tests/factories/` que todavía no reemplazan a los mocks viejos (D-38).
 - Lo hecho hasta el 2026-10-10 está **verificado** (ver *Qué se verificó y qué no*). Lo del 2026-10-11 (T-023b conectada a las pantallas, T-024) se
   probó en el entorno de Claude, pero **falta correr `npm test` y `npx tsc --noEmit` en la máquina de Fernando** antes del merge (paso 11 de *Antes de seguir*).
-- Quedan: el refresh token (P-20), el despliegue (P-28: pooler de Supabase y build de producción, D-35), el `useMemo` de Clientes (P-26) y deuda
-  menor (P-24, P-25, P-27).
+- Quedan: el refresh token (P-20), el despliegue (P-28: pooler de Supabase y build de producción, D-35) y el proxy consultando
+  la base en cada request (P-11, diferido por D-51). P-24, P-25 y P-27 ya están cerrados (D-50, D-53 y `a9adb51`).
 
 ## Tareas
 
@@ -185,8 +185,8 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-34 | ~~Registro de rutina por serie o por ejercicio~~ → resuelto (D-48): por serie, con RIR | — |
 | P-35 | ~~`README` dice "una rama por tarea"~~ → resuelto (2026-10-13, `a9adb51`) | — |
 | P-36 | `.patch` sueltos en la raíz del repo | Baja |
-| P-24 | Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27) | Baja |
-| P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado) | Baja |
+| P-24 | ~~Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27)~~ → **resuelto (D-50)**: el enum queda en `AL_DIA`/`INACTIVA`/`BLOQUEADA` (estado de la cuenta) y el pago se calcula | — |
+| P-25 | ~~Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado)~~ → **resuelto (D-53)**: Postgres efímero en Docker + `npm run test:integration`; `npm test` sigue sin Docker | — |
 
 ## Cambios recientes (2026-10-07 al 2026-10-11)
 

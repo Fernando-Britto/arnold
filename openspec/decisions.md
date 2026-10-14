@@ -721,6 +721,19 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Plan**: Postgres efímero con **Docker** (gratis) + `prisma migrate deploy` + seed mínimo, empezando por el repositorio de Ejercicio.
 - **Descartado**: **Supabase Database Branching NO es gratis** — requiere plan Pro ($25/mes) y se cobra $0.01344 por branch-hora (no está incluido en el plan Free).
 - **Estado**: **P-25 sigue abierto** (no resuelto); esta entrada sólo documenta el plan.
+- **Nota**: se descartó Supabase Branching; el plan se ejecutó con Docker (ver D-53).
+
+### D-53 · P-25: tests de integración contra un Postgres efímero (cerrado)
+- **Origen**: Fernando (2026-10-14), después de instalar Docker Desktop en su máquina; autorizó el ciclo de vida automático del contenedor (opción A de las dos que planteó el asistente), con `--keep` para reusarlo mientras se itera.
+- **Qué se hizo**: `scripts/test-integration.mjs` levanta un `postgres:17-alpine` efímero (`docker run -d --rm` en `127.0.0.1:5433`), espera con `pg_isready` (hasta 60 s), aplica las **migraciones reales** (`prisma migrate deploy`, nunca `db push`), corre la suite y baja el contenedor salvo que se pase `--keep`. Se corre con `npm run test:integration`.
+- **Aislamiento de la base**: `jest.integration.config.ts` es una config aparte (entorno Node, sin jsdom ni Testing Library) con `setupFiles: tests/integration/setup-env.ts`, que fija `DATABASE_URL = ARNOLD_TEST_DATABASE_URL ?? postgresql://arnold:arnold@127.0.0.1:5433/arnold_test` **antes** de que se importe `@/lib/db`. Además el test trae una guarda que aborta si `current_database()` no es `arnold_test`: la suite borra filas y no debe poder apuntar a la base de desarrollo ni a Supabase. `setup-env.ts` nunca lee el `.env` del proyecto.
+- **`npm test` no cambia**: `jest.config.ts` ignora `tests/integration/`, así que la suite unitaria sigue corriendo **sin Docker** (162 suites / 2038 tests).
+- **Qué se verifica ahora de verdad** — lo que el Prisma simulado de FX-16 no podía comprobar: la FK `ON DELETE RESTRICT` de `EjercicioEnRutina` lanza P2003 real y llega como `DELETE_BLOCKED_ASSIGNED`; el P2025 real devuelve `false`; `mode: "insensitive"` busca de verdad sin distinguir mayúsculas; el `$transaction` de `update` persiste de verdad; y `@@unique([rutinaId, ejercicioId])` lanza P2002 real. 9 tests.
+- **Prueba de no vacuidad**: con la fila hija sin crear, el test de P2003 **falla** (`Received promise resolved instead of rejected`); con la fila hija, pasa. Queda registrada para que no haya duda de que el test ejercita la base y no un mock.
+- **Control positivo**: se borra la fila hija y ese mismo ejercicio se puede borrar, lo que fija que el bloqueo venía de la clave foránea y no de otra causa.
+- **Sin defectos nuevos**: los 9 tests pasan con `EjercicioRepository` **sin cambios**; no se tocó `src/`.
+- **Config**: `openspec/config.yaml` pasa a `integration_available: true` con `integration_command: npm run test:integration`.
+- **Cierra P-25.**
 
 ---
 
@@ -783,7 +796,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-21 | ~~Probar la edición de clientes contra la base real~~ | — | **Resuelto** el 2026-10-10: confirmado por Fernando con las migraciones al día (`prisma migrate status`: 5 migraciones). Los clientes editados mientras FX-09 estaba abierto: la consulta de `Usuario` y `Socio` desfasados dio 0 filas (2026-10-11) |
 | P-22 | ~~Reescribir el spec `authentication-login`~~ | — | **Resuelto** el 2026-10-10 (D-36): spec reescrito según el código; el refresh con rotación queda como *Deferred* (P-20) |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
-| P-25 | Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo) | Baja | **Sigue abierto** (no resuelto). `ejercicio.test.ts` ahora usa Prisma simulado (FX-16): ya no comprueba lo que hace la base real, como el borrado bloqueado por clave foránea (P2003) o la búsqueda sin distinguir mayúsculas. El test de P2003 prueba solo la traducción del error. D-52: plan con Postgres efímero en Docker (gratis) + `migrate deploy` + seed mínimo, empezando por Ejercicio |
+| P-25 | ~~Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo)~~ | — | **Resuelto** en D-53: Postgres efímero en Docker (`postgres:17-alpine`) + `prisma migrate deploy` + `npm run test:integration`. Verifica de verdad la FK `Restrict` (P2003), el P2025, el `mode: "insensitive"`, el `$transaction` de `update` y el `@@unique` (P2002). `npm test` sigue sin Docker (162 suites / 2038 tests). Con guarda que impide apuntar a la base de desarrollo |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | Salió de P-07 y D-35 ("pendiente aparte"). Fuera de Next la base responde bien (consulta ≈ 212 ms, 14 a la vez ≈ 203 ms, conexión nueva ≈ 2,2 s); falta probarlo con el build de producción y el pooler. El `curl` a `/api/home-interno` debería dejar el proxy cerca de 0,2 s y `datos` cerca de 0,4 s |

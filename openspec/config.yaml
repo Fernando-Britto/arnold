@@ -21,11 +21,12 @@ testing:
   runner: jest
   framework: ts-jest
   unit_available: true
-  integration_available: false
+  integration_available: true
   e2e_available: false
   coverage_available: true
   test_command: "npm test"
   coverage_command: "npm run test:coverage"
+  integration_command: "npm run test:integration"
   linter:
     name: ESLint
     command: "eslint"
