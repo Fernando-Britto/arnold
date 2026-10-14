@@ -17,6 +17,12 @@ import { EjercicioInput } from "@/domains/ejercicio/ejercicio";
 jest.mock("@/api/ejercicios");
 jest.mock("@/lib/db");
 
+// El console.error de route-error-mapper en el 500 es comportamiento correcto: se captura con
+// spy por test y se afirma el mensaje. `restoreAllMocks` evita que el spy filtre a otros tests.
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 /**
  * Type guards for discriminated union responses
  */
@@ -140,6 +146,7 @@ describe("POST /api/ejercicios — Create Handler", () => {
   });
 
   it("should return 500 SERVER_ERROR on database error", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const validInput: EjercicioInput = {
       nombre: "Curl",
       grupoMuscular: "Brazos",
@@ -156,6 +163,10 @@ describe("POST /api/ejercicios — Create Handler", () => {
       expect(result.status).toBe(500);
       expect(result.code).toBe("SERVER_ERROR");
     }
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[SERVER_ERROR]",
+      expect.stringContaining("Database connection timeout"),
+    );
   });
 
   it("should pass valid input to handleEjercicioCreate", async () => {
@@ -244,6 +255,7 @@ describe("GET /api/ejercicios — List Handler", () => {
   });
 
   it("should return 500 SERVER_ERROR on database error", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     (handleEjercicioList as jest.Mock).mockRejectedValue(
       new Error("Database connection timeout")
     );
@@ -255,6 +267,10 @@ describe("GET /api/ejercicios — List Handler", () => {
       expect(result.status).toBe(500);
       expect(result.code).toBe("SERVER_ERROR");
     }
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[SERVER_ERROR]",
+      expect.stringContaining("Database connection timeout"),
+    );
   });
 
   it("should pass muscleGroup filter to handleEjercicioList", async () => {
@@ -341,17 +357,24 @@ describe("Shared error mapping (mapErrorToResponse)", () => {
   });
 
   it("should map unhandled error to 500 SERVER_ERROR", () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const result = mapErrorToResponse(new Error("Unexpected error"));
 
     expect(result.code).toBe("SERVER_ERROR");
     expect(result.status).toBe(500);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[SERVER_ERROR]",
+      expect.stringContaining("Unexpected error"),
+    );
   });
 
   it("should handle non-Error objects", () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const result = mapErrorToResponse("string error");
 
     expect(result.code).toBe("SERVER_ERROR");
     expect(result.status).toBe(500);
+    expect(errorSpy).toHaveBeenCalledWith("[SERVER_ERROR]", "string error");
   });
 
   it("should use default forbidden message when not specified", () => {
@@ -369,6 +392,7 @@ describe("Shared error mapping (mapErrorToResponse)", () => {
 
 describe("Route.ts wrappers (POST and GET functions)", () => {
   it("should distinguish between success (array) and error (object with status) in list", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     (handleEjercicioList as jest.Mock).mockResolvedValue([
       { id: "ej-1", nombre: "Test" },
     ]);
@@ -383,6 +407,7 @@ describe("Route.ts wrappers (POST and GET functions)", () => {
     const errorResult = await handleEjercicioListRequest();
     expect("status" in errorResult).toBe(true);
     expect("code" in errorResult).toBe(true);
+    expect(errorSpy).toHaveBeenCalledWith("[SERVER_ERROR]", expect.stringContaining("DB error"));
   });
 
   it("should distinguish between success (object with id) and error (object with code) in create", async () => {

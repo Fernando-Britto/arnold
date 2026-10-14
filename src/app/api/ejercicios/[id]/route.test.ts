@@ -24,6 +24,12 @@ jest.mock("@/lib/db");
 jest.mock("@/lib/auth", () => ({ extractUserFromRequest: jest.fn() }));
 jest.mock("@/lib/audit", () => ({ registrarOperacion: jest.fn() }));
 
+// El console.error de route-error-mapper en el 500 es comportamiento correcto: se captura con
+// spy por test y se afirma el mensaje. `restoreAllMocks` evita que el spy filtre a otros tests.
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 const mockUser = extractUserFromRequest as jest.Mock;
 const mockAudit = registrarOperacion as jest.Mock;
 const ctx = { params: Promise.resolve({ id: "e1" }) };
@@ -74,6 +80,7 @@ describe("Ejercicio [id] API Routes", () => {
     });
 
     it("should handle error from ejercicio get", async () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const mockGet = handleEjercicioGet as jest.MockedFunction<
         typeof handleEjercicioGet
       >;
@@ -85,6 +92,10 @@ describe("Ejercicio [id] API Routes", () => {
       if ("code" in result) {
         expect(result.status).toBe(500);
       }
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[SERVER_ERROR]",
+        expect.stringContaining("Database error"),
+      );
     });
   });
 
@@ -227,6 +238,7 @@ describe("Ejercicio [id] API Routes", () => {
     });
 
     it("should handle error from ejercicio delete", async () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const mockDelete = handleEjercicioDelete as jest.MockedFunction<
         typeof handleEjercicioDelete
       >;
@@ -238,6 +250,10 @@ describe("Ejercicio [id] API Routes", () => {
       if ("code" in result) {
         expect(result.status).toBe(500);
       }
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[SERVER_ERROR]",
+        expect.stringContaining("Database error"),
+      );
     });
   });
 

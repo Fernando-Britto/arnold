@@ -121,13 +121,13 @@ describe("ClienteForm", () => {
       
       await user.selectOptions(membresiaSelect, ["gold-1"]);
 
-      // Trigger form submission via the button
       const submitButton = screen.getByText("Crear") as HTMLButtonElement;
       const form = submitButton.closest("form") as HTMLFormElement;
-      
-      // Dispatch submit event on form (this triggers handleSubmit and React state updates)
-      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-      
+
+      // fireEvent envuelve el dispatch en act(): un `form.dispatchEvent` crudo disparaba el
+      // setErrors de handleSubmit fuera de act y React avisaba "not wrapped in act(...)".
+      fireEvent.submit(form);
+
       // The critical part: validation should prevent onSave from being called
       expect(onSave).not.toHaveBeenCalled();
     });

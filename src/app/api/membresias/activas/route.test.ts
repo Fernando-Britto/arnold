@@ -4,6 +4,12 @@ import { handleMembresiasActivas } from "@/api/membresias";
 jest.mock("@/api/membresias");
 jest.mock("@/lib/db");
 
+// El console.error de route-error-mapper en el 500 es comportamiento correcto: se captura con
+// spy por test y se afirma el mensaje. `restoreAllMocks` evita que el spy filtre a otros tests.
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 const mockHandler = handleMembresiasActivas as jest.MockedFunction<typeof handleMembresiasActivas>;
 
 describe("GET /api/membresias/activas — Route Handler", () => {
@@ -16,10 +22,15 @@ describe("GET /api/membresias/activas — Route Handler", () => {
   });
 
   it("mapea un error interno a { code, message, status } sin filtrar detalles", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     mockHandler.mockRejectedValue(new Error("connection refused: postgres://secret"));
     const result = await handleMembresiasActivasRequest();
     expect(Array.isArray(result)).toBe(false);
     expect(result).toMatchObject({ status: 500 });
     expect(JSON.stringify(result)).not.toContain("postgres://secret");
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[SERVER_ERROR]",
+      expect.stringContaining("connection refused"),
+    );
   });
 });

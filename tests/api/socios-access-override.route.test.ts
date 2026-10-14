@@ -6,6 +6,12 @@ import * as accessOverride from "@/api/socios/access-override";
 jest.mock("@/api/socios/access-override");
 jest.mock("@/lib/db");
 
+// El console.error de route-error-mapper en el 500 es comportamiento correcto: se captura con
+// spy por test y se afirma el mensaje. `restoreAllMocks` evita que el spy filtre a otros tests.
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 /** Contexto de request (D): IP + user-agent best-effort, como los provee el route real. */
 const ctx = { ip: "1.2.3.4", userAgent: "jest" };
 const request = (authHeader: string | undefined, body: unknown, socioId: string) =>
@@ -167,6 +173,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
 
   describe("Server errors: 500 SERVER_ERROR", () => {
     it("should return 500 SERVER_ERROR on unhandled database error", async () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const token = createJWT("admin-123", "7d", {
         rol: "ADMINISTRADOR",
       });
@@ -183,6 +190,10 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
 
       expect(result.status).toBe(500);
       expect(result.code).toBe("SERVER_ERROR");
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[SERVER_ERROR]",
+        expect.stringContaining("Database connection timeout"),
+      );
     });
   });
 
@@ -266,10 +277,15 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
     });
 
     it("should map unhandled error to 500 SERVER_ERROR", () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const result = mapErrorToResponse(new Error("Unexpected error"));
 
       expect(result.code).toBe("SERVER_ERROR");
       expect(result.status).toBe(500);
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[SERVER_ERROR]",
+        expect.stringContaining("Unexpected error"),
+      );
     });
 
     it("should use default forbidden message when not specified", () => {

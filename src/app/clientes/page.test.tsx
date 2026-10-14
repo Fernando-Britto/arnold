@@ -40,6 +40,13 @@ import * as actual from "@/api/membresias";
 const mockClientesApi = clientesApi as jest.Mocked<typeof clientesApi>;
 const mockMembresasApi = membresasApi as jest.Mocked<typeof actual>;
 
+// El console.error del form en el camino de fallo es comportamiento de la app: se captura con
+// spy por test y se afirma. `restoreAllMocks` evita que el spy filtre a otros tests (el afterEach
+// de setup solo limpia llamadas, no implementaciones).
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 const waitForLoadingComplete = async () => {
   await waitFor(() => {
     expect(screen.queryByText(/Cargando/i)).not.toBeInTheDocument();
@@ -386,6 +393,7 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
     });
 
     it("si la sesión venció (401) al guardar muestra el aviso de sesión", async () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const user = userEvent.setup();
       mockClientesApi.fetchClientes.mockResolvedValue([ana]);
       mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
@@ -399,6 +407,11 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       await user.click(await screen.findByRole("button", { name: /Actualizar/i }));
       expect(await screen.findByText(/Tu sesión venció/i)).toBeInTheDocument();
       expect(screen.queryByText("TOKEN_INVALID")).not.toBeInTheDocument();
+      // El form registra el fallo antes de que la página lo traduzca a un aviso al usuario.
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Form submission error:",
+        expect.objectContaining({ status: 401, code: "TOKEN_INVALID" }),
+      );
     });
   });
 

@@ -3,15 +3,27 @@ import { hashPassword, verifyJWT } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { recordAccessAttempt } from '@/lib/audit';
 
-jest.mock('@/lib/db', () => ({ prisma: { usuario: { findFirst: jest.fn() } } }));
+jest.mock('@/lib/db', () => ({
+  prisma: {
+    usuario: { findFirst: jest.fn() },
+    // El login también emite el refresh token (P-20): issueRefreshToken → refreshToken.create.
+    refreshToken: { create: jest.fn() },
+  },
+}));
 jest.mock('@/lib/audit', () => ({ recordAccessAttempt: jest.fn() }));
 const audit = recordAccessAttempt as jest.Mock;
 const ctx = { ip: '1.2.3.4', userAgent: 'UA' };
 const findFirst = prisma.usuario.findFirst as jest.Mock;
+const createRefreshToken = prisma.refreshToken.create as jest.Mock;
 
 let hash: string;
 beforeAll(async () => { hash = await hashPassword('Secreta123'); });
-beforeEach(() => { findFirst.mockReset(); audit.mockReset(); });
+beforeEach(() => {
+  findFirst.mockReset();
+  audit.mockReset();
+  createRefreshToken.mockReset();
+  createRefreshToken.mockResolvedValue({ id: 'rt-1' });
+});
 
 const usuario = (over = {}) => ({
   id: 'u1', nombre: 'Ana', email: 'recepcion@arnold.gym',
@@ -75,6 +87,11 @@ describe('handleLoginRequest', () => {
     expect(p.jti).toBeDefined();
     expect(p.exp! - p.iat!).toBe(86400);
     expect(JSON.stringify(r)).not.toContain(hash);
+    // P-20: el login además emite el refresh token y lo devuelve para la cookie.
+    expect(r.refreshToken).toEqual(expect.any(String));
+    expect(createRefreshToken).toHaveBeenCalledWith({
+      data: { usuarioId: 'u1', tokenHash: expect.any(String), expiresAt: expect.any(Date) },
+    });
   });
 
   it('normaliza el email (trim + case-insensitive) y excluye usuarios borrados', async () => {

@@ -28,6 +28,13 @@ import {
 jest.mock("@/api/rutinas");
 jest.mock("@/lib/db");
 
+// El console.error de route-error-mapper en el 500 es comportamiento correcto: se captura con
+// spy por test y se afirma el mensaje. `restoreAllMocks` evita que el spy filtre a otros tests
+// (el afterEach de setup solo limpia llamadas, no implementaciones).
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 /**
  * Type guards for discriminated union responses
  * These MUST match the exported type guards from route.ts
@@ -327,6 +334,7 @@ describe("GET /api/rutinas — List Handler", () => {
   });
 
   it("should return 500 SERVER_ERROR on database error", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     (handleRutinaList as jest.Mock).mockRejectedValue(new Error("Database connection timeout"));
 
     const result = await handleRutinaListRequest();
@@ -336,6 +344,10 @@ describe("GET /api/rutinas — List Handler", () => {
       expect(result.status).toBe(500);
       expect(result.code).toBe("SERVER_ERROR");
     }
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[SERVER_ERROR]",
+      expect.stringContaining("Database connection timeout"),
+    );
   });
 });
 
@@ -547,6 +559,7 @@ describe("Error mapping and response structure", () => {
   });
 
   it("should distinguish between success and error in list response", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const mockRutinas = [{ id: "rut-1", nombre: "Test" }];
 
     (handleRutinaList as jest.Mock).mockResolvedValue(mockRutinas);
@@ -561,6 +574,7 @@ describe("Error mapping and response structure", () => {
     const errorResult = await handleRutinaListRequest();
     expect("status" in errorResult).toBe(true);
     expect("code" in errorResult).toBe(true);
+    expect(errorSpy).toHaveBeenCalledWith("[SERVER_ERROR]", expect.stringContaining("DB error"));
   });
 });
 

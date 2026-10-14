@@ -97,10 +97,9 @@ describe("GAP 2: Stale membership cache - INACTIVA membership accepted", () => {
     const { validateCliente } = require("./cliente");
     const result = validateCliente(dataWithMembresiaId);
     
-    // validateCliente just checks field presence, not actual membership status
+    // validateCliente just checks field presence, not actual membership status.
+    // Real validation must happen in ClienteRepository.create/update().
     expect(result.valid).toBe(true);
-    console.log("✓ validateCliente passes (as expected - it's a format validator)");
-    console.log("  Real validation: Must happen in ClienteRepository.create/update()");
   });
 
   it("should now validate membership ACTIVA status in ClienteRepository (FIXED)", () => {
@@ -109,25 +108,24 @@ describe("GAP 2: Stale membership cache - INACTIVA membership accepted", () => {
     
     // This will be verified by the integration tests in tests/api/
     // which will use real mocked prisma instances
-    
-    console.log("✅ GAP 2 FIX: ClienteRepository.create/update() now validate membership ACTIVA status");
-    console.log("   Handles spec edge case: 'Assigning an Inactiva membership via stale dropdown cache'");
+    //
+    // FIX (GAP 2): ClienteRepository.create/update() now validate membership ACTIVA status.
+    // Handles the spec edge case "Assigning an Inactiva membership via stale dropdown cache".
   });
 });
 
 describe("GAP 3: estadoCuenta was hardcoded to 'Activo'", () => {
   it("should document that mapSocioToCliente used to hardcode estadoCuenta", () => {
-    // mapSocioToCliente used to return estadoCuenta: "Activo" always.
+    // FIX (GAP 3): mapSocioToCliente used to return estadoCuenta: "Activo" always.
     // Now the account state (Socio.estadoCuota: AL_DIA | INACTIVA | BLOQUEADA) is mapped
     // to the UI label; the payment state is a separate, calculated value (D-40/D-46/P-24).
-    
-    console.log("✅ GAP 3 FIX: estadoCuota is mapped to estadoCuenta, not hardcoded");
-    console.log("   Real Socio.estadoCuota values (account): AL_DIA | INACTIVA | BLOQUEADA");
-    console.log("   Cliente.estadoCuenta labels: Activa | Inactiva | Bloqueada");
-    console.log("   Mapping strategy:");
-    console.log("     - AL_DIA → Activa");
-    console.log("     - INACTIVA → Inactiva");
-    console.log("     - BLOQUEADA → Bloqueada");
+    //
+    // Real Socio.estadoCuota values (account): AL_DIA | INACTIVA | BLOQUEADA
+    // Cliente.estadoCuenta labels: Activa | Inactiva | Bloqueada
+    // Mapping strategy:
+    //   - AL_DIA → Activa
+    //   - INACTIVA → Inactiva
+    //   - BLOQUEADA → Bloqueada
   });
 
   it("should properly map estadoCuota to estadoCuenta", () => {
@@ -140,11 +138,9 @@ describe("GAP 3: estadoCuenta was hardcoded to 'Activo'", () => {
 
   it("should now map real estadoCuota from Socio model (FIXED)", () => {
     // mapSocioToCliente() now uses mapEstadoCuotaToEstadoCuenta
-    // instead of hardcoding "Activo"
-    
-    console.log("✅ GAP 3 FIX: mapSocioToCliente now maps real estadoCuota");
-    console.log("   AL_DIA → Activa");
-    console.log("   INACTIVA → Inactiva");
-    console.log("   BLOQUEADA → Bloqueada");
+    // instead of hardcoding "Activo":
+    //   AL_DIA → Activa
+    //   INACTIVA → Inactiva
+    //   BLOQUEADA → Bloqueada
   });
 });

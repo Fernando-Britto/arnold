@@ -73,6 +73,17 @@ const mockEjercicio2: Ejercicio = {
   updatedAt: new Date(),
 };
 
+// El alta devuelve un ejercicio NUEVO con un id propio. Reusar mockEjercicio2 (id "2"),
+// que ya está en la lista, duplicaba la key de React en la tabla.
+const mockEjercicioCreado: Ejercicio = {
+  id: "3",
+  nombre: "Remo con barra",
+  grupoMuscular: "Espalda",
+  descripcion: "Tirón horizontal",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 describe("Ejercicios CRUD Screen (Page)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -104,13 +115,16 @@ describe("Ejercicios CRUD Screen (Page)", () => {
       });
     });
 
-    it("should deny access for SOCIO role", () => {
+    it("should deny access for SOCIO role", async () => {
       (useAuth as jest.Mock).mockReturnValue({
         user: { id: "user1", rol: "SOCIO" },
         isAuthenticated: true,
       });
       render(<EjerciciosPage />);
       expect(screen.queryByTestId("ejercicio-form")).not.toBeInTheDocument();
+      // Flush el load asíncrono dentro de act: sin esto, setEjercicios/setLoading corren
+      // después de terminar el test y React avisa "not wrapped in act(...)".
+      await waitFor(() => expect(ejercicioApi.fetchEjercicios).toHaveBeenCalled());
     });
 
     it("should redirect unauthenticated users", async () => {
@@ -258,7 +272,7 @@ describe("Ejercicios CRUD Screen (Page)", () => {
   describe("Crear", () => {
     it("al guardar sin selección llama createEjercicio", async () => {
       const user = userEvent.setup();
-      (ejercicioApi.createEjercicio as jest.Mock).mockResolvedValue(mockEjercicio2);
+      (ejercicioApi.createEjercicio as jest.Mock).mockResolvedValue(mockEjercicioCreado);
       render(<EjerciciosPage />);
       await screen.findByText("Press Militar");
       await user.click(screen.getByRole("button", { name: /Save/i }));
