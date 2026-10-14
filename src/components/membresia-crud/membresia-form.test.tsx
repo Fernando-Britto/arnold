@@ -266,7 +266,16 @@ describe("MembresiaForm", () => {
     });
   });
 
-  describe("Deactivation warning (AC-005 — depends on T-016 API integration)", () => {
-    it.todo("should show warning modal when changing estado to INACTIVA with assigned members — requires getAssignedSocioCount from API");
-  });
+  // AC-005 (aviso al desactivar una membresía con socios asignados) NO se prueba acá: este
+  // componente es presentacional, sólo llama a `onSave`. El aviso y su confirmación los maneja
+  // `MembresiaFormPanel`, que es quien hace el fetch y recibe el 400 `DEACTIVATION_WARNING`.
+  //
+  // Cobertura real:
+  //  - `membresia-form-panel.test.tsx` → "AC-005: Deactivation Warning" (muestra el aviso) y
+  //    "confirmar la desactivación también avisa 'Membresía actualizada'" (el reintento confirmado)
+  //  - `src/api/membresias.test.ts` y `src/app/api/membresias/[id]/route.test.ts` → el gate
+  //    `DEACTIVATION_WARNING` y el camino `confirmarDesactivacion: true`
+  //
+  // El `it.todo` que estaba acá era obsoleto: pedía un `getAssignedSocioCount` que ya existe y una
+  // feature que ya está implementada y probada desde que T-016 integró la API.
 });
