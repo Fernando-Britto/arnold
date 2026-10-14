@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { NextFetchEvent } from "next/server";
 import { verifyJWT } from "@/lib/auth";
 import { checkRateLimit, cleanupRateLimitLogsIfNeeded } from "@/lib/rateLimit";
 import { hasRouteAccess, type HttpMethod, type UserRole } from "@/lib/authorization";
@@ -9,9 +10,10 @@ import { recordDeniedAccess } from "@/lib/audit";
 import { getTrustedClientIp } from "@/lib/client-ip";
 import { isTokenRevoked } from "@/lib/token-revocation";
 
-const RATE_LIMITED_AUTH = ["/api/auth/login", "/api/auth/register"];
+// P-10: no hay auto-registro público; /api/auth/register ya no está acá ni en PUBLIC_PATHS.
+const RATE_LIMITED_AUTH = ["/api/auth/login"];
 
-export async function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest, event?: NextFetchEvent) {
   const { pathname } = request.nextUrl;
   const method = request.method as HttpMethod;
 
@@ -61,8 +63,14 @@ export async function proxy(request: NextRequest) {
   const decision = decideAccess({ pathname, method, session });
   // P-15: usuario con sesión válida al que se le niega una ruta → AuditoriaAcceso (ACCESS_DENIED).
   // Sin sesión (401) no se registra: no hay actor y se podría inundar la tabla.
+  // F / P-38: la denegación NO espera la escritura de auditoría. `recordDeniedAccess` ya traga sus
+  // propios errores; acá además la encadenamos a `event.waitUntil` para que sobreviva a la
+  // respuesta sin sumar latencia (y sin event queda fire-and-forget).
   if (decision.type !== "next" && typeof session === "object") {
-    await recordDeniedAccess({ request, usuarioId: userId, method, pathname });
+    const audit = recordDeniedAccess({ request, usuarioId: userId, method, pathname }).catch((error) => {
+      console.error("[AUDIT] falló la auditoría de acceso denegado:", error);
+    });
+    event?.waitUntil(audit);
   }
   if (decision.type === "redirect") {
     return NextResponse.redirect(new URL(decision.to, request.url));

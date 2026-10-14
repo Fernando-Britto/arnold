@@ -21,7 +21,7 @@ an httpOnly cookie, close it by revoking the token, and limit and audit login at
 - The login response is `{ success: true, role }`. The client decides the destination from the role: Socio → `/home-socio`, any other
   role → `/home-interno` (`homeRouteForRole`).
 - Every page and API route except the public ones goes through `src/proxy.ts` (Next 16, Node.js runtime). The public paths are
-  `/login`, `/api/auth/login`, `/api/auth/register` and `/api/auth/logout`. The access matrix itself is specified in `rbac-middleware`.
+  `/login`, `/api/auth/login` and `/api/auth/logout`. The access matrix itself is specified in `rbac-middleware`.
 - Handlers that need the caller's identity read the cookie first and the `Authorization: Bearer` header as a fallback (D-18). They do
   not query revocations or the user again: they rely on the proxy having already filtered the request.
 - Main files: `src/api/auth.ts` (login handler), `src/app/api/auth/login/route.ts`, `src/app/api/auth/logout/route.ts`, `src/lib/auth.ts`,
@@ -142,7 +142,8 @@ reloads and navigation and stops working as soon as it is no longer valid.
 - THEN the proxy returns HTTP 401 `{ code: "UNAUTHENTICATED", message: "Iniciá sesión para continuar" }`
 - GIVEN a request to a protected page without the cookie
 - THEN the proxy redirects (HTTP 307) to `/login?from=<path>` (`from` is omitted for `/`)
-- AND the `/login` page does not use `from` yet: it always sends the user to the home of their role (P-09)
+- AND the `/login` page honours `from` **only when it is a relative same-origin path**: absolute (`https://…`) and
+  protocol-relative (`//host`) values are ignored and the user is sent to the home of their role (P-09)
 
 #### Scenario: Invalid session
 
@@ -238,9 +239,13 @@ AuditoriaAcceso  see access-audit-logging
 - ✅ Every login attempt is audited without affecting the response.
 - ⚠️ Logout revokes **only the token of the session that logs out**; there is no "log out of all sessions".
 - ⚠️ No refresh and no rotation: a session lasts exactly 24 h and cannot be extended (P-20).
-- ⚠️ `getSessionUser` (used by the root layout, to hand the user to the client, and by `/`, to redirect by role) only verifies the signature;
-  it relies on the proxy, which runs first, to reject revoked or disabled sessions.
-- ⚠️ `/api/auth/register` is listed as public and rate limited, but the route does not exist (P-10).
+- ⚠️ `getSessionUser` (used by the root layout, to hand the user to the client, and by `/`, to redirect by role) now also
+  validates the session against the database: it only returns a user that exists, is `ACTIVO`, has no `deletedAt` and whose
+  `jti` is not revoked. This is needed because public pages never go through the proxy. It adds a user lookup plus a
+  revocation lookup on every render that carries a cookie (no caching, deliberately, to keep revocation immediate; no cookie
+  means no lookup) — L / P-39.
+- ⚠️ `/api/auth/register` is **not** public and **not** rate limited any more: there is no public self-registration and the
+  route does not exist, so the proxy treats the path like any other protected one (P-10).
 
 ## Traceability
 

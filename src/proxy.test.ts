@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import { NextRequest } from "next/server";
+import type { NextFetchEvent } from "next/server";
 
 jest.unmock("next/server");
 jest.mock("@vercel/functions", () => ({ ipAddress: jest.fn() }));
@@ -9,7 +10,7 @@ jest.mock("@/lib/rateLimit", () => ({
   checkRateLimit: jest.fn().mockResolvedValue(true),
   cleanupRateLimitLogsIfNeeded: jest.fn(),
 }));
-jest.mock("@/lib/audit", () => ({ recordDeniedAccess: jest.fn() }));
+jest.mock("@/lib/audit", () => ({ recordDeniedAccess: jest.fn().mockResolvedValue(undefined) }));
 jest.mock("@/lib/token-revocation", () => ({ isTokenRevoked: jest.fn().mockResolvedValue(false) }));
 
 import { prisma } from "@/lib/db";
@@ -23,12 +24,13 @@ const verify = verifyJWT as jest.Mock;
 const denied = recordDeniedAccess as jest.Mock;
 const revoked = isTokenRevoked as jest.Mock;
 
-const call = (path: string, withCookie = true, method = "GET") =>
+const call = (path: string, withCookie = true, method = "GET", event: NextFetchEvent = { waitUntil: jest.fn() } as unknown as NextFetchEvent) =>
   proxy(
     new NextRequest(`http://localhost:3000${path}`, {
       method,
       headers: withCookie ? { cookie: "authToken=tok" } : {},
-    })
+    }),
+    event
   );
 
 const loginAs = (rol: string, over = {}) => {
@@ -80,6 +82,53 @@ describe("proxy — auditoría de accesos denegados (P-15)", () => {
     loginAs("SOCIO", { estado: "INACTIVO" });
     expect((await call("/api/clientes")).status).toBe(401);
     expect(denied).not.toHaveBeenCalled();
+  });
+});
+
+describe("proxy — auditoría no bloqueante (F / P-38)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    verify.mockReset();
+    findUnique.mockReset();
+    revoked.mockResolvedValue(false);
+    denied.mockReset();
+  });
+
+  it("responde 403 sin esperar la auditoría y la delega a event.waitUntil", async () => {
+    loginAs("SOCIO");
+    let releaseAudit!: () => void;
+    denied.mockImplementation(
+      () => new Promise<void>((resolve) => { releaseAudit = resolve; })
+    );
+    const waitUntil = jest.fn();
+    const event = { waitUntil } as unknown as NextFetchEvent;
+
+    const res = await Promise.race([
+      call("/api/clientes", true, "GET", event),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("la respuesta quedó bloqueada esperando la auditoría")), 250)
+      ),
+    ]);
+
+    expect(res.status).toBe(403);
+    expect(denied).toHaveBeenCalledTimes(1);
+    expect(waitUntil).toHaveBeenCalledTimes(1);
+    releaseAudit();
+  });
+
+  it("sin event igual responde y una auditoría que falla no rompe la request", async () => {
+    loginAs("SOCIO");
+    denied.mockRejectedValue(new Error("db caída"));
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await proxy(
+      new NextRequest("http://localhost:3000/api/clientes", {
+        method: "GET",
+        headers: { cookie: "authToken=tok" },
+      })
+    );
+    expect(res.status).toBe(403);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
 
@@ -145,6 +194,14 @@ describe("proxy — límite de intentos de login por IP (P-16)", () => {
     const res = await login();
     expect(res.status).toBe(429);
     expect((await res.json()).code).toBe("RATE_LIMITED");
+  });
+
+  it("POST /api/auth/register ya no es pública: sin sesión → 401 y no usa el límite de auth (P-10)", async () => {
+    rate.mockClear();
+    const res = await call("/api/auth/register", false, "POST");
+    expect(res.status).toBe(401);
+    expect((await res.json()).code).toBe("UNAUTHENTICATED");
+    expect(rate).not.toHaveBeenCalledWith("unknown", "/api/auth/register", 8);
   });
 });
 

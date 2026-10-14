@@ -106,10 +106,11 @@ export function hasRouteAccess(
     };
   }
 
-  // Find matching base path for this pathname
-  const matchingPath = Object.keys(permissions.paths).find((basePath) =>
-    pathname.startsWith(basePath)
-  );
+  // Find matching base path for this pathname.
+  // P-41 / I: pick the LONGEST matching prefix. `Array.find` returned the first match in key
+  // insertion order, so a shorter prefix (e.g. `/api/rutinas`) could shadow a longer, more
+  // specific one (e.g. `/api/rutinas-asignadas`) if the object were ever reordered.
+  const matchingPath = matchBasePath(permissions.paths, pathname);
 
   if (!matchingPath) {
     return {
@@ -125,6 +126,20 @@ export function hasRouteAccess(
     allowed,
     basePath: matchingPath,
   };
+}
+
+/**
+ * Return the longest base path in `paths` that prefixes `pathname`, or null.
+ * Order-independent: iterates every key and keeps the longest match.
+ */
+export function matchBasePath(paths: RolePathPermissions, pathname: string): string | null {
+  let best: string | null = null;
+  for (const basePath of Object.keys(paths)) {
+    if (pathname.startsWith(basePath) && (best === null || basePath.length > best.length)) {
+      best = basePath;
+    }
+  }
+  return best;
 }
 
 export function homeRouteForRole(rol: UserRole): string {

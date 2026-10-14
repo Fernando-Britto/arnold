@@ -1,4 +1,4 @@
-import { hasRouteAccess, homeRouteForRole } from "./authorization";
+import { hasRouteAccess, homeRouteForRole, matchBasePath, type RolePathPermissions } from "./authorization";
 
 describe("homeRouteForRole", () => {
   it("homeRouteForRole", () => {
@@ -256,6 +256,21 @@ describe("Authorization Matrix", () => {
       const result = hasRouteAccess("SOCIO", "/api/membresias", "GET");
       expect(result.allowed).toBe(false);
       expect(result.basePath).toBeNull();
+    });
+  });
+
+  describe("P-41 / I — el prefijo más largo gana, sin depender del orden", () => {
+    it("matchBasePath elige el prefijo más largo aunque el corto esté primero", () => {
+      const paths: RolePathPermissions = { "/api/rutinas": ["GET"], "/api/rutinas-asignadas": ["POST"] };
+      expect(matchBasePath(paths, "/api/rutinas-asignadas")).toBe("/api/rutinas-asignadas");
+      expect(matchBasePath(paths, "/api/rutinas/7")).toBe("/api/rutinas");
+      expect(matchBasePath(paths, "/api/otra")).toBeNull();
+    });
+
+    it("hasRouteAccess usa el prefijo más largo: DELETE /api/rutinas-asignadas queda en su basePath y se niega", () => {
+      const result = hasRouteAccess("INSTRUCTOR", "/api/rutinas-asignadas", "DELETE");
+      expect(result.basePath).toBe("/api/rutinas-asignadas");
+      expect(result.allowed).toBe(false);
     });
   });
 

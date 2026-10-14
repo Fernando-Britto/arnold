@@ -10,6 +10,7 @@ beforeEach(() => {
   fetchMock.mockReset();
   (navigateTo as jest.Mock).mockReset();
   global.fetch = fetchMock as unknown as typeof fetch;
+  window.history.replaceState({}, "", "/login");
 });
 
 const res = (status: number, body: unknown) => ({ ok: status < 300, status, json: async () => body });
@@ -57,5 +58,28 @@ describe("LoginPage", () => {
     await submit();
     expect(await screen.findByRole("alert")).toHaveTextContent(/no se pudo conectar/i);
     expect(navigateTo).not.toHaveBeenCalled();
+  });
+
+  describe("?from= (P-09)", () => {
+    it("?from=/clientes → navega a /clientes tras un login OK", async () => {
+      window.history.replaceState({}, "", "/login?from=%2Fclientes");
+      fetchMock.mockResolvedValue(res(200, { success: true, role: "RECEPCIONISTA" }));
+      await submit();
+      expect(navigateTo).toHaveBeenCalledWith("/clientes");
+    });
+
+    it("?from=https://evil.example → se ignora y va al home del rol", async () => {
+      window.history.replaceState({}, "", "/login?from=https%3A%2F%2Fevil.example");
+      fetchMock.mockResolvedValue(res(200, { success: true, role: "RECEPCIONISTA" }));
+      await submit();
+      expect(navigateTo).toHaveBeenCalledWith("/home-interno");
+    });
+
+    it("?from=//evil → se ignora y va al home del rol", async () => {
+      window.history.replaceState({}, "", "/login?from=%2F%2Fevil");
+      fetchMock.mockResolvedValue(res(200, { success: true, role: "SOCIO" }));
+      await submit();
+      expect(navigateTo).toHaveBeenCalledWith("/home-socio");
+    });
   });
 });

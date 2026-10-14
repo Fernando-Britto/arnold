@@ -9,6 +9,14 @@ describe("decideAccess", () => {
     expect(d(p, "none", "POST")).toEqual({ type: "next" });
   });
 
+  it("/api/auth/register ya NO es pública: sin sesión → 401 (P-10)", () => {
+    expect(d("/api/auth/register", "none", "POST")).toMatchObject({
+      type: "json",
+      status: 401,
+      code: "UNAUTHENTICATED",
+    });
+  });
+
   describe("sin sesión", () => {
     it("página → /login con from", () => {
       expect(d("/clientes", "none")).toEqual({ type: "redirect", to: "/login?from=%2Fclientes" });

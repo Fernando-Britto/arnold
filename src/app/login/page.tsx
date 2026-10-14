@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { navigateTo } from "@/lib/navigation";
-import { homeRouteForRole, type UserRole } from "@/lib/authorization";
+import { type UserRole } from "@/lib/authorization";
+import { postLoginRoute } from "@/lib/login-redirect";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -31,7 +32,12 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      navigateTo(homeRouteForRole(data.role as UserRole));
+      navigateTo(
+        postLoginRoute(
+          new URLSearchParams(window.location.search).get("from"),
+          data.role as UserRole
+        )
+      );
     } catch {
       setError("No se pudo conectar con el servidor");
       setLoading(false);

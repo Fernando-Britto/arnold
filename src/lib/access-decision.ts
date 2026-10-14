@@ -15,7 +15,8 @@ export type AccessDecision =
 // logout es público a propósito: borrar la cookie no requiere sesión válida
 // refresh también: se llama justamente cuando el access token venció; la credencial es el
 // refresh token (cookie aparte), que valida el propio handler (P-20).
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/register", "/api/auth/logout", "/api/auth/refresh"];
+// P-10: se quitó /api/auth/register: no hay auto-registro público y la ruta no existe.
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/refresh"];
 
 export const isPublicPath = (p: string) =>
   PUBLIC_PATHS.some((x) => p === x || p.startsWith(`${x}/`));

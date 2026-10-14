@@ -51,8 +51,8 @@ The system **MUST** validate the session and the role before allowing access to 
 
 #### Scenario: Public routes
 
-- GIVEN a request to `/login`, `/api/auth/login`, `/api/auth/register` (reserved) or `/api/auth/logout`
-- THEN the proxy lets it through without a session (public routes also prevent redirect loops). `/api/auth/login` and `/api/auth/register` are rate limited by IP.
+- GIVEN a request to `/login`, `/api/auth/login` or `/api/auth/logout`
+- THEN the proxy lets it through without a session (public routes also prevent redirect loops). `/api/auth/login` is rate limited by IP. (`/api/auth/register` is not public — no self-registration, P-10.)
 
 #### Scenario: Root route
 
@@ -89,7 +89,7 @@ The system **MUST** execute: authentication → authorization → rate limiting.
 
 #### Scenario: Rate limits
 
-- GIVEN `/api/auth/login` and `/api/auth/register` → limit 8 requests per minute **per IP**; exceeded → HTTP 429 `{ "code": "RATE_LIMITED", "message": "Demasiados intentos. Probá de nuevo en un minuto." }`
+- GIVEN `/api/auth/login` → limit 8 requests per minute **per IP**; exceeded → HTTP 429 `{ "code": "RATE_LIMITED", "message": "Demasiados intentos. Probá de nuevo en un minuto." }`
 - GIVEN any other authenticated **API** route → limit 100 requests per minute **per user**, grouped by base path (all `/api/clientes/*` count together); exceeded → HTTP 429 `RATE_LIMITED`
 - GIVEN page navigations → no rate limit (page prefetching must not consume the quota)
 

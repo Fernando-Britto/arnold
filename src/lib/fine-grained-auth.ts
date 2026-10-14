@@ -25,38 +25,3 @@ export function canApproveAccessOverride(rol: UserRole): boolean {
   return rol === 'ADMINISTRADOR';
 }
 
-/**
- * Check if a user can view/edit a specific socio's data.
- * - SOCIO: only their own record
- * - INSTRUCTOR/RECEPCIONISTA/ADMINISTRADOR: all records
- *
- * @param userRole The user's role
- * @param requesterId The ID of the user making the request
- * @param resourceOwnerId The ID of the socio record being accessed
- * @returns true if access is allowed
- */
-export function canAccessSocioData(
-  userRole: UserRole,
-  requesterId: string,
-  resourceOwnerId: string
-): boolean {
-  if (userRole === 'SOCIO') {
-    // Socio can only access their own record
-    return requesterId === resourceOwnerId;
-  }
-
-  // INSTRUCTOR, RECEPCIONISTA, ADMINISTRADOR can access any socio
-  return true;
-}
-
-/**
- * Check if a user can view/edit a specific rutina.
- * - SOCIO: only assigned rutinas (RutinaAsignada.activa = true)
- * - INSTRUCTOR/RECEPCIONISTA/ADMINISTRADOR: all rutinas
- *
- * @param userRole The user's role
- * @returns true if the role is allowed to access all rutinas; false means handler must filter
- */
-export function canAccessAllRutinas(userRole: UserRole): boolean {
-  return userRole === 'INSTRUCTOR' || userRole === 'RECEPCIONISTA' || userRole === 'ADMINISTRADOR';
-}
