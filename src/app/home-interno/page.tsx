@@ -22,7 +22,6 @@ import { ROLE_GATE_MATRIX } from "@/middleware/role-gating";
  * T-021a; Row_Gestion, Col_Actividad from T-021b), matching openspec/Home_Interno.svg.
  *
  * SCOPE BOUNDARY (documented, not hidden):
- * - `/api/home-interno` doesn't exist yet — see src/api/home-interno.ts.
  * - "Nuevo Socio" goes to /clientes, "Registrar Pago" goes to /pagos and
  *   "Asignar Rutina" opens the modal (T-034, openspec/asignar-rutina-flowspec.md).
  *   "Control Acceso" opens /acceso, the DNI + PIN check-in kiosk (T-035).

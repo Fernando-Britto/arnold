@@ -46,3 +46,8 @@ opencode.json.backup
 
 # Plantilla de variables de entorno (copiar a .env y completar; .env NO se versiona)
 !.env.example
+
+# Parches sueltos (P-36): los .patch quedan fuera de control de versiones
+*.patch
+# Excepción: si algún día se usa yarn patch protocol, sus parches sí se versionan
+!.yarn/patches/*.patch

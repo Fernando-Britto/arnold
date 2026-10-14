@@ -4,14 +4,11 @@ import type { HomeInternoRaw } from "@/domains/home-interno/home-interno";
  * Client-side data access for Home_Interno (all five zones).
  * Spec: openspec/specs/home-interno-dashboard/spec.md
  *
- * NOTE — scope boundary (documented, not hidden): `/api/home-interno` does NOT
- * exist yet. Same situation as `/api/home-socio`: building it for real needs
- * aggregation queries over Máquina, Pago, Cuota, Asistencia, Empleado and
- * ConfiguracionDelSistema, none of which have a repository layer today. This
- * module fixes the wire contract so the page can be built and tested now
- * against a mocked `fetchHomeInternoData`. `ahora` is the SERVER's clock, so
- * every card is derived against the same instant (and the page is testable
- * without fake timers). Includes the Row_Gestion counters and the raw activity events (T-021b).
+ * `GET /api/home-interno` exists: src/app/api/home-interno/route.ts, backed by
+ * `buildHomeInternoPayload` in src/api/home-interno-data.ts. Page tests mock
+ * `fetchHomeInternoData` instead of hitting the API. `ahora` is the SERVER's
+ * clock, so every card is derived against the same instant (and the page is
+ * testable without fake timers). Includes the Row_Gestion counters and the raw activity events (T-021b).
  *
  * Wire format uses ISO strings; this function revives them into Dates.
  */
