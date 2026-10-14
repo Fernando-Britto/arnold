@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   Table,
@@ -85,5 +85,59 @@ describe("Table kit", () => {
     );
     expect(screen.getByText("detalle")).toBeInTheDocument();
     expect(screen.getByRole("row")).toHaveClass("gap-4", "px-12", "pb-6");
+  });
+
+  describe("ordenamiento opt-in", () => {
+    const sortableColumns: TableColumn[] = [
+      { key: "nombre", label: "Nombre", sortable: true },
+      { key: "estado", label: "Estado" },
+    ];
+
+    it("marca aria-sort en la columna activa y expone un botón accesible", async () => {
+      const onSort = jest.fn();
+      render(
+        <TableHeader
+          columns={sortableColumns}
+          sort={{ key: "nombre", direction: "asc" }}
+          onSort={onSort}
+        />,
+      );
+
+      const header = screen.getByRole("columnheader", { name: "Nombre" });
+      expect(header).toHaveAttribute("aria-sort", "ascending");
+      expect(within(header).getByText("▲")).toBeInTheDocument();
+
+      await userEvent.click(within(header).getByRole("button"));
+      expect(onSort).toHaveBeenCalledWith("nombre");
+    });
+
+    it("refleja la dirección descendente en aria-sort e indicador", () => {
+      render(
+        <TableHeader
+          columns={sortableColumns}
+          sort={{ key: "nombre", direction: "desc" }}
+          onSort={jest.fn()}
+        />,
+      );
+
+      const header = screen.getByRole("columnheader", { name: "Nombre" });
+      expect(header).toHaveAttribute("aria-sort", "descending");
+      expect(within(header).getByText("▼")).toBeInTheDocument();
+    });
+
+    it("mantiene las columnas no sortables inalteradas y sin botón", () => {
+      render(<TableHeader columns={sortableColumns} sort={null} onSort={jest.fn()} />);
+
+      const header = screen.getByRole("columnheader", { name: "Estado" });
+      expect(header).not.toHaveAttribute("aria-sort");
+      expect(within(header).queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("no altera el render sin onSort (compatibilidad)", () => {
+      render(<TableHeader columns={sortableColumns} />);
+
+      expect(screen.getByText("Nombre")).toHaveClass("text-[13px]", "font-bold");
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    });
   });
 });

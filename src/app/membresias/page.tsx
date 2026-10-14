@@ -7,7 +7,10 @@ import { useNotifications } from "@/contexts/notifications";
 import { ApiError, handleApiError } from "@/utils/api-error";
 import { Membresia } from "@/domains/membresia/membresia";
 import { MembresiaFormPanel } from "@/components/membresia-crud/membresia-form-panel";
-import { MembresiaListPanel } from "@/components/membresia-crud/membresia-list-panel";
+import {
+  MembresiaListPanel,
+  type MembresiaListItem,
+} from "@/components/membresia-crud/membresia-list-panel";
 import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
 import { CrudActions } from "@/components/layout/crud-actions";
 import { fetchMembresiasList, deleteMembresia } from "@/api/membresias";
@@ -17,7 +20,7 @@ export function MembresiasPage() {
   const { user, isAuthenticated } = useAuth();
   const { notify } = useNotifications();
 
-  const [membresias, setMembresias] = useState<Membresia[]>([]);
+  const [membresias, setMembresias] = useState<MembresiaListItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Membresia | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,8 +67,16 @@ export function MembresiasPage() {
 
   const handleFormSuccess = (membresia: Membresia) => {
     setMembresias((prev) => {
-      const exists = prev.some((m) => m.id === membresia.id);
-      return exists ? prev.map((m) => (m.id === membresia.id ? membresia : m)) : [...prev, membresia];
+      const existing = prev.find((m) => m.id === membresia.id);
+      // Create/update responses carry `assignedSocioCount`; keep the current one
+      // (or 0 for a brand-new membresía) so the Miembros column stays consistent.
+      const next: MembresiaListItem = {
+        ...membresia,
+        assignedSocioCount: existing?.assignedSocioCount ?? 0,
+      };
+      return existing
+        ? prev.map((m) => (m.id === membresia.id ? next : m))
+        : [...prev, next];
     });
     setEditing(null);
     setSelectedId(null);

@@ -47,34 +47,35 @@ describe("Membresia Business Logic", () => {
   });
 
   describe("handleMembresiaList", () => {
-    it("should return list of membresias with assignedSocioCount", async () => {
-      const mockList = [mockMembresia];
-      MockedRepository.prototype.getAll = jest
+    it("resuelve el listado con una sola consulta agregada y sin count por fila", async () => {
+      const withCounts = [{ ...mockMembresia, assignedSocioCount: 5 }];
+      MockedRepository.prototype.getAllWithAssignedCounts = jest
         .fn()
-        .mockResolvedValue(mockList);
-      MockedRepository.prototype.getAssignedSocioCount = jest
-        .fn()
-        .mockResolvedValue(5);
+        .mockResolvedValue(withCounts);
+      MockedRepository.prototype.getAssignedSocioCount = jest.fn();
 
       const result = await handleMembresiaList();
 
-      expect(result).toBeDefined();
-      expect(Array.isArray(result)).toBe(true);
+      expect(result).toEqual(withCounts);
+      expect(
+        MockedRepository.prototype.getAllWithAssignedCounts
+      ).toHaveBeenCalledWith(false);
+      expect(MockedRepository.prototype.getAssignedSocioCount).not.toHaveBeenCalled();
     });
 
-    it("should call getAllActivas when activeOnly option is true", async () => {
-      const mockList = [mockMembresia];
-      MockedRepository.prototype.getAllActivas = jest
+    it("propaga activeOnly a la consulta única y conserva assignedSocioCount", async () => {
+      const withCounts = [{ ...mockMembresia, assignedSocioCount: 2 }];
+      MockedRepository.prototype.getAllWithAssignedCounts = jest
         .fn()
-        .mockResolvedValue(mockList);
-      MockedRepository.prototype.getAssignedSocioCount = jest
-        .fn()
-        .mockResolvedValue(2);
+        .mockResolvedValue(withCounts);
+      MockedRepository.prototype.getAssignedSocioCount = jest.fn();
 
       const result = await handleMembresiaList({ activeOnly: true });
 
-      expect(MockedRepository.prototype.getAllActivas).toHaveBeenCalled();
-      expect(MockedRepository.prototype.getAll).not.toHaveBeenCalled();
+      expect(
+        MockedRepository.prototype.getAllWithAssignedCounts
+      ).toHaveBeenCalledWith(true);
+      expect(MockedRepository.prototype.getAssignedSocioCount).not.toHaveBeenCalled();
       expect(result[0].assignedSocioCount).toBe(2);
     });
   });

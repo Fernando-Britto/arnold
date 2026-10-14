@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClienteList } from "./cliente-list";
 
@@ -90,5 +90,42 @@ describe("ClienteList", () => {
   it("muestra el estado vacío", () => {
     render(<ClienteList clientes={[]} />);
     expect(screen.getByText(/No hay clientes registrados/i)).toBeInTheDocument();
+  });
+
+  describe("orden por columna (spec: Nombre, DNI, Email, Membresía, Estado)", () => {
+    const nombres = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => within(row).getAllByRole("cell")[1]?.textContent);
+
+    it("ordena por DNI asc y luego desc al hacer click en el encabezado", async () => {
+      render(<ClienteList clientes={clientes} />);
+      // Orden por defecto: nombre asc.
+      expect(nombres()).toEqual(["Ana García", "Bruno Díaz"]);
+
+      const dniHeader = screen.getByRole("columnheader", { name: "DNI" });
+
+      await userEvent.click(within(dniHeader).getByRole("button"));
+      expect(nombres()).toEqual(["Bruno Díaz", "Ana García"]);
+      expect(dniHeader).toHaveAttribute("aria-sort", "ascending");
+      expect(within(dniHeader).getByText("▲")).toBeInTheDocument();
+
+      await userEvent.click(within(dniHeader).getByRole("button"));
+      expect(nombres()).toEqual(["Ana García", "Bruno Díaz"]);
+      expect(dniHeader).toHaveAttribute("aria-sort", "descending");
+      expect(within(dniHeader).getByText("▼")).toBeInTheDocument();
+    });
+
+    it("ordena por estado de cuota respetando mayúsculas/acentos", async () => {
+      render(<ClienteList clientes={clientes} />);
+      const estadoHeader = screen.getByRole("columnheader", { name: "Estado de cuota" });
+
+      await userEvent.click(within(estadoHeader).getByRole("button"));
+      expect(nombres()).toEqual(["Ana García", "Bruno Díaz"]);
+
+      await userEvent.click(within(estadoHeader).getByRole("button"));
+      expect(nombres()).toEqual(["Bruno Díaz", "Ana García"]);
+    });
   });
 });

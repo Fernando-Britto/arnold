@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { type RutinaWithCount } from "@/api/rutinas";
 import {
   Table,
@@ -6,17 +6,21 @@ import {
   TableRow,
   TableCell,
   TableDetailRow,
+  toggleSort,
+  compareSortValues,
+  normalizeSortText,
   type TableColumn,
+  type TableSort,
 } from "@/components/ui/table";
 import { shortId } from "@/utils/short-id";
 
 /** Columns exactly as the OpenPencil mockup (relative widths from the spec). */
 export const RUTINA_COLUMNS: TableColumn[] = [
   { key: "id", label: "ID", width: 80 },
-  { key: "nombre", label: "Nombre" },
-  { key: "ejercicios", label: "Ejercicios", width: 100, align: "center" },
-  { key: "frecuencia", label: "Frec/Sem", width: 100, align: "center" },
-  { key: "nivel", label: "Nivel", width: 120 },
+  { key: "nombre", label: "Nombre", sortable: true },
+  { key: "ejercicios", label: "Ejercicios", width: 100, align: "center", sortable: true },
+  { key: "frecuencia", label: "Frec/Sem", width: 100, align: "center", sortable: true },
+  { key: "nivel", label: "Nivel", width: 120, sortable: true },
   { key: "estado", label: "Estado", width: 120 },
 ];
 
@@ -25,6 +29,26 @@ const NIVEL_LABEL: Record<string, string> = {
   INTERMEDIO: "Intermedio",
   AVANZADO: "Avanzado",
 };
+
+function nivelLabel(nivel?: string | null): string {
+  if (!nivel) return "";
+  return NIVEL_LABEL[nivel] ?? nivel;
+}
+
+/** Sortable value per column, normalized for a case/accent-insensitive compare. */
+function rutinaSortValue(rutina: RutinaWithCount, key: string): string | number {
+  switch (key) {
+    case "ejercicios":
+      return rutina._count?.ejercicios ?? 0;
+    case "frecuencia":
+      return rutina.frecuenciaSemanal ?? 0;
+    case "nivel":
+      return normalizeSortText(nivelLabel(rutina.nivelDeDificultad));
+    case "nombre":
+    default:
+      return normalizeSortText(rutina.nombre ?? "");
+  }
+}
 
 export interface RutinaListPanelProps {
   rutinas: RutinaWithCount[];
@@ -43,17 +67,26 @@ export function RutinaListPanel({
   onSelect,
   searchTerm = "",
 }: RutinaListPanelProps) {
+  const [sort, setSort] = useState<TableSort | null>(null);
+
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return [...rutinas]
-      .filter(
-        (r) =>
-          !term ||
-          (r.nombre?.toLowerCase() ?? "").includes(term) ||
-          (r.objetivoPrincipal?.toLowerCase() ?? "").includes(term)
-      )
-      .sort((a, b) => (a.nombre ?? "").localeCompare(b.nombre ?? ""));
-  }, [rutinas, searchTerm]);
+    const rows = rutinas.filter(
+      (r) =>
+        !term ||
+        (r.nombre?.toLowerCase() ?? "").includes(term) ||
+        (r.objetivoPrincipal?.toLowerCase() ?? "").includes(term)
+    );
+    // Sin orden explícito se conserva el orden por defecto (nombre asc).
+    const key = sort?.key ?? "nombre";
+    const direction = sort?.direction ?? "asc";
+    return rows.sort((a, b) => {
+      const cmp = compareSortValues(rutinaSortValue(a, key), rutinaSortValue(b, key));
+      return direction === "asc" ? cmp : -cmp;
+    });
+  }, [rutinas, searchTerm, sort]);
+
+  const handleSort = (key: string) => setSort((current) => toggleSort(current, key));
 
   if (rutinas.length === 0) {
     return <div className="p-8 text-center text-sm text-[#71717A]">No hay rutinas</div>;
@@ -61,7 +94,7 @@ export function RutinaListPanel({
 
   return (
     <Table label="Rutinas">
-      <TableHeader columns={RUTINA_COLUMNS} />
+      <TableHeader columns={RUTINA_COLUMNS} sort={sort} onSort={handleSort} />
       {filtered.map((rutina) => {
         const isSelected = rutina.id === selectedId;
         return (

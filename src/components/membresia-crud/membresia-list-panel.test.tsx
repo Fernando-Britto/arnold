@@ -1,10 +1,12 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MembresiaListPanel } from "./membresia-list-panel";
-import type { Membresia } from "@/domains/membresia/membresia";
+import {
+  MembresiaListPanel,
+  type MembresiaListItem,
+} from "./membresia-list-panel";
 
-const membresias: Membresia[] = [
+const membresias: MembresiaListItem[] = [
   {
     id: "11111111gold",
     nombre: "Gold",
@@ -14,6 +16,7 @@ const membresias: Membresia[] = [
     estado: "ACTIVA",
     createdAt: new Date(),
     updatedAt: new Date(),
+    assignedSocioCount: 42,
   },
   {
     id: "22222222silver",
@@ -24,6 +27,7 @@ const membresias: Membresia[] = [
     estado: "INACTIVA",
     createdAt: new Date(),
     updatedAt: new Date(),
+    assignedSocioCount: 0,
   },
 ];
 
@@ -75,5 +79,48 @@ describe("MembresiaListPanel", () => {
   it("muestra el estado vacío", () => {
     render(<MembresiaListPanel membresias={[]} />);
     expect(screen.getByText(/No hay membresías/i)).toBeInTheDocument();
+  });
+
+  it("renderiza la columna Miembros con el conteo de socios asignados (AC-007)", () => {
+    render(<MembresiaListPanel membresias={membresias} />);
+    expect(screen.getByRole("columnheader", { name: "Miembros" })).toBeInTheDocument();
+
+    const rows = screen.getAllByRole("row").slice(1);
+    const miembrosPorFila = rows.map(
+      (row) => within(row).getAllByRole("cell")[5]?.textContent,
+    );
+    expect(miembrosPorFila).toEqual(["42", "0"]);
+  });
+
+  describe("orden por columna (spec: Nombre, Precio, Periodicidad, Estado)", () => {
+    const nombres = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => within(row).getAllByRole("cell")[1]?.textContent);
+
+    it("ordena numéricamente por Precio asc y luego desc", async () => {
+      render(<MembresiaListPanel membresias={membresias} />);
+      expect(nombres()).toEqual(["Gold", "Silver"]);
+
+      const header = screen.getByRole("columnheader", { name: "Precio" });
+
+      await userEvent.click(within(header).getByRole("button"));
+      expect(nombres()).toEqual(["Silver", "Gold"]);
+      expect(header).toHaveAttribute("aria-sort", "ascending");
+      expect(within(header).getByText("▲")).toBeInTheDocument();
+
+      await userEvent.click(within(header).getByRole("button"));
+      expect(nombres()).toEqual(["Gold", "Silver"]);
+      expect(header).toHaveAttribute("aria-sort", "descending");
+      expect(within(header).getByText("▼")).toBeInTheDocument();
+    });
+
+    it("mantiene Miembros como columna no ordenable (spec)", () => {
+      render(<MembresiaListPanel membresias={membresias} />);
+      const header = screen.getByRole("columnheader", { name: "Miembros" });
+      expect(within(header).queryByRole("button")).not.toBeInTheDocument();
+      expect(header).not.toHaveAttribute("aria-sort");
+    });
   });
 });

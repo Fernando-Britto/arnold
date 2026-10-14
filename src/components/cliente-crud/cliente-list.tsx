@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { normalizeDNI, type EstadoCuenta } from "@/domains/cliente/cliente";
 import {
   Table,
@@ -7,7 +7,11 @@ import {
   TableCell,
   TableStatusBadge,
   TableDetailRow,
+  toggleSort,
+  compareSortValues,
+  normalizeSortText,
   type TableColumn,
+  type TableSort,
   type TableStatusVariant,
 } from "@/components/ui/table";
 import { shortId } from "@/utils/short-id";
@@ -15,10 +19,10 @@ import { shortId } from "@/utils/short-id";
 /** Columns exactly as the OpenPencil mockup (relative widths from the spec). */
 export const CLIENTE_COLUMNS: TableColumn[] = [
   { key: "id", label: "ID", width: 80 },
-  { key: "nombre", label: "Nombre" },
-  { key: "dni", label: "DNI", width: 120 },
-  { key: "membresia", label: "Membresía", width: 180 },
-  { key: "estadoCuota", label: "Estado de cuota", width: 140 },
+  { key: "nombre", label: "Nombre", sortable: true },
+  { key: "dni", label: "DNI", width: 120, sortable: true },
+  { key: "membresia", label: "Membresía", width: 180, sortable: true },
+  { key: "estadoCuota", label: "Estado de cuota", width: 140, sortable: true },
 ];
 
 export interface ClienteRow {
@@ -54,6 +58,27 @@ function estadoCuentaVariant(estado: EstadoCuenta): TableStatusVariant {
   }
 }
 
+/** Sortable value per column, normalized for a case/accent-insensitive compare. */
+function clienteSortValue(
+  cliente: ClienteRow,
+  key: string,
+  membresiaLabels: Record<string, string>,
+): string {
+  switch (key) {
+    case "dni":
+      return normalizeSortText(cliente.dni);
+    case "membresia":
+      return normalizeSortText(
+        membresiaLabels[cliente.membresiaAsignada] || cliente.membresiaAsignada,
+      );
+    case "estadoCuota":
+      return normalizeSortText(cliente.estadoCuenta);
+    case "nombre":
+    default:
+      return normalizeSortText(cliente.nombre);
+  }
+}
+
 /**
  * Presentational table for Clientes. Selection is controlled by the page;
  * the search term is filtered here (the input lives in the ActionBar).
@@ -66,6 +91,8 @@ export function ClienteList({
   membresiaLabels = {},
   isLoading = false,
 }: ClienteListProps) {
+  const [sort, setSort] = useState<TableSort | null>(null);
+
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     // Los DNI se guardan sin puntos (normalizeDNI). Si el término es un DNI
@@ -73,16 +100,26 @@ export function ClienteList({
     // encuentre "30123456". Para nombre/email se usa el término tal cual.
     const dniTerm = normalizeDNI(term);
     const isDniSearch = dniTerm.length > 0 && /^[\d.\s-]+$/.test(term);
-    return [...clientes]
-      .filter(
-        (c) =>
-          !term ||
-          c.nombre.toLowerCase().includes(term) ||
-          c.email.toLowerCase().includes(term) ||
-          (isDniSearch && c.dni.includes(dniTerm))
-      )
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [clientes, searchTerm]);
+    const rows = clientes.filter(
+      (c) =>
+        !term ||
+        c.nombre.toLowerCase().includes(term) ||
+        c.email.toLowerCase().includes(term) ||
+        (isDniSearch && c.dni.includes(dniTerm))
+    );
+    // Sin orden explícito se conserva el orden por defecto (nombre asc).
+    const key = sort?.key ?? "nombre";
+    const direction = sort?.direction ?? "asc";
+    return rows.sort((a, b) => {
+      const cmp = compareSortValues(
+        clienteSortValue(a, key, membresiaLabels),
+        clienteSortValue(b, key, membresiaLabels),
+      );
+      return direction === "asc" ? cmp : -cmp;
+    });
+  }, [clientes, searchTerm, sort, membresiaLabels]);
+
+  const handleSort = (key: string) => setSort((current) => toggleSort(current, key));
 
   if (isLoading) {
     return <div className="p-8 text-center text-sm text-[#71717A]">Cargando...</div>;
@@ -96,7 +133,7 @@ export function ClienteList({
 
   return (
     <Table label="Clientes">
-      <TableHeader columns={CLIENTE_COLUMNS} />
+      <TableHeader columns={CLIENTE_COLUMNS} sort={sort} onSort={handleSort} />
       {filtered.map((cliente) => {
         const isSelected = cliente.id === selectedId;
         return (

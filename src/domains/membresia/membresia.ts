@@ -17,6 +17,11 @@ export interface Membresia {
   updatedAt: Date;
 }
 
+/** A membresía plus the live count of socios that have it assigned (AC-007). */
+export interface MembresiaWithAssignedCount extends Membresia {
+  assignedSocioCount: number;
+}
+
 /**
  * Prisma model for Membresia (matches schema)
  * Used internally by repository to type Prisma results
@@ -238,6 +243,27 @@ export class MembresiaRepository {
       orderBy: { nombre: "asc" },
     });
     return results.map(mapPrismaToMembresia);
+  }
+
+  /**
+   * List membresías with the live count of assigned socios (AC-007). The counts
+   * are resolved in the SAME `findMany` via Prisma's `_count`, so the list is a
+   * single query instead of one `count` per row (N+1). Optionally filtered to
+   * ACTIVA only, preserving the previous `getAllActivas` ordering.
+   */
+  async getAllWithAssignedCounts(
+    activeOnly = false
+  ): Promise<MembresiaWithAssignedCount[]> {
+    const prisma = await this.getPrisma();
+    const results = await prisma.membresia.findMany({
+      where: activeOnly ? { estado: "ACTIVA" } : undefined,
+      orderBy: { nombre: "asc" },
+      include: { _count: { select: { socios: true } } },
+    });
+    return results.map((record) => ({
+      ...mapPrismaToMembresia(record),
+      assignedSocioCount: record._count.socios,
+    }));
   }
 
   /**

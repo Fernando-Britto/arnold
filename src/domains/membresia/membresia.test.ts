@@ -20,6 +20,10 @@ jest.mock("@/lib/db", () => ({
       count: jest.fn(),
       delete: jest.fn(),
     },
+    socio: {
+      count: jest.fn(),
+      groupBy: jest.fn(),
+    },
   },
 }));
 
@@ -588,6 +592,53 @@ describe("MembresiaRepository — precio rounding on persist", () => {
       expect.objectContaining({
         data: expect.objectContaining({ precio: 15001 }),
       })
+    );
+  });
+});
+
+describe("MembresiaRepository — conteo de socios asignados sin N+1", () => {
+  const prismaMembresia = (id: string, socios: number) => ({
+    id,
+    nombre: id,
+    precio: 15000,
+    periodicidad: 30,
+    descripcion: null,
+    estado: "ACTIVA" as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    _count: { socios },
+  });
+
+  it("getAllWithAssignedCounts resuelve todos los conteos con un único findMany (_count)", async () => {
+    const { prisma } = await import("@/lib/db");
+    (prisma.membresia.findMany as jest.Mock).mockResolvedValue([
+      prismaMembresia("m1", 3),
+      prismaMembresia("m2", 0),
+    ]);
+    (prisma.socio.count as jest.Mock).mockClear();
+
+    const result = await new MembresiaRepository().getAllWithAssignedCounts();
+
+    expect(prisma.membresia.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.membresia.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: { _count: { select: { socios: true } } },
+      })
+    );
+    // El conteo por fila ya no debe ejecutarse.
+    expect(prisma.socio.count).not.toHaveBeenCalled();
+    expect(result.map((m) => m.assignedSocioCount)).toEqual([3, 0]);
+    expect(result[0].precio).toBe(15000);
+  });
+
+  it("propaga activeOnly como filtro de estado en la misma consulta", async () => {
+    const { prisma } = await import("@/lib/db");
+    (prisma.membresia.findMany as jest.Mock).mockResolvedValue([]);
+
+    await new MembresiaRepository().getAllWithAssignedCounts(true);
+
+    expect(prisma.membresia.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { estado: "ACTIVA" } })
     );
   });
 });

@@ -3,6 +3,7 @@ import React from "react";
 export type TableAlign = "left" | "center" | "right";
 export type TableCellVariant = "primary" | "secondary";
 export type TableStatusVariant = "success" | "warning" | "danger" | "neutral";
+export type SortDirection = "asc" | "desc";
 
 export interface TableColumn {
   key: string;
@@ -10,12 +11,54 @@ export interface TableColumn {
   /** Fixed width in px. Omitted => the column grows to fill the row. */
   width?: number;
   align?: TableAlign;
+  /** Opt-in: renders a clickable header. Requires `TableHeader` `onSort`. */
+  sortable?: boolean;
+}
+
+/** Active sort state owned by the list that renders the table. */
+export interface TableSort {
+  key: string;
+  direction: SortDirection;
 }
 
 function alignClass(align: TableAlign = "left"): string {
   if (align === "center") return "text-center";
   if (align === "right") return "text-right";
   return "text-left";
+}
+
+/**
+ * Toggle helper for column headers: a repeated click on the same column flips
+ * the direction, a click on another column starts fresh in ascending order.
+ */
+export function toggleSort(current: TableSort | null, key: string): TableSort {
+  if (current && current.key === key) {
+    return { key, direction: current.direction === "asc" ? "desc" : "asc" };
+  }
+  return { key, direction: "asc" };
+}
+
+const ACCENT_MARKS = /[\u0300-\u036f]/g;
+
+/**
+ * Normalize text for a case- and accent-insensitive sort: "Ábaco" and "abaco"
+ * compare equal, so column order does not depend on casing or diacritics.
+ */
+export function normalizeSortText(value: string): string {
+  return value.normalize("NFD").replace(ACCENT_MARKS, "").toLowerCase();
+}
+
+/** Comparator shared by list columns: numeric when both are numbers, text otherwise. */
+export function compareSortValues(
+  a: string | number,
+  b: string | number,
+): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  const textA = String(a);
+  const textB = String(b);
+  if (textA < textB) return -1;
+  if (textA > textB) return 1;
+  return 0;
 }
 
 function cellStyle(width?: number): React.CSSProperties {
@@ -34,23 +77,62 @@ export function Table({ label, children }: { label?: string; children: React.Rea
 /**
  * Header: flex row, h52, px24, gap16, bg #F4F4F5, border #E4E4E7, top corners 8.
  * Labels: 13/700 #71717A.
+ *
+ * Sorting is opt-in per column (`TableColumn.sortable`) and only activates when
+ * `onSort` is provided, so existing non-sortable usages render unchanged.
  */
-export function TableHeader({ columns }: { columns: TableColumn[] }) {
+export function TableHeader({
+  columns,
+  sort = null,
+  onSort,
+}: {
+  columns: TableColumn[];
+  sort?: TableSort | null;
+  onSort?: (key: string) => void;
+}) {
   return (
     <div
       role="row"
       className="flex h-[52px] items-center gap-4 rounded-t-lg border-b border-[#E4E4E7] bg-[#F4F4F5] px-6"
     >
-      {columns.map((col) => (
-        <div
-          key={col.key}
-          role="columnheader"
-          className={`text-[13px] font-bold text-[#71717A] ${alignClass(col.align)}`}
-          style={cellStyle(col.width)}
-        >
-          {col.label}
-        </div>
-      ))}
+      {columns.map((col) => {
+        const isSortable = Boolean(col.sortable && onSort);
+        const isActive = isSortable && sort?.key === col.key;
+        const ariaSort: React.AriaAttributes["aria-sort"] = isSortable
+          ? isActive
+            ? sort!.direction === "asc"
+              ? "ascending"
+              : "descending"
+            : "none"
+          : undefined;
+        const indicator = isActive ? (sort!.direction === "asc" ? "▲" : "▼") : "↕";
+
+        return (
+          <div
+            key={col.key}
+            role="columnheader"
+            aria-sort={ariaSort}
+            className={`text-[13px] font-bold text-[#71717A] ${alignClass(col.align)}`}
+            style={cellStyle(col.width)}
+          >
+            {isSortable ? (
+              <button
+                type="button"
+                onClick={() => onSort!(col.key)}
+                title={`Ordenar por ${col.label}`}
+                className="inline-flex cursor-pointer items-center gap-1 hover:text-[#333333]"
+              >
+                <span>{col.label}</span>
+                <span aria-hidden="true" data-sort-indicator>
+                  {indicator}
+                </span>
+              </button>
+            ) : (
+              col.label
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

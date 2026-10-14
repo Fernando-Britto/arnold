@@ -64,19 +64,9 @@ export async function handleMembresiaList(
   options: { activeOnly?: boolean } = {}
 ): Promise<Membresia[]> {
   const repository = new MembresiaRepository();
-  const membresias = options.activeOnly
-    ? await repository.getAllActivas()
-    : await repository.getAll();
-
-  // Fetch assigned counts for each
-  const withCounts = await Promise.all(
-    membresias.map(async (m) => ({
-      ...m,
-      assignedSocioCount: await repository.getAssignedSocioCount(m.id),
-    }))
-  );
-
-  return withCounts;
+  // Single query: the repository resolves every `assignedSocioCount` through
+  // Prisma `_count`, so the list no longer runs one `count` per membresía (N+1).
+  return repository.getAllWithAssignedCounts(options.activeOnly ?? false);
 }
 
 /**
@@ -222,8 +212,9 @@ export async function fetchMembresias(): Promise<MembresiaDropdown[]> {
 /**
  * Client-side API call: fetch every membresía (management list, T-017).
  * Distinct from `fetchMembresias` (active-only dropdown for Clientes, AC-004).
+ * The list includes `assignedSocioCount` for the "Miembros" column (AC-007).
  */
-export async function fetchMembresiasList(): Promise<MembresiaDomain[]> {
+export async function fetchMembresiasList(): Promise<Membresia[]> {
   const response = await fetch("/api/membresias");
   await throwIfNotOk(response, "No se pudieron cargar las membresías");
   const data = await response.json();

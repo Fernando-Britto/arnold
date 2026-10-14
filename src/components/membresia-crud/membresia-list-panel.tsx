@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import type { Membresia } from "@/domains/membresia/membresia";
 import {
   Table,
@@ -9,7 +9,11 @@ import {
   TableCell,
   TableStatusBadge,
   TableDetailRow,
+  toggleSort,
+  compareSortValues,
+  normalizeSortText,
   type TableColumn,
+  type TableSort,
 } from "@/components/ui/table";
 import { shortId } from "@/utils/short-id";
 import { formatMoney } from "@/utils/formatting";
@@ -17,18 +21,43 @@ import { formatMoney } from "@/utils/formatting";
 /** Columns exactly as the OpenPencil mockup (relative widths from the spec). */
 export const MEMBRESIA_COLUMNS: TableColumn[] = [
   { key: "id", label: "ID", width: 100 },
-  { key: "nombre", label: "Nombre" },
-  { key: "precio", label: "Precio", width: 120 },
-  { key: "periodicidad", label: "Periodicidad", width: 150 },
-  { key: "estado", label: "Estado", width: 100 },
+  { key: "nombre", label: "Nombre", sortable: true },
+  { key: "precio", label: "Precio", width: 120, sortable: true },
+  { key: "periodicidad", label: "Periodicidad", width: 150, sortable: true },
+  { key: "estado", label: "Estado", width: 100, sortable: true },
+  { key: "miembros", label: "Miembros", width: 100, align: "center" },
 ];
 
+/**
+ * Row shape for the management list: the domain record plus the live count of
+ * socios with that membresía assigned (AC-007). The count is display-only and
+ * deliberately not sortable.
+ */
+export interface MembresiaListItem extends Membresia {
+  assignedSocioCount?: number;
+}
+
 export interface MembresiaListPanelProps {
-  membresias: Membresia[];
+  membresias: MembresiaListItem[];
   selectedId?: string | null;
-  onSelect?: (membresia: Membresia) => void;
+  onSelect?: (membresia: MembresiaListItem) => void;
   searchTerm?: string;
   isLoading?: boolean;
+}
+
+/** Sortable value per column, normalized for a case/accent-insensitive compare. */
+function membresiaSortValue(membresia: MembresiaListItem, key: string): string | number {
+  switch (key) {
+    case "precio":
+      return Number(membresia.precio);
+    case "periodicidad":
+      return Number(membresia.periodicidad);
+    case "estado":
+      return normalizeSortText(membresia.estado === "ACTIVA" ? "Activa" : "Inactiva");
+    case "nombre":
+    default:
+      return normalizeSortText(membresia.nombre ?? "");
+  }
 }
 
 /**
@@ -42,12 +71,24 @@ export function MembresiaListPanel({
   searchTerm = "",
   isLoading = false,
 }: MembresiaListPanelProps) {
+  const [sort, setSort] = useState<TableSort | null>(null);
+
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return [...membresias]
-      .filter((m) => !term || m.nombre.toLowerCase().includes(term))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  }, [membresias, searchTerm]);
+    const rows = membresias.filter((m) => !term || m.nombre.toLowerCase().includes(term));
+    // Sin orden explícito se conserva el orden por defecto (nombre asc).
+    const key = sort?.key ?? "nombre";
+    const direction = sort?.direction ?? "asc";
+    return rows.sort((a, b) => {
+      const cmp = compareSortValues(
+        membresiaSortValue(a, key),
+        membresiaSortValue(b, key),
+      );
+      return direction === "asc" ? cmp : -cmp;
+    });
+  }, [membresias, searchTerm, sort]);
+
+  const handleSort = (key: string) => setSort((current) => toggleSort(current, key));
 
   if (isLoading) {
     return <div className="p-8 text-center text-sm text-[#71717A]">Cargando membresías...</div>;
@@ -59,7 +100,7 @@ export function MembresiaListPanel({
 
   return (
     <Table label="Membresías">
-      <TableHeader columns={MEMBRESIA_COLUMNS} />
+      <TableHeader columns={MEMBRESIA_COLUMNS} sort={sort} onSort={handleSort} />
       {filtered.map((membresia) => {
         const isSelected = membresia.id === selectedId;
         const isActiva = membresia.estado === "ACTIVA";
@@ -80,6 +121,9 @@ export function MembresiaListPanel({
                 <TableStatusBadge variant={isActiva ? "success" : "neutral"}>
                   {isActiva ? "Activa" : "Inactiva"}
                 </TableStatusBadge>
+              </TableCell>
+              <TableCell width={100} align="center" variant="secondary">
+                {membresia.assignedSocioCount ?? 0}
               </TableCell>
             </TableRow>
             {isSelected && (

@@ -46,6 +46,7 @@ const gold = {
   estado: "ACTIVA" as const,
   createdAt: new Date(),
   updatedAt: new Date(),
+  assignedSocioCount: 0,
 };
 
 describe("Membresias CRUD Screen", () => {
@@ -105,11 +106,13 @@ describe("Membresias CRUD Screen", () => {
       expect(screen.getByText("Activa")).toBeInTheDocument();
     });
 
-    it("no renderiza botones por fila", async () => {
+    it("no renderiza botones de acción por fila", async () => {
       render(<MembresiasPage />);
       await screen.findByText("Gold");
       const table = screen.getByRole("table", { name: "Membresías" });
-      expect(within(table).queryByRole("button")).not.toBeInTheDocument();
+      expect(
+        within(table).queryByRole("button", { name: /Editar|Eliminar|Modificar/i }),
+      ).not.toBeInTheDocument();
       expect(screen.getAllByRole("button", { name: "Modificar" })).toHaveLength(1);
     });
   });
