@@ -8,6 +8,21 @@ import {
   type EstadoMembresia,
 } from "./membresia";
 
+// The repository resolves Prisma through a dynamic import; mock it so we can
+// assert the exact value that would be persisted.
+jest.mock("@/lib/db", () => ({
+  prisma: {
+    membresia: {
+      create: jest.fn(),
+      update: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+      delete: jest.fn(),
+    },
+  },
+}));
+
 describe("Membresia Domain", () => {
   describe("validateMembresia", () => {
     describe("nombre validation (AC-001)", () => {
@@ -341,7 +356,7 @@ describe("Membresia Domain", () => {
       expect(membresia).toHaveProperty("descripcion", "Premium plan");
     });
 
-    it("should normalize precio to 2 decimal places", () => {
+    it("should normalize precio to a whole integer (no cents)", () => {
       const membresia = createMembresia({
         nombre: "Gold",
         precio: 15000,
@@ -349,14 +364,27 @@ describe("Membresia Domain", () => {
         estado: "ACTIVA",
       });
 
-      // Precio should be stored with 2 decimals
-      expect(Number.isFinite(membresia.precio)).toBe(true);
-      // Check that it has at most 2 decimal places
-      const priceStr = membresia.precio.toString();
-      const decimalIndex = priceStr.indexOf(".");
-      const decimals =
-        decimalIndex === -1 ? 0 : priceStr.length - decimalIndex - 1;
-      expect(decimals).toBeLessThanOrEqual(2);
+      // Prices in Argentina have no cents: precio must be a whole number.
+      expect(Number.isInteger(membresia.precio)).toBe(true);
+      expect(membresia.precio).toBe(15000);
+    });
+
+    it("should round precio to the nearest integer on save", () => {
+      expect(
+        createMembresia({ nombre: "Gold", precio: 15000.5, periodicidad: 30, estado: "ACTIVA" }).precio
+      ).toBe(15001);
+      expect(
+        createMembresia({ nombre: "Gold", precio: 15000.4, periodicidad: 30, estado: "ACTIVA" }).precio
+      ).toBe(15000);
+      expect(
+        createMembresia({ nombre: "Gold", precio: 15000.6, periodicidad: 30, estado: "ACTIVA" }).precio
+      ).toBe(15001);
+    });
+
+    it("should keep precio > 0 after rounding (tiny positives clamp to 1)", () => {
+      expect(
+        createMembresia({ nombre: "Gold", precio: 0.4, periodicidad: 30, estado: "ACTIVA" }).precio
+      ).toBe(1);
     });
 
     it("should not include id field (repository concern)", () => {
@@ -440,29 +468,25 @@ describe("Membresia Domain", () => {
 
       // Verify precio is a number type
       expect(typeof membresia.precio).toBe("number");
-      expect(membresia.precio).toBe(15000.5);
+      expect(membresia.precio).toBe(15001);
 
       // Verify JSON serialization works correctly
       const json = JSON.stringify(membresia);
       const parsed = JSON.parse(json);
       expect(typeof parsed.precio).toBe("number");
-      expect(parsed.precio).toBe(15000.5);
+      expect(parsed.precio).toBe(15001);
     });
 
-    it("should have normalized precio with 2 decimals or fewer", () => {
+    it("should have normalized precio as a whole integer", () => {
       const membresia = createMembresia({
         nombre: "Gold",
-        precio: 15000.999, // Will be rounded
+        precio: 15000.999, // Will be rounded to the nearest integer
         periodicidad: 30,
         estado: "ACTIVA",
       });
 
-      // Check decimal places after normalization
-      const priceStr = membresia.precio.toString();
-      const decimalIndex = priceStr.indexOf(".");
-      const decimals =
-        decimalIndex === -1 ? 0 : priceStr.length - decimalIndex - 1;
-      expect(decimals).toBeLessThanOrEqual(2);
+      expect(Number.isInteger(membresia.precio)).toBe(true);
+      expect(membresia.precio).toBe(15001);
     });
   });
 
@@ -521,5 +545,49 @@ describe("Membresia Domain", () => {
       const badJson = JSON.stringify(badCastSimulation);
       expect(badJson).toContain('"precio":"15000'); // THIS WOULD HAPPEN WITH BAD CAST
     });
+  });
+});
+
+describe("MembresiaRepository — precio rounding on persist", () => {
+  const prismaRecord = (precio: number) => ({
+    id: "m1",
+    nombre: "Gold",
+    precio,
+    periodicidad: 30,
+    descripcion: null,
+    estado: "ACTIVA" as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  it("persists precio as a whole integer on create (15000.5 → 15001)", async () => {
+    const { prisma } = await import("@/lib/db");
+    (prisma.membresia.create as jest.Mock).mockResolvedValue(prismaRecord(15001));
+
+    await new MembresiaRepository().create({
+      nombre: "Gold",
+      precio: 15000.5,
+      periodicidad: 30,
+      estado: "ACTIVA",
+    });
+
+    expect(prisma.membresia.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ precio: 15001 }),
+      })
+    );
+  });
+
+  it("persists precio as a whole integer on update (15000.5 → 15001)", async () => {
+    const { prisma } = await import("@/lib/db");
+    (prisma.membresia.update as jest.Mock).mockResolvedValue(prismaRecord(15001));
+
+    await new MembresiaRepository().update("m1", { precio: 15000.5 });
+
+    expect(prisma.membresia.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ precio: 15001 }),
+      })
+    );
   });
 });

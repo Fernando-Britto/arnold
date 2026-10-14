@@ -2,6 +2,7 @@
 
 import React from "react";
 import { SIN_ACCESO_TITLE } from "./sin-acceso";
+import { formatMoney as money } from "@/utils/formatting";
 
 /**
  * Row_Hoy · Caja (AC-004). Totals come from computeCajaHoy (Efectivo + Transferencia + Tarjeta). The "Cierre de
@@ -17,8 +18,6 @@ export interface CajaCardProps {
   /** true when the current role cannot open /cierres. */
   cierreDisabled?: boolean;
 }
-
-const money = (n: number) => `$${n.toFixed(2)}`;
 
 export function CajaCard({
   efectivo,

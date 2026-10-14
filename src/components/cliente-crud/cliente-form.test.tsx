@@ -41,9 +41,9 @@ describe("ClienteForm", () => {
       fireEvent.click(select);
 
       // Should see only ACTIVA memberships
-      expect(screen.getByText("Gold - $150.00")).toBeInTheDocument();
-      expect(screen.getByText("Silver - $99.99")).toBeInTheDocument();
-      expect(screen.queryByText("Bronze - $49.99")).not.toBeInTheDocument();
+      expect(screen.getByText("Gold - $ 150")).toBeInTheDocument();
+      expect(screen.getByText("Silver - $ 100")).toBeInTheDocument();
+      expect(screen.queryByText("Bronze - $ 50")).not.toBeInTheDocument();
     });
 
     it("should show disabled message when no active memberships exist", () => {

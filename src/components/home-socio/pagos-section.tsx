@@ -3,6 +3,7 @@
 import React from "react";
 import { CreditCard } from "lucide-react";
 import type { MembresiaSeccionDTO } from "@/api/home-socio-secciones";
+import { formatMoney } from "@/utils/formatting";
 
 /**
  * PagosSection (T-039, D-45): historial de pagos, cobertura/vencimiento y estado de pago
@@ -32,8 +33,6 @@ const METODO_LABEL: Record<string, string> = {
   TRANSFERENCIA: "Transferencia",
   TARJETA: "Tarjeta",
 };
-
-const montoFormatter = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" });
 
 function formatFecha(iso: string): string {
   return new Date(iso).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" });
@@ -101,7 +100,7 @@ export function PagosSection({ membresia }: PagosSectionProps) {
                       <td className="py-2 capitalize text-zinc-700">{formatPeriodo(p.periodo)}</td>
                       <td className="py-2 text-zinc-700">{METODO_LABEL[p.metodoPago] ?? p.metodoPago}</td>
                       <td className="py-2 text-right font-medium text-zinc-900">
-                        {montoFormatter.format(p.monto)}
+                        {formatMoney(p.monto)}
                       </td>
                     </tr>
                   ))}

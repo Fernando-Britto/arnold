@@ -64,10 +64,10 @@ describe("CierresPage", () => {
     render(<CierresPage />);
 
     await waitFor(() =>
-      expect(screen.getByTestId("cierre-total")).toHaveTextContent("$1200.00")
+      expect(screen.getByTestId("cierre-total")).toHaveTextContent("$ 1.200")
     );
-    expect(screen.getByText("$1000.00")).toBeInTheDocument();
-    expect(screen.getByText("$200.00")).toBeInTheDocument();
+    expect(screen.getByText("$ 1.000")).toBeInTheDocument();
+    expect(screen.getByText("$ 200")).toBeInTheDocument();
     expect(mockPreview).toHaveBeenCalled();
   });
 
@@ -87,7 +87,7 @@ describe("CierresPage", () => {
 
     render(<CierresPage />);
     await waitFor(() =>
-      expect(screen.getByTestId("cierre-total")).toHaveTextContent("$1200.00")
+      expect(screen.getByTestId("cierre-total")).toHaveTextContent("$ 1.200")
     );
 
     await userEvent.setup().click(screen.getByRole("button", { name: /confirmar cierre/i }));
@@ -95,9 +95,9 @@ describe("CierresPage", () => {
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
     // CC-2: el POST cierra exactamente el rango que se previsualizó.
     expect(mockCreate).toHaveBeenCalledWith({ desde: preview.desde, hasta: preview.hasta });
-    expect(mockNotify).toHaveBeenCalledWith("success", expect.stringContaining("1200.00"));
+    expect(mockNotify).toHaveBeenCalledWith("success", expect.stringContaining("$ 1.200"));
     await waitFor(() =>
-      expect(screen.getByTestId("cierre-total")).toHaveTextContent("$0.00")
+      expect(screen.getByTestId("cierre-total")).toHaveTextContent("$ 0")
     );
   });
 

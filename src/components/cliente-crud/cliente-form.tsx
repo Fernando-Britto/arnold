@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { validateCliente, type EstadoCuenta } from "@/domains/cliente/cliente";
+import { formatMoney } from "@/utils/formatting";
 
 /**
  * Format a date to DD/MM/YYYY safely without timezone issues
@@ -396,7 +397,7 @@ export function ClienteForm({
               <option value="">Seleccionar membresía...</option>
               {activeMembresias.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.nombre} - ${m.precio.toFixed(2)}
+                  {m.nombre} - {formatMoney(m.precio)}
                 </option>
               ))}
             </select>

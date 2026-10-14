@@ -57,7 +57,7 @@ describe("PagoForm", () => {
     expect(mockFetch).toHaveBeenCalledWith("30123456");
     expect(screen.getByText(/Gold/)).toBeInTheDocument();
     expect(screen.getByText("Pendiente")).toBeInTheDocument();
-    expect(screen.getByText("$30000.00")).toBeInTheDocument();
+    expect(screen.getByText("$ 30.000")).toBeInTheDocument();
   });
 
   it("muestra 'Socio no encontrado' cuando la búsqueda devuelve 404", async () => {
@@ -88,7 +88,7 @@ describe("PagoForm", () => {
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith({ socioId: "socio-1", metodoPago: "TRANSFERENCIA" })
     );
-    expect(mockNotify).toHaveBeenCalledWith("success", expect.stringContaining("$30000.00"));
+    expect(mockNotify).toHaveBeenCalledWith("success", expect.stringContaining("$ 30.000"));
     expect(mockNotify).toHaveBeenCalledWith("success", expect.stringContaining("2026-11"));
     await waitFor(() => expect(screen.queryByText("Ana García")).not.toBeInTheDocument());
     expect(screen.getByLabelText("DNI")).toHaveValue("");

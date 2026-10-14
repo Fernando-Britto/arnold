@@ -1,4 +1,4 @@
-import { formatDNI, formatPhone } from "./formatting";
+import { formatDNI, formatMoney, formatPhone } from "./formatting";
 import { validateDNI, validatePhone } from "./validation";
 
 describe("formatDNI", () => {
@@ -46,5 +46,42 @@ describe("formatPhone", () => {
 
   it("el resultado pasa validatePhone", () => {
     expect(validatePhone(formatPhone("3764123456"))).toBe(true);
+  });
+});
+
+describe("formatMoney", () => {
+  it("formatea enteros es-AR con prefijo '$ ' (sin centavos)", () => {
+    expect(formatMoney(15000)).toBe("$ 15.000");
+    expect(formatMoney(30000)).toBe("$ 30.000");
+  });
+
+  it("redondea al entero más cercano", () => {
+    expect(formatMoney(15000.6)).toBe("$ 15.001");
+    expect(formatMoney(15000.4)).toBe("$ 15.000");
+    expect(formatMoney(0.5)).toBe("$ 1");
+  });
+
+  it("nunca muestra centavos", () => {
+    const result = formatMoney(1234.56);
+    expect(result).toBe("$ 1.235");
+    expect(result).not.toContain(".00");
+    expect(result).not.toMatch(/,\d\d$/);
+  });
+
+  it("acepta string numérico", () => {
+    expect(formatMoney("30000")).toBe("$ 30.000");
+  });
+
+  it("acepta Decimal ({ toString })", () => {
+    expect(formatMoney({ toString: () => "15000.6" })).toBe("$ 15.001");
+    expect(formatMoney({ toString: () => "100" })).toBe("$ 100");
+  });
+
+  it("formatea el cero", () => {
+    expect(formatMoney(0)).toBe("$ 0");
+  });
+
+  it("usa separador de miles de es-AR", () => {
+    expect(formatMoney(1234567)).toBe("$ 1.234.567");
   });
 });

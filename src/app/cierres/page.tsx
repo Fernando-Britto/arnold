@@ -11,12 +11,10 @@ import {
 } from "@/api/cierres";
 import { handleApiError } from "@/utils/api-error";
 import { SectionPageLayout } from "@/components/layout/section-page-layout";
+import { formatMoney as money } from "@/utils/formatting";
 
 /** Roles que pueden cerrar la caja (D-42 / matriz de autorización). */
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RECEPCIONISTA"];
-
-/** Prisma serializa `Decimal` como string en JSON: aceptamos ambos. */
-const money = (n: number | string) => `$${Number(n).toFixed(2)}`;
 
 /**
  * Pantalla "Cierre de Caja" (T-040): muestra los totales del turno (previsualización

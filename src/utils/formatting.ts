@@ -17,3 +17,18 @@ export function formatPhone(phone: string): string {
   if (national.length !== 10) return phone;
   return `+54 9 ${national.slice(0, 4)} ${national.slice(4)}`;
 }
+
+const moneyFormatter = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
+
+/**
+ * Formatea un monto para mostrarlo: redondea al entero más cercano (en Argentina
+ * los precios no llevan centavos), agrupa con separadores es-AR y antepone "$ ".
+ * Acepta number, string numérico o un `Decimal` de Prisma (cualquier objeto con
+ * `toString()`), que se coercionan con `Number(...)`.
+ *
+ * Ejemplos: `15000` → "$ 15.000"; `15000.6` → "$ 15.001".
+ */
+export function formatMoney(value: number | string | { toString(): string }): string {
+  const rounded = Math.round(Number(value));
+  return `$ ${moneyFormatter.format(rounded)}`;
+}

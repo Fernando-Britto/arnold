@@ -380,7 +380,7 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       await waitForLoadingComplete();
 
       const table = screen.getByRole("table");
-      expect(within(table).getByText("Gold - $150.00")).toBeInTheDocument();
+      expect(within(table).getByText("Gold - $ 150")).toBeInTheDocument();
       expect(within(table).queryByText("gold-1")).not.toBeInTheDocument();
 
       (useAuth as jest.Mock).mockReturnValue({ user: null, isAuthenticated: false });
@@ -390,7 +390,7 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       expect(() => rerender(<ClientesPage />)).not.toThrow();
 
       await waitForLoadingComplete();
-      expect(within(await screen.findByRole("table")).getByText("Gold - $150.00")).toBeInTheDocument();
+      expect(within(await screen.findByRole("table")).getByText("Gold - $ 150")).toBeInTheDocument();
     });
   });
 });

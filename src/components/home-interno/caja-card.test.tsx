@@ -4,23 +4,23 @@ import userEvent from "@testing-library/user-event";
 import { CajaCard } from "./caja-card";
 
 describe("CajaCard (AC-004: Efectivo / Transferencia / Total)", () => {
-  it("matches the spec's data scenario: $150.00 / $200.00 / $350.00", () => {
+  it("matches the spec's data scenario: $ 150 / $ 200 / $ 350", () => {
     render(<CajaCard efectivo={150} transferencia={200} tarjeta={0} total={350} onCierreDeCaja={jest.fn()} />);
-    expect(screen.getByText("$150.00")).toBeInTheDocument();
-    expect(screen.getByText("$200.00")).toBeInTheDocument();
-    expect(screen.getByTestId("caja-total")).toHaveTextContent("$350.00");
+    expect(screen.getByText("$ 150")).toBeInTheDocument();
+    expect(screen.getByText("$ 200")).toBeInTheDocument();
+    expect(screen.getByTestId("caja-total")).toHaveTextContent("$ 350");
   });
 
   it("shows the Tarjeta line so the three parts add up to the total", () => {
     render(<CajaCard efectivo={50} transferencia={0} tarjeta={30} total={80} onCierreDeCaja={jest.fn()} />);
     expect(screen.getByText("Tarjeta")).toBeInTheDocument();
-    expect(screen.getByText("$30.00")).toBeInTheDocument();
-    expect(screen.getByTestId("caja-total")).toHaveTextContent("$80.00");
+    expect(screen.getByText("$ 30")).toBeInTheDocument();
+    expect(screen.getByTestId("caja-total")).toHaveTextContent("$ 80");
   });
 
   it("renders zeros when there are no payments today", () => {
     render(<CajaCard efectivo={0} transferencia={0} tarjeta={0} total={0} onCierreDeCaja={jest.fn()} />);
-    expect(screen.getByTestId("caja-total")).toHaveTextContent("$0.00");
+    expect(screen.getByTestId("caja-total")).toHaveTextContent("$ 0");
   });
 
   it("exposes the Cierre de Caja button", async () => {

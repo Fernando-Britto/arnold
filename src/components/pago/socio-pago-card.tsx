@@ -1,7 +1,7 @@
 import React from "react";
 import type { EstadoCuotaSocio } from "@/domains/pago/cuota";
 import type { SocioBusqueda } from "@/api/socios";
-import { formatDNI } from "@/utils/formatting";
+import { formatDNI, formatMoney } from "@/utils/formatting";
 
 const ESTADO_LABEL: Record<EstadoCuotaSocio, string> = {
   AL_DIA: "Al día",
@@ -41,14 +41,14 @@ export function SocioPagoCard({ socio }: { socio: SocioBusqueda }) {
         {socio.telefono && <Dato label="Teléfono">{socio.telefono}</Dato>}
         <Dato label="Membresía">
           {socio.membresia
-            ? `${socio.membresia.nombre} - $${socio.membresia.precio.toFixed(2)}`
+            ? `${socio.membresia.nombre} - ${formatMoney(socio.membresia.precio)}`
             : "Sin membresía"}
         </Dato>
         <Dato label="Estado de cuota">
           <span className={ESTADO_CLASS[socio.estadoCuota]}>{ESTADO_LABEL[socio.estadoCuota]}</span>
         </Dato>
         <Dato label="Monto a cobrar">
-          {socio.plan ? `$${socio.plan.monto.toFixed(2)}` : "—"}
+          {socio.plan ? formatMoney(socio.plan.monto) : "—"}
         </Dato>
         {socio.plan && <Dato label="Período">{socio.plan.periodos.join(", ")}</Dato>}
       </dl>

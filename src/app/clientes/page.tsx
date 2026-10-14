@@ -17,6 +17,7 @@ import { fetchMembresias, type MembresiaDropdown } from "@/api/membresias";
 import { Cliente } from "@/domains/cliente/cliente";
 import { CrudPageLayout } from "@/components/layout/crud-page-layout";
 import { CrudActions } from "@/components/layout/crud-actions";
+import { formatMoney } from "@/utils/formatting";
 
 export function ClientesPage() {
   const router = useRouter();
@@ -94,7 +95,7 @@ export function ClientesPage() {
   const membresiaLabels = useMemo(() => {
     const map: Record<string, string> = {};
     membresias.forEach((m) => {
-      map[m.id] = `${m.nombre} - $${m.precio.toFixed(2)}`;
+      map[m.id] = `${m.nombre} - ${formatMoney(m.precio)}`;
     });
     return map;
   }, [membresias]);

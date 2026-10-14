@@ -6,6 +6,7 @@ import { createPago } from "@/api/pagos";
 import { METODOS_PAGO, type MetodoPago } from "@/domains/pago/registrar-pago";
 import { useNotifications } from "@/contexts/notifications";
 import { handleApiError } from "@/utils/api-error";
+import { formatMoney } from "@/utils/formatting";
 import { SocioPagoCard } from "./socio-pago-card";
 
 const METODO_LABEL: Record<MetodoPago, string> = {
@@ -59,7 +60,7 @@ export function PagoForm() {
       const periodos = resultado.plan.periodos.join(", ");
       notify(
         "success",
-        `Pago registrado: $${resultado.plan.monto.toFixed(2)} · Período ${periodos}`
+        `Pago registrado: ${formatMoney(resultado.plan.monto)} · Período ${periodos}`
       );
       setSocio(null);
       setDni("");

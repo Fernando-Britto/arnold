@@ -60,7 +60,7 @@ export interface ValidationResult {
 /**
  * Validate membresia data
  * AC-001: nombre required, 3–50 chars
- * AC-002: precio required, > 0, up to 2 decimals
+ * AC-002: precio required, > 0; stored rounded to a whole integer (no cents)
  * AC-003: periodicidad required, positive integer
  * AC-004: descripcion optional, max 300 chars
  * 
@@ -158,11 +158,14 @@ export function createMembresia(data: {
 }
 
 /**
- * Normalize precio to 2 decimal places
- * Per AC-002: if more than 2 decimals, round or truncate on save
+ * Normalize precio to a whole peso amount: in Argentina prices have no cents,
+ * so the stored value is rounded to the nearest integer on save. To preserve
+ * the `precio > 0` invariant, a positive value that rounds to 0 is stored as 1.
  */
 function normalizePrecio(precio: number): number {
-  return Math.round(precio * 100) / 100;
+  const rounded = Math.round(precio);
+  if (rounded > 0) return rounded;
+  return precio > 0 ? 1 : rounded;
 }
 
 /**

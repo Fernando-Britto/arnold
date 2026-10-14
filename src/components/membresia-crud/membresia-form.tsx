@@ -59,14 +59,13 @@ export function MembresiaForm({
   ) => {
     const { name, value } = e.target;
 
-    // Normalize precio to 2 decimals on blur
+    // Round precio to a whole integer: in Argentina prices have no cents.
     if (name === "precio" && value) {
       const precioNum = parseFloat(value);
       if (!isNaN(precioNum)) {
-        const normalized = (Math.round(precioNum * 100) / 100).toFixed(2);
         setFormData((prev) => ({
           ...prev,
-          precio: normalized,
+          precio: String(Math.round(precioNum)),
         }));
       }
     }
@@ -75,8 +74,11 @@ export function MembresiaForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate form data
-    const numericPrecio = formData.precio ? parseFloat(formData.precio.toString()) : undefined;
+    // Validate form data. Precio is rounded to a whole integer first
+    // (ARS has no cents): e.g. 15000.5 → 15001, so the stored value stays > 0.
+    const numericPrecio = formData.precio
+      ? Math.round(parseFloat(formData.precio.toString()))
+      : undefined;
     const numericPeriodicidad = formData.periodicidad
       ? parseInt(formData.periodicidad.toString(), 10)
       : undefined;
@@ -151,7 +153,7 @@ export function MembresiaForm({
             value={formData.precio}
             onChange={handleChange}
             onBlur={handleBlur}
-            placeholder="Ej: 15000.00"
+            placeholder="Ej: 15000"
             step="0.01"
             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.precio ? "border-red-500 bg-red-50" : "border-gray-300"

@@ -12,6 +12,7 @@ import {
   type TableColumn,
 } from "@/components/ui/table";
 import { shortId } from "@/utils/short-id";
+import { formatMoney } from "@/utils/formatting";
 
 /** Columns exactly as the OpenPencil mockup (relative widths from the spec). */
 export const MEMBRESIA_COLUMNS: TableColumn[] = [
@@ -70,7 +71,7 @@ export function MembresiaListPanel({
               </TableCell>
               <TableCell>{membresia.nombre}</TableCell>
               <TableCell width={120} variant="secondary">
-                ${membresia.precio.toFixed(2)}
+                {formatMoney(membresia.precio)}
               </TableCell>
               <TableCell width={150} variant="secondary">
                 {membresia.periodicidad} días

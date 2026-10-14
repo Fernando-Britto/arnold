@@ -122,6 +122,7 @@ describe("PagosSection (T-039 §Mis pagos y membresía)", () => {
     expect(screen.getByTestId("estado-pago")).toHaveTextContent("Al día");
     expect(screen.getByText("Plan Musculación")).toBeInTheDocument();
     expect(screen.getByTestId("pago-historial")).toHaveTextContent("Efectivo");
+    expect(screen.getByTestId("pago-historial")).toHaveTextContent("$ 100");
     expect(screen.getByText(/octubre de 2026/i)).toBeInTheDocument();
   });
 

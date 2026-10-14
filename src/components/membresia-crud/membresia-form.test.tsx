@@ -62,6 +62,12 @@ describe("MembresiaForm", () => {
       expect(screen.getByText(/Nueva Membresía/i)).toBeInTheDocument();
     });
 
+    it("should hint an integer precio placeholder (no cents)", () => {
+      render(<MembresiaForm onSave={mockOnSave} onCancel={mockOnCancel} />);
+
+      expect(screen.getByLabelText(/Precio/i)).toHaveAttribute("placeholder", "Ej: 15000");
+    });
+
     it("should show 'Editar Membresía' title when editing", () => {
       render(
         <MembresiaForm
@@ -195,7 +201,7 @@ describe("MembresiaForm", () => {
         expect(mockOnSave).toHaveBeenCalledWith(
           expect.objectContaining({
             nombre: "Gold",
-            precio: 15000.5,
+            precio: 15001,
             periodicidad: 30,
             descripcion: "Premium plan",
             estado: "ACTIVA",
@@ -244,24 +250,19 @@ describe("MembresiaForm", () => {
   });
 
   describe("Precio formatting (AC-002)", () => {
-    it("should normalize precio display to 2 decimal places on blur", async () => {
+    it("should normalize precio display to a whole integer on blur", async () => {
       const user = userEvent.setup();
       render(<MembresiaForm onSave={mockOnSave} onCancel={mockOnCancel} />);
 
       const precioInput = screen.getByLabelText(/Precio/i) as HTMLInputElement;
-      await user.type(precioInput, "15000");
-      
+      await user.type(precioInput, "15000.6");
+
       // Trigger blur on precio field
       await user.click(screen.getByLabelText(/Nombre/i));
 
-      // After blur, precioInput should be normalized to 2 decimal places
-      // The input value should show something like "15000.00"
-      const value = precioInput.value;
-      const decimalIndex = value.indexOf(".");
-      const decimals = decimalIndex === -1 ? 0 : value.length - decimalIndex - 1;
-      
-      expect(value).toMatch(/^15000/); // Starts with 15000
-      expect(decimals).toBeLessThanOrEqual(2); // At most 2 decimals
+      // Prices in ARS have no cents: blur rounds to the nearest integer.
+      expect(precioInput.value).toBe("15001");
+      expect(precioInput.value).not.toContain(".");
     });
   });
 

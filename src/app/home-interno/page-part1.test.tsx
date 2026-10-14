@@ -65,9 +65,9 @@ describe("HomeInternoPage Part 1 (Row_Acciones, Row_Hoy, Row_Operacion)", () => 
     await loaded();
     expect(screen.getByText("Vencimiento · Marta G.")).toBeInTheDocument();
     expect(screen.getByText("87 / 100 miembros")).toBeInTheDocument();
-    expect(screen.getByTestId("caja-total")).toHaveTextContent("$350.00");
-    expect(screen.getByText("$150.00")).toBeInTheDocument();
-    expect(screen.getByText("$200.00")).toBeInTheDocument();
+    expect(screen.getByTestId("caja-total")).toHaveTextContent("$ 350");
+    expect(screen.getByText("$ 150")).toBeInTheDocument();
+    expect(screen.getByText("$ 200")).toBeInTheDocument();
   });
 
   it("Cierre de Caja navigates to /cierres for ADMINISTRADOR", async () => {

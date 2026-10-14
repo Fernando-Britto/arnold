@@ -39,7 +39,7 @@ describe("MembresiaListPanel", () => {
 
   it("muestra precio, periodicidad y estado como badge", () => {
     render(<MembresiaListPanel membresias={membresias} />);
-    expect(screen.getByText("$15000.00")).toBeInTheDocument();
+    expect(screen.getByText("$ 15.000")).toBeInTheDocument();
     expect(screen.getAllByText("30 días")).toHaveLength(2);
     expect(screen.getByText("Activa")).toBeInTheDocument();
     expect(screen.getByText("Inactiva")).toBeInTheDocument();
