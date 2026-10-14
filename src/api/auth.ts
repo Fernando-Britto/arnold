@@ -2,6 +2,7 @@ import { Rol } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { comparePassword, createJWT, hashPassword } from '@/lib/auth';
 import { recordAccessAttempt, type AuditContext } from '@/lib/audit';
+import { findRefreshTokenByValue, issueRefreshToken, revokeRefreshChain } from '@/lib/refresh-token';
 
 export { AUTH_COOKIE_NAME } from '@/lib/auth';
 export const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24h (spec)
@@ -24,8 +25,12 @@ const ERRORS = {
 
 type ErrorCode = keyof typeof ERRORS;
 export type LoginResult =
-  | { status: 200; token: string; body: { success: true; role: Rol } }
+  | { status: 200; token: string; refreshToken?: string; body: { success: true; role: Rol } }
   | { status: 400 | 401 | 403; body: { code: ErrorCode; message: string; recoverable: boolean } };
+
+export type RefreshResult =
+  | { status: 204; accessToken: string; refreshToken: string }
+  | { status: 401; body: { code: 'AUTH_INVALID'; message: string; recoverable: boolean } };
 
 function fail(code: ErrorCode): LoginResult {
   const { status, message, recoverable } = ERRORS[code];
@@ -67,6 +72,52 @@ export async function handleLoginRequest(body: unknown, context: AuditContext = 
   const token = createJWT(usuario.id, SESSION_TTL_SECONDS, {
     rol: usuario.rol, email: usuario.email, nombre: usuario.nombre,
   });
+  // P-20: emisión del refresh token. Es aditivo: si falla, el login (access token) igual prospera.
+  let refreshToken: string | undefined;
+  try {
+    refreshToken = (await issueRefreshToken(usuario.id)).token;
+  } catch (error) {
+    console.error('[AUTH] no se pudo emitir el refresh token:', error);
+  }
   await recordAccessAttempt({ usuarioId: usuario.id, accion: 'LOGIN', resultado: 'ALLOW', context });
-  return { status: 200, token, body: { success: true, role: usuario.rol } };
+  return { status: 200, token, refreshToken, body: { success: true, role: usuario.rol } };
+}
+
+const REFRESH_ERROR = {
+  status: 401 as const,
+  body: { code: 'AUTH_INVALID' as const, message: 'Sesión de refresco inválida. Iniciá sesión de nuevo.', recoverable: true },
+};
+
+/**
+ * POST /api/auth/refresh (P-20). Verifica el refresh token contra la base y, si es válido, rota:
+ * revoca el token usado, emite uno nuevo y renueva el access token. Si el token presentado ya
+ * estaba revocado, asume robo y revoca toda la cadena vigente del usuario. 204 en éxito, 401 en
+ * cualquier fallo (token ausente/expirado/revocado, usuario inexistente, deshabilitado o borrado).
+ */
+export async function handleRefreshRequest(refreshToken: string | undefined | null): Promise<RefreshResult> {
+  const now = new Date();
+  if (!refreshToken || !refreshToken.trim()) return REFRESH_ERROR;
+
+  const stored = await findRefreshTokenByValue(refreshToken, now);
+  if (!stored) return REFRESH_ERROR;
+
+  // Reuso de un token ya rotado o revocado: se corta toda la cadena del usuario.
+  if (stored.revokedAt) {
+    await revokeRefreshChain(stored.usuarioId, now);
+    return REFRESH_ERROR;
+  }
+
+  // Mismas validaciones que el proxy: el usuario debe existir y estar activo.
+  const usuario = await prisma.usuario.findUnique({ where: { id: stored.usuarioId } });
+  if (!usuario || usuario.estado !== 'ACTIVO' || usuario.deletedAt) return REFRESH_ERROR;
+
+  const issued = await issueRefreshToken(usuario.id, now);
+  await prisma.refreshToken.update({
+    where: { id: stored.id },
+    data: { revokedAt: now, replacedByTokenId: issued.id },
+  });
+  const accessToken = createJWT(usuario.id, SESSION_TTL_SECONDS, {
+    rol: usuario.rol, email: usuario.email, nombre: usuario.nombre,
+  });
+  return { status: 204, accessToken, refreshToken: issued.token };
 }

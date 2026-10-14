@@ -33,6 +33,9 @@ model Usuario {
   registrosAuditoria RegistroDeAuditoria[]
   auditoriaAcceso    AuditoriaAcceso[]
 
+  // Sesiones extendidas (P-20)
+  refreshTokens RefreshToken[]
+
   @@index([email])
   @@index([rol])
 }
@@ -610,4 +613,29 @@ model TokenRevocation {
   revocadoEn DateTime @default(now())
 
   @@index([expiraEn])
+}
+
+// ============================================================================
+// REFRESH TOKENS (P-20)
+// ============================================================================
+
+/// Token de refresco opaco para extender la sesión sin volver a pedir credenciales.
+/// Se guarda el hash bcrypt, nunca el token en claro (como `Dispositivo.tokenHash`).
+/// Rotación: cada uso revoca el token presentado (`revokedAt`) y deja un puntero al nuevo
+/// (`replacedByTokenId`). Si se presenta un token ya revocado, se asume robo y se revoca
+/// toda la cadena vigente del usuario.
+model RefreshToken {
+  id                String    @id @default(cuid())
+  usuario           Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId         String
+  /// bcrypt del token opaco. Nunca se guarda ni se loguea el token en claro.
+  tokenHash         String
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  /// id del token que reemplazó a este tras la rotación (para reconstruir la cadena).
+  replacedByTokenId String?
+  createdAt         DateTime  @default(now())
+
+  @@index([usuarioId])
+  @@index([expiresAt])
 }
