@@ -397,7 +397,9 @@ describe("RutinaForm Component", () => {
       );
 
       const longName = "a".repeat(101);
-      await user.type(screen.getByLabelText(/Nombre/i), longName);
+      fireEvent.change(screen.getByLabelText(/Nombre/i), {
+        target: { value: longName },
+      });
       await user.selectOptions(
         screen.getByLabelText(/Objetivo Principal/i),
         "Hipertrofia"
@@ -431,7 +433,11 @@ describe("RutinaForm Component", () => {
         "Hipertrofia"
       );
       await user.click(screen.getByLabelText("Básico"));
-      await user.type(screen.getByLabelText(/Descripción/i), longDesc);
+      // Set the long value in one shot: typing 501 chars takes seconds and can
+      // time out under parallel load (P-19). Validation still runs on submit.
+      fireEvent.change(screen.getByLabelText(/Descripción/i), {
+        target: { value: longDesc },
+      });
       await user.click(screen.getByRole("button", { name: /Guardar/i }));
 
       await waitFor(() => {
@@ -439,7 +445,7 @@ describe("RutinaForm Component", () => {
       });
 
       expect(onSave).not.toHaveBeenCalled();
-    }, 10000);
+    });
 
     it("should show error for frecuenciaSemanal outside range 1-7", async () => {
       const onSave = jest.fn();

@@ -361,6 +361,26 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
     });
   });
 
+  describe("H-8 — ID de la rutina creada", () => {
+    it("muestra el ID read-only y deja la rutina creada seleccionada tras el alta", async () => {
+      const user = userEvent.setup();
+      mockRutinasApi.createRutina.mockResolvedValue({
+        ...mockRutina,
+        id: "rutina-nueva",
+      });
+      render(<RutinasPage />);
+      await waitForLoadingComplete();
+
+      await user.type(screen.getByLabelText(/Nombre/i), "Nueva Rutina");
+      await user.selectOptions(screen.getByLabelText(/Objetivo Principal/i), "Fuerza");
+      await user.click(screen.getByRole("radio", { name: /Básico/i }));
+      await user.click(screen.getByRole("button", { name: /Guardar/i }));
+
+      const idField = await screen.findByDisplayValue("rutina-nueva");
+      expect(idField).toBeDisabled();
+    });
+  });
+
   describe("API error handling", () => {
     it("should show error when list fails to load", async () => {
       mockRutinasApi.fetchRutinas.mockRejectedValue(new TypeError("Failed to fetch"));

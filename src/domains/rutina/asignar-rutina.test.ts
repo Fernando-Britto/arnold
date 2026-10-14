@@ -10,6 +10,7 @@ import {
   listarRutinasDeSocio,
   EntidadNoEncontradaError,
 } from "./asignar-rutina";
+import { mapErrorToResponse } from "@/lib/route-error-mapper";
 
 jest.mock("@/lib/db", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,7 +33,10 @@ async function mocks() {
 /** Socio y rutina existentes, más la asignación que devuelve `create`. */
 async function armarExistentes(creada: unknown = { id: "asig-1" }) {
   const prisma = await mocks();
-  (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio-1" });
+  (prisma.socio.findUnique as jest.Mock).mockResolvedValue({
+    id: "socio-1",
+    usuario: { estado: "ACTIVO", deletedAt: null },
+  });
   (prisma.rutina.findUnique as jest.Mock).mockResolvedValue({ id: "rutina-1" });
   (prisma.rutinaAsignada.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
   (prisma.rutinaAsignada.create as jest.Mock).mockResolvedValue(creada);
@@ -87,7 +91,10 @@ describe("asignarRutina — RN-04 (una sola rutina activa por socio)", () => {
 
   it("valida que la rutina exista antes de abrir la transacción", async () => {
     const prisma = await mocks();
-    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio-1" });
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({
+      id: "socio-1",
+      usuario: { estado: "ACTIVO", deletedAt: null },
+    });
     (prisma.rutina.findUnique as jest.Mock).mockResolvedValue(null);
 
     await expect(
@@ -97,6 +104,100 @@ describe("asignarRutina — RN-04 (una sola rutina activa por socio)", () => {
       asignarRutina({ socioId: "socio-1", rutinaId: "nope" })
     ).rejects.toThrow(/Rutina no encontrada/);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("asignarRutina — NF-5 (el socio debe estar ACTIVO)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("consulta el Usuario del socio para poder validar su estado", async () => {
+    const prisma = await armarExistentes();
+
+    await asignarRutina({ socioId: "socio-1", rutinaId: "rutina-1" });
+
+    expect(prisma.socio.findUnique).toHaveBeenCalledWith({
+      where: { id: "socio-1" },
+      include: { usuario: { select: { estado: true, deletedAt: true } } },
+    });
+  });
+
+  it("rechaza asignar a un socio cuyo Usuario no está ACTIVO (no abre transacción)", async () => {
+    const prisma = await mocks();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({
+      id: "socio-1",
+      usuario: { estado: "INACTIVO", deletedAt: null },
+    });
+    (prisma.rutina.findUnique as jest.Mock).mockResolvedValue({ id: "rutina-1" });
+
+    await expect(
+      asignarRutina({ socioId: "socio-1", rutinaId: "rutina-1" })
+    ).rejects.toThrow(/El socio debe estar activo para asignar rutina/);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rechaza asignar a un socio con Usuario soft-deleted (deletedAt)", async () => {
+    const prisma = await mocks();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({
+      id: "socio-1",
+      usuario: { estado: "ACTIVO", deletedAt: new Date() },
+    });
+    (prisma.rutina.findUnique as jest.Mock).mockResolvedValue({ id: "rutina-1" });
+
+    await expect(
+      asignarRutina({ socioId: "socio-1", rutinaId: "rutina-1" })
+    ).rejects.toThrow(/El socio debe estar activo para asignar rutina/);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("el rechazo se mapea a 400, no a un 500", async () => {
+    const prisma = await mocks();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({
+      id: "socio-1",
+      usuario: { estado: "BLOQUEADO", deletedAt: null },
+    });
+    (prisma.rutina.findUnique as jest.Mock).mockResolvedValue({ id: "rutina-1" });
+
+    const error = await asignarRutina({ socioId: "socio-1", rutinaId: "rutina-1" }).catch(
+      (e) => e
+    );
+
+    const mapped = mapErrorToResponse(error, { resourceName: "Socio" });
+    expect(mapped.status).toBe(400);
+    expect(mapped.message).toMatch(/El socio debe estar activo para asignar rutina/);
+  });
+});
+
+describe("asignarRutina — NF-12 (RN-04 bajo concurrencia con Serializable)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("abre la transacción con isolationLevel Serializable", async () => {
+    const prisma = await armarExistentes();
+
+    await asignarRutina({ socioId: "socio-1", rutinaId: "rutina-1" });
+
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
+    });
+  });
+
+  it("traduce un fallo de serialización (P2034) a un conflicto 409, no a un 500", async () => {
+    const prisma = await mocks();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({
+      id: "socio-1",
+      usuario: { estado: "ACTIVO", deletedAt: null },
+    });
+    (prisma.rutina.findUnique as jest.Mock).mockResolvedValue({ id: "rutina-1" });
+    (prisma.$transaction as jest.Mock).mockRejectedValueOnce(
+      Object.assign(new Error("write conflict"), { code: "P2034" })
+    );
+
+    const error = await asignarRutina({ socioId: "socio-1", rutinaId: "rutina-1" }).catch(
+      (e) => e
+    );
+
+    const mapped = mapErrorToResponse(error, { resourceName: "Socio" });
+    expect(mapped.status).toBe(409);
+    expect(mapped.code).toBe("ASIGNACION_CONFLICTO");
   });
 });
 

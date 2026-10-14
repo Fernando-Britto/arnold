@@ -109,6 +109,22 @@ export function mapErrorToResponse(
         status: 409,
       };
     }
+    // Ejercicio repetido en la misma rutina (unique [rutinaId, ejercicioId], NF-11).
+    if (code === "DUPLICATE_EXERCISE") {
+      return {
+        code: "DUPLICATE_EXERCISE",
+        message: "El ejercicio ya está en la rutina",
+        status: 409,
+      };
+    }
+    // Dos asignaciones concurrentes chocaron bajo Serializable en RN-04 (NF-12).
+    if (code === "ASIGNACION_CONFLICTO") {
+      return {
+        code: "ASIGNACION_CONFLICTO",
+        message: "Otra asignación de rutina se procesó al mismo tiempo; vuelva a intentarlo",
+        status: 409,
+      };
+    }
     if (code === "NOT_FOUND") {
       return {
         code: "NOT_FOUND",
@@ -120,7 +136,7 @@ export function mapErrorToResponse(
 
   // Extract specific error codes from message prefix (VALIDATION_XXX, MEMBERSHIP_XXX, NOT_FOUND, etc.)
   const validationCodeMatch = message.match(
-    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_REFERENCES|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|NOT_FOUND):\s*(.+)$/
+    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_REFERENCES|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|DUPLICATE_EXERCISE|ASIGNACION_CONFLICTO|NOT_FOUND):\s*(.+)$/
   );
   if (validationCodeMatch) {
     const [, errorCode, errorMessage] = validationCodeMatch;
@@ -129,6 +145,8 @@ export function mapErrorToResponse(
     if (errorCode === "DELETE_BLOCKED_REFERENCES") status = 409;
     if (errorCode === "CASH_CLOSE_CONFLICT") status = 409;
     if (errorCode === "PAYMENT_ALREADY_REGISTERED") status = 409;
+    if (errorCode === "DUPLICATE_EXERCISE") status = 409;
+    if (errorCode === "ASIGNACION_CONFLICTO") status = 409;
     if (errorCode === "NOT_FOUND") status = 404;
     
     // For NOT_FOUND, use localized resourceName message instead of generic message

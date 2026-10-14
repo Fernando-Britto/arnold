@@ -46,6 +46,22 @@ function normalizarDescanso(value: unknown): number {
 }
 
 /**
+ * NF-11: la unique `[rutinaId, ejercicioId]` impide el mismo ejercicio dos veces en
+ * una rutina. `createMany` no deduplica: si Prisma devuelve `P2002`, se traduce a un
+ * conflicto de dominio (`DUPLICATE_EXERCISE`, 409) en lugar de dejar que explote como 500.
+ */
+function throwDuplicateExercise(): never {
+  throw Object.assign(
+    new Error("DUPLICATE_EXERCISE: El ejercicio ya está en la rutina"),
+    { code: "DUPLICATE_EXERCISE" }
+  );
+}
+
+function esErrorP2002(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === "P2002";
+}
+
+/**
  * Handle POST /api/rutinas
  * Creates a new rutina with optional EjercicioEnRutina rows
  */
@@ -71,16 +87,21 @@ export async function handleRutinaCreate(
 
     // Persist ejercicios if provided
     if (data.ejercicios && data.ejercicios.length > 0) {
-      await tx.ejercicioEnRutina.createMany({
-        data: data.ejercicios.map((ej, index) => ({
-          rutinaId: rutina.id,
-          ejercicioId: ej.ejercicioId,
-          series: Number(ej.series) || 3,
-          repeticiones: Number(ej.repeticiones) || 10,
-          descanso: normalizarDescanso(ej.descanso),
-          orden: typeof ej.orden === "number" ? ej.orden : index,
-        })),
-      });
+      try {
+        await tx.ejercicioEnRutina.createMany({
+          data: data.ejercicios.map((ej, index) => ({
+            rutinaId: rutina.id,
+            ejercicioId: ej.ejercicioId,
+            series: Number(ej.series) || 3,
+            repeticiones: Number(ej.repeticiones) || 10,
+            descanso: normalizarDescanso(ej.descanso),
+            orden: typeof ej.orden === "number" ? ej.orden : index,
+          })),
+        });
+      } catch (error) {
+        if (esErrorP2002(error)) throwDuplicateExercise();
+        throw error;
+      }
     }
 
     return rutina;
@@ -166,16 +187,21 @@ export async function handleRutinaUpdate(
 
       // Create new ejercicios if provided
       if (data.ejercicios.length > 0) {
-        await tx.ejercicioEnRutina.createMany({
-          data: data.ejercicios.map((ej, index) => ({
-            rutinaId: id,
-            ejercicioId: ej.ejercicioId,
-            series: Number(ej.series) || 3,
-            repeticiones: Number(ej.repeticiones) || 10,
-            descanso: normalizarDescanso(ej.descanso),
-            orden: typeof ej.orden === "number" ? ej.orden : index,
-          })),
-        });
+        try {
+          await tx.ejercicioEnRutina.createMany({
+            data: data.ejercicios.map((ej, index) => ({
+              rutinaId: id,
+              ejercicioId: ej.ejercicioId,
+              series: Number(ej.series) || 3,
+              repeticiones: Number(ej.repeticiones) || 10,
+              descanso: normalizarDescanso(ej.descanso),
+              orden: typeof ej.orden === "number" ? ej.orden : index,
+            })),
+          });
+        } catch (error) {
+          if (esErrorP2002(error)) throwDuplicateExercise();
+          throw error;
+        }
       }
     }
 
@@ -213,8 +239,37 @@ export async function handleRutinaDelete(id: string): Promise<void> {
     );
   }
 
+  // NF-6: una asignación INACTIVA puede estar referenciada por SesionDeEntrenamiento
+  // (FK `onDelete: Restrict`). Al borrar la rutina, su asignación cascadea y el FK
+  // revienta con P2003 → 500. Se bloquea explícitamente antes de tocar la DB.
+  const historicalAssignments = await prisma.rutinaAsignada.count({
+    where: {
+      rutinaId: id,
+      sesiones: { some: {} },
+    },
+  });
+
+  if (historicalAssignments > 0) {
+    throw new Error(
+      `DELETE_BLOCKED_ASSIGNED: No se puede eliminar la rutina porque ${historicalAssignments} asignación(es) tienen sesiones de entrenamiento históricas`
+    );
+  }
+
   // Delete rutina (cascade deletes ejercicios)
-  await prisma.rutina.delete({ where: { id } });
+  try {
+    await prisma.rutina.delete({ where: { id } });
+  } catch (error) {
+    // Red de seguridad ante una carrera: si igual se llega al FK, nunca un 500 crudo.
+    if ((error as { code?: unknown } | null)?.code === "P2003") {
+      throw Object.assign(
+        new Error(
+          "DELETE_BLOCKED_ASSIGNED: No se puede eliminar la rutina porque tiene asignaciones con sesiones de entrenamiento históricas"
+        ),
+        { code: "DELETE_BLOCKED_ASSIGNED" }
+      );
+    }
+    throw error;
+  }
 }
 
 /**

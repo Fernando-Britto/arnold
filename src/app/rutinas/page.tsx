@@ -118,6 +118,10 @@ export function RutinasPage() {
           prev.map((r) => (r.id === formData.id ? savedRutina : r))
         );
         notify("success", "Rutina actualizada");
+
+        // Al terminar una edición, volver al estado de alta.
+        setEditing(null);
+        setSelectedId(null);
       } else {
         // Create new
         const created = await createRutina({
@@ -138,11 +142,12 @@ export function RutinasPage() {
         // Add to list with accurate exercises count
         setRutinas((prev) => [...prev, savedRutina]);
         notify("success", "Rutina creada");
-      }
 
-      // Reset form and selection
-      setEditing(null);
-      setSelectedId(null);
+        // H-8 / AC: surface the new rutina's id. Keeping it selected loads it back
+        // into the form, where the ID field is read-only and now populated.
+        setSelectedId(created.id);
+        setEditing({ ...created, ejercicios: formData.ejercicios ?? [] });
+      }
     } catch (err) {
       setError(handleApiError(err, "No se pudo guardar la rutina."));
     } finally {

@@ -116,6 +116,7 @@ Note: Per sdd-design.md §8, the per-Socio *assignment* flow itself (linking a R
 - **AC-005**: Deleting a Rutina is blocked while RN-04 active-assignment references exist.
 - **AC-006**: Deleting an EjercicioEnRutina row removes only the association, never the underlying Ejercicio.
 - **AC-007**: ListPanel's Ejercicios column count always matches the persisted EjercicioEnRutina row count for that Rutina.
+- **AC-008**: After a successful create, the new Rutina's ID is shown read-only in the form and the created Rutina stays selected.
 
 ## Edge Cases
 

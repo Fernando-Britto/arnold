@@ -143,7 +143,9 @@ export async function handleRutinaDeleteRequest(id: string): Promise<DeleteSucce
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
 
-    // Handle cascade delete block
+    // Handle cascade delete block (active assignment or historical sessions).
+    // DTO sin cambios: el código de wire sigue siendo DELETE_BLOCKED, mientras que
+    // el prefijo de dominio es DELETE_BLOCKED_ASSIGNED (mapper compartido).
     if (message.includes("DELETE_BLOCKED_ASSIGNED")) {
       const match = message.match(/DELETE_BLOCKED_ASSIGNED: (.+)/);
       return {

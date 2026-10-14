@@ -177,6 +177,59 @@ describe("mapErrorToResponse — pago duplicado (PAYMENT_ALREADY_REGISTERED)", (
   });
 });
 
+describe("mapErrorToResponse — ejercicio duplicado en rutina (DUPLICATE_EXERCISE)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el prefijo DUPLICATE_EXERCISE a 409 con el mensaje del dominio", () => {
+    const res = mapErrorToResponse(
+      new Error("DUPLICATE_EXERCISE: El ejercicio ya está en la rutina")
+    );
+
+    expect(res).toEqual({
+      code: "DUPLICATE_EXERCISE",
+      message: "El ejercicio ya está en la rutina",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea un código explícito DUPLICATE_EXERCISE a 409", () => {
+    const conCodigo = Object.assign(new Error("ejercicio duplicado"), {
+      code: "DUPLICATE_EXERCISE",
+    });
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res.status).toBe(409);
+    expect(res.code).toBe("DUPLICATE_EXERCISE");
+  });
+});
+
+describe("mapErrorToResponse — conflicto de asignación concurrente (ASIGNACION_CONFLICTO)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea un código explícito ASIGNACION_CONFLICTO a 409", () => {
+    const conCodigo = Object.assign(
+      new Error("ASIGNACION_CONFLICTO: Otra asignación se procesó al mismo tiempo"),
+      { code: "ASIGNACION_CONFLICTO" }
+    );
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res.status).toBe(409);
+    expect(res.code).toBe("ASIGNACION_CONFLICTO");
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
 describe("mapErrorToResponse — borrado bloqueado por referencias (DELETE_BLOCKED_REFERENCES)", () => {
   let spy: jest.SpyInstance;
   beforeEach(() => {
