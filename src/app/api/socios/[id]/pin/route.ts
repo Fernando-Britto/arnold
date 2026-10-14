@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleSetPin } from "@/api/acceso";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 
 /** Roles que pueden definir el PIN de un socio (D-47): Administrador y Recepcionista. */
@@ -60,5 +61,15 @@ export async function POST(
   }
 
   const { status, body: responseBody } = await handleSetPinRequest(socioId, body);
+
+  // P-33: la reemisión del PIN queda auditada. Sólo en el éxito; nunca se loguea el valor del PIN.
+  if (status === 200) {
+    await registrarOperacion({
+      tipoOperacion: "MODIFICACION",
+      responsableId: user.id,
+      detalles: { socioId, campo: "pin" },
+    });
+  }
+
   return NextResponse.json(responseBody, { status });
 }

@@ -298,6 +298,63 @@ describe("handleCheckIn — decisión y registros", () => {
   });
 });
 
+describe("handleCheckIn — ventana de anti-passback configurable (P-33)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (comparePassword as jest.Mock).mockResolvedValue(true);
+  });
+
+  it("usa la ventana configurada en vez del default de 60 minutos", async () => {
+    const prisma = await armarSocio();
+    (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue({
+      ...CONFIG,
+      antiPassbackMinutos: 5,
+    });
+
+    await handleCheckIn({ dni: "30123456", pin: "1234", ahora: AHORA });
+
+    const desde = new Date(AHORA.getTime() - 5 * 60 * 1000);
+    expect(prisma.asistencia.findFirst).toHaveBeenCalledWith({
+      where: { socioId: "socio-1", estado: "PERMITIDO", fechaHora: { gte: desde } },
+      orderBy: { fechaHora: "desc" },
+    });
+  });
+
+  it("cae al default de 60 minutos cuando no hay configuración", async () => {
+    const prisma = await armarSocio();
+    (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue(null);
+
+    await handleCheckIn({ dni: "30123456", pin: "1234", ahora: AHORA });
+
+    const desde = new Date(AHORA.getTime() - VENTANA_ANTI_PASSBACK_MINUTOS * 60 * 1000);
+    expect(prisma.asistencia.findFirst).toHaveBeenCalledWith({
+      where: { socioId: "socio-1", estado: "PERMITIDO", fechaHora: { gte: desde } },
+      orderBy: { fechaHora: "desc" },
+    });
+  });
+
+  it.each([
+    ["cero", 0],
+    ["negativo", -15],
+    ["no entero", 7.5],
+    ["NaN", Number.NaN],
+  ])("cae al default cuando antiPassbackMinutos es inválido (%s)", async (_caso, valor) => {
+    const prisma = await armarSocio();
+    (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue({
+      ...CONFIG,
+      antiPassbackMinutos: valor,
+    });
+
+    await handleCheckIn({ dni: "30123456", pin: "1234", ahora: AHORA });
+
+    const desde = new Date(AHORA.getTime() - VENTANA_ANTI_PASSBACK_MINUTOS * 60 * 1000);
+    expect(prisma.asistencia.findFirst).toHaveBeenCalledWith({
+      where: { socioId: "socio-1", estado: "PERMITIDO", fechaHora: { gte: desde } },
+      orderBy: { fechaHora: "desc" },
+    });
+  });
+});
+
 describe("handleCheckIn — rate limit sólo cuenta intentos fallidos", () => {
   beforeEach(async () => {
     jest.clearAllMocks();

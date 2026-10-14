@@ -28,7 +28,7 @@ import { isRateLimited, recordRateLimitHit } from "@/lib/rateLimit";
 import { toGymWallClock } from "@/lib/gym-time";
 import { throwIfNotOk } from "@/utils/api-error";
 
-/** Ventana de anti-passback (P-33, valor aún abierto): no se permite un segundo ingreso dentro de ella. */
+/** Ventana de anti-passback por defecto (P-33): configurable vía `ConfiguracionDelSistema.antiPassbackMinutos`. */
 export const VENTANA_ANTI_PASSBACK_MINUTOS = 60;
 /** Intentos de check-in por IP y minuto (reutiliza `rateLimit`, como el login). */
 export const LIMITE_INTENTOS_CHECK_IN_POR_MINUTO = 20;
@@ -47,7 +47,11 @@ interface PrismaLike {
   };
   cuota: { findFirst(args: unknown): Promise<{ fechaVencimiento: Date } | null> };
   configuracionDelSistema: {
-    findFirst(): Promise<{ diaLimitePago: number; periodoGracia: number } | null>;
+    findFirst(): Promise<{
+      diaLimitePago: number;
+      periodoGracia: number;
+      antiPassbackMinutos: number;
+    } | null>;
   };
   asistencia: {
     findFirst(args: unknown): Promise<unknown>;
@@ -67,6 +71,19 @@ export function estadoCuentaDe(estado: PrismaEstadoCuota): EstadoCuenta {
   if (estado === "BLOQUEADA") return "BLOQUEADA";
   if (estado === "AL_DIA") return "AL_DIA";
   return "INACTIVA";
+}
+
+/**
+ * Ventana efectiva de anti-passback (P-33): usa la configurada por el sistema si es un entero
+ * positivo; si falta o es inválida (cero, negativa o no entera), cae al default del código.
+ */
+export function ventanaAntiPassbackMinutos(
+  config: { antiPassbackMinutos?: number | null } | null | undefined
+): number {
+  const configurado = config?.antiPassbackMinutos;
+  return typeof configurado === "number" && Number.isInteger(configurado) && configurado > 0
+    ? configurado
+    : VENTANA_ANTI_PASSBACK_MINUTOS;
 }
 
 /**
@@ -184,7 +201,9 @@ export async function handleCheckIn(input: CheckInInput): Promise<CheckInResulta
   const ultimoPeriodoCubierto = ultimaCuota ? periodoDe(ultimaCuota.fechaVencimiento) : null;
   const estadoCuota = estadoCuotaSocio({ ultimoPeriodoCubierto, hoy: ahora, diaLimite, gracia });
 
-  const desde = new Date(ahora.getTime() - VENTANA_ANTI_PASSBACK_MINUTOS * 60 * 1000);
+  const desde = new Date(
+    ahora.getTime() - ventanaAntiPassbackMinutos(config) * 60 * 1000
+  );
   const ingresoReciente = await prisma.asistencia.findFirst({
     where: { socioId: socio.id, estado: "PERMITIDO", fechaHora: { gte: desde } },
     orderBy: { fechaHora: "desc" },

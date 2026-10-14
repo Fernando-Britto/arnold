@@ -577,6 +577,8 @@ model ConfiguracionDelSistema {
   diaLimitePago         Int      @default(10)
   /// Último día del mes en que un alta paga prorrateo; después paga cuota completa (D-40)
   diaCorteAltaTardia    Int      @default(20)
+  /// Ventana de anti-passback en minutos: no se permite un segundo ingreso dentro de ella (P-33)
+  antiPassbackMinutos   Int      @default(60)
   updatedAt             DateTime @updatedAt
 }
 

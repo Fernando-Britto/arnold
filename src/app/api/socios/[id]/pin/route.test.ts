@@ -12,13 +12,16 @@ jest.mock("@/lib/auth", () => ({
   ...jest.requireActual("@/lib/auth"),
   extractUserFromRequest: jest.fn(),
 }));
+jest.mock("@/lib/audit", () => ({ registrarOperacion: jest.fn() }));
 
 import { handleSetPin } from "@/api/acceso";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import { POST, handleSetPinRequest } from "./route";
 
 const mockSetPin = handleSetPin as jest.MockedFunction<typeof handleSetPin>;
 const mockUser = extractUserFromRequest as jest.Mock;
+const mockAudit = registrarOperacion as jest.Mock;
 
 const params = { params: Promise.resolve({ id: "socio-1" }) };
 const postReq = (body: unknown) =>
@@ -103,5 +106,52 @@ describe("POST /api/socios/{id}/pin", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true });
     expect(mockSetPin).toHaveBeenCalledWith("socio-1", "4821");
+  });
+});
+
+describe("POST /api/socios/{id}/pin — auditoría del re-set (P-33)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("registra MODIFICACION con el responsable y el socio, sin filtrar el PIN", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+    mockSetPin.mockResolvedValueOnce({ success: true });
+
+    const res = await POST(postReq({ pin: "4821" }), params);
+
+    expect(res.status).toBe(200);
+    expect(mockAudit).toHaveBeenCalledWith({
+      tipoOperacion: "MODIFICACION",
+      responsableId: "u-rec",
+      detalles: { socioId: "socio-1", campo: "pin" },
+    });
+    expect(JSON.stringify(mockAudit.mock.calls)).not.toContain("4821");
+  });
+
+  it("no registra auditoría si el set de PIN falla", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+    mockSetPin.mockRejectedValueOnce(new Error("VALIDATION_ERROR: El PIN debe tener exactamente 4 dígitos"));
+
+    const res = await POST(postReq({ pin: "12" }), params);
+
+    expect(res.status).toBe(400);
+    expect(mockAudit).not.toHaveBeenCalled();
+  });
+
+  it("no registra auditoría sin sesión", async () => {
+    mockUser.mockReturnValue(null);
+
+    const res = await POST(postReq({ pin: "1234" }), params);
+
+    expect(res.status).toBe(401);
+    expect(mockAudit).not.toHaveBeenCalled();
+  });
+
+  it("no registra auditoría con un rol no autorizado", async () => {
+    mockUser.mockReturnValue({ id: "u1", rol: "INSTRUCTOR" });
+
+    const res = await POST(postReq({ pin: "1234" }), params);
+
+    expect(res.status).toBe(403);
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 });
