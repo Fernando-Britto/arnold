@@ -263,18 +263,16 @@ export async function handleCheckIn(input: CheckInInput): Promise<CheckInResulta
  * ============================================
  */
 
-/** Authorization header con el JWT de localStorage (mismo patrón que pagos/clientes). */
-function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("token") || localStorage.getItem("jwt");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+/**
+ * Client-side fetches: la sesión viaja en la cookie (HttpOnly); el cliente no adjunta
+ * headers de auth (PG-7).
+ */
 
 /** Client-side: check-in por DNI + PIN. */
 export async function checkIn(input: { dni: string; pin: string }): Promise<CheckInResultado> {
   const response = await fetch("/api/acceso/check-in", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
   await throwIfNotOk(response, "No se pudo registrar el ingreso");
@@ -285,7 +283,7 @@ export async function checkIn(input: { dni: string; pin: string }): Promise<Chec
 export async function setPin(socioId: string, pin: string): Promise<{ success: true }> {
   const response = await fetch(`/api/socios/${socioId}/pin`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pin }),
   });
   await throwIfNotOk(response, "No se pudo definir el PIN");

@@ -123,20 +123,12 @@ export async function handleBuscarSocio(dni: string, hoy: Date = new Date()): Pr
  * ============================================
  */
 
-/** Authorization header con el JWT de localStorage (mismo patrón que clientes/pagos). */
-function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("token") || localStorage.getItem("jwt");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 /**
- * Client-side API call: buscar un socio por DNI.
+ * Client-side API call: buscar un socio por DNI. La sesión viaja en la cookie (HttpOnly);
+ * el cliente no adjunta headers de auth (PG-7).
  */
 export async function fetchSocioPorDni(dni: string): Promise<SocioBusqueda> {
-  const response = await fetch(`/api/socios?dni=${encodeURIComponent(dni)}`, {
-    headers: { ...getAuthHeaders() },
-  });
+  const response = await fetch(`/api/socios?dni=${encodeURIComponent(dni)}`);
   await throwIfNotOk(response, "No se pudo buscar el socio");
   return response.json();
 }

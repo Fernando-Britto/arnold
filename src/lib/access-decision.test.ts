@@ -72,6 +72,12 @@ describe("decideAccess", () => {
       expect(d("/membresias", { rol: "ADMINISTRADOR" })).toEqual({ type: "next" });
       expect(d("/api/clientes", { rol: "ADMINISTRADOR" }, "DELETE")).toEqual({ type: "next" });
     });
+    it("Administrador NO entra a /home-socio: el proxy redirige a su home (AC-001/D-17)", () => {
+      expect(d("/home-socio", { rol: "ADMINISTRADOR" })).toEqual({
+        type: "redirect",
+        to: "/home-interno",
+      });
+    });
     it("página prohibida → redirect al home del rol", () => {
       expect(d("/clientes", { rol: "SOCIO" })).toEqual({ type: "redirect", to: "/home-socio" });
       expect(d("/membresias", { rol: "INSTRUCTOR" })).toEqual({ type: "redirect", to: "/home-interno" });

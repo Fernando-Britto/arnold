@@ -3,12 +3,12 @@
  * el cierre contra POST /api/cierres.
  */
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CierresPage } from "./page";
 import { useAuth } from "@/contexts/auth";
 import { useNotifications } from "@/contexts/notifications";
-import { fetchPreviewCierre, createCierre } from "@/api/cierres";
+import { fetchPreviewCierre, createCierre, fetchCierres } from "@/api/cierres";
 
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
@@ -20,12 +20,14 @@ jest.mock("@/contexts/notifications");
 jest.mock("@/api/cierres", () => ({
   fetchPreviewCierre: jest.fn(),
   createCierre: jest.fn(),
+  fetchCierres: jest.fn(),
 }));
 
 const mockAuth = useAuth as jest.Mock;
 const mockNotify = jest.fn();
 const mockPreview = fetchPreviewCierre as jest.MockedFunction<typeof fetchPreviewCierre>;
 const mockCreate = createCierre as jest.MockedFunction<typeof createCierre>;
+const mockCierres = fetchCierres as jest.MockedFunction<typeof fetchCierres>;
 
 const preview = {
   totalRecaudado: 1200,
@@ -50,6 +52,7 @@ describe("CierresPage", () => {
     mockAuth.mockReturnValue(asRol("RECEPCIONISTA"));
     (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
     mockPreview.mockResolvedValue(preview);
+    mockCierres.mockResolvedValue([]);
   });
 
   it("renderiza el chrome compartido (TopNav + ActionBar)", async () => {
@@ -119,5 +122,34 @@ describe("CierresPage", () => {
     mockPreview.mockRejectedValueOnce(new Error("boom"));
     render(<CierresPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo calcular el cierre de caja.");
+  });
+
+  it("CC-3: muestra el historial de cierres recientes (fecha, totales por método y cantidad)", async () => {
+    mockCierres.mockResolvedValueOnce([
+      {
+        id: "c1",
+        createdAt: "2026-10-11T20:00:00.000Z",
+        totalRecaudado: "1200",
+        totalEfectivo: "1000",
+        totalTransferencia: "0",
+        totalTarjeta: "200",
+        cantidadOperaciones: 2,
+      },
+    ]);
+
+    render(<CierresPage />);
+
+    const historial = await screen.findByTestId("historial-cierres");
+    expect(within(historial).getByText("11/10/2026")).toBeInTheDocument();
+    expect(within(historial).getByText("$ 1.200")).toBeInTheDocument();
+    expect(within(historial).getByText("$ 1.000")).toBeInTheDocument();
+    expect(within(historial).getByText("$ 200")).toBeInTheDocument();
+    expect(within(historial).getByText("2 operaciones")).toBeInTheDocument();
+  });
+
+  it("CC-3: muestra un vacío explícito cuando no hay cierres", async () => {
+    render(<CierresPage />);
+    expect(await screen.findByText("Sin cierres registrados.")).toBeInTheDocument();
+    expect(screen.queryByTestId("historial-cierres")).not.toBeInTheDocument();
   });
 });

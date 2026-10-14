@@ -39,6 +39,8 @@ const loaded = () => waitFor(() => expect(screen.queryByText(/cargando/i)).not.t
 describe("HomeInternoPage Part 2 (Row_Gestion, Col_Actividad, full integration)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // HI-3: la página cachea el último panel en sessionStorage; se aísla entre tests.
+    sessionStorage.clear();
     mockAuth.mockReturnValue(asRol("ADMINISTRADOR"));
     mockFetch.mockResolvedValue(buildHomeInternoData());
   });

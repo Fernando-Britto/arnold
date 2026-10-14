@@ -6,15 +6,19 @@ import {
 } from "./rateLimit";
 import { prisma } from "@/lib/db";
 
-jest.mock("@/lib/db", () => ({
-  prisma: {
+jest.mock("@/lib/db", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prisma: any = {
     rateLimitLog: {
       count: jest.fn(),
       create: jest.fn(),
       deleteMany: jest.fn(),
     },
-  },
-}));
+  };
+  // Transacción interactiva: ejecuta el callback con el mismo mock como `tx`.
+  prisma.$transaction = jest.fn((cb: (tx: unknown) => unknown) => cb(prisma));
+  return { prisma };
+});
 
 // Cast prisma with proper mocking support
 const mockPrisma = prisma as any;
@@ -182,6 +186,29 @@ describe("Rate Limiting", () => {
       expect(mockPrisma.rateLimitLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ key: "ip-1", route: "acceso:check-in" }),
       });
+    });
+  });
+
+  describe("AC-8 — check+record atómico (count y create en UNA transacción)", () => {
+    it("permite y registra dentro de la transacción", async () => {
+      mockPrisma.rateLimitLog.count.mockResolvedValue(5);
+      mockPrisma.rateLimitLog.create.mockResolvedValue({});
+
+      const allowed = await checkRateLimit("k", "r", 100);
+
+      expect(allowed).toBe(true);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.rateLimitLog.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("niega sin registrar, también dentro de la transacción", async () => {
+      mockPrisma.rateLimitLog.count.mockResolvedValue(100);
+
+      const allowed = await checkRateLimit("k", "r", 100);
+
+      expect(allowed).toBe(false);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.rateLimitLog.create).not.toHaveBeenCalled();
     });
   });
 

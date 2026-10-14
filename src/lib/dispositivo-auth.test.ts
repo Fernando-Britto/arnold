@@ -96,6 +96,23 @@ describe("autenticarDispositivo", () => {
     expect(prisma.dispositivo.findMany).not.toHaveBeenCalled();
   });
 
+  it("AC-7: busca sólo por el prefijo (primeros 8 chars) y compara bcrypt contra ese candidato", async () => {
+    const prisma = await mocks();
+    const token = "abcdefgh-extra-123";
+    const hash = await bcryptjs.hash(token, 4);
+    (prisma.dispositivo.findMany as jest.Mock).mockResolvedValue([
+      fila({ tokenPrefix: "abcdefgh", tokenHash: hash }),
+    ]);
+
+    await expect(
+      autenticarDispositivo(req({ [DISPOSITIVO_TOKEN_HEADER]: token }))
+    ).resolves.toMatchObject({ id: "dev-1" });
+
+    expect(prisma.dispositivo.findMany).toHaveBeenCalledWith({
+      where: { tokenPrefix: "abcdefgh", estado: "ACTIVO" },
+    });
+  });
+
   it("token válido: busca solo ACTIVOS, actualiza ultimoContacto y devuelve el dispositivo", async () => {
     const prisma = await mocks();
     const hash = await bcryptjs.hash("tok-bueno", 4);
@@ -103,7 +120,9 @@ describe("autenticarDispositivo", () => {
 
     const dev = await autenticarDispositivo(req({ [DISPOSITIVO_TOKEN_HEADER]: "tok-bueno" }));
 
-    expect(prisma.dispositivo.findMany).toHaveBeenCalledWith({ where: { estado: "ACTIVO" } });
+    expect(prisma.dispositivo.findMany).toHaveBeenCalledWith({
+      where: { tokenPrefix: "tok-buen", estado: "ACTIVO" },
+    });
     expect(prisma.dispositivo.update).toHaveBeenCalledWith({
       where: { id: "dev-1" },
       data: { ultimoContacto: expect.any(Date) },

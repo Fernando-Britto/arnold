@@ -123,7 +123,7 @@ Failed authentication and denied authorization **SHOULD** be written to `Auditor
 |-------|---|---|---|---|--------|
 | `/` | ✔ | ✔ | ✔ | ✔ | Redirects to the home of the role |
 | `/home-interno` | ✔ | ✔ | ✔ | — | home-interno-dashboard (AC-008: Socio is sent to Home_Socio) |
-| `/home-socio` | ✔ | — | — | ✔ | home-socio-portal |
+| `/home-socio` | — | — | — | ✔ | home-socio-portal AC-001: Home_Socio es exclusivo del Socio; el Administrador se redirige a `/home-interno` (excepción explícita al comodín) |
 | `/ejercicios` | ✔ | ✔ | — | — | ejercicios-crud AC-007 |
 | `/rutinas` | ✔ | ✔ | — | — | rutinas-crud RN-06 |
 | `/clientes` | ✔ | — | ✔ | — | clientes-crud AC-008 |

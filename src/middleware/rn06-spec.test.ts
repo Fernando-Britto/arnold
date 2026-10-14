@@ -11,7 +11,8 @@ const ESPERADO: Array<[string, Rol[]]> = [
   ["/clientes", [A, R]],
   ["/membresias", [A]],
   ["/home-interno", [A, I, R]],
-  ["/home-socio", [A, S]],
+  // AC-001 home-socio-portal: Home_Socio es exclusivo del Socio (el Administrador se redirige).
+  ["/home-socio", [S]],
   ["/api/ejercicios", [A, I]],
   ["/api/rutinas", [A, I]],
   ["/api/clientes", [A, R]],

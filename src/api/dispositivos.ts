@@ -7,7 +7,7 @@
  */
 import type { ResultadoAcceso } from "@/domains/acceso/check-in";
 import { hashPassword } from "@/lib/auth";
-import { generarTokenDispositivo } from "@/lib/dispositivo-auth";
+import { generarTokenDispositivo, prefijoDeToken } from "@/lib/dispositivo-auth";
 import { throwIfNotOk } from "@/utils/api-error";
 
 const TIPOS_DISPOSITIVO = ["PUERTA", "RECEPCION"] as const;
@@ -89,7 +89,8 @@ export async function handleDispositivoCreate(
 
   const { prisma } = (await import("@/lib/db")) as unknown as { prisma: PrismaLike };
   const creado = await prisma.dispositivo.create({
-    data: { nombre, tipo, tokenHash },
+    // AC-7: se guarda el prefijo (selector) junto al hash; el token en claro nunca se persiste.
+    data: { nombre, tipo, tokenHash, tokenPrefix: prefijoDeToken(token) },
   });
 
   return { dispositivo: aDTO(creado), token };

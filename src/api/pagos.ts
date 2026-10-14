@@ -33,22 +33,15 @@ export async function handleListarPagos(socioId: string) {
  * ============================================
  */
 
-/** Authorization header con el JWT de localStorage (mismo patrón que clientes). */
-function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("token") || localStorage.getItem("jwt");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 /**
- * Client-side API call: registrar un pago.
+ * Client-side API call: registrar un pago. La sesión viaja en la cookie (HttpOnly);
+ * el cliente no adjunta headers de auth (PG-7).
  */
 export async function createPago(input: RegistrarPagoInput): Promise<PagoRegistrado> {
   const response = await fetch("/api/pagos", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
     },
     body: JSON.stringify(input),
   });
@@ -60,9 +53,7 @@ export async function createPago(input: RegistrarPagoInput): Promise<PagoRegistr
  * Client-side API call: historial de pagos de un socio.
  */
 export async function fetchPagosDeSocio(socioId: string) {
-  const response = await fetch(`/api/pagos?socioId=${encodeURIComponent(socioId)}`, {
-    headers: { ...getAuthHeaders() },
-  });
+  const response = await fetch(`/api/pagos?socioId=${encodeURIComponent(socioId)}`);
   await throwIfNotOk(response, "No se pudieron cargar los pagos");
   return response.json();
 }

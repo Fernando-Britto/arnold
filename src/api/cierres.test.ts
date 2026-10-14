@@ -120,10 +120,8 @@ describe("helpers de fetch del cliente", () => {
     const r = await fetchPreviewCierre();
 
     expect(r).toEqual(preview);
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/api/cierres?preview=1",
-      expect.objectContaining({ headers: expect.any(Object) })
-    );
+    // PG-7: la sesión va en cookie; el fetch no adjunta headers.
+    expect(global.fetch).toHaveBeenCalledWith("/api/cierres?preview=1");
   });
 
   it("createCierre hace POST /api/cierres", async () => {
@@ -156,6 +154,7 @@ describe("helpers de fetch del cliente", () => {
     const r = await fetchCierres();
 
     expect(r).toEqual([]);
-    expect(global.fetch).toHaveBeenCalledWith("/api/cierres", expect.objectContaining({}));
+    // PG-7: la sesión va en cookie; el fetch no adjunta headers.
+    expect(global.fetch).toHaveBeenCalledWith("/api/cierres");
   });
 });

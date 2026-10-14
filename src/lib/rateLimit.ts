@@ -48,6 +48,15 @@ export async function recordRateLimitHit(key: string, route: string): Promise<vo
  * Checks if a key (user ID or IP) has exceeded the request limit in the last 60 seconds.
  * If allowed, records the request and returns true; if exceeded, returns false without writing.
  *
+ * AC-8 (atomicidad): el `count` y el `create` corren dentro de UNA transacción interactiva, así
+ * que la decisión y el registro son un único paso de base de datos (no queda un conteo leído sin
+ * su escritura). **Sobre-conteo aceptado**: con el nivel de aislamiento por defecto de Postgres
+ * (READ COMMITTED), dos requests concurrentes pueden leer el mismo conteo antes de insertar y
+ * permitir unos pocos requests de más. Para un límite de fuerza bruta (8/min login, 20/min
+ * check-in) ese margen es aceptable; cerrarlo del todo requeriría SERIALIZABLE + reintentos o un
+ * contador con UPSERT (cambio de schema), desproporcionado para el riesgo. Por eso se documenta
+ * el sobre-conteo pequeño en vez de perseguir exactitud imposible sin costo.
+ *
  * @param key The key to rate limit (userId or IP address)
  * @param route The route/basePath being accessed (for grouping)
  * @param limit Maximum requests allowed in the 60-second window (default: 100)
@@ -58,12 +67,23 @@ export async function checkRateLimit(
   route: string,
   limit: number = 100
 ): Promise<boolean> {
-  if (await isRateLimited(key, route, limit)) {
-    return false;
-  }
+  return prisma.$transaction(async (tx) => {
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+    const count = await tx.rateLimitLog.count({
+      where: {
+        key,
+        route,
+        timestamp: { gte: oneMinuteAgo },
+      },
+    });
 
-  await recordRateLimitHit(key, route);
-  return true;
+    if (count >= limit) return false;
+
+    await tx.rateLimitLog.create({
+      data: { key, route, timestamp: new Date() },
+    });
+    return true;
+  });
 }
 
 /**

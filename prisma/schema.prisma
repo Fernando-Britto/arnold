@@ -547,12 +547,17 @@ model Dispositivo {
   nombre         String
   tipo           TipoDispositivo   @default(PUERTA)
   tokenHash      String            @unique // bcrypt hash; NUNCA se guarda el token en claro
+  // Selector de búsqueda (AC-7): primeros 8 chars del token. Evita comparar bcrypt contra TODOS
+  // los dispositivos. Nullable porque la columna es aditiva (dispositivos viejos no lo tienen);
+  // los nuevos lo guardan al crear. No es un secreto: es sólo el prefijo.
+  tokenPrefix    String?
   estado         EstadoDispositivo @default(ACTIVO)
   ultimoContacto DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
   @@index([estado])
+  @@index([tokenPrefix])
 }
 
 enum TipoDispositivo {

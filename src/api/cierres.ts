@@ -49,6 +49,20 @@ export interface RangoCierreDTO {
   hasta: string;
 }
 
+/**
+ * Fila de `CierreDeCaja` tal como llega del GET (listado). Prisma serializa los `Decimal`
+ * a string, por eso los totales se aceptan como `number | string` y la UI los normaliza.
+ */
+export interface CierreDeCajaResumenDTO {
+  id: string;
+  createdAt: string;
+  totalRecaudado: number | string;
+  totalEfectivo: number | string;
+  totalTransferencia: number | string;
+  totalTarjeta: number | string;
+  cantidadOperaciones: number;
+}
+
 /** Rango del turno: el enviado, o el día del gimnasio hasta ahora. */
 function rangoPorDefecto(input: { desde?: Date; hasta?: Date; ahora?: Date }) {
   const ahora = input.ahora ?? new Date();
@@ -92,18 +106,14 @@ export async function handlePrevisualizarCierre(
  * ============================================
  */
 
-/** Authorization header con el JWT de localStorage (mismo patrón que pagos/socios). */
-function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("token") || localStorage.getItem("jwt");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+/**
+ * Client-side fetches: la sesión viaja en la cookie (HttpOnly); el cliente no adjunta
+ * headers de auth (PG-7).
+ */
 
 /** Client-side API call: totales pendientes de cierre del turno + rango usado. */
 export async function fetchPreviewCierre(): Promise<PreviewCierreResult> {
-  const response = await fetch("/api/cierres?preview=1", {
-    headers: { ...getAuthHeaders() },
-  });
+  const response = await fetch("/api/cierres?preview=1");
   await throwIfNotOk(response, "No se pudo calcular el cierre de caja");
   return response.json();
 }
@@ -118,7 +128,6 @@ export async function createCierre(rango?: RangoCierreDTO): Promise<CierreDeCaja
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
     },
     body: rango ? JSON.stringify(rango) : undefined,
   });
@@ -127,10 +136,8 @@ export async function createCierre(rango?: RangoCierreDTO): Promise<CierreDeCaja
 }
 
 /** Client-side API call: cierres recientes. */
-export async function fetchCierres() {
-  const response = await fetch("/api/cierres", {
-    headers: { ...getAuthHeaders() },
-  });
+export async function fetchCierres(): Promise<CierreDeCajaResumenDTO[]> {
+  const response = await fetch("/api/cierres");
   await throwIfNotOk(response, "No se pudieron cargar los cierres");
   return response.json();
 }

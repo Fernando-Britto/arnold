@@ -6,6 +6,11 @@ import * as accessOverride from "@/api/socios/access-override";
 jest.mock("@/api/socios/access-override");
 jest.mock("@/lib/db");
 
+/** Contexto de request (D): IP + user-agent best-effort, como los provee el route real. */
+const ctx = { ip: "1.2.3.4", userAgent: "jest" };
+const request = (authHeader: string | undefined, body: unknown, socioId: string) =>
+  handleAccessOverrideRequest(authHeader, body, socioId, ctx);
+
 /**
  * Integration tests for POST /api/socios/[id]/access-override
  *
@@ -22,7 +27,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
 
   describe("Authentication: 401 UNAUTHORIZED", () => {
     it("should return 401 UNAUTHORIZED when Authorization header is missing", async () => {
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         undefined, // No auth header
         { motivo: "Pago confirmado" },
         "socio-1"
@@ -34,7 +39,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
     });
 
     it("should return 401 UNAUTHORIZED when Authorization token is invalid", async () => {
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         "Bearer invalid-token-xyz",
         { motivo: "Pago confirmado" },
         "socio-1"
@@ -45,7 +50,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
     });
 
     it("should return 401 UNAUTHORIZED when Authorization header is malformed (not Bearer)", async () => {
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         "Basic user:pass",
         { motivo: "Pago confirmado" },
         "socio-1"
@@ -68,7 +73,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         new Error("FORBIDDEN: Rol de administrador requerido")
       );
 
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         `Bearer ${token}`,
         { motivo: "Pago confirmado" },
         "socio-1"
@@ -92,7 +97,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         )
       );
 
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         `Bearer ${token}`,
         { motivo: "short" }, // 5 chars
         "socio-1"
@@ -112,7 +117,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         new Error("Validación fallida: La razón no puede estar vacía")
       );
 
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         `Bearer ${token}`,
         { motivo: "" },
         "socio-1"
@@ -148,7 +153,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         new Error("NOT_FOUND: Socio no encontrado")
       );
 
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         `Bearer ${token}`,
         { motivo: "Pago confirmado para mañana" },
         "nonexistent-socio"
@@ -170,7 +175,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         new Error("Database connection timeout")
       );
 
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         `Bearer ${token}`,
         { motivo: "Pago confirmado para mañana" },
         "socio-1"
@@ -194,7 +199,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         message: "Acceso otorgado; registrado en auditoría",
       });
 
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         `Bearer ${token}`,
         { motivo: "Próximo pago confirmado para 2026-08-15" },
         "socio-1"
@@ -215,7 +220,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         message: "Acceso otorgado; registrado en auditoría",
       });
 
-      await handleAccessOverrideRequest(
+      await request(
         `Bearer ${token}`,
         { motivo: "Pago confirmado para mañana" },
         "socio-test-123"
@@ -293,7 +298,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         message: "Acceso otorgado",
       });
 
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         `Bearer ${token}`,
         { motivo: "Pago confirmado para mañana" },
         "socio-1"
@@ -314,7 +319,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         message: "Acceso otorgado",
       });
 
-      await handleAccessOverrideRequest(
+      await request(
         `Bearer ${token}`,
         { motivo: "Pago confirmado para mañana" },
         "socio-1"
@@ -338,7 +343,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         message: "Acceso otorgado",
       });
 
-      await handleAccessOverrideRequest(
+      await request(
         `Bearer ${token}`,
         { motivo: "Pago confirmado para mañana" },
         "socio-unique-id-456" // This would come from await params
@@ -361,7 +366,7 @@ describe("POST /api/socios/[id]/access-override — Route Handler", () => {
         new Error("Validación fallida: La razón no puede estar vacía")
       );
 
-      const result = await handleAccessOverrideRequest(
+      const result = await request(
         `Bearer ${token}`,
         { motivo: "" },
         "socio-1"

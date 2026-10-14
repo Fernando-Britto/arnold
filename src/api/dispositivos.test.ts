@@ -55,6 +55,17 @@ describe("handleDispositivoCreate", () => {
     expect(JSON.stringify(r.dispositivo)).not.toContain("tokenHash");
   });
 
+  it("AC-7: guarda el prefijo de 8 chars del token para poder buscarlo por selector", async () => {
+    const prisma = await mocks();
+    (prisma.dispositivo.create as jest.Mock).mockResolvedValue(creado());
+
+    const r = await handleDispositivoCreate({ nombre: "Puerta principal" });
+
+    expect(prisma.dispositivo.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ tokenPrefix: r.token.slice(0, 8) }),
+    });
+  });
+
   it("acepta tipo RECEPCION explícito", async () => {
     const prisma = await mocks();
     (prisma.dispositivo.create as jest.Mock).mockResolvedValue(creado({ tipo: "RECEPCION" }));

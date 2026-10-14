@@ -67,6 +67,10 @@ RECEPCIONISTA: {
 },
   ADMINISTRADOR: {
     paths: {
+      // Excepción explícita al comodín (AC-001 home-socio-portal / D-17): /home-socio es
+      // exclusivo del Socio. El comodín es laxo, así que un entry con métodos vacíos lo
+      // recorta por prefijo (ver hasRouteAccess). No toca /api/home-socio ni ninguna otra ruta.
+      '/home-socio': [],
       '*': ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // wildcard: all methods on all routes
     },
   },
@@ -97,7 +101,25 @@ export function hasRouteAccess(
 ): RouteAccessResult {
   const permissions = ROLE_PERMISSIONS[rol];
 
-  // ADMINISTRADOR wildcard check
+  // Find matching base path for this pathname.
+  // P-41 / I: pick the LONGEST matching prefix. `Array.find` returned the first match in key
+  // insertion order, so a shorter prefix (e.g. `/api/rutinas`) could shadow a longer, more
+  // specific one (e.g. `/api/rutinas-asignadas`) if the object were ever reordered.
+  //
+  // Un entry explícito tiene prioridad sobre el comodín: permite que un rol con acceso amplio
+  // (ADMINISTRADOR) recorte una ruta puntual. Ej.: `/home-socio` para ADMIN → `[]` (denegado)
+  // sin debilitar el resto del wildcard (AC-001 home-socio-portal / D-17).
+  const matchingPath = matchBasePath(permissions.paths, pathname);
+
+  if (matchingPath) {
+    const allowedMethods = permissions.paths[matchingPath];
+    return {
+      allowed: allowedMethods.includes(method),
+      basePath: matchingPath,
+    };
+  }
+
+  // ADMINISTRADOR wildcard (sólo cuando no hay un entry explícito más específico)
   if (permissions.paths['*']) {
     const allowed = permissions.paths['*'].includes(method);
     return {
@@ -106,25 +128,9 @@ export function hasRouteAccess(
     };
   }
 
-  // Find matching base path for this pathname.
-  // P-41 / I: pick the LONGEST matching prefix. `Array.find` returned the first match in key
-  // insertion order, so a shorter prefix (e.g. `/api/rutinas`) could shadow a longer, more
-  // specific one (e.g. `/api/rutinas-asignadas`) if the object were ever reordered.
-  const matchingPath = matchBasePath(permissions.paths, pathname);
-
-  if (!matchingPath) {
-    return {
-      allowed: false,
-      basePath: null,
-    };
-  }
-
-  const allowedMethods = permissions.paths[matchingPath];
-  const allowed = allowedMethods.includes(method);
-
   return {
-    allowed,
-    basePath: matchingPath,
+    allowed: false,
+    basePath: null,
   };
 }
 

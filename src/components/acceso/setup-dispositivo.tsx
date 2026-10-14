@@ -1,5 +1,24 @@
 "use client";
 
+/**
+ * Token del dispositivo (T-036) — DECISIÓN DE SEGURIDAD (M), riesgo aceptado.
+ *
+ * El token se guarda en `localStorage`, que en teoría es legible por XSS. Se evaluó moverlo a
+ * una cookie HttpOnly puesta por el servidor, pero eso rompe el flujo actual: la página /puerta
+ * decide "mostrar alta vs. kiosco" leyendo el token desde el cliente (`useTokenDispositivo`), y
+ * con HttpOnly el JS no puede saber si ya hay token (habría que rediseñar el estado de la
+ * pantalla y depender de un 401 del kiosco para volver al alta). Es un cambio más grande y más
+ * riesgoso que el propio riesgo, que está acotado:
+ *   1. La tablet de la puerta es un dispositivo físico controlado, sin navegación a sitios de
+ *      terceros ni sesión de usuario; la superficie de XSS es mínima.
+ *   2. El token es revocable del lado del servidor (estado ACTIVO/INACTIVO) y su hash, no el
+ *      token, es lo único persistido en la base.
+ *   3. En caso de compromiso, se re-provisiona el dispositivo con un token nuevo.
+ * Regla derivada: el token NUNCA debe loguearse ni exponerse fuera de `localStorage` (ver
+ * `setup-dispositivo.test.tsx`). Si en el futuro se rediseña el estado de /puerta, migrar a
+ * cookie HttpOnly es la mejora recomendada.
+ */
+
 import React, { useState, useSyncExternalStore } from "react";
 
 export const TOKEN_DISPOSITIVO_STORAGE_KEY = "dispositivoToken";

@@ -87,9 +87,7 @@ describe("fetchRutinasDeSocio (fetch client)", () => {
     const r = await fetchRutinasDeSocio("socio-1");
 
     expect(r).toEqual(lista);
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/api/rutinas-asignadas?socioId=socio-1",
-      expect.objectContaining({ headers: expect.any(Object) })
-    );
+    // PG-7: la sesión va en cookie; el fetch no adjunta headers.
+    expect(global.fetch).toHaveBeenCalledWith("/api/rutinas-asignadas?socioId=socio-1");
   });
 });

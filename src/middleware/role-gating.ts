@@ -14,7 +14,9 @@ export const ROLE_GATE_MATRIX: Record<string, Rol[]> = {
   "/acceso": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // kiosco de check-in por DNI + PIN (T-035)
   "/membresias": [Rol.ADMINISTRADOR],
   "/home-interno": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
-  "/home-socio": [Rol.ADMINISTRADOR, Rol.SOCIO],
+  // AC-001 home-socio-portal: Home_Socio es exclusivo del Socio; el Administrador se
+  // redirige a /home-interno (defensa en profundidad, D-17).
+  "/home-socio": [Rol.SOCIO],
   "/api/ejercicios": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/api/rutinas": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR],
   "/api/rutinas-asignadas": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR], // asignar rutina (T-034)

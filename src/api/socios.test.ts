@@ -129,7 +129,7 @@ describe("handleBuscarSocio", () => {
 describe("fetchSocioPorDni (fetch client)", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("hace GET /api/socios?dni=... con el header de auth", async () => {
+  it("hace GET /api/socios?dni=... sin headers de auth (la sesión va en cookie, PG-7)", async () => {
     const socio = { id: "socio-1", dni: "30123456", estadoCuota: "AL_DIA" };
     global.fetch = jest.fn().mockResolvedValueOnce({
       ok: true,
@@ -139,9 +139,6 @@ describe("fetchSocioPorDni (fetch client)", () => {
     const r = await fetchSocioPorDni("30123456");
 
     expect(r).toEqual(socio);
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/api/socios?dni=30123456",
-      expect.objectContaining({ headers: expect.any(Object) })
-    );
+    expect(global.fetch).toHaveBeenCalledWith("/api/socios?dni=30123456");
   });
 });

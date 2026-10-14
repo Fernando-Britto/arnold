@@ -31,12 +31,10 @@ export async function handleListarRutinasDeSocio(socioId: string) {
  * ============================================
  */
 
-/** Authorization header con el JWT de localStorage (mismo patrón que pagos/socios). */
-function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("token") || localStorage.getItem("jwt");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+/**
+ * Client-side fetches: la sesión viaja en la cookie (HttpOnly); el cliente no adjunta
+ * headers de auth (PG-7).
+ */
 
 /**
  * Client-side API call: asignar una rutina a un socio.
@@ -46,7 +44,6 @@ export async function createAsignacionRutina(input: AsignarRutinaInput) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
     },
     body: JSON.stringify(input),
   });
@@ -58,9 +55,7 @@ export async function createAsignacionRutina(input: AsignarRutinaInput) {
  * Client-side API call: asignaciones de un socio.
  */
 export async function fetchRutinasDeSocio(socioId: string) {
-  const response = await fetch(`/api/rutinas-asignadas?socioId=${encodeURIComponent(socioId)}`, {
-    headers: { ...getAuthHeaders() },
-  });
+  const response = await fetch(`/api/rutinas-asignadas?socioId=${encodeURIComponent(socioId)}`);
   await throwIfNotOk(response, "No se pudieron cargar las rutinas del socio");
   return response.json();
 }

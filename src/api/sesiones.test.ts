@@ -123,10 +123,8 @@ describe("fetchers del cliente de sesiones", () => {
     const r = await fetchSesionEnCurso();
 
     expect(r).toEqual(detalle);
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/api/sesiones?enCurso=1",
-      expect.objectContaining({ headers: expect.any(Object) })
-    );
+    // PG-7: la sesión va en cookie; el fetch no adjunta headers.
+    expect(global.fetch).toHaveBeenCalledWith("/api/sesiones?enCurso=1");
   });
 
   it("iniciarSesionDeEntrenamiento hace POST con el rutinaAsignadaId", async () => {

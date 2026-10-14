@@ -138,18 +138,14 @@ export interface SesionIniciadaDTO {
   ejercicios: EjercicioDeSesionDTO[];
 }
 
-/** Authorization header con el JWT de localStorage (mismo patrón que pagos/socios). */
-function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("token") || localStorage.getItem("jwt");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+/**
+ * Client-side fetches: la sesión viaja en la cookie (HttpOnly); el cliente no adjunta
+ * headers de auth (PG-7).
+ */
 
 /** GET /api/sesiones?enCurso=1 — sesión en curso del socio con el detalle para retomar. */
 export async function fetchSesionEnCurso(): Promise<SesionEnCursoDTO> {
-  const response = await fetch("/api/sesiones?enCurso=1", {
-    headers: { ...getAuthHeaders() },
-  });
+  const response = await fetch("/api/sesiones?enCurso=1");
   await throwIfNotOk(response, "No se pudo cargar la sesión en curso");
   return response.json();
 }
@@ -162,7 +158,6 @@ export async function iniciarSesionDeEntrenamiento(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
     },
     body: JSON.stringify({ rutinaAsignadaId }),
   });
@@ -179,7 +174,6 @@ export async function registrarSerieDeEntrenamiento(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
     },
     body: JSON.stringify(input),
   });
@@ -191,7 +185,6 @@ export async function registrarSerieDeEntrenamiento(
 export async function finalizarSesionDeEntrenamiento(sesionId: string) {
   const response = await fetch(`/api/sesiones/${sesionId}`, {
     method: "PUT",
-    headers: { ...getAuthHeaders() },
   });
   await throwIfNotOk(response, "No se pudo finalizar la sesión");
   return response.json();

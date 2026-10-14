@@ -50,7 +50,7 @@ export function CajaCard({
         onClick={onCierreDeCaja}
         disabled={cierreDisabled}
         title={cierreDisabled ? SIN_ACCESO_TITLE : undefined}
-        className="mt-1 rounded-lg border border-[#E5E5E5] px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1 rounded-lg border border-[#E5E5E5] px-4 py-2 text-sm font-medium text-zinc-900 enabled:hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         Cierre de Caja
       </button>

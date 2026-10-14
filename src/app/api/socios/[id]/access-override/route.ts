@@ -3,6 +3,7 @@ import { handleAccessOverride } from "@/api/socios/access-override";
 import { extractUserFromAuthHeader, RequestWithUser, authHeaderFromRequest } from "@/lib/auth";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { readJsonBody } from "@/lib/request-body";
+import { getRequestContext, type AuditContext } from "@/lib/audit";
 
 /**
  * Core handler logic for POST /api/socios/{id}/access-override
@@ -11,8 +12,9 @@ import { readJsonBody } from "@/lib/request-body";
  */
 export async function handleAccessOverrideRequest(
   authHeader: string | undefined,
-  body: any,
-  socioId: string
+  body: unknown,
+  socioId: string,
+  context: AuditContext
 ): Promise<{
   code?: string;
   message: string;
@@ -32,7 +34,8 @@ export async function handleAccessOverrideRequest(
       };
     }
 
-    // Create RequestWithUser with real user from JWT
+    // Create RequestWithUser with real user from JWT, plus the real request context
+    // (best-effort IP + user-agent) so the audit trail stores real values, like the login.
     const req: RequestWithUser = {
       user: {
         id: user.id,
@@ -41,8 +44,8 @@ export async function handleAccessOverrideRequest(
         nombre: "",
       },
       body,
-      ip: "0.0.0.0",
-      headers: {},
+      ip: context.ip,
+      headers: { "user-agent": context.userAgent },
     };
 
     const result = await handleAccessOverride(req, socioId);
@@ -84,7 +87,7 @@ export async function POST(
   if (!parsed.ok) return parsed.response;
   const body = parsed.body;
 
-  const result = await handleAccessOverrideRequest(authHeader, body, socioId);
+  const result = await handleAccessOverrideRequest(authHeader, body, socioId, getRequestContext(request));
 
   return NextResponse.json(
     { code: result.code, message: result.message, success: result.success },

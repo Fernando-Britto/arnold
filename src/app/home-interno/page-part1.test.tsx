@@ -31,6 +31,8 @@ const loaded = () => waitFor(() => expect(screen.queryByText(/cargando/i)).not.t
 describe("HomeInternoPage Part 1 (Row_Acciones, Row_Hoy, Row_Operacion)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // HI-3: la página cachea el último panel en sessionStorage; se aísla entre tests.
+    sessionStorage.clear();
     mockFetch.mockResolvedValue(data);
   });
 

@@ -22,6 +22,7 @@ The system **MUST** query the Membresía table and verify status before granting
 - GIVEN a Socio with Membresía where `fecha_vencimiento <= today` and grace_period = 0 days (RN-02)
 - WHEN GET `/api/socios/{socio_id}/check-in-status` is called
 - THEN the system detects expiration, returns `{ allowed: false, reason: "Membresía vencida; requiere renovación" }`
+- AND creates an Asistencia record with `estado = DENEGADO` (attempt history; consumers filter `PERMITIDO`)
 - AND creates AuditoriaAcceso: `{ accion: CHECK_IN, resultado: DENY, motivo: "Expired membership" }`
 
 #### Scenario: Grace period allows access with warning
@@ -36,7 +37,7 @@ The system **MUST** query the Membresía table and verify status before granting
 - GIVEN a Socio with Membresía where `status = Cancelada`
 - WHEN GET `/api/socios/{socio_id}/check-in-status` is called
 - THEN the system returns `{ allowed: false, reason: "Membresía cancelada" }`
-- AND does NOT create Asistencia record
+- AND creates an Asistencia record with `estado = DENEGADO` (attempt history; consumers filter `PERMITIDO`)
 
 ### Requirement: Quota Payment Validation
 
@@ -58,7 +59,7 @@ The system **MUST** verify current month's quota payment status (RN-03) before g
 - GIVEN a Socio with active Membresía BUT Cuota `estado = Vencida` (overdue, due_date < today)
 - WHEN GET `/api/socios/{socio_id}/check-in-status` is called
 - THEN the system detects overdue payment, returns `{ allowed: false, reason: "Cuota vencida; requiere autorización" }`
-- AND does NOT automatically create Asistencia
+- AND creates an Asistencia record with `estado = DENEGADO` (attempt history; consumers filter `PERMITIDO`)
 - AND creates AuditoriaAcceso: `{ accion: CHECK_IN, resultado: DENY, motivo: "Overdue quota" }`
 
 #### Scenario: Pending quota (due but not overdue yet) allows access
@@ -92,7 +93,13 @@ The system **MUST** check BOTH membership AND quota; both must be valid.
 
 ### Requirement: Asistencia Record Creation
 
-The system **MUST** create an Asistencia (attendance) record on allowed check-in.
+The system **MUST** create an Asistencia (attendance) record on every check-in whose **identity is
+verified** (valid DNI + PIN), regardless of the business decision:
+
+- **Allowed** check-in → `estado = PERMITIDO`.
+- **Business denial** (membership/quota inactive, anti-passback, etc.) → `estado = DENEGADO`, keeping
+  the attempt history. Consumers of the attendance history MUST filter `estado = PERMITIDO`.
+- **Identity failure** (unknown DNI, missing/incorrect PIN) → **no** Asistencia; only AuditoriaAcceso.
 
 #### Scenario: Asistencia created on successful check-in
 
@@ -101,12 +108,19 @@ The system **MUST** create an Asistencia (attendance) record on allowed check-in
 - THEN the system creates Asistencia record: `{ socio_id, timestamp: now(), motivo: null }`
 - AND returns success to Recepcionista UI
 
-#### Scenario: No Asistencia on denied check-in
+#### Scenario: Asistencia DENEGADO on business denial
 
-- GIVEN check-in denied (membership/quota invalid)
+- GIVEN a verified identity (DNI + PIN) whose membership/quota is invalid (or anti-passback applies)
 - WHEN status is queried
-- THEN system does NOT create Asistencia record
-- AND only AuditoriaAcceso is logged (with resultado=DENY)
+- THEN the system creates an Asistencia record with `estado = DENEGADO` and `motivo = <the denial reason>`
+- AND AuditoriaAcceso is logged with `resultado = DENY`
+
+#### Scenario: No Asistencia on identity failure
+
+- GIVEN an unknown DNI, a member without a PIN, or an incorrect PIN
+- WHEN the check-in is attempted
+- THEN the system does NOT create an Asistencia record (no verified identity)
+- AND only AuditoriaAcceso is logged (with `resultado = DENY` and a generic reason)
 
 ## Error Handling
 

@@ -12,10 +12,17 @@ import { randomBytes } from "crypto";
 export const DISPOSITIVO_TOKEN_HEADER = "x-dispositivo-token";
 /** 32 bytes de entropía → token base64url de 43 caracteres. */
 export const TOKEN_DISPOSITIVO_BYTES = 32;
+/** Largo del prefijo guardado como selector (AC-7). */
+export const TOKEN_PREFIX_LENGTH = 8;
 
 /** Token de dispositivo nuevo, de alta entropía. */
 export function generarTokenDispositivo(): string {
   return randomBytes(TOKEN_DISPOSITIVO_BYTES).toString("base64url");
+}
+
+/** Prefijo índice del token (no es secreto por sí solo). */
+export function prefijoDeToken(token: string): string {
+  return token.slice(0, TOKEN_PREFIX_LENGTH);
 }
 
 export interface RequestLike {
@@ -40,7 +47,8 @@ export function tokenDeDispositivo(request: RequestLike): string | null {
 
 /**
  * Primer dispositivo cuyo hash coincida con el token. Los hashes bcrypt son salados: no se puede
- * buscar por igualdad, se comparan uno a uno (la cantidad de dispositivos es chica).
+ * buscar por igualdad. Con AC-7 la lista recibida ya viene filtrada por el prefijo del token, así
+ * que se compara contra muy pocos candidatos (idealmente uno).
  */
 export async function encontrarDispositivoPorToken<T extends { tokenHash: string }>(
   token: string,
@@ -58,6 +66,8 @@ export interface DispositivoRow {
   tipo: string;
   estado: string;
   tokenHash: string;
+  /** AC-7: prefijo índice; null en dispositivos provisionados antes de la columna. */
+  tokenPrefix?: string | null;
   ultimoContacto: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -73,6 +83,9 @@ interface PrismaLike {
 /**
  * Autentica el dispositivo de la petición. Solo considera dispositivos `ACTIVO` y, al validar,
  * actualiza `ultimoContacto`. Devuelve el dispositivo o null (petición no autenticada).
+ *
+ * AC-7: en vez de cargar TODOS los activos y comparar bcrypt uno a uno (O(n)), se busca por el
+ * prefijo indexado del token (primeros 8 chars) y sólo se compara bcrypt contra ese candidato.
  */
 export async function autenticarDispositivo(request: RequestLike): Promise<DispositivoRow | null> {
   const token = tokenDeDispositivo(request);
@@ -80,8 +93,10 @@ export async function autenticarDispositivo(request: RequestLike): Promise<Dispo
 
   const { prisma } = (await import("@/lib/db")) as unknown as { prisma: PrismaLike };
 
-  const activos = await prisma.dispositivo.findMany({ where: { estado: "ACTIVO" } });
-  const dispositivo = await encontrarDispositivoPorToken(token, activos);
+  const candidatos = await prisma.dispositivo.findMany({
+    where: { tokenPrefix: prefijoDeToken(token), estado: "ACTIVO" },
+  });
+  const dispositivo = await encontrarDispositivoPorToken(token, candidatos);
   if (!dispositivo || dispositivo.estado !== "ACTIVO") return null;
 
   await prisma.dispositivo.update({

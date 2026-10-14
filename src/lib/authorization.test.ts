@@ -149,6 +149,18 @@ describe("Authorization Matrix", () => {
       expect(result.allowed).toBe(true);
       expect(result.basePath).toBe("*");
     });
+
+    it("NIEGA ADMINISTRADOR en la página /home-socio (AC-001 home-socio-portal / D-17)", () => {
+      const result = hasRouteAccess("ADMINISTRADOR", "/home-socio", "GET");
+      expect(result.allowed).toBe(false);
+      expect(result.basePath).toBe("/home-socio");
+    });
+
+    it("el comodín sigue intacto para el resto de las rutas (incl. /api/home-socio)", () => {
+      expect(hasRouteAccess("ADMINISTRADOR", "/api/home-socio", "GET").allowed).toBe(true);
+      expect(hasRouteAccess("ADMINISTRADOR", "/clientes", "GET").allowed).toBe(true);
+      expect(hasRouteAccess("ADMINISTRADOR", "/api/clientes", "DELETE").allowed).toBe(true);
+    });
   });
 
   describe("Página /pagos (T-033)", () => {

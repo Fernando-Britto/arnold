@@ -48,4 +48,14 @@ describe("CajaCard (AC-004: Efectivo / Transferencia / Total)", () => {
     await userEvent.setup().click(boton);
     expect(onCierre).not.toHaveBeenCalled();
   });
+
+  it("HI-4: el hover se aplica sólo cuando el control está habilitado (enabled:hover:)", () => {
+    render(
+      <CajaCard efectivo={0} transferencia={0} tarjeta={0} total={0} onCierreDeCaja={jest.fn()} cierreDisabled />
+    );
+    const boton = screen.getByRole("button", { name: "Cierre de Caja" });
+    expect(boton.className).toContain("enabled:hover:bg-zinc-50");
+    // Sin el prefijo, el hover se aplica también deshabilitado.
+    expect(boton.className).not.toMatch(/(^|\s)hover:bg-zinc-50/);
+  });
 });

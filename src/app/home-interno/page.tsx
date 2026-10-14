@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Dumbbell, UserX, Users } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { fetchHomeInternoData, type HomeInternoData } from "@/api/home-interno";
+import { guardarHomeInternoCache, leerHomeInternoCache } from "@/lib/home-interno-cache";
 import { aggregateHomeInterno, GYM_TIME_ZONE } from "@/domains/home-interno/home-interno";
 import { AdminTopNav } from "@/components/layout/admin-top-nav";
 import { QuickActions, type QuickAction } from "@/components/home-interno/quick-actions";
@@ -33,8 +34,10 @@ import { ROLE_GATE_MATRIX } from "@/middleware/role-gating";
  * - Controls that lead to /clientes (Nuevo Socio, Alertas "Ver", Socios
  *   inactivos) and the Row_Gestion cards render for every staff role but are
  *   disabled when ROLE_GATE_MATRIX says the role cannot open the destination.
- * - AGGREGATION_TIMEOUT recovery (cached last-known values + staleness
- *   indicator) isn't implemented; failures show the spec's error message.
+ * - AGGREGATION_TIMEOUT recovery: the last successful payload is cached in
+ *   `sessionStorage` (src/lib/home-interno-cache.ts); a later failure shows it
+ *   with a "datos desactualizados" banner + retry. With no cache, the spec's
+ *   error message is shown.
  * - The design's "+12% vs ayer" under Caja has no spec/data source: omitted.
  * - Design shows 3 alert kinds (falta de pago / por vencer / inactividad);
  *   the spec only defines "Vencimiento", so only that is rendered.
@@ -76,6 +79,10 @@ export function HomeInternoPage() {
   const [data, setData] = useState<HomeInternoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** true cuando se están mostrando los últimos valores cacheados por un fallo posterior. */
+  const [stale, setStale] = useState(false);
+  /** Contador que dispara una recarga al reintentar. */
+  const [intento, setIntento] = useState(0);
   const [asignarRutinaOpen, setAsignarRutinaOpen] = useState(false);
 
   useEffect(() => {
@@ -93,10 +100,25 @@ export function HomeInternoPage() {
 
     fetchHomeInternoData()
       .then((result) => {
-        if (!cancelled) setData(result);
+        if (cancelled) return;
+        guardarHomeInternoCache(result);
+        setData(result);
+        setStale(false);
+        setError(null);
       })
       .catch(() => {
-        if (!cancelled) setError("No se pudo cargar el resumen operativo");
+        if (cancelled) return;
+        // Degradación parcial (AGGREGATION_TIMEOUT): si hubo un payload exitoso previo,
+        // se muestran sus últimos valores con aviso. Sin caché, se mantiene el error.
+        const cache = leerHomeInternoCache();
+        if (cache) {
+          setData(cache);
+          setStale(true);
+          setError(null);
+        } else {
+          setData(null);
+          setError("No se pudo cargar el resumen operativo");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -105,7 +127,7 @@ export function HomeInternoPage() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, isMember]);
+  }, [isAuthenticated, isMember, intento]);
 
   const vm = useMemo(() => (data ? aggregateHomeInterno(data, data.ahora) : null), [data]);
 
@@ -119,6 +141,12 @@ export function HomeInternoPage() {
 
   const puedeAbrir = (ruta: string) =>
     (ROLE_GATE_MATRIX[ruta] as string[] | undefined)?.includes(user?.rol ?? "") ?? false;
+
+  /** Reintenta la carga del panel: muestra "Cargando" y dispara el efecto con `intento`. */
+  const handleReintentar = () => {
+    setLoading(true);
+    setIntento((n) => n + 1);
+  };
 
   const handleAction = (action: QuickAction) => {
     if (action === "nuevo-socio" && puedeAbrir("/clientes")) router.push("/clientes");
@@ -146,6 +174,22 @@ export function HomeInternoPage() {
       </div>
 
       <main className="flex flex-col gap-6 p-12">
+        {stale && (
+          <div
+            role="status"
+            className="flex items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          >
+            <span>Datos desactualizados: se muestran los últimos valores conocidos.</span>
+            <button
+              type="button"
+              onClick={handleReintentar}
+              className="rounded border border-amber-400 px-3 py-1 font-medium text-amber-900 enabled:hover:bg-amber-100"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
         <QuickActions onAction={handleAction} disabledActions={accionesDeshabilitadas} />
 
         <SectionLabel>HOY</SectionLabel>
