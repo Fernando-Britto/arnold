@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MembresiaFormPanel } from "./membresia-form-panel";
 import { useNotifications } from "@/contexts/notifications";
@@ -297,5 +297,36 @@ describe("MembresiaFormPanel", () => {
     await user.click(cancelButton);
 
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  describe("N6: guard de doble submit", () => {
+    it("dos submits seguidos hacen UN solo POST (no crea dos filas)", async () => {
+      const user = userEvent.setup();
+      const mockFetch = global.fetch as jest.Mock;
+
+      let resolveFetch: (value: unknown) => void = () => {};
+      mockFetch.mockImplementationOnce(
+        () => new Promise((resolve) => { resolveFetch = resolve; })
+      );
+
+      render(<MembresiaFormPanel isEdit={false} />);
+
+      await user.type(screen.getByLabelText(/Nombre/i), "Platinum");
+      await user.type(screen.getByLabelText(/Precio/i), "25000");
+      await user.type(screen.getByLabelText(/Periodicidad/i), "30");
+
+      const form = screen
+        .getByRole("button", { name: /Guardar/i })
+        .closest("form") as HTMLFormElement;
+
+      // Dos envíos en el mismo tick: el Segundo debe rebotar contra el guard de reentrada.
+      fireEvent.submit(form);
+      fireEvent.submit(form);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      resolveFetch({ ok: true, json: async () => ({ ...mockMembresia, id: "new-id" }) });
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Membresía creada"));
+    });
   });
 });

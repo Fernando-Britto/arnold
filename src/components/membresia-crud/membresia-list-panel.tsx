@@ -74,8 +74,10 @@ export function MembresiaListPanel({
   const [sort, setSort] = useState<TableSort | null>(null);
 
   const filtered = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    const rows = membresias.filter((m) => !term || m.nombre.toLowerCase().includes(term));
+    const term = normalizeSortText(searchTerm.trim());
+    const rows = membresias.filter(
+      (m) => !term || normalizeSortText(m.nombre ?? "").includes(term),
+    );
     // Sin orden explícito se conserva el orden por defecto (nombre asc).
     const key = sort?.key ?? "nombre";
     const direction = sort?.direction ?? "asc";

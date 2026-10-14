@@ -2,6 +2,12 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClienteForm } from "./cliente-form";
+import { fetchSocioPorDni } from "@/api/socios";
+import { ApiError } from "@/utils/api-error";
+
+jest.mock("@/api/socios", () => ({
+  fetchSocioPorDni: jest.fn(),
+}));
 
 const mockMembresias = [
   { id: "gold-1", nombre: "Gold", precio: 150.0, estado: "ACTIVA" as const },
@@ -529,6 +535,98 @@ describe("ClienteForm", () => {
 
       await waitFor(() => expect(onSave).toHaveBeenCalled());
       expect(onSave.mock.calls[0][0].pin).toBeUndefined();
+    });
+  });
+
+  describe("H8: verificación de DNI duplicado al perder foco", () => {
+    const existingSocio = {
+      id: "otro-socio",
+      nombre: "Otro",
+      dni: "30123456",
+      email: "otro@example.com",
+      telefono: null,
+      membresia: null,
+      estadoCuota: "AL_DIA" as const,
+      plan: null,
+    };
+
+    it("muestra un error inline si el DNI ya existe", async () => {
+      (fetchSocioPorDni as jest.Mock).mockResolvedValue(existingSocio);
+      const user = userEvent.setup();
+      render(
+        <ClienteForm onSave={jest.fn()} initialData={null} availableMembresias={mockMembresias} />
+      );
+
+      await user.type(screen.getByPlaceholderText("XX.XXX.XXX o XXXXXXXX"), "30.123.456");
+      // Al pasar el foco al email, el DNI pierde foco y dispara la verificación.
+      await user.type(screen.getByPlaceholderText("ana@example.com"), "ana@example.com");
+
+      expect(await screen.findByText(/ya está registrado/i)).toBeInTheDocument();
+      expect(fetchSocioPorDni).toHaveBeenCalledWith("30.123.456");
+    });
+
+    it("bloquea el submit mientras el DNI existe", async () => {
+      (fetchSocioPorDni as jest.Mock).mockResolvedValue(existingSocio);
+      const onSave = jest.fn();
+      const user = userEvent.setup();
+      render(
+        <ClienteForm onSave={onSave} initialData={null} availableMembresias={mockMembresias} />
+      );
+
+      await user.type(screen.getByPlaceholderText("e.g., Ana García"), "Ana García");
+      await user.type(screen.getByPlaceholderText("XX.XXX.XXX o XXXXXXXX"), "30.123.456");
+      await user.type(screen.getByPlaceholderText("ana@example.com"), "ana@example.com");
+      await user.selectOptions(screen.getByDisplayValue("Seleccionar membresía..."), ["gold-1"]);
+
+      expect(await screen.findByText(/ya está registrado/i)).toBeInTheDocument();
+      await user.click(screen.getByText("Crear"));
+
+      await waitFor(() => expect(onSave).not.toHaveBeenCalled());
+    });
+
+    it("no marca error si el DNI está disponible (404 NOT_FOUND)", async () => {
+      (fetchSocioPorDni as jest.Mock).mockRejectedValue(
+        new ApiError(404, "Socio no encontrado", "NOT_FOUND")
+      );
+      const user = userEvent.setup();
+      render(
+        <ClienteForm onSave={jest.fn()} initialData={null} availableMembresias={mockMembresias} />
+      );
+
+      await user.type(screen.getByPlaceholderText("XX.XXX.XXX o XXXXXXXX"), "30.123.456");
+      await user.type(screen.getByPlaceholderText("ana@example.com"), "ana@example.com");
+
+      await waitFor(() => expect(fetchSocioPorDni).toHaveBeenCalled());
+      expect(screen.queryByText(/ya está registrado/i)).not.toBeInTheDocument();
+    });
+
+    it("en edición no marca como duplicado el propio DNI del cliente", async () => {
+      (fetchSocioPorDni as jest.Mock).mockResolvedValue({ ...existingSocio, id: "cliente-1" });
+      const user = userEvent.setup();
+      const existingCliente = {
+        id: "cliente-1",
+        nombre: "Ana García",
+        dni: "30.123.456",
+        email: "ana@example.com",
+        telefono: "+54 9 1234 567890",
+        membresiaAsignada: "gold-1",
+        estadoCuenta: "Activo" as const,
+        fechaAlta: new Date("2024-01-15"),
+      };
+      render(
+        <ClienteForm
+          onSave={jest.fn()}
+          initialData={existingCliente}
+          availableMembresias={mockMembresias}
+        />
+      );
+
+      const dniInput = screen.getByDisplayValue("30.123.456");
+      await user.click(dniInput);
+      await user.tab();
+
+      await waitFor(() => expect(fetchSocioPorDni).toHaveBeenCalled());
+      expect(screen.queryByText(/ya está registrado/i)).not.toBeInTheDocument();
     });
   });
 });

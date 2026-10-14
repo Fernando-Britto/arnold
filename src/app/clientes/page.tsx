@@ -173,6 +173,8 @@ export function ClientesPage() {
       setSelectedId(null);
     } catch (err) {
       setError(handleApiError(err, "No se pudo guardar el cliente."));
+      // H5: propaga el fallo para que el formulario NO se limpie cuando el alta falló.
+      throw err;
     } finally {
       setIsSaving(false);
     }

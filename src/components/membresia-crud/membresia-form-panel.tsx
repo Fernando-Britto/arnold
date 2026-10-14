@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { MembresiaForm } from "./membresia-form";
 import type { Membresia, EstadoMembresia } from "@/domains/membresia/membresia";
 import { useNotifications } from "@/contexts/notifications";
@@ -40,8 +40,13 @@ export function MembresiaFormPanel({
     assignedCount: number;
   } | null>(null);
   const [pendingFormData, setPendingFormData] = useState<MembresiaFormData | null>(null);
+  // N6: guard de reentrada. `isLoading` deshabilita el botón, pero dos submits en el mismo
+  // tick se disparan antes del re-render; este ref síncrono corta el segundo y evita dos POST.
+  const submittingRef = useRef(false);
 
   const handleSave = async (formData: MembresiaFormData) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsLoading(true);
     setError(null);
 
@@ -80,6 +85,7 @@ export function MembresiaFormPanel({
 
       setError(handleApiError(err, `${fallback}.`));
     } finally {
+      submittingRef.current = false;
       setIsLoading(false);
     }
   };

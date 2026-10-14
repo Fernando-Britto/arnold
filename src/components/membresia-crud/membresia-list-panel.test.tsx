@@ -71,6 +71,14 @@ describe("MembresiaListPanel", () => {
     expect(screen.queryByText("Gold")).not.toBeInTheDocument();
   });
 
+  it("filtra ignorando acentos: 'basico' matchea 'Básico' (N5)", () => {
+    const conAcento: MembresiaListItem[] = [
+      { ...membresias[0], id: "basico-1", nombre: "Básico" },
+    ];
+    render(<MembresiaListPanel membresias={conAcento} searchTerm="basico" />);
+    expect(screen.getByText("Básico")).toBeInTheDocument();
+  });
+
   it("muestra el estado de carga", () => {
     render(<MembresiaListPanel membresias={[]} isLoading />);
     expect(screen.getByText(/Cargando membresías/i)).toBeInTheDocument();

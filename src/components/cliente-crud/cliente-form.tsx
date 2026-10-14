@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { validateCliente, type EstadoCuenta } from "@/domains/cliente/cliente";
 import { formatMoney } from "@/utils/formatting";
+import { fetchSocioPorDni } from "@/api/socios";
 
 /**
  * Format a date to DD/MM/YYYY safely without timezone issues
@@ -68,6 +69,9 @@ interface ValidationErrors {
   [key: string]: string;
 }
 
+/** H8: mensaje único del control de unicidad de DNI (AC-002), verificado al perder foco. */
+const DNI_DUPLICADO = "El DNI ya está registrado";
+
 export function ClienteForm({
   onSave,
   onCancel,
@@ -90,6 +94,10 @@ export function ClienteForm({
 
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Último valor tipeado en DNI: descarta la respuesta de una verificación que llegó tarde.
+  const dniValueRef = useRef("");
+  // H8: el DNI duplicado se representa en `errors.dni` (así el reset del form lo limpia solo).
+  const dniDuplicate = errors.dni === DNI_DUPLICADO;
 
   // Reset form when initialData changes
   useEffect(() => {
@@ -131,6 +139,9 @@ export function ClienteForm({
       ...prev,
       [name]: value,
     }));
+    if (name === "dni") {
+      dniValueRef.current = value;
+    }
     // Clear error for this field when user starts editing
     if (errors[name]) {
       setErrors((prev) => {
@@ -141,21 +152,40 @@ export function ClienteForm({
     }
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const { name } = e.target;
-    // DNI uniqueness check on blur would happen here (server-side in real app)
-    // For now, just validate format
-    if (name === "dni") {
-      const validation = validateCliente({
-        ...formData,
-        [name]: formData[name as keyof FormState],
-      });
-      if (validation.errors.some((err) => err.includes("DNI"))) {
-        setErrors((prev) => ({
-          ...prev,
-          dni: validation.errors.find((err) => err.includes("DNI")) || "",
-        }));
+  const handleBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name !== "dni") return;
+
+    // 1) Formato (comportamiento previo): DNI vacío o con formato inválido no se consulta.
+    const validation = validateCliente({ ...formData, dni: value });
+    const formatError = validation.errors.find((err) => err.includes("DNI"));
+    if (formatError) {
+      setErrors((prev) => ({ ...prev, dni: formatError }));
+      return;
+    }
+
+    const normalized = value.trim();
+    if (normalized === "") return;
+    dniValueRef.current = normalized;
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.dni;
+      return next;
+    });
+
+    // 2) Unicidad (AC-002 / spec clientes-crud: "checked on field blur before full
+    // submission"). Reusa GET /api/socios?dni=, que normaliza el DNI. El guard del
+    // servidor (VALIDATION_DUPLICATE_DNI) sigue siendo la fuente de verdad.
+    try {
+      const existing = await fetchSocioPorDni(normalized);
+      if (dniValueRef.current !== normalized) return; // respuesta tardía: el campo cambió
+      // En edición el propio DNI del cliente no es un duplicado.
+      if (existing.id !== initialData?.id) {
+        setErrors((prev) => ({ ...prev, dni: DNI_DUPLICADO }));
       }
+    } catch {
+      // NOT_FOUND => el DNI está disponible. Cualquier otro fallo (red/permisos) no bloquea
+      // el alta: el guard del servidor decide al enviar.
     }
   };
 
@@ -186,6 +216,11 @@ export function ClienteForm({
       errorMap.pin = "El PIN debe tener exactamente 4 dígitos";
     }
 
+    // H8: si el blur marcó el DNI como duplicado, se bloquea el envío (el servidor re-valida igual).
+    if (dniDuplicate) {
+      errorMap.dni = DNI_DUPLICADO;
+    }
+
     if (Object.keys(errorMap).length > 0) {
       setErrors(errorMap);
       return;
@@ -203,6 +238,22 @@ export function ClienteForm({
         estadoCuenta: formData.estadoCuenta,
         pin: pin !== "" ? pin : undefined,
       });
+      // H5: tras un alta exitosa el form vuelve a vacío. En el alta `setEditing(null)` del
+      // page es un no-op, así que sin esto los valores quedaban y una segunda alta los reenviaba.
+      if (!formData.id) {
+        setFormData({
+          nombre: "",
+          dni: "",
+          email: "",
+          telefono: "",
+          membresiaAsignada: "",
+          estadoCuenta: "Activo",
+          pin: "",
+        });
+        setFechaAlta(undefined);
+        setErrors({});
+        dniValueRef.current = "";
+      }
     } catch (error) {
       // Error handling for API errors would happen here
       console.error("Form submission error:", error);
@@ -436,7 +487,7 @@ export function ClienteForm({
         <div className="flex gap-2">
           <button
             type="submit"
-            disabled={isSubmitting || isLoading || activeMembresias.length === 0}
+            disabled={isSubmitting || isLoading || dniDuplicate || activeMembresias.length === 0}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
           >
             {isSubmitting ? "Guardando..." : initialData?.id ? "Actualizar" : "Crear"}

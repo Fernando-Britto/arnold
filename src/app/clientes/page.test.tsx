@@ -291,6 +291,45 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       expect(document.body.innerHTML).toContain("TempPass-ABC123");
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente creado"));
     });
+
+    it("limpia el formulario tras crear, para que una nueva alta arranque vacía (H5)", async () => {
+      const user = userEvent.setup();
+      const newCliente = {
+        id: "cliente-new",
+        nombre: "Juan Pérez",
+        dni: "35456789",
+        email: "juan@example.com",
+        telefono: undefined,
+        membresiaAsignada: "silver-1",
+        estadoCuenta: "Activo" as const,
+        fechaAlta: new Date(),
+      };
+      mockClientesApi.fetchClientes.mockResolvedValue([]);
+      mockMembresasApi.fetchMembresias.mockResolvedValue([
+        { id: "silver-1", nombre: "Silver", precio: 100.0, estado: "ACTIVA" as const },
+      ]);
+      mockClientesApi.createCliente.mockResolvedValue({
+        cliente: newCliente,
+        tempPassword: "TempPass-ABC123",
+      });
+
+      render(<ClientesPage />);
+      await waitForLoadingComplete();
+
+      await user.type(screen.getByLabelText(/Nombre/i), "Juan Pérez");
+      await user.type(screen.getByLabelText(/DNI/i), "35.456.789");
+      await user.type(screen.getByLabelText(/Email/i), "juan@example.com");
+      await user.selectOptions(screen.getByLabelText(/Membresía/i), "silver-1");
+      await user.click(screen.getByRole("button", { name: /Crear/i }));
+
+      await waitFor(() => expect(mockClientesApi.createCliente).toHaveBeenCalled());
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/Nombre/i)).toHaveValue("");
+        expect(screen.getByLabelText(/DNI/i)).toHaveValue("");
+        expect(screen.getByLabelText(/Email/i)).toHaveValue("");
+      });
+    });
   });
 
   describe("P-03: si falla una de las dos cargas, la pantalla no se cae entera", () => {

@@ -266,7 +266,7 @@ export class ClienteRepository {
         const usuario = await tx.usuario.create({
           data: {
             nombre: data.nombre,
-            email: data.email,
+            email: data.email.trim().toLowerCase(),
             password: hashedPassword,
             rol: "SOCIO" as const,
           },

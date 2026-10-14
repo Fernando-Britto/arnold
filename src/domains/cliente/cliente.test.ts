@@ -645,6 +645,39 @@ describe("ClienteRepository", () => {
       expect(mockPrisma.socio.create).toHaveBeenCalled();
     });
 
+    it("normaliza el email (trim + lowercase) al crear, igual que update (H9)", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue(null);
+      mockPrisma.membresia.findUnique.mockResolvedValue({ estado: "ACTIVA" });
+      mockPrisma.usuario.create.mockResolvedValue({
+        id: "user-123",
+        nombre: "Juan Pérez",
+        email: "juan.perez@example.com",
+      });
+      mockPrisma.socio.create.mockResolvedValue({
+        id: "socio-123",
+        dni: "12345678",
+        telefono: null,
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: { id: "user-123", nombre: "Juan Pérez", email: "juan.perez@example.com" },
+      });
+
+      await repository.create({
+        nombre: "Juan Pérez",
+        dni: "12.345.678",
+        email: "Juan.Perez@Example.COM",
+        membresiaAsignada: "gold-123",
+        estadoCuenta: "Activo",
+      });
+
+      expect(mockPrisma.usuario.create.mock.calls[0][0].data.email).toBe(
+        "juan.perez@example.com"
+      );
+    });
+
     it("should throw VALIDATION_DUPLICATE_DNI if DNI already exists", async () => {
       mockPrisma.socio.findUnique.mockResolvedValue({ id: "existing-socio" }); // Duplicate exists
 
