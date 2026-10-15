@@ -175,7 +175,7 @@ export async function PUT(
 /**
  * DELETE /api/ejercicios/[id]
  * Deletes an ejercicio
- * Requires: Administrador role (handled by middleware)
+ * Requires: Instructor or Administrador role (handled by middleware)
  */
 export async function DELETE(
   request: NextRequest,
