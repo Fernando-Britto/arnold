@@ -69,4 +69,4 @@ openspec/         Specs, plan de tareas, decisiones y maquetas
 ## Flujo de trabajo
 
 Se trabaja siempre en `dev`; el merge a `main` se hace al cerrar la etapa · tests primero (rojo → verde) · PR de ≤400 líneas ·
-`npm test` en verde antes de mergear · commits con Conventional Commits y la referencia `(T-xxx, PR-xxx)`.
+`npm test` en verde antes de mergear · commits con Conventional Commits y la referencia `(T-xxx, D-xx)` (tarea y decisión, D-41).

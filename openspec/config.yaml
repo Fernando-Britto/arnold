@@ -7,12 +7,13 @@ version: "1.0"
 created: 2026-08-10
 
 context: |
-  arnold is a Next.js 16 React 19 frontend application with Clean Architecture
-  principles. The project uses ESLint for linting and TypeScript strict mode.
-  No test framework is currently configured.
+  arnold is a gym management system (socios, cuotas, access control, routines and cash desk):
+  Next.js 16 (Turbopack) + React 19 + TypeScript in strict mode + Prisma 6 on PostgreSQL.
+  ESLint for linting, and Jest with ts-jest as the test framework (jsdom unit tests plus an
+  integration suite against an ephemeral Postgres in Docker).
   
-  Architectural patterns: Clean Architecture, TDD, Atomic Design, SDD.
-  Primary layers: models, adapters, services, components, app, utilities.
+  Architectural patterns: layered architecture (routes -> api -> pure domains -> lib), TDD, SDD.
+  Real layers: src/app, src/api, src/domains, src/lib, src/components, src/contexts, src/utils.
 
 strict_tdd: true
 tdd_reason: "Jest configured with ts-jest; TDD mode enforced for Phase 1 MVP Core"
