@@ -37,8 +37,10 @@ diseño ya está aprobado y especificado; lo que falta es código.
 - [x] **T1** · T-045b: migración — `ConfiguracionDelSistema.ofertaReactivacionActiva` /
       `diasSinAsistirParaOferta` / `enfriamientoOfertaDias`, `Pago.montoLista` / `Pago.descuentoPct`
       — aplicada contra Supabase con `prisma migrate deploy`; cliente regenerado; `npm test` 166/2131 verde
-- [ ] **T2** · T-043b: `GET` y `PUT /api/configuracion` solo Administrador, con validación de rangos
+- [x] **T2** · T-043b: `GET` y `PUT /api/configuracion` solo Administrador, con validación de rangos
       y auditoría de valor anterior/nuevo en `RegistroDeAuditoria`
+      — rangos puros en `src/domains/configuracion/`; la escritura vive en `src/lib/configuracion.ts` para
+      no romper el guardián de T-043a; `npm test` 168/2162 verde
 - [ ] **T3** · T-043c: pantalla `/configuracion` agrupada y validada
 - [ ] **T4** · T-045c: `registrarPago` aplica la oferta dentro de la transacción `Serializable`;
       vista previa en `GET /api/socios?dni=`; `montoEsperado` en `POST /api/pagos` → `409 AMOUNT_CHANGED`

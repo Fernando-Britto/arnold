@@ -71,6 +71,7 @@ RECEPCIONISTA: {
       // exclusivo del Socio. El comodín es laxo, así que un entry con métodos vacíos lo
       // recorta por prefijo (ver hasRouteAccess). No toca /api/home-socio ni ninguna otra ruta.
       '/home-socio': [],
+      '/api/configuracion': ['GET', 'PUT'], // panel de parámetros: solo Administrador (D-54)
       '*': ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // wildcard: all methods on all routes
     },
   },

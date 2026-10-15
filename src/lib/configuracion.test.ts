@@ -1,8 +1,26 @@
 import { Prisma } from "@prisma/client";
-import { getConfiguracion, CONFIGURACION_POR_DEFECTO, type ConfiguracionReader } from "./configuracion";
+import {
+  getConfiguracion,
+  actualizarConfiguracion,
+  CONFIGURACION_POR_DEFECTO,
+  type ConfiguracionReader,
+} from "./configuracion";
 
 // El lector recibe el cliente (o la transacción) por parámetro: acá no se toca la base.
-jest.mock("@/lib/db", () => ({ prisma: {} }));
+// `actualizarConfiguracion` importa Prisma en forma diferida; el mock entrega la transacción armada.
+const mockTx = {
+  configuracionDelSistema: {
+    findFirst: jest.fn(),
+    update: jest.fn(),
+    create: jest.fn(),
+  },
+  registroDeAuditoria: { create: jest.fn() },
+};
+const mockPrisma = {
+  $transaction: jest.fn(async (cb: (tx: typeof mockTx) => unknown) => cb(mockTx)),
+};
+
+jest.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 
 function lector(fila: unknown): ConfiguracionReader & { findFirst: jest.Mock } {
   const findFirst = jest.fn().mockResolvedValue(fila);
@@ -79,5 +97,106 @@ describe("getConfiguracion", () => {
     expect((await getConfiguracion(lector(null))).diaLimitePago).toBe(10);
     expect(CONFIGURACION_POR_DEFECTO.diaLimitePago).toBe(10);
     expect(Object.isFrozen(CONFIGURACION_POR_DEFECTO)).toBe(true);
+  });
+});
+
+const filaBase = {
+  id: "cfg-1",
+  capacidadMaxima: 100,
+  periodoGracia: 0,
+  diasInactividad: 15,
+  descuentoReactivacion: new Prisma.Decimal("10"),
+  ofertaReactivacionActiva: false,
+  diasSinAsistirParaOferta: 30,
+  enfriamientoOfertaDias: 180,
+  ventanaAforoMinutos: 90,
+  diaLimitePago: 10,
+  diaCorteAltaTardia: 20,
+  antiPassbackMinutos: 60,
+  updatedAt: new Date(),
+};
+
+describe("actualizarConfiguracion", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockTx.configuracionDelSistema.findFirst.mockResolvedValue(null);
+    mockTx.configuracionDelSistema.update.mockResolvedValue({});
+    mockTx.configuracionDelSistema.create.mockResolvedValue({});
+    mockTx.registroDeAuditoria.create.mockResolvedValue({});
+  });
+
+  it("con fila existente actualiza solo los campos que cambiaron", async () => {
+    mockTx.configuracionDelSistema.findFirst.mockResolvedValue(filaBase);
+
+    const r = await actualizarConfiguracion({ descuentoReactivacion: 25 }, "admin-1");
+
+    expect(mockTx.configuracionDelSistema.update).toHaveBeenCalledWith({
+      where: { id: "cfg-1" },
+      data: { descuentoReactivacion: 25 },
+    });
+    expect(mockTx.configuracionDelSistema.create).not.toHaveBeenCalled();
+    expect(r.descuentoReactivacion).toBe(25);
+    expect(r.capacidadMaxima).toBe(100);
+  });
+
+  it("sin fila crea la fila completa, con los defaults en los campos no enviados", async () => {
+    const r = await actualizarConfiguracion({ ventanaAforoMinutos: 120 }, "admin-1");
+
+    expect(mockTx.configuracionDelSistema.create).toHaveBeenCalledTimes(1);
+    const data = mockTx.configuracionDelSistema.create.mock.calls[0][0].data;
+    expect(data.capacidadMaxima).toBe(CONFIGURACION_POR_DEFECTO.capacidadMaxima);
+    expect(data.periodoGracia).toBe(CONFIGURACION_POR_DEFECTO.periodoGracia);
+    expect(data.diasInactividad).toBe(CONFIGURACION_POR_DEFECTO.diasInactividad);
+    expect(data.descuentoReactivacion).toBe(CONFIGURACION_POR_DEFECTO.descuentoReactivacion);
+    expect(data.ventanaAforoMinutos).toBe(120);
+    expect(data.diaLimitePago).toBe(CONFIGURACION_POR_DEFECTO.diaLimitePago);
+    expect(mockTx.configuracionDelSistema.update).not.toHaveBeenCalled();
+    expect(r.ventanaAforoMinutos).toBe(120);
+  });
+
+  it("un cambio que no cambia nada no escribe auditoría ni update", async () => {
+    mockTx.configuracionDelSistema.findFirst.mockResolvedValue(filaBase);
+
+    const r = await actualizarConfiguracion({ descuentoReactivacion: 10 }, "admin-1");
+
+    expect(mockTx.configuracionDelSistema.update).not.toHaveBeenCalled();
+    expect(mockTx.registroDeAuditoria.create).not.toHaveBeenCalled();
+    expect(r.descuentoReactivacion).toBe(10);
+  });
+
+  it("un cambio real escribe exactamente un registro MODIFICACION con antes y despues", async () => {
+    mockTx.configuracionDelSistema.findFirst.mockResolvedValue(filaBase);
+
+    await actualizarConfiguracion({ descuentoReactivacion: 25 }, "admin-1");
+
+    expect(mockTx.registroDeAuditoria.create).toHaveBeenCalledTimes(1);
+    const audit = mockTx.registroDeAuditoria.create.mock.calls[0][0].data;
+    expect(audit.tipoOperacion).toBe("MODIFICACION");
+    expect(audit.responsableId).toBe("admin-1");
+    expect(JSON.parse(audit.detalles)).toEqual({
+      descuentoReactivacion: { antes: 10, despues: 25 },
+    });
+  });
+
+  it("devuelve la configuración combinada (valores viejos + cambios)", async () => {
+    mockTx.configuracionDelSistema.findFirst.mockResolvedValue(filaBase);
+
+    const r = await actualizarConfiguracion(
+      { capacidadMaxima: 200, ofertaReactivacionActiva: true },
+      "admin-1"
+    );
+
+    expect(r.capacidadMaxima).toBe(200);
+    expect(r.ofertaReactivacionActiva).toBe(true);
+    expect(r.diaLimitePago).toBe(10);
+    expect(r.antiPassbackMinutos).toBe(60);
+  });
+
+  it("corre dentro de una transacción", async () => {
+    mockTx.configuracionDelSistema.findFirst.mockResolvedValue(filaBase);
+
+    await actualizarConfiguracion({ capacidadMaxima: 150 }, "admin-1");
+
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
   });
 });

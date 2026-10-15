@@ -62,11 +62,8 @@ export interface ConfiguracionReader {
   };
 }
 
-export async function getConfiguracion(db?: ConfiguracionReader): Promise<Configuracion> {
-  const cliente = db ?? (await import("@/lib/db")).prisma;
-  const fila: FilaConfiguracion | null = await cliente.configuracionDelSistema.findFirst({
-    orderBy: { updatedAt: "desc" },
-  });
+/** Normaliza una fila (o su ausencia) a la forma completa de `Configuracion`, con defaults por campo. */
+function normalizarFila(fila: FilaConfiguracion | null): Configuracion {
   const d = CONFIGURACION_POR_DEFECTO;
   return {
     capacidadMaxima: fila?.capacidadMaxima ?? d.capacidadMaxima,
@@ -82,4 +79,67 @@ export async function getConfiguracion(db?: ConfiguracionReader): Promise<Config
     diaCorteAltaTardia: fila?.diaCorteAltaTardia ?? d.diaCorteAltaTardia,
     antiPassbackMinutos: fila?.antiPassbackMinutos ?? d.antiPassbackMinutos,
   };
+}
+
+export async function getConfiguracion(db?: ConfiguracionReader): Promise<Configuracion> {
+  const cliente = db ?? (await import("@/lib/db")).prisma;
+  const fila: FilaConfiguracion | null = await cliente.configuracionDelSistema.findFirst({
+    orderBy: { updatedAt: "desc" },
+  });
+  return normalizarFila(fila);
+}
+
+/**
+ * Aplica los cambios y devuelve la configuración resultante. Actualiza la fila más reciente o la
+ * crea si no existe, y en la misma transacción deja el RegistroDeAuditoria con el valor anterior y
+ * el nuevo de cada campo que cambió (D-54). Sin cambios no escribe auditoría.
+ *
+ * Importa el cliente en forma diferida: este módulo llega al navegador y no puede arrastrar Prisma.
+ */
+export async function actualizarConfiguracion(
+  cambios: Partial<Configuracion>,
+  responsableId: string,
+): Promise<Configuracion> {
+  const { prisma } = await import("@/lib/db");
+  return prisma.$transaction(async (tx) => {
+    const fila = await tx.configuracionDelSistema.findFirst({
+      orderBy: { updatedAt: "desc" },
+    });
+    const antes = normalizarFila(fila);
+    const despues: Configuracion = { ...antes, ...cambios };
+
+    const cambiados = (Object.keys(CONFIGURACION_POR_DEFECTO) as (keyof Configuracion)[]).filter(
+      (campo) => antes[campo] !== despues[campo],
+    );
+
+    if (fila) {
+      if (cambiados.length > 0) {
+        const data: Partial<Configuracion> = {};
+        for (const campo of cambiados) {
+          (data as Record<string, number | boolean>)[campo] = despues[campo];
+        }
+        await tx.configuracionDelSistema.update({ where: { id: fila.id }, data });
+      }
+    } else {
+      // Sin fila: se crea completa. Los cuatro campos sin default en el schema salen de
+      // CONFIGURACION_POR_DEFECTO; el resto, del valor enviado o del default.
+      await tx.configuracionDelSistema.create({ data: despues });
+    }
+
+    if (cambiados.length > 0) {
+      const detalles: Record<string, { antes: number | boolean; despues: number | boolean }> = {};
+      for (const campo of cambiados) {
+        detalles[campo] = { antes: antes[campo], despues: despues[campo] };
+      }
+      await tx.registroDeAuditoria.create({
+        data: {
+          tipoOperacion: "MODIFICACION",
+          responsableId,
+          detalles: JSON.stringify(detalles),
+        },
+      });
+    }
+
+    return despues;
+  });
 }
