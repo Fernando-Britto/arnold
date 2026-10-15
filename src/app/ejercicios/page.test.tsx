@@ -163,7 +163,7 @@ describe("Ejercicios CRUD Screen (Page)", () => {
   });
 
   describe("Selección de fila", () => {
-    it("click en una fila la selecciona (aria-selected)", async () => {
+    it("click en una fila la despliega (aria-selected + light-brand)", async () => {
       const user = userEvent.setup();
       render(<EjerciciosPage />);
       await user.click(await screen.findByText("Press Militar"));
@@ -171,7 +171,30 @@ describe("Ejercicios CRUD Screen (Page)", () => {
         (r) => r.getAttribute("aria-selected") === "true",
       );
       expect(row).toBeDefined();
-      expect(row).toHaveClass("bg-[#FC4C02]");
+      expect(row).toHaveClass("bg-[#FDEDE4]");
+    });
+
+    it("el segundo click en la misma fila la vuelve a cerrar", async () => {
+      const user = userEvent.setup();
+      render(<EjerciciosPage />);
+      await user.click(await screen.findByText("Press Militar"));
+
+      const abierta = screen
+        .getAllByRole("row")
+        .find((r) => r.getAttribute("aria-selected") === "true");
+      expect(abierta).toBeDefined();
+      // La fila de detalle (Descripción) sólo vive mientras la fila está abierta.
+      expect(screen.getByText("Empuje vertical")).toBeInTheDocument();
+
+      await user.click(screen.getByText("Press Militar"));
+
+      expect(
+        screen.getAllByRole("row").some((r) => r.getAttribute("aria-selected") === "true"),
+      ).toBe(false);
+      expect(screen.queryByText("Empuje vertical")).not.toBeInTheDocument();
+      // Sin selección no se puede modificar ni eliminar.
+      expect(screen.getByRole("button", { name: "Modificar" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Eliminar" })).toBeDisabled();
     });
   });
 

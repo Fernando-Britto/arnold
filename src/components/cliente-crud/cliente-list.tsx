@@ -133,12 +133,12 @@ export function ClienteList({
 
   return (
     <Table label="Clientes">
-      <TableHeader columns={CLIENTE_COLUMNS} sort={sort} onSort={handleSort} />
+      <TableHeader columns={CLIENTE_COLUMNS} sort={sort} onSort={handleSort} disclosure />
       {filtered.map((cliente) => {
         const isSelected = cliente.id === selectedId;
         return (
           <React.Fragment key={cliente.id}>
-            <TableRow selected={isSelected} onClick={() => onSelect?.(cliente)}>
+            <TableRow selected={isSelected} onClick={() => onSelect?.(cliente)} disclosure>
               <TableCell width={80} variant="secondary">
                 {shortId("CL", cliente.id)}
               </TableCell>

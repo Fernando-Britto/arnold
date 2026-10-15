@@ -94,12 +94,12 @@ export function RutinaListPanel({
 
   return (
     <Table label="Rutinas">
-      <TableHeader columns={RUTINA_COLUMNS} sort={sort} onSort={handleSort} />
+      <TableHeader columns={RUTINA_COLUMNS} sort={sort} onSort={handleSort} disclosure />
       {filtered.map((rutina) => {
         const isSelected = rutina.id === selectedId;
         return (
           <React.Fragment key={rutina.id}>
-            <TableRow selected={isSelected} onClick={() => onSelect?.(rutina)}>
+            <TableRow selected={isSelected} onClick={() => onSelect?.(rutina)} disclosure>
               <TableCell width={80} variant="secondary">
                 {shortId("RU", rutina.id)}
               </TableCell>

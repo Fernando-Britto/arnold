@@ -185,8 +185,9 @@ export function ClientesPage() {
     }
   };
 
+  // Segundo clic sobre la misma fila la cierra: el detalle vive sólo mientras está abierta.
   const handleSelect = (cliente: Cliente) => {
-    setSelectedId(cliente.id);
+    setSelectedId((prev) => (prev === cliente.id ? null : cliente.id));
   };
 
   const handleModify = () => {

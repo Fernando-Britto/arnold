@@ -53,12 +53,12 @@ export function EjercicioListPanel({
 
   return (
     <Table label="Ejercicios">
-      <TableHeader columns={EJERCICIO_COLUMNS} />
+      <TableHeader columns={EJERCICIO_COLUMNS} disclosure />
       {filtered.map((ejercicio) => {
         const isSelected = ejercicio.id === selectedId;
         return (
           <React.Fragment key={ejercicio.id}>
-            <TableRow selected={isSelected} onClick={() => onSelect?.(ejercicio)}>
+            <TableRow selected={isSelected} onClick={() => onSelect?.(ejercicio)} disclosure>
               <TableCell width={100} variant="secondary">
                 {shortId("EX", ejercicio.id)}
               </TableCell>

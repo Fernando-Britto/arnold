@@ -60,18 +60,26 @@ sobrante en lugar de acumularlo en una sola columna.
       dentro del `FormPanelShell` de la página. Era el mismo defecto que tenía clientes:
       título duplicado y tarjeta anidada. Test anti-reincidencia: el form no renderiza
       ningún `heading`.
+- [x] **T7** — Despliegue de filas en las 4 tablas: chevron de affordance (gris abajo / naranja
+      arriba, tal como ya lo dibujaban los mockups, faltaba en el código), segundo click cierra,
+      y la fila abierta baja de `#FC4C02` a la light-brand `#FDEDE4`.
 
 ## Verificación
 
-- `npx jest` → **2047/2047** tests verdes (163 suites).
+- `npx jest` → **2053/2053** tests verdes (163 suites).
 - `npx tsc --noEmit` → limpio.
-- `npx eslint` sobre los archivos tocados → sin errores nuevos. Los 2 que reporta
-  (`react-hooks/set-state-in-effect` en `cliente-form.tsx:116` y un `as any` en
-  `cliente-form.test.tsx`) son **preexistentes**, en código no modificado.
+- `npx eslint` sobre los archivos tocados → sin errores nuevos. Los que reporta
+  (`react-hooks/set-state-in-effect` en `cliente-form.tsx:116`, `ejercicio-form.tsx:45`,
+  `rutina-form.tsx:82` y un `as any` en `cliente-form.test.tsx`) son **preexistentes**, en
+  código no modificado.
 - Fuente verificada contra el dev server real (`/login`): el `<html>` sale con la variable
   `inter_*_variable` y el CSS emitido trae `body { font-family: var(--font-inter), ... }`.
+- Clave del plugin de OpenCode verificada empíricamente: `plugin` (singular) es lo que entiende
+  el binario instalado (1.18.34); `plugins` (plural, del schema publicado) se descarta en
+  silencio. Ver `opencode.json`.
 
 ## Próximo paso
 
-Revisar visualmente `/clientes` y `/membresias` en el navegador. Si el reparto de columnas
-quedó demasiado denso, el único número a mover es `FLEX_BASE` en `src/components/ui/table.tsx`.
+Revisar visualmente las 4 tablas en el navegador (los cambios de T7 están **sin commitear**).
+Dos perillas si algo no cierra: `FLEX_BASE` en `src/components/ui/table.tsx` para la densidad de
+las columnas, y la clase `bg-[#FDEDE4]` de `TableRow` para cuán fuerte se ve la fila abierta.

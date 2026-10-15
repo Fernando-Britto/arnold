@@ -72,7 +72,7 @@ describe("EjercicioListPanel", () => {
     const rows = screen.getAllByRole("row");
     // rows[0] = header, rows[1] = first data row (sorted: Press Banca, Press Militar, Sentadilla)
     const selected = rows.find((r) => r.getAttribute("aria-selected") === "true");
-    expect(selected).toHaveClass("bg-[#FC4C02]");
+    expect(selected).toHaveClass("bg-[#FDEDE4]");
     expect(screen.getByText("Empuje vertical")).toBeInTheDocument();
   });
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { ChevronDown } from "lucide-react";
 
 export type TableAlign = "left" | "center" | "right";
 export type TableCellVariant = "primary" | "secondary";
@@ -82,6 +83,13 @@ function cellStyle(width?: number): React.CSSProperties {
   return { flexGrow: base, flexShrink: 1, flexBasis: base, minWidth: 0 };
 }
 
+/**
+ * Ancho de la zona del chevron de despliegue, igual que en el mockup (el ícono vive
+ * entre x=1356 y el borde derecho del panel, unos 40px). Es fija y no entra en el
+ * reparto proporcional, así la cabecera y las filas siguen alineadas.
+ */
+export const DISCLOSURE_WIDTH = 40;
+
 /** Table wrapper. Uses ARIA table semantics over flex rows (matches the OpenPencil mockup). */
 export function Table({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
@@ -97,15 +105,20 @@ export function Table({ label, children }: { label?: string; children: React.Rea
  *
  * Sorting is opt-in per column (`TableColumn.sortable`) and only activates when
  * `onSort` is provided, so existing non-sortable usages render unchanged.
+ *
+ * `disclosure` reserva la última zona para el chevron que anuncia que la fila se
+ * despliega (el mockup la dibuja vacía en la cabecera y ocupada en cada fila).
  */
 export function TableHeader({
   columns,
   sort = null,
   onSort,
+  disclosure = false,
 }: {
   columns: TableColumn[];
   sort?: TableSort | null;
   onSort?: (key: string) => void;
+  disclosure?: boolean;
 }) {
   return (
     <div
@@ -150,6 +163,9 @@ export function TableHeader({
           </div>
         );
       })}
+      {disclosure && (
+        <div aria-hidden="true" className="shrink-0" style={{ width: DISCLOSURE_WIDTH }} />
+      )}
     </div>
   );
 }
@@ -157,13 +173,29 @@ export function TableHeader({
 interface TableRowProps {
   selected?: boolean;
   onClick?: () => void;
+  /** Reserva la última zona y dibuja el chevron que anuncia que la fila se despliega. */
+  disclosure?: boolean;
   children: React.ReactNode;
 }
 
 /**
- * Row: h56, border-bottom #E4E4E7, px24, items-center. Selected: bg #FC4C02, white text.
+ * Row: h56, border-bottom #E4E4E7, px24, items-center.
+ *
+ * Fila desplegada: el mockup la pinta a plena saturación (`#FC4C02` con texto blanco),
+ * pero eso daba un golpe de color muy fuerte por fila. Ahora usa la light-brand
+ * `#FDEDE4` — la misma superficie que ya tenía la fila de detalle —, así el bloque
+ * abierto (fila + detalle) se lee como una unidad suave. Lo que sigue avisando que
+ * está abierta es el chevron en naranja apuntando hacia arriba más el detalle debajo.
+ *
+ * `disclosure` agrega al final el chevron: gris hacia abajo cuando está cerrada,
+ * naranja hacia arriba cuando está abierta (igual que los mockups).
  */
-export function TableRow({ selected = false, onClick, children }: TableRowProps) {
+export function TableRow({
+  selected = false,
+  onClick,
+  disclosure = false,
+  children,
+}: TableRowProps) {
   return (
     <div
       role="row"
@@ -171,13 +203,24 @@ export function TableRow({ selected = false, onClick, children }: TableRowProps)
       onClick={onClick}
       className={`flex h-14 items-center gap-4 border-b border-[#E4E4E7] px-6 ${
         onClick ? "cursor-pointer" : ""
-      } ${
-        selected
-          ? "bg-[#FC4C02] text-white [&>*]:text-white"
-          : "bg-white hover:bg-[#FAFAFA]"
-      }`}
+      } ${selected ? "bg-[#FDEDE4]" : "bg-white hover:bg-[#FAFAFA]"}`}
     >
       {children}
+      {disclosure && (
+        <span
+          className="flex shrink-0 items-center justify-center"
+          style={{ width: DISCLOSURE_WIDTH }}
+        >
+          <ChevronDown
+            size={16}
+            aria-hidden="true"
+            data-disclosure-indicator
+            className={`transition-transform duration-150 ${
+              selected ? "rotate-180 text-[#FC4C02]" : "text-[#A1A1AA]"
+            }`}
+          />
+        </span>
+      )}
     </div>
   );
 }

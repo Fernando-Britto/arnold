@@ -86,8 +86,9 @@ export function MembresiasPage() {
     setEditing(null);
   };
 
+  // Segundo clic sobre la misma fila la cierra: el detalle vive sólo mientras está abierta.
   const handleSelect = (membresia: Membresia) => {
-    setSelectedId(membresia.id);
+    setSelectedId((prev) => (prev === membresia.id ? null : membresia.id));
   };
 
   const handleModify = () => {

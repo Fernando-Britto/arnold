@@ -66,8 +66,27 @@ describe("ClienteList", () => {
     const selected = screen
       .getAllByRole("row")
       .find((r) => r.getAttribute("aria-selected") === "true");
-    expect(selected).toHaveClass("bg-[#FC4C02]");
+    expect(selected).toHaveClass("bg-[#FDEDE4]");
     expect(screen.getByText("ana@example.com")).toBeInTheDocument();
+  });
+
+  it("cada fila lleva el chevron que anuncia que se despliega", () => {
+    render(<ClienteList clientes={clientes} selectedId="cliente-1" />);
+
+    const chevrons = document.querySelectorAll("[data-disclosure-indicator]");
+    // Uno por fila: la lista está cableada con `disclosure`.
+    expect(chevrons).toHaveLength(clientes.length);
+    // La abierta apunta hacia arriba y en naranja; las cerradas hacia abajo y en gris.
+    const abierto = screen
+      .getAllByRole("row")
+      .find((r) => r.getAttribute("aria-selected") === "true")
+      ?.querySelector("[data-disclosure-indicator]");
+    expect(abierto).toHaveClass("rotate-180", "text-[#FC4C02]");
+    const cerrado = screen
+      .getAllByRole("row")
+      .find((r) => r.getAttribute("aria-selected") === "false")
+      ?.querySelector("[data-disclosure-indicator]");
+    expect(cerrado).toHaveClass("text-[#A1A1AA]");
   });
 
   it("filtra por nombre, DNI o email", () => {

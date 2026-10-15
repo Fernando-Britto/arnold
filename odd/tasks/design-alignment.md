@@ -46,7 +46,8 @@ Blanco, borde `#E5E5E5` 1px, radio 8, padding 8/16, gap 8, ícono lucide 16px, l
 
 - **TableHeader**: flex row, h52, `px24`, gap16, `bg #F4F4F5`, borde `#E4E4E7`, esquinas superiores 8. Labels `13/700 #71717A`.
 - **Filas**: h56, borde inferior `#E4E4E7`, `px24`, items-center. Celdas `14/400`: primaria `#333333`, secundaria `#71717A`.
-- **Fila seleccionada**: fondo `#FC4C02`, texto blanco, + fila de **detalle** debajo (`Row_Detail`: padding 0/48/24/48, gap16) con los campos extra y las acciones contextuales.
+- **Fila seleccionada**: fondo `#FC4C02`, texto blanco, + fila de **detalle** debajo (`Row_Detail`: padding 0/48/24/48, gap16) con los campos extra y las acciones contextuales. *(Revisado: ver "Actualización" al final — el fondo bajó a `#FDEDE4`.)*
+- **Chevron de despliegue**: el mockup ya lo dibuja en la última zona de cada fila (x≈1356, ~40px): gris `#A1A1AA` apuntando abajo cuando está cerrada, naranja `#FC4C02` apuntando arriba cuando está abierta.
 - **Badge de estado**: h23, `bg #DEF7EC`, radio, padding 4/10, texto de estado.
 
 **Columnas por pantalla**
@@ -59,7 +60,8 @@ Blanco, borde `#E5E5E5` 1px, radio 8, padding 8/16, gap 8, ícono lucide 16px, l
 
 ## Interacción (cambio de funcionalidad)
 
-1. La **fila se selecciona** al hacer click (una sola a la vez).
+1. La **fila se despliega** al hacer click (una sola a la vez) y se **vuelve a cerrar** con un
+   segundo click sobre la misma fila. *(Actualizado: antes el segundo click la dejaba abierta.)*
 2. **Modificar** edita la fila seleccionada (carga el form). **Eliminar** borra la seleccionada (con confirmación). Ambos deshabilitados sin selección.
 3. **Buscar** abre/enfoca el campo de búsqueda (ya no vive dentro de la tabla).
 4. Los botones **ya no van dentro de cada fila**; se quitan de la tabla.
@@ -90,3 +92,11 @@ reparte el sobrante entre todas las columnas en proporción a su medida — se p
 densidad de la tabla por encima de la fidelidad literal al mockup. Además la tipografía es
 **Inter** de verdad (el `body` pisaba `--font-sans` con Arial). El resto de este documento
 sigue vigente.
+
+**Actualización 2026-10-15 (2)**: la **fila desplegada** ya no va a plena saturación. El mockup
+la pinta entera `#FC4C02` con texto blanco, y eso daba un golpe de color muy fuerte por fila
+(además de apagar el color de los badges de estado). Ahora usa la light-brand `#FDEDE4` — la
+misma superficie que ya tenía `Row_Detail` —, el texto vuelve a sus colores normales y el
+estado abierto se anuncia con el **chevron** naranja hacia arriba más el detalle debajo.
+El chevron (columna final de ~40px, `disclosure` en el kit de tabla) ya estaba en los cuatro
+mockups: simplemente faltaba en el código.

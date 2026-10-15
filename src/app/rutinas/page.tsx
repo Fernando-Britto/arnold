@@ -155,8 +155,9 @@ export function RutinasPage() {
     }
   };
 
+  // Segundo clic sobre la misma fila la cierra: el detalle vive sólo mientras está abierta.
   const handleSelect = (rutina: RutinaWithCount) => {
-    setSelectedId(rutina.id);
+    setSelectedId((prev) => (prev === rutina.id ? null : rutina.id));
   };
 
   const handleModify = async () => {

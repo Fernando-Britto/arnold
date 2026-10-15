@@ -108,8 +108,9 @@ export function EjerciciosPage() {
     }
   };
 
+  // Segundo clic sobre la misma fila la cierra: el detalle vive sólo mientras está abierta.
   const handleSelect = (ejercicio: Ejercicio) => {
-    setSelectedId(ejercicio.id);
+    setSelectedId((prev) => (prev === ejercicio.id ? null : ejercicio.id));
   };
 
   const handleModify = () => {

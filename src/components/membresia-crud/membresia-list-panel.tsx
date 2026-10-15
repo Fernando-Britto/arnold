@@ -102,13 +102,13 @@ export function MembresiaListPanel({
 
   return (
     <Table label="Membresías">
-      <TableHeader columns={MEMBRESIA_COLUMNS} sort={sort} onSort={handleSort} />
+      <TableHeader columns={MEMBRESIA_COLUMNS} sort={sort} onSort={handleSort} disclosure />
       {filtered.map((membresia) => {
         const isSelected = membresia.id === selectedId;
         const isActiva = membresia.estado === "ACTIVA";
         return (
           <React.Fragment key={membresia.id}>
-            <TableRow selected={isSelected} onClick={() => onSelect?.(membresia)}>
+            <TableRow selected={isSelected} onClick={() => onSelect?.(membresia)} disclosure>
               <TableCell width={100} variant="secondary">
                 {shortId("MB", membresia.id)}
               </TableCell>

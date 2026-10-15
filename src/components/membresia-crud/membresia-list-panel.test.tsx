@@ -61,7 +61,7 @@ describe("MembresiaListPanel", () => {
     const selected = screen
       .getAllByRole("row")
       .find((r) => r.getAttribute("aria-selected") === "true");
-    expect(selected).toHaveClass("bg-[#FC4C02]");
+    expect(selected).toHaveClass("bg-[#FDEDE4]");
     expect(screen.getByText("Premium")).toBeInTheDocument();
   });
 

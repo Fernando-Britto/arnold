@@ -64,7 +64,7 @@ describe("Table kit", () => {
     }
   });
 
-  it("TableRow marca aria-selected y pinta la fila seleccionada", () => {
+  it("TableRow marca aria-selected y pinta la fila desplegada en la light-brand", () => {
     render(
       <Table>
         <TableRow selected onClick={() => {}}>
@@ -77,8 +77,56 @@ describe("Table kit", () => {
     );
     const rows = screen.getAllByRole("row");
     expect(rows[0]).toHaveAttribute("aria-selected", "true");
-    expect(rows[0]).toHaveClass("bg-[#FC4C02]");
+    // Fila desplegada: light-brand suave, sin el naranja a plena saturación ni texto blanco.
+    expect(rows[0]).toHaveClass("bg-[#FDEDE4]");
+    expect(rows[0]).not.toHaveClass("bg-[#FC4C02]");
     expect(rows[1]).toHaveAttribute("aria-selected", "false");
+  });
+
+  describe("chevron de despliegue", () => {
+    it("la cabecera reserva la zona del chevron cuando disclosure está activo", () => {
+      const { container } = render(<TableHeader columns={columns} disclosure />);
+      const row = screen.getByRole("row");
+
+      // La zona reservada es fija (40px) y decorativa.
+      expect(row.lastElementChild).toHaveAttribute("aria-hidden", "true");
+      expect(row.lastElementChild).toHaveStyle("width: 40px");
+      // Sigue habiendo una sola columna por dato.
+      expect(container.querySelectorAll('[role="columnheader"]')).toHaveLength(columns.length);
+    });
+
+    it("sin disclosure la cabecera no agrega la zona", () => {
+      render(<TableHeader columns={columns} />);
+      expect(screen.getByRole("row").children).toHaveLength(columns.length);
+    });
+
+    it("la fila cerrada muestra el chevron hacia abajo y en gris", () => {
+      render(
+        <Table>
+          <TableRow disclosure onClick={() => {}}>
+            <TableCell>fila</TableCell>
+          </TableRow>
+        </Table>,
+      );
+
+      const chevron = document.querySelector("[data-disclosure-indicator]");
+      expect(chevron).toBeInTheDocument();
+      expect(chevron).toHaveClass("text-[#A1A1AA]");
+      expect(chevron).not.toHaveClass("rotate-180");
+    });
+
+    it("la fila desplegada gira el chevron hacia arriba y lo pinta naranja", () => {
+      render(
+        <Table>
+          <TableRow disclosure selected onClick={() => {}}>
+            <TableCell>fila</TableCell>
+          </TableRow>
+        </Table>,
+      );
+
+      const chevron = document.querySelector("[data-disclosure-indicator]");
+      expect(chevron).toHaveClass("rotate-180", "text-[#FC4C02]");
+    });
   });
 
   it("TableRow dispara onClick al hacer click", async () => {
