@@ -1,6 +1,6 @@
 # Oferta de reactivación y panel de parámetros
 
-**Estado**: en curso
+**Estado**: cerrado (código); P-40 abierto (confirmar valores con el negocio)
 **Rama**: `dev`
 **Plan**: D-54 (`openspec/decisions.md`) · **Specs**: `openspec/specs/oferta-reactivacion/spec.md`, `openspec/specs/configuracion-sistema/spec.md`
 **TDD**: activo — `strict_tdd: true` en `openspec/config.yaml`, runner jest (`npm test`)
@@ -53,8 +53,11 @@ diseño ya está aprobado y especificado; lo que falta es código.
       la búsqueda ante `409 AMOUNT_CHANGED`); aviso propio en Home_Socio; la card de inactivos suma una
       línea con cuántos son elegibles, con **una sola** consulta extra en bulk; `/puerta` no se tocó;
       `npm test` 173/2211 verde
-- [ ] **T6** · Docs: avances en D-54, `PROJECT-STATUS.md` y `openspec/sdd-tasks-tdd.md`; P-40 cerrado
+- [x] **T6** · Docs: avances en D-54, `PROJECT-STATUS.md` y `openspec/sdd-tasks-tdd.md`; P-40 cerrado
       cuando se confirmen los valores con el negocio
+      — D-54 documenta T-045b…T-045d y T-043b/c; las 7 tareas quedan ✅ en `sdd-tasks-tdd.md`. **P-40
+      sigue abierto**: los valores (30 días, 180 de enfriamiento, tope de 50 %) los tiene que confirmar
+      el negocio
 
 ## Criterios de aceptación
 

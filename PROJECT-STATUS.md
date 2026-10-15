@@ -150,7 +150,7 @@ Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`).
 6. **Secciones del socio** (T-039, D-45) — ✅ Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias (ownership server-side).
 7. **Cierre de caja** (T-040) — ✅ `/cierres` + totales por método.
 8. **Molinete y huella** (T-041, D-49; fase final, depende del hardware). ⏳
-9. **Panel de parámetros y oferta de reactivación** (T-043a–c, T-045a–d, D-54) — ⏳ diseñada (specs `configuracion-sistema` y `oferta-reactivacion`); **T-043a ✅ (lector único)**, **T-045a ✅ (funciones puras de la oferta)**, el resto sin código. Descuento y tiempo de activación configurables por el Administrador; oferta apagada por defecto.
+9. **Panel de parámetros y oferta de reactivación** (T-043a–c, T-045a–d, D-54) — ✅ completa: lector único de configuración, `GET`/`PUT /api/configuracion` solo para el Administrador con auditoría, pantalla `/configuracion`, migración aplicada, cobro con descuento y vista previa, y avisos en pagos, Home_Interno y Home_Socio. La pantalla de la puerta no la muestra (D-47). **La oferta viene apagada por defecto**: el sistema cobra igual hasta que se active desde el panel.
 
 Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-040). Falta que Fernando genere y aplique **una** migración (`sesion_en_curso_y_dispositivo`) y pruebe en dev.
 
@@ -193,7 +193,12 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-39 | No existe un flujo para anular un pago (`ANULADO` nadie lo escribe) | Baja |
 | P-40 | Confirmar con el negocio los valores de la oferta de reactivación (D-54) | Baja |
 
-## Cambios recientes (2026-10-07 al 2026-10-14)
+## Cambios recientes (2026-10-07 al 2026-10-15)
+
+- **Oferta de reactivación completa (T-045b a T-045d, T-043b y T-043c, D-54)**: migración aplicada, panel de
+  parámetros (API + pantalla) y cobro con descuento, vista previa y avisos en las tres pantallas. La oferta
+  **viene apagada por defecto**: hasta que se active desde `/configuracion`, el sistema cobra exactamente igual
+  que antes. Falta confirmar los valores con el negocio (P-40).
 
 - **Oferta de reactivación, parte pura (T-045a, D-54)**: `evaluarOferta`, `calcularDescuento` y `aplicarOferta` en `src/domains/pago/oferta-reactivacion.ts`. Todavía no se usan en
   ningún cobro ni pantalla: el cobro sigue exactamente igual hasta T-045c.

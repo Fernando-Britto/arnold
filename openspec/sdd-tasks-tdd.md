@@ -66,12 +66,12 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-041 ➕ Molinete y huella | ⏳ | — | — | Hardware not chosen; blocked by P-30 (D-43) |
 | T-042, T-044 ➕ Usuarios internos y cambio de contraseña | ⏳ | — | — | Suggested by Claude, not yet confirmed (D-42) |
 | T-043a ➕ Lector único `getConfiguracion()` | ✅ | — (direct to `dev`) | — | `src/lib/configuracion.ts` replaces the 6 loose reads; guard test forbids new ones; one payload change in home-interno (D-54) |
-| T-043b ➕ `GET/PUT /api/configuracion` | ⏳ | — | — | Admin only; audit with previous and new value in `RegistroDeAuditoria` (D-54) |
-| T-043c ➕ Pantalla `/configuracion` | ⏳ | — | — | All parameters, validated; the "machines" part of the old T-043 is not confirmed (D-54) |
+| T-043b ➕ `GET/PUT /api/configuracion` | ✅ | — (direct to `dev`) | — | Admin only; ranges live pure in `src/domains/configuracion/`; writes + audit in one transaction inside `src/lib/configuracion.ts` so the guard test stays green (D-54) |
+| T-043c ➕ Pantalla `/configuracion` | ✅ | — (direct to `dev`) | — | 11 parameters grouped (Acceso/Cuotas/Aforo/Oferta), client-side ranges reused, only changed fields sent, nav link added (D-54) |
 | T-045a ➕ Oferta de reactivación: elegibilidad y descuento (puro) | ✅ | — (direct to `dev`) | — | `src/domains/pago/oferta-reactivacion.ts`, 69 tests with boundary cases (mutation-checked); spec `oferta-reactivacion` (D-54) |
-| T-045b ➕ Migración de la oferta | ⏳ | — | — | New config fields + `Pago.montoLista` / `descuentoPct`; written by hand, applied by Fernando (D-41) |
-| T-045c ➕ Cobro con oferta y vista previa | ⏳ | — | — | Inside the `Serializable` transaction of `registrarPago`; `montoEsperado` → 409 `AMOUNT_CHANGED` (D-54) |
-| T-045d ➕ Avisos de la oferta | ⏳ | — | — | Pagos screen, Home_Interno card and Home_Socio notice; not the door screen (D-47) |
+| T-045b ➕ Migración de la oferta | ✅ | — (direct to `dev`) | — | `ConfiguracionDelSistema` offer fields + `Pago.montoLista` / `descuentoPct`; hand-written and applied against Supabase with `prisma migrate deploy` (D-41, D-54) |
+| T-045c ➕ Cobro con oferta y vista previa | ✅ | — (direct to `dev`) | — | Applied inside the `Serializable` transaction of `registrarPago`; `montoEsperado` → 409 `AMOUNT_CHANGED`; preview in `GET /api/socios?dni=` (D-54) |
+| T-045d ➕ Avisos de la oferta | ✅ | — (direct to `dev`) | — | Pagos card + `montoEsperado`, Home_Socio notice and the inactive-socios card footer (one extra bulk query); not the door screen (D-47, D-54) |
 
 ## Scope changes during apply
 
