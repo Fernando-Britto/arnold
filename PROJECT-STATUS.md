@@ -191,14 +191,14 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-37 | ~~`scripts/test-integration.mjs` puede declarar "Postgres listo" durante el `initdb` (socket unix vs TCP)~~ → **resuelto**: el gate fuerza TCP; carrera reproducida (1/88 muestras) | — |
 | P-38 | ~~`npm run test:integration --keep` reusa cualquier container con el nombre esperado, sin validarlo~~ → **resuelto**: valida imagen/base/puerto y recrea si no coincide | — |
 | P-39 | No existe un flujo para anular un pago (`ANULADO` nadie lo escribe) | Baja |
-| P-40 | Confirmar con el negocio los valores de la oferta de reactivación (D-54) | Baja |
+| P-40 | ~~Confirmar con el negocio los valores de la oferta de reactivación (D-54)~~ → **resuelto (2026-10-15)**: Fernando confirmó la propuesta básica — 30 días sin asistir, 180 de enfriamiento y tope del 50 %—; son configurables desde `/configuracion`, así que el negocio los ajusta sin tocar código | — |
 
 ## Cambios recientes (2026-10-07 al 2026-10-15)
 
 - **Oferta de reactivación completa (T-045b a T-045d, T-043b y T-043c, D-54)**: migración aplicada, panel de
   parámetros (API + pantalla) y cobro con descuento, vista previa y avisos en las tres pantallas. La oferta
   **viene apagada por defecto**: hasta que se active desde `/configuracion`, el sistema cobra exactamente igual
-  que antes. Falta confirmar los valores con el negocio (P-40).
+  que antes. Los valores por defecto (30 días, 180 de enfriamiento, tope del 50 %) quedaron confirmados por el negocio como propuesta básica (P-40 cerrado, 2026-10-15) y son configurables desde `/configuracion`.
 
 - **Oferta de reactivación, parte pura (T-045a, D-54)**: `evaluarOferta`, `calcularDescuento` y `aplicarOferta` en `src/domains/pago/oferta-reactivacion.ts`. Todavía no se usan en
   ningún cobro ni pantalla: el cobro sigue exactamente igual hasta T-045c.

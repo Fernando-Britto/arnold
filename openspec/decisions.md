@@ -790,7 +790,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   - **T-045d**: avisos en la pantalla de pagos (lista, porcentaje y monto final, con `montoEsperado` al confirmar), en Home_Socio (aviso propio) y en la card de socios inactivos de Home_Interno (una línea con cuántos de esos socios son elegibles). Esa última agregación quedó pura en el dominio y el payload suma **una** consulta `groupBy` en bulk: nunca una consulta por socio. `/puerta` no muestra la oferta (D-47).
   - **Ajuste posterior a la revisión**: el hallazgo `R3-1` de la revisión nativa mostró que, con la oferta apagada (el default), cada cobro igual hacía dos lecturas de más dentro de la transacción. `evaluarOfertaDeSocio` ahora corta antes de consultar cuando `ofertaReactivacionActiva` es `false`: mismo comportamiento, sin esas dos consultas.
   - **Revisión nativa**: los tres slices de esta etapa (T-045b+T-043b, T-043c, T-045c) se revisaron y se aprobaron con la autoridad quemada; los hallazgos quedaron advisory.
-  - **P-40 sigue abierto**: los valores de la oferta (30 días, 180 de enfriamiento, tope de 50 %) siguen siendo una propuesta y hay que confirmarlos con el negocio. Se cambian desde el panel.
+  - **P-40 cerrado (2026-10-15)**: Fernando confirmó los valores de la propuesta básica — **30 días** sin asistir, **180** de enfriamiento y **tope del 50 %**— y recordó que son configurables desde el panel, así que el negocio los ajusta sin tocar código. Los rangos de validación de cada parámetro (los de la spec `configuracion-sistema`) siguen siendo la propuesta de Claude y se pueden ajustar sin cambiar el diseño.
 - **Cierra P-25.**
 
 ---
