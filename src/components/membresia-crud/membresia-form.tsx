@@ -13,7 +13,8 @@ interface MembresiaFormProps {
     nombre: string;
     precio: number;
     periodicidad: number;
-    descripcion?: string;
+    /** NF-14: `null` vacía la descripción; el string la guarda. */
+    descripcion: string | null;
     estado: EstadoMembresia;
   }) => void;
   onCancel: () => void;
@@ -116,7 +117,8 @@ export function MembresiaForm({
       nombre: formData.nombre,
       precio: numericPrecio!,
       periodicidad: numericPeriodicidad!,
-      descripcion: formData.descripcion || undefined,
+      // NF-14: `null` explícito = vaciar la descripción (no `undefined`, que la dejaría igual).
+      descripcion: formData.descripcion || null,
       estado: formData.estado,
     });
   };

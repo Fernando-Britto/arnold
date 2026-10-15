@@ -125,7 +125,14 @@ describe("Oferta de reactivación y configuración contra Postgres real (D-54)",
     const admin = await crearAdmin();
 
     const resultado = await actualizarConfiguracion(
-      { capacidadMaxima: 120, ofertaReactivacionActiva: true, diasSinAsistirParaOferta: 45, enfriamientoOfertaDias: 90 },
+      {
+        capacidadMaxima: 120,
+        ofertaReactivacionActiva: true,
+        // CFG-1: encender la oferta exige un descuento válido (1–50).
+        descuentoReactivacion: 12.5,
+        diasSinAsistirParaOferta: 45,
+        enfriamientoOfertaDias: 90,
+      },
       admin.id
     );
     expect(resultado.ofertaReactivacionActiva).toBe(true);
@@ -141,6 +148,18 @@ describe("Oferta de reactivación y configuración contra Postgres real (D-54)",
 
     // La fila existe una sola vez.
     expect(await prisma.configuracionDelSistema.count()).toBe(1);
+  });
+
+  it("no deja activar la oferta sin un descuento válido, y no escribe nada (CFG-1)", async () => {
+    const admin = await crearAdmin();
+
+    await expect(
+      actualizarConfiguracion({ ofertaReactivacionActiva: true }, admin.id)
+    ).rejects.toThrow(/descuento debe estar entre 1 y 50/);
+
+    // La transacción se revirtió: no quedó fila.
+    expect(await prisma.configuracionDelSistema.count()).toBe(0);
+    expect(await prisma.registroDeAuditoria.count()).toBe(0);
   });
 
   it("un cambio real deja auditoría con antes y despues; repetir el mismo valor no escribe nada", async () => {

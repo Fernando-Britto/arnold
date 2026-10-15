@@ -22,7 +22,7 @@ Configuración (`ConfiguracionDelSistema`, ver spec `configuracion-sistema`):
 |---|---|---|---|
 | `ofertaReactivacionActiva` | `false` | — | Interruptor. Apagada, el sistema cobra exactamente igual que hoy |
 | `diasSinAsistirParaOferta` | 30 | 7–365 | Días sin asistir a partir de los cuales el socio puede recibir la oferta |
-| `descuentoReactivacion` | 10 (valor del seed) | 1–50 (%) | Porcentaje que se descuenta del cobro |
+| `descuentoReactivacion` | 0 (el seed escribe 10) | 1–50 (%) | Porcentaje que se descuenta del cobro. Con la oferta activa el valor no puede quedar fuera de 1–50. |
 | `enfriamientoOfertaDias` | 180 | 0–730 | Días que deben pasar desde la última oferta usada para poder recibir otra |
 
 `diasInactividad` (la card "Socios inactivos" de Home_Interno, 15 por defecto) es un parámetro **distinto**: la card puede marcar inactivo a un

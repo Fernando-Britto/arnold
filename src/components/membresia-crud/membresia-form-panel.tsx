@@ -21,7 +21,8 @@ type MembresiaFormData = {
   nombre: string;
   precio: number;
   periodicidad: number;
-  descripcion?: string;
+  /** NF-14: `null` vacía la descripción; `string` la guarda. */
+  descripcion: string | null;
   estado: EstadoMembresia;
   confirmarDesactivacion?: boolean;
 };

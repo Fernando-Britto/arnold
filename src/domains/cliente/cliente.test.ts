@@ -680,6 +680,63 @@ describe("ClienteRepository", () => {
       );
     });
 
+    it("H13: el alta persiste el estado de cuenta pedido (Activa → AL_DIA)", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue(null);
+      mockPrisma.membresia.findUnique.mockResolvedValue({ estado: "ACTIVA" });
+      mockPrisma.usuario.create.mockResolvedValue({ id: "user-123" });
+      mockPrisma.socio.create.mockResolvedValue({
+        id: "socio-123",
+        dni: "12345678",
+        telefono: null,
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "AL_DIA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: { id: "user-123", nombre: "Juan Pérez", email: "juan@example.com" },
+      });
+
+      await repository.create({
+        nombre: "Juan Pérez",
+        dni: "12.345.678",
+        email: "juan@example.com",
+        membresiaAsignada: "gold-123",
+        estadoCuenta: "Activa",
+      });
+
+      const { data } = mockPrisma.socio.create.mock.calls[0][0];
+      expect(data.estadoCuota).toBe("AL_DIA");
+    });
+
+    it("H13: crear como Inactiva persiste INACTIVA (antes quedaba en AL_DIA)", async () => {
+      mockPrisma.socio.findUnique.mockResolvedValue(null);
+      mockPrisma.membresia.findUnique.mockResolvedValue({ estado: "ACTIVA" });
+      mockPrisma.usuario.create.mockResolvedValue({ id: "user-123" });
+      mockPrisma.socio.create.mockResolvedValue({
+        id: "socio-123",
+        dni: "12345678",
+        telefono: null,
+        membresiaAsignadaId: "gold-123",
+        estadoCuota: "INACTIVA",
+        usuarioId: "user-123",
+        fechaAlta: new Date("2024-01-01"),
+        updatedAt: new Date("2024-01-01"),
+        usuario: { id: "user-123", nombre: "Juan Pérez", email: "juan@example.com" },
+      });
+
+      const result = await repository.create({
+        nombre: "Juan Pérez",
+        dni: "12.345.678",
+        email: "juan@example.com",
+        membresiaAsignada: "gold-123",
+        estadoCuenta: "Inactiva",
+      });
+
+      const { data } = mockPrisma.socio.create.mock.calls[0][0];
+      expect(data.estadoCuota).toBe("INACTIVA");
+      expect(result.cliente.estadoCuenta).toBe("Inactiva");
+    });
+
     it("should throw VALIDATION_DUPLICATE_DNI if DNI already exists", async () => {
       mockPrisma.socio.findUnique.mockResolvedValue({ id: "existing-socio" }); // Duplicate exists
 

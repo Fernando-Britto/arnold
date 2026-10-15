@@ -52,6 +52,7 @@ function stripCodePrefix(message: string): string {
  * - "PAYMENT_ALREADY_REGISTERED: ..." → 409 PAYMENT_ALREADY_REGISTERED (pago duplicado, PG-4)
  * - "AMOUNT_CHANGED: ..." → 409 AMOUNT_CHANGED (el monto esperado cambió, oferta de reactivación)
  * - Prisma "P2034" (fallo de serialización/deadlock) → 409 CASH_CLOSE_CONFLICT
+ * - "PAYMENT_CONFLICT" → 409 PAYMENT_CONFLICT (choque de serialización al cobrar, PG-8)
  * - "FORBIDDEN: ..." → 403 FORBIDDEN (with custom message per route)
  * - "NOT_FOUND: ..." → 404 NOT_FOUND (with resource-specific name)
  * - Other → 500 SERVER_ERROR
@@ -99,6 +100,15 @@ export function mapErrorToResponse(
       return {
         code: "CASH_CLOSE_CONFLICT",
         message: "Ya existe un cierre de caja para el turno",
+        status: 409,
+      };
+    }
+    // PG-8: choque de serialización al REGISTRAR UN PAGO. Tiene su propio código y
+    // mensaje para no reportarlo como "cierre de caja duplicado".
+    if (code === "PAYMENT_CONFLICT") {
+      return {
+        code: "PAYMENT_CONFLICT",
+        message: "Otro pago se registró al mismo tiempo; vuelva a intentarlo",
         status: 409,
       };
     }

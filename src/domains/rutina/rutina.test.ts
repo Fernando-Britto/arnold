@@ -225,6 +225,33 @@ describe("Rutina Domain Model", () => {
       expect(validation.valid).toBe(false);
     });
 
+    // NF-13: null y "" son inválidos (la columna es NOT NULL), no "volver al default".
+    it("rechaza objetivoPrincipal null", () => {
+      const validation = validateRutina({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+        objetivoPrincipal: null,
+      });
+
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.join(" ")).toMatch(/objetivo/i);
+    });
+
+    it("rechaza objetivoPrincipal vacío ('')", () => {
+      const validation = validateRutina({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+        objetivoPrincipal: "",
+      });
+
+      expect(validation.valid).toBe(false);
+      expect(validation.errors.join(" ")).toMatch(/objetivo/i);
+    });
+
     // NF-10: frecuenciaSemanal y duracionEstimada deben ser enteros (Prisma Int).
     it("rechaza frecuenciaSemanal no entera (3.5)", () => {
       const validation = validateRutina({
@@ -341,6 +368,66 @@ describe("Rutina Domain Model", () => {
         nivelDeDificultad: "Básico",
       };
       await expect(repository.create(invalidData as any)).rejects.toThrow();
+    });
+
+    // NF-13: un valor válido de objetivoPrincipal se actualiza.
+    it("actualiza objetivoPrincipal con un valor válido", async () => {
+      const created = await repository.create({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+      });
+
+      const updated = await repository.update(created.id, { objetivoPrincipal: "Fuerza" });
+
+      expect(updated?.objetivoPrincipal).toBe("Fuerza");
+    });
+
+    // NF-13: null/"" se rechazan en update (400), nunca llegan a escribir la columna NOT NULL.
+    it("rechaza actualizar objetivoPrincipal a null (no 500)", async () => {
+      const created = await repository.create({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+      });
+
+      await expect(repository.update(created.id, { objetivoPrincipal: null })).rejects.toThrow(
+        /objetivo/i
+      );
+    });
+
+    it("rechaza actualizar objetivoPrincipal a '' (no 500)", async () => {
+      const created = await repository.create({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+      });
+
+      await expect(repository.update(created.id, { objetivoPrincipal: "" })).rejects.toThrow(
+        /objetivo/i
+      );
+    });
+
+    // NF-14: null vacía la descripción; omitirla deja el valor actual.
+    it("vacía la descripción con null y la deja igual si se omite", async () => {
+      const created = await repository.create({
+        nombre: "Routine",
+        frecuenciaSemanal: 3,
+        duracionEstimada: 60,
+        nivelDeDificultad: "Básico",
+        descripcion: "Original",
+      });
+
+      const limpiada = await repository.update(created.id, { descripcion: null });
+      expect(limpiada?.descripcion).toBeNull();
+
+      const repuesta = await repository.update(created.id, { descripcion: "Nueva" });
+      const sinTocar = await repository.update(created.id, { duracionEstimada: 90 });
+      expect(repuesta?.descripcion).toBe("Nueva");
+      expect(sinTocar?.descripcion).toBe("Nueva");
     });
   });
 });

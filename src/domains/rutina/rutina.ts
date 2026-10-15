@@ -120,14 +120,17 @@ export function validateRutina(data: Partial<Rutina>): ValidationResult {
     errors.push("La duración estimada debe ser mayor a 0");
   }
 
-  // Validate objetivoPrincipal (NF-4): si viene, debe pertenecer a la lista.
+  // Validate objetivoPrincipal (NF-4, NF-13): si viene, debe pertenecer a la lista.
   // Se acepta además el valor legado "General" (U9a) para no romper la edición de filas viejas.
+  // NF-13: `null` y `""` NO significan "volver al default": son inválidos y se rechazan
+  // (la columna es NOT NULL). Omitirlo (`undefined`) sigue permitido: en create toma el
+  // default y en update deja el valor actual sin tocar.
   if (
-    data.objetivoPrincipal !== undefined &&
-    data.objetivoPrincipal !== null &&
-    data.objetivoPrincipal !== "" &&
-    !OBJETIVOS_PRINCIPALES.includes(data.objetivoPrincipal) &&
-    !OBJETIVOS_LEGACY.includes(data.objetivoPrincipal)
+    data.objetivoPrincipal === null ||
+    data.objetivoPrincipal === "" ||
+    (data.objetivoPrincipal !== undefined &&
+      !OBJETIVOS_PRINCIPALES.includes(data.objetivoPrincipal) &&
+      !OBJETIVOS_LEGACY.includes(data.objetivoPrincipal))
   ) {
     errors.push(`El objetivo principal debe ser uno de: ${OBJETIVOS_PRINCIPALES.join(", ")}`);
   }
@@ -166,7 +169,7 @@ export class RutinaRepository {
       frecuenciaSemanal: number;
       duracionEstimada: number;
       nivelDeDificultad: string;
-      descripcion?: string;
+      descripcion?: string | null;
       objetivoPrincipal?: string;
     },
     client: Prisma.TransactionClient = prisma
@@ -237,6 +240,8 @@ export class RutinaRepository {
     }
 
     // Map nivel de dificultad if provided and filter out undefined null values
+    // NF-14: contrato de campos opcionales: `undefined` = no cambiar, `null` = vaciar.
+    // `descripcion` es nullable, así que un `null` explícito limpia la columna.
     const updateData: Record<string, any> = {};
     if (data.nombre !== undefined) updateData.nombre = data.nombre;
     if (data.frecuenciaSemanal !== undefined) updateData.frecuenciaSemanal = data.frecuenciaSemanal;

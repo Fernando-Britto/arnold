@@ -475,6 +475,36 @@ describe("registrarPago — oferta de reactivación (D-54)", () => {
   });
 });
 
+describe("registrarPago — choque de serialización (PG-8)", () => {
+  it("un P2034 en la transacción del cobro se reporta como PAYMENT_CONFLICT (no cierre de caja)", async () => {
+    await armarSocio({ fechaVencimiento: finDePeriodo("2026-10") });
+    const prisma = await mocks();
+    (prisma.$transaction as jest.Mock).mockRejectedValueOnce(
+      Object.assign(new Error("write conflict"), { code: "P2034" })
+    );
+
+    const error: unknown = await registrarPago({
+      socioId: "socio-1",
+      metodoPago: "EFECTIVO",
+      hoy: d("2026-11-05T10:00:00"),
+    }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(/^PAYMENT_CONFLICT: /);
+    expect((error as { code?: string }).code).toBe("PAYMENT_CONFLICT");
+  });
+
+  it("un error que no es P2034 se propaga sin reescribirse", async () => {
+    await armarSocio({ fechaVencimiento: finDePeriodo("2026-10") });
+    const prisma = await mocks();
+    (prisma.$transaction as jest.Mock).mockRejectedValueOnce(new Error("db down"));
+
+    await expect(
+      registrarPago({ socioId: "socio-1", metodoPago: "EFECTIVO", hoy: d("2026-11-05T10:00:00") })
+    ).rejects.toThrow("db down");
+  });
+});
+
 describe("listarPagosDeSocio", () => {
   it("lista los pagos del socio con su cuota, del más reciente al más viejo", async () => {
     const prisma = await mocks();

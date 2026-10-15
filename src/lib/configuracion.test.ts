@@ -199,4 +199,68 @@ describe("actualizarConfiguracion", () => {
 
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
   });
+
+  describe("CFG-2: un PUT sin cambios no crea la fila", () => {
+    it("con la tabla vacía, un PUT {} no crea fila ni escribe auditoría", async () => {
+      const r = await actualizarConfiguracion({}, "admin-1");
+
+      expect(mockTx.configuracionDelSistema.create).not.toHaveBeenCalled();
+      expect(mockTx.configuracionDelSistema.update).not.toHaveBeenCalled();
+      expect(mockTx.registroDeAuditoria.create).not.toHaveBeenCalled();
+      expect(r).toEqual(CONFIGURACION_POR_DEFECTO);
+    });
+
+    it("con la tabla vacía, un valor igual al default tampoco crea fila", async () => {
+      await actualizarConfiguracion({ capacidadMaxima: CONFIGURACION_POR_DEFECTO.capacidadMaxima }, "admin-1");
+
+      expect(mockTx.configuracionDelSistema.create).not.toHaveBeenCalled();
+      expect(mockTx.registroDeAuditoria.create).not.toHaveBeenCalled();
+    });
+
+    it("con la tabla vacía, un cambio real crea la fila y SÍ deja auditoría", async () => {
+      await actualizarConfiguracion({ ventanaAforoMinutos: 120 }, "admin-1");
+
+      expect(mockTx.configuracionDelSistema.create).toHaveBeenCalledTimes(1);
+      expect(mockTx.registroDeAuditoria.create).toHaveBeenCalledTimes(1);
+      const audit = mockTx.registroDeAuditoria.create.mock.calls[0][0].data;
+      expect(JSON.parse(audit.detalles)).toEqual({
+        ventanaAforoMinutos: { antes: 90, despues: 120 },
+      });
+    });
+  });
+
+  describe("CFG-1: la oferta no queda encendida con un descuento inválido", () => {
+    it("con la tabla vacía, encender la oferta sin descuento válido se rechaza y no escribe nada", async () => {
+      await expect(
+        actualizarConfiguracion({ ofertaReactivacionActiva: true }, "admin-1")
+      ).rejects.toThrow(/VALIDATION_ERROR.*entre 1 y 50/i);
+
+      expect(mockTx.configuracionDelSistema.create).not.toHaveBeenCalled();
+      expect(mockTx.configuracionDelSistema.update).not.toHaveBeenCalled();
+      expect(mockTx.registroDeAuditoria.create).not.toHaveBeenCalled();
+    });
+
+    it("con la tabla vacía, encender con un descuento válido crea la fila", async () => {
+      const r = await actualizarConfiguracion(
+        { ofertaReactivacionActiva: true, descuentoReactivacion: 20 },
+        "admin-1"
+      );
+
+      expect(r.ofertaReactivacionActiva).toBe(true);
+      expect(r.descuentoReactivacion).toBe(20);
+      expect(mockTx.configuracionDelSistema.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("una fila que ya tiene un descuento válido se puede encender", async () => {
+      mockTx.configuracionDelSistema.findFirst.mockResolvedValue(filaBase); // descuento 10
+
+      const r = await actualizarConfiguracion({ ofertaReactivacionActiva: true }, "admin-1");
+
+      expect(r.ofertaReactivacionActiva).toBe(true);
+      expect(mockTx.configuracionDelSistema.update).toHaveBeenCalledWith({
+        where: { id: "cfg-1" },
+        data: { ofertaReactivacionActiva: true },
+      });
+    });
+  });
 });

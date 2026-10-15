@@ -94,6 +94,9 @@ export async function getConfiguracion(db?: ConfiguracionReader): Promise<Config
  * crea si no existe, y en la misma transacción deja el RegistroDeAuditoria con el valor anterior y
  * el nuevo de cada campo que cambió (D-54). Sin cambios no escribe auditoría.
  *
+ * CFG-2: si no hay fila, solo se crea cuando hay al menos un cambio real; un `PUT {}` no crea nada.
+ * CFG-1: no se puede dejar la oferta activa con un descuento fuera de 1–50.
+ *
  * Importa el cliente en forma diferida: este módulo llega al navegador y no puede arrastrar Prisma.
  */
 export async function actualizarConfiguracion(
@@ -108,6 +111,19 @@ export async function actualizarConfiguracion(
     const antes = normalizarFila(fila);
     const despues: Configuracion = { ...antes, ...cambios };
 
+    // CFG-1: la oferta no puede quedar encendida con un descuento inválido, porque
+    // `evaluarOferta` la descartaría en silencio (`CONFIGURACION_INVALIDA`) y el
+    // descuento nunca se aplicaría. Se rechaza ANTES de escribir (la transacción
+    // revierte sola). Se exige el mismo rango que valida la API: 1–50.
+    if (
+      despues.ofertaReactivacionActiva &&
+      (despues.descuentoReactivacion < 1 || despues.descuentoReactivacion > 50)
+    ) {
+      throw new Error(
+        "VALIDATION_ERROR: Para activar la oferta de reactivación, el descuento debe estar entre 1 y 50",
+      );
+    }
+
     const cambiados = (Object.keys(CONFIGURACION_POR_DEFECTO) as (keyof Configuracion)[]).filter(
       (campo) => antes[campo] !== despues[campo],
     );
@@ -120,9 +136,10 @@ export async function actualizarConfiguracion(
         }
         await tx.configuracionDelSistema.update({ where: { id: fila.id }, data });
       }
-    } else {
-      // Sin fila: se crea completa. Los cuatro campos sin default en el schema salen de
-      // CONFIGURACION_POR_DEFECTO; el resto, del valor enviado o del default.
+    } else if (cambiados.length > 0) {
+      // CFG-2: sin fila, solo se crea si hay un cambio real (`cambiados`). Un `PUT {}`
+      // (o un valor igual al default) no debe crear nada. Y como la creación va por
+      // este mismo camino, queda auditada por el bloque de abajo.
       await tx.configuracionDelSistema.create({ data: despues });
     }
 

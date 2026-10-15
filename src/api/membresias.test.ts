@@ -315,6 +315,40 @@ describe("Membresia Business Logic", () => {
       expect(result.precio).toBe(25000);
     });
 
+    it("NF-14: descripcion null vacía la descripción (no la reemplaza por la existente)", async () => {
+      MockedRepository.prototype.getById = jest
+        .fn()
+        .mockResolvedValue({ ...mockMembresia, descripcion: "Plan Gold" });
+      MockedRepository.prototype.update = jest
+        .fn()
+        .mockResolvedValue({ ...mockMembresia, descripcion: null });
+      MockedRepository.prototype.getAssignedSocioCount = jest.fn().mockResolvedValue(0);
+
+      await handleMembresiaUpdate("1", { descripcion: null });
+
+      expect(MockedRepository.prototype.update).toHaveBeenCalledWith(
+        "1",
+        expect.objectContaining({ descripcion: null })
+      );
+    });
+
+    it("NF-14: omitir la descripción mantiene la existente", async () => {
+      MockedRepository.prototype.getById = jest
+        .fn()
+        .mockResolvedValue({ ...mockMembresia, descripcion: "Plan Gold" });
+      MockedRepository.prototype.update = jest
+        .fn()
+        .mockResolvedValue({ ...mockMembresia, descripcion: "Plan Gold" });
+      MockedRepository.prototype.getAssignedSocioCount = jest.fn().mockResolvedValue(0);
+
+      await handleMembresiaUpdate("1", { nombre: "Gold Plus" });
+
+      expect(MockedRepository.prototype.update).toHaveBeenCalledWith(
+        "1",
+        expect.objectContaining({ descripcion: "Plan Gold" })
+      );
+    });
+
     it("should throw NOT_FOUND if membresia doesn't exist", async () => {
       MockedRepository.prototype.getById = jest.fn().mockResolvedValue(null);
 

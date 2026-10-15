@@ -214,6 +214,26 @@ describe("MembresiaForm", () => {
       });
     });
 
+    it("NF-14: al vaciar la descripción manda null (no la omite)", async () => {
+      const user = userEvent.setup();
+      render(
+        <MembresiaForm
+          initialData={mockMembresia}
+          onSave={mockOnSave}
+          onCancel={mockOnCancel}
+        />
+      );
+
+      await user.clear(screen.getByLabelText(/Descripción/i));
+      await user.click(screen.getByRole("button", { name: /Guardar/i }));
+
+      await waitFor(() => {
+        expect(mockOnSave).toHaveBeenCalledWith(
+          expect.objectContaining({ descripcion: null })
+        );
+      });
+    });
+
     it("should call onCancel when Cancelar button clicked", async () => {
       const user = userEvent.setup();
       render(<MembresiaForm onSave={mockOnSave} onCancel={mockOnCancel} />);

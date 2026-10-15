@@ -288,7 +288,9 @@ export class ClienteRepository {
             dni: normalizedDNI,
             telefono: data.telefono,
             membresiaAsignadaId: data.membresiaAsignada,
-            estadoCuota: "AL_DIA",
+            // H13: el alta respeta el estado de cuenta pedido (antes hardcodeaba
+            // AL_DIA). `update` ya aplicaba el mismo mapeo.
+            estadoCuota: mapEstadoCuentaToEstadoCuota(data.estadoCuenta),
             usuarioId: usuario.id,
             ...(pinHash ? { pinHash } : {}),
           },

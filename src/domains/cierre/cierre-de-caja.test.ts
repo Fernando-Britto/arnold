@@ -104,7 +104,8 @@ describe("cerrarCaja (servicio)", () => {
       where: {
         estado: "CONFIRMADO",
         cierreDeCajaId: null,
-        fechaPago: { gte: desde, lte: hasta },
+        // CC-4: sin cota inferior. El cierre rinde todo lo pendiente hasta `hasta`.
+        fechaPago: { lte: hasta },
       },
     });
     expect(prisma.cierreDeCaja.create).toHaveBeenCalledWith({
@@ -123,6 +124,46 @@ describe("cerrarCaja (servicio)", () => {
       data: { cierreDeCajaId: "cierre-1" },
     });
     expect(r).toMatchObject({ id: "cierre-1", pagos });
+  });
+
+  it("CC-4: un pago posterior al cierre anterior (fechaPago < desde) entra en el cierre siguiente", async () => {
+    const prisma = await mocks();
+    // Pago hecho ayer, después del cierre de ayer: quedó con cierreDeCajaId null.
+    const leftover = { id: "p-viejo", monto: 500, metodoPago: "EFECTIVO", estado: "CONFIRMADO", cierreDeCajaId: null };
+    (prisma.pago.findMany as jest.Mock).mockResolvedValue([leftover]);
+    (prisma.cierreDeCaja.create as jest.Mock).mockResolvedValue({ id: "cierre-hoy", responsableId: "emp-1" });
+    (prisma.pago.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+    const desde = d("2026-10-12T03:00:00.000Z");
+    const hasta = d("2026-10-12T21:00:00.000Z");
+    const r = await cerrarCaja({ responsableId: "emp-1", desde, hasta });
+
+    // La selección no exige `fechaPago >= desde`: el pago viejo se rinde acá.
+    expect(prisma.pago.findMany).toHaveBeenCalledWith({
+      where: { estado: "CONFIRMADO", cierreDeCajaId: null, fechaPago: { lte: hasta } },
+    });
+    expect(prisma.cierreDeCaja.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ totalRecaudado: 500, cantidadOperaciones: 1 }),
+      })
+    );
+    expect(r.pagos).toEqual([leftover]);
+  });
+
+  it("CC-4: la previsualización usa la misma selección que el cierre", async () => {
+    const prisma = await mocks();
+    (prisma.pago.findMany as jest.Mock).mockResolvedValue([]);
+
+    const desde = d("2026-10-12T03:00:00.000Z");
+    const hasta = d("2026-10-12T21:00:00.000Z");
+    await pagosPendientesDeCierre({ desde, hasta });
+    const wherePreview = (prisma.pago.findMany as jest.Mock).mock.calls[0][0].where;
+
+    (prisma.cierreDeCaja.create as jest.Mock).mockResolvedValue({ id: "cierre-x", responsableId: "emp-1" });
+    await cerrarCaja({ responsableId: "emp-1", desde, hasta });
+    const whereCierre = (prisma.pago.findMany as jest.Mock).mock.calls[1][0].where;
+
+    expect(whereCierre).toEqual(wherePreview);
   });
 
   it("lanza CASH_CLOSE_CONFLICT si el turno ya tiene un cierre (no crea nada)", async () => {
@@ -240,7 +281,7 @@ describe("pagosPendientesDeCierre / previsualizarCierre", () => {
     await pagosPendientesDeCierre({ desde, hasta });
 
     expect(prisma.pago.findMany).toHaveBeenCalledWith({
-      where: { estado: "CONFIRMADO", cierreDeCajaId: null, fechaPago: { gte: desde, lte: hasta } },
+      where: { estado: "CONFIRMADO", cierreDeCajaId: null, fechaPago: { lte: hasta } },
       orderBy: { fechaPago: "asc" },
     });
   });

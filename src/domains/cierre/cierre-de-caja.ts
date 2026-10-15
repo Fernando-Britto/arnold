@@ -6,6 +6,10 @@
  * - Solo se consideran pagos `CONFIRMADO`. `PENDIENTE` y `ANULADO` no entran.
  * - Un cierre con cero pagos ES válido: se crea igual (el turno se puede cerrar
  *   aunque no haya recaudado nada). Los totales quedan en cero.
+ * - CC-4: un cierre rinde TODO lo que quedó pendiente hasta su `hasta`, sin cota
+ *   inferior (`fechaPago <= hasta`, con `cierreDeCajaId: null`). Un pago hecho
+ *   después del cierre de un día no queda huérfano: lo toma el cierre siguiente.
+ *   La previsualización usa exactamente la misma selección, así nunca discrepan.
  * - `responsableId` es un `Empleado.id`; `resolverEmpleadoId` traduce el `Usuario`
  *   logueado (vía `Empleado.usuarioId`) y falla con un error de validación claro
  *   si el usuario no tiene un empleado asociado.
@@ -90,8 +94,13 @@ export const CASH_CLOSE_CONFLICT =
 
 /**
  * Cierra la caja del turno: en UNA transacción crea el `CierreDeCaja` con los
- * totales y marca con `cierreDeCajaId` exactamente los pagos confirmados del rango
- * que todavía no pertenecían a ningún cierre. Devuelve el cierre creado con sus pagos.
+ * totales y marca con `cierreDeCajaId` exactamente los pagos confirmados que
+ * todavía no pertenecían a ningún cierre y cuya `fechaPago` es anterior o igual a
+ * `hasta`. Devuelve el cierre creado con sus pagos.
+ *
+ * CC-4: la selección NO tiene cota inferior. Un pago posterior al cierre del día
+ * anterior (que quedó con `cierreDeCajaId: null`) lo rinde el cierre siguiente:
+ * "un cierre rinde todo lo pendiente hasta ese instante".
  *
  * Anti doble-cierre (CC-1, sin cambio de schema):
  * 1. La transacción corre con `isolationLevel: "Serializable"`: dos cierres
@@ -124,7 +133,9 @@ export async function cerrarCaja(input: CerrarCajaInput): Promise<CierreDeCajaCr
         where: {
           estado: "CONFIRMADO",
           cierreDeCajaId: null,
-          fechaPago: { gte: desde, lte: hasta },
+          // CC-4: sin cota inferior. El cierre rinde todo lo pendiente hasta
+          // `hasta`; un pago viejo sin cierre (de un día anterior) se recoge acá.
+          fechaPago: { lte: hasta },
         },
       })) as PagoParaCierre[];
 
@@ -173,9 +184,13 @@ export async function resolverEmpleadoId(usuarioId: string): Promise<string> {
   return empleado.id;
 }
 
-/** Pagos confirmados del rango que todavía no fueron incluidos en un cierre. */
+/**
+ * Pagos confirmados que un cierre rendiría: todo lo que todavía no pertenece a
+ * ningún cierre y tiene `fechaPago <= hasta` (CC-4, sin cota inferior). Es
+ * exactamente la misma selección que usa `cerrarCaja`, así la previsualización y
+ * el cierre nunca discrepan.
+ */
 export async function pagosPendientesDeCierre({
-  desde,
   hasta,
 }: RangoDeCierre): Promise<PagoParaCierre[]> {
   const { prisma } = await import("@/lib/db");
@@ -183,7 +198,7 @@ export async function pagosPendientesDeCierre({
     where: {
       estado: "CONFIRMADO",
       cierreDeCajaId: null,
-      fechaPago: { gte: desde, lte: hasta },
+      fechaPago: { lte: hasta },
     },
     orderBy: { fechaPago: "asc" },
   });

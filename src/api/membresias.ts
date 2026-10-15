@@ -16,7 +16,11 @@ export interface MembresiaInput {
   nombre?: string;
   precio?: number;
   periodicidad?: number;
-  descripcion?: string;
+  /**
+   * NF-14: `undefined` = no cambiar; `null` = vaciar la descripción (columna nullable).
+   * El formulario manda `null` explícito al borrar el texto.
+   */
+  descripcion?: string | null;
   estado?: EstadoMembresia;
   confirmarDesactivacion?: boolean;
 }
@@ -121,12 +125,14 @@ export async function handleMembresiaUpdate(
     throw error;
   }
 
-  // Merge with existing data
+  // Merge with existing data.
+  // NF-14: `descripcion` conserva el `null` explícito (vaciar); no se colapsa a
+  // `undefined`, que significaría "no cambiar".
   const merged = {
     nombre: input.nombre ?? existing.nombre,
     precio: input.precio ?? existing.precio,
     periodicidad: input.periodicidad ?? existing.periodicidad,
-    descripcion: (input.descripcion !== undefined ? input.descripcion : existing.descripcion) || undefined,
+    descripcion: input.descripcion !== undefined ? input.descripcion : existing.descripcion,
     estado: input.estado ?? existing.estado,
   };
 

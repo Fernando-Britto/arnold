@@ -99,7 +99,8 @@ export function RutinasPage() {
           frecuenciaSemanal: formData.frecuenciaSemanal,
           duracionEstimada: formData.duracionEstimada,
           nivelDeDificultad: formData.nivelDeDificultad,
-          descripcion: formData.descripcion || undefined,
+          // NF-14: vaciar la descripción manda `null` (no `undefined`, que la dejaría igual).
+          descripcion: formData.descripcion || null,
           ejercicios: formData.ejercicios,
         });
 
@@ -130,7 +131,8 @@ export function RutinasPage() {
           frecuenciaSemanal: formData.frecuenciaSemanal,
           duracionEstimada: formData.duracionEstimada,
           nivelDeDificultad: formData.nivelDeDificultad,
-          descripcion: formData.descripcion || undefined,
+          // NF-14: sin descripción, la columna queda en `null`.
+          descripcion: formData.descripcion || null,
           ejercicios: formData.ejercicios,
         });
 

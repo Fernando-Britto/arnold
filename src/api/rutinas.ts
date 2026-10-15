@@ -25,7 +25,10 @@ export interface RutinaInput {
   frecuenciaSemanal: number;
   duracionEstimada: number;
   nivelDeDificultad: string;
-  descripcion?: string;
+  /**
+   * NF-14: `undefined` = no cambiar; `null` = vaciar la descripción (columna nullable).
+   */
+  descripcion?: string | null;
 }
 
 export interface EjercicioEnRutinaInput {

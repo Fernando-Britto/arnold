@@ -596,6 +596,41 @@ describe("MembresiaRepository — precio rounding on persist", () => {
   });
 });
 
+describe("MembresiaRepository — descripcion opcional (NF-14)", () => {
+  const prismaRecord = (descripcion: string | null) => ({
+    id: "m1",
+    nombre: "Gold",
+    precio: 15000,
+    periodicidad: 30,
+    descripcion,
+    estado: "ACTIVA" as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  it("null vacía la descripción (no la deja igual)", async () => {
+    const { prisma } = await import("@/lib/db");
+    (prisma.membresia.update as jest.Mock).mockResolvedValue(prismaRecord(null));
+
+    await new MembresiaRepository().update("m1", { descripcion: null });
+
+    expect(prisma.membresia.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ descripcion: null }) })
+    );
+  });
+
+  it("omitir la descripción no manda esa clave (mantiene el valor actual)", async () => {
+    const { prisma } = await import("@/lib/db");
+    (prisma.membresia.update as jest.Mock).mockResolvedValue(prismaRecord("Plan Gold"));
+    (prisma.membresia.update as jest.Mock).mockClear();
+
+    await new MembresiaRepository().update("m1", { nombre: "Gold Plus" });
+
+    const { data } = (prisma.membresia.update as jest.Mock).mock.calls[0][0];
+    expect(data).not.toHaveProperty("descripcion");
+  });
+});
+
 describe("MembresiaRepository — conteo de socios asignados sin N+1", () => {
   const prismaMembresia = (id: string, socios: number) => ({
     id,

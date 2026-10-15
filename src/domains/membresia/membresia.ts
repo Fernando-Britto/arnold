@@ -191,7 +191,7 @@ export class MembresiaRepository {
     nombre: string;
     precio: number;
     periodicidad: number;
-    descripcion?: string;
+    descripcion?: string | null;
     estado: EstadoMembresia;
   }): Promise<Membresia> {
     const validation = validateMembresia(data);
@@ -294,6 +294,8 @@ export class MembresiaRepository {
     if (data.periodicidad !== undefined)
       updateData.periodicidad = data.periodicidad;
     if (data.descripcion !== undefined) {
+      // NF-14: contrato de campos opcionales: `undefined` = no cambiar, `null` = vaciar.
+      // Un `null` (o un texto en blanco) limpia la columna, que es nullable.
       const cleanDesc = data.descripcion ? data.descripcion.trim() : null;
       updateData.descripcion = cleanDesc || null;
     }
