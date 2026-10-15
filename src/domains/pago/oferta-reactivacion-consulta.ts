@@ -48,6 +48,13 @@ export async function evaluarOfertaDeSocio(
   contexto: ContextoOferta,
   hoy: Date,
 ): Promise<EvaluacionOferta> {
+  // Con la oferta apagada la decisión no depende de la base: `evaluarOferta` devuelve
+  // OFERTA_APAGADA antes de mirar nada más. Cortar acá evita dos lecturas de más dentro de la
+  // transacción Serializable que cobra, en el camino por defecto (la oferta arranca apagada).
+  if (!config.ofertaReactivacionActiva) {
+    return { elegible: false, motivo: "OFERTA_APAGADA" };
+  }
+
   const [asistencia, pago] = await Promise.all([
     db.asistencia.findFirst({
       where: { socioId, estado: "PERMITIDO" },

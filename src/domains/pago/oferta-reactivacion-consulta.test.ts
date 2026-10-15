@@ -42,6 +42,23 @@ describe("evaluarOfertaDeSocio — consultas a la base", () => {
   });
   afterEach(() => spy.mockRestore());
 
+  it("con la oferta apagada no consulta la base y devuelve OFERTA_APAGADA", async () => {
+    const { reader, asistencia, pago } = fakeReader();
+
+    const r = await evaluarOfertaDeSocio(
+      reader,
+      "socio-1",
+      { ...CONFIG, ofertaReactivacionActiva: false },
+      CONTEXTO,
+      HOY
+    );
+
+    expect(r).toEqual({ elegible: false, motivo: "OFERTA_APAGADA" });
+    // El cobro, con la oferta apagada, no paga dos lecturas de más en su transacción.
+    expect(asistencia.findFirst).not.toHaveBeenCalled();
+    expect(pago.findFirst).not.toHaveBeenCalled();
+  });
+
   it("usa la última asistencia PERMITIDO y no consulta las DENEGADO", async () => {
     const { reader, asistencia } = fakeReader();
     asistencia.findFirst.mockResolvedValue({ fechaHora: hace(31) });

@@ -449,6 +449,8 @@ describe("registrarPago — oferta de reactivación (D-54)", () => {
 
   it("evalúa la oferta dentro de la transacción (usa el tx, no el cliente externo)", async () => {
     const prisma = await armarSocio({ fechaVencimiento: finDePeriodo("2026-10") });
+    // Con la oferta apagada no se consulta nada (corta antes); acá se activa para probar el tx.
+    (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue(CONFIG_OFERTA_ACTIVA);
     const tx = {
       cuota: {
         findFirst: jest.fn().mockResolvedValue(null),
