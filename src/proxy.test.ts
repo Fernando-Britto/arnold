@@ -205,6 +205,38 @@ describe("proxy — límite de intentos de login por IP (P-16)", () => {
   });
 });
 
+describe("proxy — límite por IP en logout y refresh (U)", () => {
+  const rate = jest.requireMock("@/lib/rateLimit").checkRateLimit as jest.Mock;
+  const post = (path: string) =>
+    proxy(new NextRequest(`http://localhost:3000${path}`, { method: "POST" }));
+
+  beforeEach(() => {
+    rate.mockReset();
+    rate.mockResolvedValue(true);
+    delete process.env.TRUST_PROXY_HEADERS;
+  });
+
+  it("logout pasado el límite responde 429 y usa el umbral de 8/min", async () => {
+    rate.mockResolvedValue(false);
+    const res = await post("/api/auth/logout");
+    expect(res.status).toBe(429);
+    expect((await res.json()).code).toBe("RATE_LIMITED");
+    expect(rate).toHaveBeenCalledWith("unknown", "/api/auth/logout", 8);
+  });
+
+  it("refresh pasado el límite responde 429 y usa un umbral más alto (30/min)", async () => {
+    rate.mockResolvedValue(false);
+    const res = await post("/api/auth/refresh");
+    expect(res.status).toBe(429);
+    expect(rate).toHaveBeenCalledWith("unknown", "/api/auth/refresh", 30);
+  });
+
+  it("dentro del límite, logout y refresh pasan", async () => {
+    expect((await post("/api/auth/logout")).status).toBe(200);
+    expect((await post("/api/auth/refresh")).status).toBe(200);
+  });
+});
+
 describe("proxy — tokens revocados (P-06)", () => {
   beforeEach(() => {
     revoked.mockReset();

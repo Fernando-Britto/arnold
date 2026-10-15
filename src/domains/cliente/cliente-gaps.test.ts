@@ -24,8 +24,8 @@ describe("GAP 1: Temporary password generation for new usuarios", () => {
     // SOLUTION: Generate temporary password on user creation
     const tempPassword = generateTemporaryPassword();
     
-    // Should match format: TempPass-XXXXXX
-    expect(tempPassword).toMatch(/^TempPass-[A-Z0-9]{6}$/);
+    // Should match format: TempPass-XXXXXXXX
+    expect(tempPassword).toMatch(/^TempPass-[A-Z0-9]{8}$/);
     
     // Hash it like the repository does
     const hashedPassword = await hashPassword(tempPassword);
@@ -46,8 +46,8 @@ describe("GAP 1: Temporary password generation for new usuarios", () => {
     const password2 = generateTemporaryPassword();
     
     // Each should be valid format
-    expect(password1).toMatch(/^TempPass-[A-Z0-9]{6}$/);
-    expect(password2).toMatch(/^TempPass-[A-Z0-9]{6}$/);
+    expect(password1).toMatch(/^TempPass-[A-Z0-9]{8}$/);
+    expect(password2).toMatch(/^TempPass-[A-Z0-9]{8}$/);
     
     // Should be different (very likely)
     expect(password1).not.toBe(password2);
@@ -62,7 +62,7 @@ describe("GAP 1: Temporary password generation for new usuarios", () => {
     // which checks:
     // 1. POST /api/clientes returns { ...cliente, tempPassword, status: 201 }
     // 2. GET /api/clientes does NOT have tempPassword field
-    // 3. tempPassword matches format /^TempPass-[A-Z0-9]{6}$/
+    // 3. tempPassword matches format /^TempPass-[A-Z0-9]{8}$/
     
     // This test documents the fix:
     // ClienteRepository.create() signature changed from:
@@ -72,7 +72,7 @@ describe("GAP 1: Temporary password generation for new usuarios", () => {
     
     expect(generateTemporaryPassword).toBeDefined();
     const tempPass = generateTemporaryPassword();
-    expect(tempPass).toMatch(/^TempPass-[A-Z0-9]{6}$/);
+    expect(tempPass).toMatch(/^TempPass-[A-Z0-9]{8}$/);
   });
 });
 

@@ -11,7 +11,16 @@ import { getTrustedClientIp } from "@/lib/client-ip";
 import { isTokenRevoked } from "@/lib/token-revocation";
 
 // P-10: no hay auto-registro público; /api/auth/register ya no está acá ni en PUBLIC_PATHS.
-const RATE_LIMITED_AUTH = ["/api/auth/login"];
+// P-16/U: límite por IP para las rutas públicas de auth que hacen trabajo de base. `login` sigue
+// en 8/min (fuerza bruta). `logout` y `refresh` también son públicas y pegan a la base, así que
+// entran al límite; `refresh` se llama con más frecuencia que `login` (renovación proactiva en
+// varios dispositivos detrás de un mismo NAT), por eso su umbral es más alto y no lockea a un
+// cliente legítimo.
+const RATE_LIMITED_AUTH: { prefix: string; limit: number }[] = [
+  { prefix: "/api/auth/login", limit: 8 },
+  { prefix: "/api/auth/logout", limit: 8 },
+  { prefix: "/api/auth/refresh", limit: 30 },
+];
 
 export async function proxy(request: NextRequest, event?: NextFetchEvent) {
   const { pathname } = request.nextUrl;
@@ -19,10 +28,11 @@ export async function proxy(request: NextRequest, event?: NextFetchEvent) {
 
   await cleanupRateLimitLogsIfNeeded();
 
-  // Login/registro: límite por IP contra fuerza bruta (8 por minuto)
-  if (RATE_LIMITED_AUTH.some((r) => pathname.startsWith(r))) {
+  // Login/logout/refresh: límite por IP contra fuerza bruta (login 8/min; logout 8/min; refresh 30/min)
+  const authRoute = RATE_LIMITED_AUTH.find((r) => pathname.startsWith(r.prefix));
+  if (authRoute) {
     const ip = getTrustedClientIp(request);
-    if (!(await checkRateLimit(ip, pathname, 8))) {
+    if (!(await checkRateLimit(ip, pathname, authRoute.limit))) {
       return NextResponse.json(
         { code: "RATE_LIMITED", message: "Demasiados intentos. Probá de nuevo en un minuto." },
         { status: 429 }

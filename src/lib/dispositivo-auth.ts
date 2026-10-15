@@ -93,10 +93,24 @@ export async function autenticarDispositivo(request: RequestLike): Promise<Dispo
 
   const { prisma } = (await import("@/lib/db")) as unknown as { prisma: PrismaLike };
 
+  // AC-7: camino rápido, primero el candidato por el prefijo indexado.
   const candidatos = await prisma.dispositivo.findMany({
     where: { tokenPrefix: prefijoDeToken(token), estado: "ACTIVO" },
   });
-  const dispositivo = await encontrarDispositivoPorToken(token, candidatos);
+  let dispositivo = await encontrarDispositivoPorToken(token, candidatos);
+
+  // AC-12 (compatibilidad): los dispositivos provisionados antes de la columna `tokenPrefix`
+  // quedaron con NULL, y NULL nunca iguala un prefijo real, así que sin este fallback jamás
+  // podrían autenticarse. No hay backfill posible (el prefijo se deriva del token en claro, que
+  // no se persiste). Se compara bcrypt sólo contra esas filas legacy. Se puede eliminar cuando no
+  // queden dispositivos con `tokenPrefix = null` (o tras un re-provisionamiento).
+  if (!dispositivo) {
+    const legacy = await prisma.dispositivo.findMany({
+      where: { tokenPrefix: null, estado: "ACTIVO" },
+    });
+    dispositivo = await encontrarDispositivoPorToken(token, legacy);
+  }
+
   if (!dispositivo || dispositivo.estado !== "ACTIVO") return null;
 
   await prisma.dispositivo.update({

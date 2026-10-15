@@ -9,12 +9,14 @@ import { prisma } from '@/lib/db';
 
 jest.mock('@/lib/db', () => ({
   prisma: {
+    $transaction: jest.fn(),
     usuario: { findFirst: jest.fn(), findUnique: jest.fn() },
     refreshToken: { create: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
   },
 }));
 jest.mock('@/lib/audit', () => ({ recordAccessAttempt: jest.fn() }));
 
+const transaction = prisma.$transaction as unknown as jest.Mock;
 const findFirst = prisma.usuario.findFirst as unknown as jest.Mock;
 const findUnique = prisma.usuario.findUnique as unknown as jest.Mock;
 const rtCreate = prisma.refreshToken.create as unknown as jest.Mock;
@@ -29,6 +31,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // W: la rotación corre en una transacción; el mock entrega el mismo cliente como `tx`.
+  transaction.mockImplementation((cb: (tx: unknown) => unknown) => cb(prisma));
   rtCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'rt-new', ...data }));
   rtUpdate.mockResolvedValue({});
   rtUpdateMany.mockResolvedValue({ count: 0 });
@@ -163,5 +167,72 @@ describe('P-20 · handleRefreshRequest', () => {
     const r = await handleRefreshRequest(raw);
     expect(r.status).toBe(401);
     expect(rtCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('P-20 · la rotación es atómica (W)', () => {
+  it('corre dentro de UNA transacción Serializable', async () => {
+    const raw = 'raw-serializable';
+    rtFindMany.mockResolvedValue([await activeRow(raw)]);
+    findUnique.mockResolvedValue(usuario());
+
+    const r = await handleRefreshRequest(raw);
+
+    expect(r.status).toBe(204);
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.mock.calls[0][1]).toEqual({ isolationLevel: 'Serializable' });
+  });
+
+  it('P2034 (conflicto de serialización) → 401, sin emitir ni rotar', async () => {
+    transaction.mockRejectedValue(Object.assign(new Error('write conflict'), { code: 'P2034' }));
+
+    const r = await handleRefreshRequest('raw-p2034');
+
+    expect(r.status).toBe(401);
+    expect(rtCreate).not.toHaveBeenCalled();
+    expect(rtUpdate).not.toHaveBeenCalled();
+  });
+
+  it('dos rotaciones concurrentes con el mismo token: una gana (204) y la otra no emite (401)', async () => {
+    // NOTA HONESTA: el doble es un modelo en memoria con "commits" serializados; NO ejerce la
+    // concurrencia real de Postgres. Lo que prueba es que, con transacciones serializadas, la
+    // segunda rotación ve el token ya revocado y no emite un refresh nuevo. La garantí­a real de
+    // aislamiento la aporta SERIALIZABLE (aseverado estructuralmente en el test de arriba).
+    const raw = 'raw-race';
+    const inicial = await activeRow(raw);
+    const fila = { ...inicial };
+
+    let serial: Promise<unknown> = Promise.resolve();
+    let creados = 0;
+    const tx = {
+      usuario: { findUnique: jest.fn().mockResolvedValue(usuario()) },
+      refreshToken: {
+        findMany: jest.fn(async () => [{ ...fila }]),
+        create: jest.fn(async ({ data }: { data: { tokenHash: string } }) => {
+          creados += 1;
+          return { id: `rt-new-${creados}`, ...data };
+        }),
+        update: jest.fn(
+          async ({ where, data }: { where: { id: string }; data: { revokedAt: Date; replacedByTokenId: string } }) => {
+            if (where.id === fila.id) Object.assign(fila, data);
+            return {};
+          }
+        ),
+        updateMany: jest.fn(async ({ data }: { data: { revokedAt: Date } }) => {
+          Object.assign(fila, data);
+          return { count: 1 };
+        }),
+      },
+    };
+    transaction.mockImplementation((cb: (tx: unknown) => unknown) => {
+      const run = serial.then(() => cb(tx));
+      serial = run.catch(() => {});
+      return run;
+    });
+
+    const [a, b] = await Promise.all([handleRefreshRequest(raw), handleRefreshRequest(raw)]);
+
+    expect([a.status, b.status].sort()).toEqual([204, 401]);
+    expect(creados).toBe(1); // el que pierde la carrera no emite un refresh nuevo
   });
 });

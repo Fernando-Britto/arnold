@@ -1,4 +1,4 @@
-import { Rol } from '@prisma/client';
+import { Prisma, Rol } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { comparePassword, createJWT, hashPassword } from '@/lib/auth';
 import { recordAccessAttempt, type AuditContext } from '@/lib/audit';
@@ -93,31 +93,48 @@ const REFRESH_ERROR = {
  * revoca el token usado, emite uno nuevo y renueva el access token. Si el token presentado ya
  * estaba revocado, asume robo y revoca toda la cadena vigente del usuario. 204 en éxito, 401 en
  * cualquier fallo (token ausente/expirado/revocado, usuario inexistente, deshabilitado o borrado).
+ *
+ * W: toda la secuencia read → check → issue → revoke corre dentro de UNA transacción Serializable.
+ * Con el nivel por defecto dos requests concurrentes con el mismo token podían leer `revokedAt`
+ * en null a la vez y emitir dos pares válidos, anulando la detección de reuso. Serializable hace
+ * que una gane y la otra falle con P2034 (conflicto de serialización) → se trata como error.
  */
 export async function handleRefreshRequest(refreshToken: string | undefined | null): Promise<RefreshResult> {
   const now = new Date();
   if (!refreshToken || !refreshToken.trim()) return REFRESH_ERROR;
 
-  const stored = await findRefreshTokenByValue(refreshToken, now);
-  if (!stored) return REFRESH_ERROR;
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        const stored = await findRefreshTokenByValue(refreshToken, now, tx);
+        if (!stored) return REFRESH_ERROR;
 
-  // Reuso de un token ya rotado o revocado: se corta toda la cadena del usuario.
-  if (stored.revokedAt) {
-    await revokeRefreshChain(stored.usuarioId, now);
-    return REFRESH_ERROR;
+        // Reuso de un token ya rotado o revocado: se corta toda la cadena del usuario.
+        if (stored.revokedAt) {
+          await revokeRefreshChain(stored.usuarioId, now, tx);
+          return REFRESH_ERROR;
+        }
+
+        // Mismas validaciones que el proxy: el usuario debe existir y estar activo.
+        const usuario = await tx.usuario.findUnique({ where: { id: stored.usuarioId } });
+        if (!usuario || usuario.estado !== 'ACTIVO' || usuario.deletedAt) return REFRESH_ERROR;
+
+        const issued = await issueRefreshToken(usuario.id, now, tx);
+        await tx.refreshToken.update({
+          where: { id: stored.id },
+          data: { revokedAt: now, replacedByTokenId: issued.id },
+        });
+        const accessToken = createJWT(usuario.id, SESSION_TTL_SECONDS, {
+          rol: usuario.rol, email: usuario.email, nombre: usuario.nombre,
+        });
+        return { status: 204, accessToken, refreshToken: issued.token };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+  } catch (error) {
+    // P2034: dos rotaciones concurrentes chocaron bajo Serializable. La que pierde no emite
+    // token; se responde como refresh inválido (el cliente vuelve a loguearse).
+    if ((error as { code?: string }).code === 'P2034') return REFRESH_ERROR;
+    throw error;
   }
-
-  // Mismas validaciones que el proxy: el usuario debe existir y estar activo.
-  const usuario = await prisma.usuario.findUnique({ where: { id: stored.usuarioId } });
-  if (!usuario || usuario.estado !== 'ACTIVO' || usuario.deletedAt) return REFRESH_ERROR;
-
-  const issued = await issueRefreshToken(usuario.id, now);
-  await prisma.refreshToken.update({
-    where: { id: stored.id },
-    data: { revokedAt: now, replacedByTokenId: issued.id },
-  });
-  const accessToken = createJWT(usuario.id, SESSION_TTL_SECONDS, {
-    rol: usuario.rol, email: usuario.email, nombre: usuario.nombre,
-  });
-  return { status: 204, accessToken, refreshToken: issued.token };
 }

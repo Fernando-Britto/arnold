@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server';
 jest.unmock('next/server');
 jest.mock('@/lib/db', () => ({
   prisma: {
+    $transaction: jest.fn(),
     usuario: { findFirst: jest.fn(), findUnique: jest.fn() },
     refreshToken: { create: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
   },
@@ -32,6 +33,7 @@ import { revokeToken } from '@/lib/token-revocation';
 
 const findFirst = prisma.usuario.findFirst as unknown as jest.Mock;
 const findUnique = prisma.usuario.findUnique as unknown as jest.Mock;
+const transaction = prisma.$transaction as unknown as jest.Mock;
 const rtCreate = prisma.refreshToken.create as unknown as jest.Mock;
 const rtFindMany = prisma.refreshToken.findMany as unknown as jest.Mock;
 const rtUpdate = prisma.refreshToken.update as unknown as jest.Mock;
@@ -48,6 +50,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // W: la rotación corre en una transacción; el mock entrega el mismo cliente como `tx`.
+  transaction.mockImplementation((cb: (tx: unknown) => unknown) => cb(prisma));
   rtCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'rt-new', ...data }));
   rtUpdate.mockResolvedValue({});
   revoke.mockResolvedValue(true);

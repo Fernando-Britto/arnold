@@ -111,6 +111,43 @@ describe("autenticarDispositivo", () => {
     expect(prisma.dispositivo.findMany).toHaveBeenCalledWith({
       where: { tokenPrefix: "abcdefgh", estado: "ACTIVO" },
     });
+    // El camino rápido encontró el dispositivo: no se toca el fallback legacy.
+    expect(prisma.dispositivo.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("AC-12: un dispositivo con tokenPrefix null autentica por el fallback legacy", async () => {
+    const prisma = await mocks();
+    const token = "token-viejo-sin-prefijo";
+    const hash = await bcryptjs.hash(token, 4);
+    (prisma.dispositivo.findMany as jest.Mock)
+      .mockResolvedValueOnce([]) // camino rápido: no hay match por prefijo
+      .mockResolvedValueOnce([fila({ tokenPrefix: null, tokenHash: hash })]);
+
+    const dev = await autenticarDispositivo(req({ [DISPOSITIVO_TOKEN_HEADER]: token }));
+
+    expect(dev).toMatchObject({ id: "dev-1" });
+    expect(prisma.dispositivo.findMany).toHaveBeenNthCalledWith(1, {
+      where: { tokenPrefix: "token-vi", estado: "ACTIVO" },
+    });
+    expect(prisma.dispositivo.findMany).toHaveBeenNthCalledWith(2, {
+      where: { tokenPrefix: null, estado: "ACTIVO" },
+    });
+    expect(prisma.dispositivo.update).toHaveBeenCalledWith({
+      where: { id: "dev-1" },
+      data: { ultimoContacto: expect.any(Date) },
+    });
+  });
+
+  it("AC-12: el fallback legacy no deja pasar un dispositivo INACTIVO", async () => {
+    const prisma = await mocks();
+    const token = "token-viejo-inactivo";
+    const hash = await bcryptjs.hash(token, 4);
+    (prisma.dispositivo.findMany as jest.Mock)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([fila({ tokenPrefix: null, estado: "INACTIVO", tokenHash: hash })]);
+
+    await expect(autenticarDispositivo(req({ [DISPOSITIVO_TOKEN_HEADER]: token }))).resolves.toBeNull();
+    expect(prisma.dispositivo.update).not.toHaveBeenCalled();
   });
 
   it("token válido: busca solo ACTIVOS, actualiza ultimoContacto y devuelve el dispositivo", async () => {

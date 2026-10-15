@@ -2,6 +2,7 @@
  * Cliente domain model
  * Represents a Socio (member/client) with membership and account status
  */
+import { randomBytes } from "node:crypto";
 import type { EstadoCuota, Prisma } from "@prisma/client";
 import { hashPassword } from "@/lib/auth";
 import { validarPin } from "@/domains/acceso/pin";
@@ -61,14 +62,29 @@ export interface ValidationResult {
   errors: string[];
 }
 
+/** Alfabeto del sufijo temporal: mayúsculas y dígitos, como promete el formato `TempPass-XXXXXXXX`. */
+const ALFABETO_TEMP_PASSWORD = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
 /**
  * Generate a temporary password for new users
- * Format: TempPass-XXXXXX (where X are alphanumeric)
+ * Format: TempPass-XXXXXXXX (8 uppercase alphanumerics)
  * Must be changed on first login (not implemented yet, see T-013)
+ *
+ * H10: el sufijo sale de `randomBytes` (CSPRNG), no de `Math.random()`, que no es apto para
+ * credenciales. Se descartan los bytes que introducirían sesgo de módulo.
  */
 export function generateTemporaryPassword(): string {
-  const randomSuffix = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `TempPass-${randomSuffix}`;
+  const LARGO = 8;
+  let sufijo = "";
+  while (sufijo.length < LARGO) {
+    for (const byte of randomBytes(LARGO)) {
+      // 252 = 7 * 36: cada símbolo recibe exactamente 7 de los 256 valores posibles.
+      if (byte >= 252) continue;
+      sufijo += ALFABETO_TEMP_PASSWORD[byte % ALFABETO_TEMP_PASSWORD.length];
+      if (sufijo.length === LARGO) break;
+    }
+  }
+  return `TempPass-${sufijo}`;
 }
 
 /**

@@ -13,6 +13,9 @@ import { throwIfNotOk } from "@/utils/api-error";
 const TIPOS_DISPOSITIVO = ["PUERTA", "RECEPCION"] as const;
 export type TipoDispositivo = (typeof TIPOS_DISPOSITIVO)[number];
 
+const ESTADOS_DISPOSITIVO = ["ACTIVO", "INACTIVO"] as const;
+export type EstadoDispositivo = (typeof ESTADOS_DISPOSITIVO)[number];
+
 /** Datos del dispositivo visibles en la API (sin token ni hash). */
 export interface DispositivoDTO {
   id: string;
@@ -47,6 +50,8 @@ interface PrismaLike {
   dispositivo: {
     create(args: unknown): Promise<DispositivoRaw>;
     findMany(args: unknown): Promise<DispositivoRaw[]>;
+    findUnique(args: unknown): Promise<DispositivoRaw | null>;
+    update(args: unknown): Promise<DispositivoRaw>;
   };
 }
 
@@ -101,6 +106,30 @@ export async function handleDispositivoList(): Promise<DispositivoDTO[]> {
   const { prisma } = (await import("@/lib/db")) as unknown as { prisma: PrismaLike };
   const filas = await prisma.dispositivo.findMany({ orderBy: { createdAt: "desc" } });
   return filas.map(aDTO);
+}
+
+/**
+ * Cambia el estado (ACTIVO/INACTIVO) de un dispositivo. Desactivar (INACTIVO) es el camino de
+ * revocación del token (AC-10): `autenticarDispositivo` sólo considera los ACTIVO, así que el
+ * token de un dispositivo desactivado deja de servir de inmediato. La ruta exige Administrador.
+ *
+ * @throws Error("VALIDATION_ERROR: ...") si el estado no es válido.
+ * @throws Error("NOT_FOUND: ...") si el id no existe.
+ */
+export async function handleDispositivoEstado(id: string, estado: unknown): Promise<DispositivoDTO> {
+  if (typeof estado !== "string" || !(ESTADOS_DISPOSITIVO as readonly string[]).includes(estado)) {
+    throw new Error("VALIDATION_ERROR: Estado de dispositivo inválido");
+  }
+
+  const { prisma } = (await import("@/lib/db")) as unknown as { prisma: PrismaLike };
+  const existente = await prisma.dispositivo.findUnique({ where: { id } });
+  if (!existente) throw new Error("NOT_FOUND: Dispositivo no encontrado");
+
+  const actualizado = await prisma.dispositivo.update({
+    where: { id },
+    data: { estado: estado as EstadoDispositivo },
+  });
+  return aDTO(actualizado);
 }
 
 /**

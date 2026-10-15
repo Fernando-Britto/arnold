@@ -5,13 +5,16 @@
 import {
   handleDispositivoCreate,
   handleDispositivoList,
+  handleDispositivoEstado,
   accesoDispositivo,
 } from "./dispositivos";
 import { hashPassword } from "@/lib/auth";
 
 jest.mock("@/lib/db", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const prisma: any = { dispositivo: { create: jest.fn(), findMany: jest.fn() } };
+  const prisma: any = {
+    dispositivo: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+  };
   return { prisma };
 });
 jest.mock("@/lib/auth", () => ({ hashPassword: jest.fn(async () => "HASH-DEL-TOKEN") }));
@@ -103,6 +106,47 @@ describe("handleDispositivoList", () => {
     expect(r[0]).toMatchObject({ id: "dev-1", nombre: "Puerta principal" });
     expect(JSON.stringify(r)).not.toContain("HASH-DEL-TOKEN");
     expect(JSON.stringify(r)).not.toContain("tokenHash");
+  });
+});
+
+describe("handleDispositivoEstado (AC-10)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("desactiva (INACTIVO) un dispositivo existente sin exponer token ni hash", async () => {
+    const prisma = await mocks();
+    (prisma.dispositivo.findUnique as jest.Mock).mockResolvedValue(creado());
+    (prisma.dispositivo.update as jest.Mock).mockResolvedValue(creado({ estado: "INACTIVO" }));
+
+    const r = await handleDispositivoEstado("dev-1", "INACTIVO");
+
+    expect(prisma.dispositivo.update).toHaveBeenCalledWith({
+      where: { id: "dev-1" },
+      data: { estado: "INACTIVO" },
+    });
+    expect(r).toMatchObject({ id: "dev-1", estado: "INACTIVO" });
+    expect(JSON.stringify(r)).not.toContain("tokenHash");
+  });
+
+  it("permite reactivar (ACTIVO)", async () => {
+    const prisma = await mocks();
+    (prisma.dispositivo.findUnique as jest.Mock).mockResolvedValue(creado({ estado: "INACTIVO" }));
+    (prisma.dispositivo.update as jest.Mock).mockResolvedValue(creado({ estado: "ACTIVO" }));
+
+    await expect(handleDispositivoEstado("dev-1", "ACTIVO")).resolves.toMatchObject({ estado: "ACTIVO" });
+  });
+
+  it("estado inválido → VALIDATION_ERROR sin tocar la base", async () => {
+    const prisma = await mocks();
+    await expect(handleDispositivoEstado("dev-1", "APAGADO")).rejects.toThrow(/VALIDATION_ERROR/);
+    expect(prisma.dispositivo.findUnique).not.toHaveBeenCalled();
+    expect(prisma.dispositivo.update).not.toHaveBeenCalled();
+  });
+
+  it("dispositivo inexistente → NOT_FOUND", async () => {
+    const prisma = await mocks();
+    (prisma.dispositivo.findUnique as jest.Mock).mockResolvedValue(null);
+    await expect(handleDispositivoEstado("nope", "INACTIVO")).rejects.toThrow(/NOT_FOUND/);
+    expect(prisma.dispositivo.update).not.toHaveBeenCalled();
   });
 });
 

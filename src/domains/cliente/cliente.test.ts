@@ -4,6 +4,7 @@ import {
   createCliente,
   validateCliente,
   normalizeDNI,
+  generateTemporaryPassword,
   ClienteRepository,
   mapEstadoCuentaToEstadoCuota,
   mapEstadoCuotaToEstadoCuenta,
@@ -1343,5 +1344,26 @@ describe("ClienteRepository", () => {
         expect(mapEstadoCuotaToEstadoCuenta(mapEstadoCuentaToEstadoCuota(estado))).toBe(estado);
       }
     });
+  });
+});
+
+describe("generateTemporaryPassword (H10)", () => {
+  it("tiene la forma TempPass-XXXXXXXX (8 caracteres)", () => {
+    const password = generateTemporaryPassword();
+    expect(password).toMatch(/^TempPass-[A-Z0-9]{8}$/);
+    expect(password).toHaveLength("TempPass-".length + 8);
+  });
+
+  it("el sufijo usa sólo el alfabeto prometido (mayúsculas y dígitos)", () => {
+    for (let i = 0; i < 50; i++) {
+      const sufijo = generateTemporaryPassword().slice("TempPass-".length);
+      expect(sufijo).toMatch(/^[A-Z0-9]+$/);
+    }
+  });
+
+  it("dos llamadas dan contraseñas distintas (no usa un valor fijo)", () => {
+    const a = generateTemporaryPassword();
+    const b = generateTemporaryPassword();
+    expect(a).not.toBe(b);
   });
 });

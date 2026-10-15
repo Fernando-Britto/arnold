@@ -23,6 +23,21 @@ export function generateRefreshToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
+/**
+ * Lo único que los helpers necesitan del cliente de Prisma (o de una transacción). Igual que el
+ * patrón de `configuracion.ts`/`oferta-reactivacion-consulta.ts`: se recibe el cliente por
+ * parámetro para poder correr toda la rotación dentro de UNA transacción (W). Sin parámetro se usa
+ * el cliente global, así no se rompen los callers existentes (logout).
+ */
+export interface RefreshTokenClient {
+  refreshToken: {
+    findMany(args: unknown): Promise<MatchedRefreshToken[]>;
+    create(args: unknown): Promise<{ id: string }>;
+    update(args: unknown): Promise<unknown>;
+    updateMany(args: unknown): Promise<unknown>;
+  };
+}
+
 export interface IssuedRefreshToken {
   /** Token en claro: se setea en la cookie y NUNCA se persiste ni se loguea. */
   token: string;
@@ -33,15 +48,17 @@ export interface IssuedRefreshToken {
 /**
  * Emite un refresh token nuevo para el usuario: genera el token, guarda su hash y vencimiento,
  * y devuelve el token en claro para la cookie. Lanza si falla la base (el caller decide).
+ * `db` permite emitirlo dentro de una transacción (W): mismo patrón de cliente inyectado.
  */
 export async function issueRefreshToken(
   usuarioId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  db: RefreshTokenClient = prisma
 ): Promise<IssuedRefreshToken> {
   const token = generateRefreshToken();
   const tokenHash = await hashPassword(token);
   const expiresAt = new Date(now.getTime() + REFRESH_TTL_SECONDS * 1000);
-  const row = await prisma.refreshToken.create({ data: { usuarioId, tokenHash, expiresAt } });
+  const row = await db.refreshToken.create({ data: { usuarioId, tokenHash, expiresAt } });
   return { token, id: row.id, expiresAt };
 }
 
@@ -61,9 +78,10 @@ export interface MatchedRefreshToken {
  */
 export async function findRefreshTokenByValue(
   token: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  db: RefreshTokenClient = prisma
 ): Promise<MatchedRefreshToken | null> {
-  const candidates = await prisma.refreshToken.findMany({
+  const candidates = await db.refreshToken.findMany({
     where: { expiresAt: { gt: now } },
   });
   for (const candidate of candidates) {
@@ -73,8 +91,12 @@ export async function findRefreshTokenByValue(
 }
 
 /** Revoca toda la cadena vigente del usuario (detección de reuso). */
-export async function revokeRefreshChain(usuarioId: string, now: Date = new Date()): Promise<void> {
-  await prisma.refreshToken.updateMany({
+export async function revokeRefreshChain(
+  usuarioId: string,
+  now: Date = new Date(),
+  db: RefreshTokenClient = prisma
+): Promise<void> {
+  await db.refreshToken.updateMany({
     where: { usuarioId, revokedAt: null },
     data: { revokedAt: now },
   });
@@ -86,12 +108,13 @@ export async function revokeRefreshChain(usuarioId: string, now: Date = new Date
  */
 export async function revokeRefreshTokenByValue(
   token: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  db: RefreshTokenClient = prisma
 ): Promise<boolean> {
-  const stored = await findRefreshTokenByValue(token, now);
+  const stored = await findRefreshTokenByValue(token, now, db);
   if (!stored) return false;
   if (!stored.revokedAt) {
-    await prisma.refreshToken.update({ where: { id: stored.id }, data: { revokedAt: now } });
+    await db.refreshToken.update({ where: { id: stored.id }, data: { revokedAt: now } });
   }
   return true;
 }

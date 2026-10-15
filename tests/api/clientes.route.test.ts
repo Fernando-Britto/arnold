@@ -102,7 +102,7 @@ describe("Cliente API Routes", () => {
       
       // GAP 1 FIX: tempPassword must be present in CREATE response
       expect((result as CreateSuccess).tempPassword).toBeDefined();
-      expect((result as CreateSuccess).tempPassword).toMatch(/^TempPass-[A-Z0-9]{6}$/);
+      expect((result as CreateSuccess).tempPassword).toMatch(/^TempPass-[A-Z0-9]{8}$/);
     });
   });
 
