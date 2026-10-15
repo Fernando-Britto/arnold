@@ -80,3 +80,13 @@ Componente `PlaceholderPanel` reutilizable: recuadro con el estilo de panel, íc
 - Las acciones están en el ActionBar arriba a la derecha, con los íconos y colores exactos.
 - Mismo chrome en todas las pantallas (TopNav + ActionBar + MainContent).
 - Tests verdes; `tsc` limpio; sin errores de lint nuevos.
+
+---
+
+**Actualización 2026-10-15** (ver `odd/tasks/paridad-visual-crud.md`): el AC de **anchos
+relativos** quedó **revisado**. Concentrar todo el sobrante en la columna `Nombre` dejaba
+~720px de hueco a 1920 y ~1360px a 2560; ahora `cellStyle` (en `src/components/ui/table.tsx`)
+reparte el sobrante entre todas las columnas en proporción a su medida — se prioriza la
+densidad de la tabla por encima de la fidelidad literal al mockup. Además la tipografía es
+**Inter** de verdad (el `body` pisaba `--font-sans` con Arial). El resto de este documento
+sigue vigente.

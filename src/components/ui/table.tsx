@@ -8,7 +8,11 @@ export type SortDirection = "asc" | "desc";
 export interface TableColumn {
   key: string;
   label: string;
-  /** Fixed width in px. Omitted => the column grows to fill the row. */
+  /**
+   * Medida de la columna en px según el mockup. Sirve como base del reparto: todas
+   * las columnas crecen y se encogen en proporción a ella (ver `cellStyle`). Omitirla
+   * marca la columna principal (Nombre), que arranca más ancha.
+   */
   width?: number;
   align?: TableAlign;
   /** Opt-in: renders a clickable header. Requires `TableHeader` `onSort`. */
@@ -61,8 +65,21 @@ export function compareSortValues(
   return 0;
 }
 
+/**
+ * Medida de arranque de la columna principal (la que no declara `width`).
+ */
+export const FLEX_BASE = 320;
+
+/**
+ * Reparte el ancho del panel entre TODAS las columnas en proporción a su medida:
+ * `flex-grow` = base, `flex-basis` = base. Antes las columnas medían px fijo
+ * (`flexShrink: 0`) y sólo la principal crecía, así que todo el sobrante de la
+ * pantalla caía ahí y en un monitor ancho quedaba un hueco enorme a la derecha
+ * del nombre. Ahora la tabla escala manteniendo las proporciones del mockup.
+ */
 function cellStyle(width?: number): React.CSSProperties {
-  return width ? { width, flexShrink: 0 } : { flex: 1, minWidth: 0 };
+  const base = width ?? FLEX_BASE;
+  return { flexGrow: base, flexShrink: 1, flexBasis: base, minWidth: 0 };
 }
 
 /** Table wrapper. Uses ARIA table semantics over flex rows (matches the OpenPencil mockup). */

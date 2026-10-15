@@ -8,6 +8,7 @@ import {
   TableCell,
   TableStatusBadge,
   TableDetailRow,
+  FLEX_BASE,
   type TableColumn,
 } from "./table";
 
@@ -37,6 +38,30 @@ describe("Table kit", () => {
     );
     expect(screen.getByText("primaria")).toHaveClass("text-[#333333]");
     expect(screen.getByText("secundaria")).toHaveClass("text-[#71717A]");
+  });
+
+  it("reparte el ancho entre todas las columnas en proporción a su medida", () => {
+    render(
+      <Table>
+        <TableHeader columns={columns} />
+        <TableRow>
+          <TableCell width={100}>id</TableCell>
+          <TableCell>nombre</TableCell>
+          <TableCell width={102}>estado</TableCell>
+        </TableRow>
+      </Table>,
+    );
+
+    // La columna que declara `width` crece tanto como mide...
+    for (const celda of [screen.getAllByRole("columnheader")[0], screen.getByText("id")]) {
+      expect(celda).toHaveStyle(`flex-grow: 100; flex-basis: 100px; flex-shrink: 1`);
+    }
+    // ...y la principal (sin `width`) arranca desde FLEX_BASE, así no se come todo el ancho.
+    for (const celda of [screen.getAllByRole("columnheader")[1], screen.getByText("nombre")]) {
+      expect(celda).toHaveStyle(
+        `flex-grow: ${FLEX_BASE}; flex-basis: ${FLEX_BASE}px; flex-shrink: 1`,
+      );
+    }
   });
 
   it("TableRow marca aria-selected y pinta la fila seleccionada", () => {
