@@ -98,3 +98,49 @@ export function evaluarOferta(input: EvaluarOfertaInput): EvaluacionOferta {
 
   return { elegible: true, descuentoPct: config.descuentoReactivacion };
 }
+
+export interface DescuentoCalculado {
+  montoLista: number;
+  descuentoPct: number;
+  montoFinal: number;
+}
+
+/**
+ * Descuento sobre el cobro completo (si el plan cubre dos períodos, sobre el total). Se calcula en
+ * centavos enteros y se redondea al centavo, igual que el prorrateo de `cuota.ts`.
+ */
+export function calcularDescuento(input: { monto: number; descuentoPct: number }): DescuentoCalculado {
+  const { monto, descuentoPct } = input;
+  if (!Number.isFinite(monto) || monto < 0) throw new RangeError("El monto debe ser un número mayor o igual a 0");
+  if (!descuentoEsValido(descuentoPct)) {
+    throw new RangeError(`El descuento debe estar entre ${DESCUENTO_MIN} y ${DESCUENTO_MAX} %`);
+  }
+
+  const centavos = Math.round(monto * 100);
+  // Centésimas de punto porcentual (12,5 % → 1250): evita multiplicar por un decimal en coma flotante
+  const centesimas = Math.round(descuentoPct * 100);
+  const finalCentavos = Math.round((centavos * (10000 - centesimas)) / 10000);
+
+  return { montoLista: centavos / 100, descuentoPct, montoFinal: finalCentavos / 100 };
+}
+
+export interface MontoConOferta {
+  /** Lo que se cobra (`Pago.monto`). */
+  monto: number;
+  /** Precio de lista antes del descuento; null si no hubo oferta. */
+  montoLista: number | null;
+  /** Porcentaje aplicado; null si no hubo oferta. */
+  descuentoPct: number | null;
+}
+
+/**
+ * Lo que `registrarPago` guarda en el `Pago`. Sin oferta devuelve el monto tal cual (cobro idéntico
+ * al de hoy) con `montoLista` y `descuentoPct` nulos.
+ */
+export function aplicarOferta(input: { monto: number; evaluacion: EvaluacionOferta }): MontoConOferta {
+  const { monto, evaluacion } = input;
+  if (!evaluacion.elegible) return { monto, montoLista: null, descuentoPct: null };
+
+  const d = calcularDescuento({ monto, descuentoPct: evaluacion.descuentoPct });
+  return { monto: d.montoFinal, montoLista: d.montoLista, descuentoPct: d.descuentoPct };
+}

@@ -68,7 +68,7 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-043a ➕ Lector único `getConfiguracion()` | ✅ | — (direct to `dev`) | — | `src/lib/configuracion.ts` replaces the 6 loose reads; guard test forbids new ones; one payload change in home-interno (D-54) |
 | T-043b ➕ `GET/PUT /api/configuracion` | ⏳ | — | — | Admin only; audit with previous and new value in `RegistroDeAuditoria` (D-54) |
 | T-043c ➕ Pantalla `/configuracion` | ⏳ | — | — | All parameters, validated; the "machines" part of the old T-043 is not confirmed (D-54) |
-| T-045a ➕ Oferta de reactivación: elegibilidad y descuento (puro) | ⏳ | — | — | Pure functions with boundary tests; spec `oferta-reactivacion` (D-54) |
+| T-045a ➕ Oferta de reactivación: elegibilidad y descuento (puro) | ✅ | — (direct to `dev`) | — | `src/domains/pago/oferta-reactivacion.ts`, 69 tests with boundary cases (mutation-checked); spec `oferta-reactivacion` (D-54) |
 | T-045b ➕ Migración de la oferta | ⏳ | — | — | New config fields + `Pago.montoLista` / `descuentoPct`; written by hand, applied by Fernando (D-41) |
 | T-045c ➕ Cobro con oferta y vista previa | ⏳ | — | — | Inside the `Serializable` transaction of `registrarPago`; `montoEsperado` → 409 `AMOUNT_CHANGED` (D-54) |
 | T-045d ➕ Avisos de la oferta | ⏳ | — | — | Pagos screen, Home_Interno card and Home_Socio notice; not the door screen (D-47) |

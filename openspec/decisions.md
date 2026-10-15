@@ -772,6 +772,13 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   `DIA_CORTE_ALTA_TARDIA_DEFAULT`, `PERIODO_GRACIA_DEFAULT` y `VENTANA_ANTI_PASSBACK_MINUTOS` se conservan, ahora derivados del lector. **Verificado** (cliente de Prisma generado sin motor de consultas):
   `tsc` sin errores y la suite unitaria con 2.046 tests pasando y ninguno fallando; unas 11 suites figuran como "failed to run" solo por la falta del motor (cambian de una corrida a otra y las que corrí
   de a una pasan). **No verificado**: nada contra una base real, el lector dentro de una transacción (se le pasa `prisma`, no `tx`) ni las pantallas en el navegador.
+- **Avance — T-045a (2026-10-14)**: `src/domains/pago/oferta-reactivacion.ts` con `descuentoEsValido`, `evaluarOferta`, `calcularDescuento` y `aplicarOferta`. Son funciones puras que
+  no se usan todavía en ningún cobro: el sistema cobra igual que antes hasta T-045c. Decisiones de implementación: (1) **ante una configuración inválida no se ofrece** (porcentaje fuera de
+  1–50, o días que no son un número válido), también el enfriamiento, para que un valor corrupto no abra la oferta a todos; (2) el descuento se redondea **sobre el monto final**, en centavos
+  enteros y con el porcentaje en centésimas (12,5 % → 1250) para evitar la coma flotante, igual que el prorrateo de `cuota.ts`; el medio centavo exacto sube; (3) la función no consulta
+  la base: quien la llame filtra las asistencias a `PERMITIDO` (el ingreso autorizado por excepción cuenta, el `DENEGADO` no) y ese filtro se prueba en T-045c; (4) se precisó la spec:
+  el enfriamiento bloquea solo un pago **posterior** a `hoy − enfriamiento`, así que se puede volver a recibir la oferta justo al cumplirse los 180 días (antes decía "181 o más").
+  **Verificado**: 69 tests, y tres errores introducidos a propósito (un `>` por `>=` en el borde de actividad, otro en el de enfriamiento, y `round` por `floor`) hicieron fallar un test cada uno.
 - **Cierra P-25.**
 
 ---

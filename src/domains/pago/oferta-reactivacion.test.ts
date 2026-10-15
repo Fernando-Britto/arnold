@@ -1,12 +1,18 @@
 /**
- * Oferta de reactivación: elegibilidad (T-045a, D-54). Funciones puras.
+ * Oferta de reactivación: elegibilidad y descuento (T-045a, D-54). Funciones puras.
  * Spec: openspec/specs/oferta-reactivacion/spec.md
  *
  * Qué cuenta como asistencia (solo ingresos PERMITIDO, incluido el autorizado por excepción; los
  * DENEGADO no) lo resuelve quien consulta la base: acá `ultimaAsistenciaPermitida` ya viene filtrada.
  * Ese filtro se prueba en T-045c, donde vive la consulta.
  */
-import { descuentoEsValido, evaluarOferta, type EvaluarOfertaInput } from "./oferta-reactivacion";
+import {
+  aplicarOferta,
+  calcularDescuento,
+  descuentoEsValido,
+  evaluarOferta,
+  type EvaluarOfertaInput,
+} from "./oferta-reactivacion";
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 const HOY = new Date("2026-11-20T15:00:00-03:00");
@@ -201,5 +207,94 @@ describe("evaluarOferta — orden de los motivos", () => {
     Object.freeze(input);
     expect(() => evaluarOferta(input)).not.toThrow();
     expect(evaluarOferta(input)).toEqual({ elegible: true, descuentoPct: 10 });
+  });
+});
+
+describe("calcularDescuento", () => {
+  it("renovación de $30.000 con 10 % → se cobra $27.000", () => {
+    expect(calcularDescuento({ monto: 30000, descuentoPct: 10 })).toEqual({
+      montoLista: 30000,
+      descuentoPct: 10,
+      montoFinal: 27000,
+    });
+  });
+
+  it("reingreso de dos períodos ($30.000) con 20 % → $24.000 sobre el total", () => {
+    expect(calcularDescuento({ monto: 30000, descuentoPct: 20 }).montoFinal).toBe(24000);
+  });
+
+  it("acepta porcentajes con decimales (12,5 %)", () => {
+    expect(calcularDescuento({ monto: 30000, descuentoPct: 12.5 }).montoFinal).toBe(26250);
+  });
+
+  it("33,33 % no sufre errores de coma flotante", () => {
+    expect(calcularDescuento({ monto: 30000, descuentoPct: 33.33 }).montoFinal).toBe(20001);
+  });
+
+  it("redondea al centavo (el prorrateo de $1.935,48 con 10 %)", () => {
+    expect(calcularDescuento({ monto: 1935.48, descuentoPct: 10 }).montoFinal).toBe(1741.93);
+  });
+
+  it("el medio centavo exacto redondea hacia arriba, igual que el prorrateo", () => {
+    // 10,05 − 10 % = 9,045 → 9,05
+    expect(calcularDescuento({ monto: 10.05, descuentoPct: 10 }).montoFinal).toBe(9.05);
+  });
+
+  it("extremos del rango: 1 % y 50 %", () => {
+    expect(calcularDescuento({ monto: 30000, descuentoPct: 1 }).montoFinal).toBe(29700);
+    expect(calcularDescuento({ monto: 30000, descuentoPct: 50 }).montoFinal).toBe(15000);
+  });
+
+  it("un monto de $0 queda en $0", () => {
+    expect(calcularDescuento({ monto: 0, descuentoPct: 10 }).montoFinal).toBe(0);
+  });
+
+  it("nunca cobra más que el precio de lista ni deja un monto negativo", () => {
+    for (const monto of [0.01, 1, 10.05, 1935.48, 30000, 99999.99]) {
+      for (const pct of [1, 7.77, 25, 33.33, 50]) {
+        const r = calcularDescuento({ monto, descuentoPct: pct });
+        expect(r.montoFinal).toBeLessThanOrEqual(r.montoLista);
+        expect(r.montoFinal).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it.each([[0], [0.5], [51], [100], [-1], [NaN]])("rechaza un porcentaje fuera de rango (%p) con RangeError", (pct) => {
+    expect(() => calcularDescuento({ monto: 30000, descuentoPct: pct })).toThrow(RangeError);
+  });
+
+  it.each([[-1], [NaN], [Infinity]])("rechaza un monto inválido (%p) con RangeError", (monto) => {
+    expect(() => calcularDescuento({ monto, descuentoPct: 10 })).toThrow(RangeError);
+  });
+});
+
+describe("aplicarOferta", () => {
+  it("elegible: devuelve el monto descontado más montoLista y descuentoPct para guardar en el Pago", () => {
+    expect(aplicarOferta({ monto: 30000, evaluacion: { elegible: true, descuentoPct: 10 } })).toEqual({
+      monto: 27000,
+      montoLista: 30000,
+      descuentoPct: 10,
+    });
+  });
+
+  it("no elegible: el monto queda exactamente igual y montoLista/descuentoPct nulos (cobro idéntico al de hoy)", () => {
+    expect(aplicarOferta({ monto: 1935.48, evaluacion: { elegible: false, motivo: "OFERTA_APAGADA" } })).toEqual({
+      monto: 1935.48,
+      montoLista: null,
+      descuentoPct: null,
+    });
+  });
+
+  it("integra con evaluarOferta de punta a punta", () => {
+    expect(aplicarOferta({ monto: 30000, evaluacion: evaluarOferta(base()) })).toEqual({
+      monto: 27000,
+      montoLista: 30000,
+      descuentoPct: 10,
+    });
+    expect(aplicarOferta({ monto: 30000, evaluacion: evaluarOferta(base({ estadoPago: "AL_DIA" })) })).toEqual({
+      monto: 30000,
+      montoLista: null,
+      descuentoPct: null,
+    });
   });
 });
