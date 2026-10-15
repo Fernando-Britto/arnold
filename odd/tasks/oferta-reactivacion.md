@@ -41,7 +41,9 @@ diseño ya está aprobado y especificado; lo que falta es código.
       y auditoría de valor anterior/nuevo en `RegistroDeAuditoria`
       — rangos puros en `src/domains/configuracion/`; la escritura vive en `src/lib/configuracion.ts` para
       no romper el guardián de T-043a; `npm test` 168/2162 verde
-- [ ] **T3** · T-043c: pantalla `/configuracion` agrupada y validada
+- [x] **T3** · T-043c: pantalla `/configuracion` agrupada y validada
+      — grupos Acceso/Cuotas/Aforo/Oferta, rangos reusados de `CAMPOS_CONFIGURACION`, diff antes de
+      enviar, `notify` al guardar; link en el nav de Admin; `npm test` 170/2176 verde
 - [ ] **T4** · T-045c: `registrarPago` aplica la oferta dentro de la transacción `Serializable`;
       vista previa en `GET /api/socios?dni=`; `montoEsperado` en `POST /api/pagos` → `409 AMOUNT_CHANGED`
 - [ ] **T5** · T-045d: avisos en la pantalla de pagos, la card de Home_Interno y Home_Socio

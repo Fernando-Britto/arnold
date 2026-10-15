@@ -1,0 +1,158 @@
+/**
+ * Pantalla "Configuración" (T-043c): muestra los parámetros agrupados, valida en el
+ * cliente y guarda solo los campos que cambiaron contra PUT /api/configuracion.
+ */
+import React from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { ConfiguracionPage } from "./page";
+import { useAuth } from "@/contexts/auth";
+import { useNotifications } from "@/contexts/notifications";
+import { fetchConfiguracion, guardarConfiguracion } from "@/api/configuracion";
+import type { Configuracion } from "@/lib/configuracion";
+
+const mockPush = jest.fn();
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), prefetch: jest.fn() }),
+  usePathname: () => "/configuracion",
+}));
+jest.mock("@/contexts/auth");
+jest.mock("@/contexts/notifications");
+jest.mock("@/api/configuracion", () => ({
+  fetchConfiguracion: jest.fn(),
+  guardarConfiguracion: jest.fn(),
+}));
+
+const mockAuth = useAuth as jest.Mock;
+const mockNotify = jest.fn();
+const mockFetch = fetchConfiguracion as jest.MockedFunction<typeof fetchConfiguracion>;
+const mockGuardar = guardarConfiguracion as jest.MockedFunction<typeof guardarConfiguracion>;
+
+const configBase: Configuracion = {
+  capacidadMaxima: 100,
+  periodoGracia: 5,
+  diasInactividad: 15,
+  ventanaAforoMinutos: 90,
+  diaLimitePago: 10,
+  diaCorteAltaTardia: 20,
+  antiPassbackMinutos: 60,
+  descuentoReactivacion: 10,
+  ofertaReactivacionActiva: false,
+  diasSinAsistirParaOferta: 30,
+  enfriamientoOfertaDias: 180,
+};
+
+const asRol = (rol: string) => ({
+  isAuthenticated: true,
+  isMember: false,
+  isStaff: true,
+  user: { nombre: "Ana", rol },
+});
+
+const guardar = () => userEvent.click(screen.getByRole("button", { name: /guardar cambios/i }));
+
+describe("ConfiguracionPage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuth.mockReturnValue(asRol("ADMINISTRADOR"));
+    (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
+    mockFetch.mockResolvedValue(configBase);
+  });
+
+  it("renderiza los 11 campos una vez cargada", async () => {
+    render(<ConfiguracionPage />);
+    await waitFor(() => expect(screen.getAllByTestId(/^campo-/)).toHaveLength(11));
+  });
+
+  it("agrupa los campos con sus títulos", async () => {
+    render(<ConfiguracionPage />);
+    await screen.findByTestId("campo-capacidadMaxima");
+
+    expect(screen.getByRole("heading", { name: "Acceso" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cuotas" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Aforo" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Oferta de reactivación" })).toBeInTheDocument();
+  });
+
+  it("redirige a /login cuando no hay sesión", () => {
+    mockAuth.mockReturnValue({ isAuthenticated: false, isMember: false, isStaff: false, user: null });
+    render(<ConfiguracionPage />);
+    expect(mockPush).toHaveBeenCalledWith("/login");
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("un rol no autorizado ve Acceso Denegado y no carga", async () => {
+    mockAuth.mockReturnValue(asRol("RECEPCIONISTA"));
+    render(<ConfiguracionPage />);
+    expect(await screen.findByText("Acceso Denegado")).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("muestra el banner de error si falla la carga", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("boom"));
+    render(<ConfiguracionPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo cargar la configuración.");
+  });
+
+  it("guarda solo el campo que cambió y notifica el éxito", async () => {
+    mockGuardar.mockResolvedValueOnce({ ...configBase, periodoGracia: 7 });
+    render(<ConfiguracionPage />);
+
+    const input = await screen.findByTestId("campo-periodoGracia");
+    fireEvent.change(input, { target: { value: "7" } });
+    await guardar();
+
+    await waitFor(() => expect(mockGuardar).toHaveBeenCalledTimes(1));
+    expect(mockGuardar).toHaveBeenCalledWith({ periodoGracia: 7 });
+    expect(mockNotify).toHaveBeenCalledWith("success", "Configuración guardada.");
+  });
+
+  it("sin cambios no llama a la API y muestra una notificación neutra", async () => {
+    render(<ConfiguracionPage />);
+    await screen.findByTestId("campo-periodoGracia");
+    await guardar();
+
+    expect(mockGuardar).not.toHaveBeenCalled();
+    expect(mockNotify).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  it("un valor fuera de rango muestra la validación y no llama a la API", async () => {
+    render(<ConfiguracionPage />);
+
+    const input = await screen.findByTestId("campo-capacidadMaxima");
+    fireEvent.change(input, { target: { value: "99999" } });
+    await guardar();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "capacidadMaxima debe estar entre 1 y 10000"
+    );
+    expect(mockGuardar).not.toHaveBeenCalled();
+  });
+
+  it("un segundo guardado sin cambios es no-op tras actualizar la línea base", async () => {
+    mockGuardar.mockResolvedValueOnce({ ...configBase, periodoGracia: 7 });
+    render(<ConfiguracionPage />);
+
+    const input = await screen.findByTestId("campo-periodoGracia");
+    fireEvent.change(input, { target: { value: "7" } });
+    await guardar();
+    await waitFor(() => expect(mockGuardar).toHaveBeenCalledTimes(1));
+
+    mockNotify.mockClear();
+    await guardar();
+
+    expect(mockGuardar).toHaveBeenCalledTimes(1);
+    expect(mockNotify).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  it("muestra el error del servidor si falla el guardado", async () => {
+    mockGuardar.mockRejectedValueOnce(new Error("boom"));
+    render(<ConfiguracionPage />);
+
+    const input = await screen.findByTestId("campo-periodoGracia");
+    fireEvent.change(input, { target: { value: "7" } });
+    await guardar();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo guardar la configuración.");
+  });
+});

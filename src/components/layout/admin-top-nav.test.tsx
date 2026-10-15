@@ -22,17 +22,18 @@ describe("AdminTopNav", () => {
   it("sin activeSection (ej. Home_Interno) no marca ningún link como activo", () => {
     mockUseAuth.mockReturnValue(userWithRole("ADMINISTRADOR"));
     render(<AdminTopNav />);
-    expect(screen.getAllByRole("link")).toHaveLength(4);
+    expect(screen.getAllByRole("link")).toHaveLength(5);
     screen.getAllByRole("link").forEach((link) => expect(link).not.toHaveAttribute("aria-current"));
   });
 
-  it("ADMINISTRADOR ve los 4 links con sus rutas", () => {
+  it("ADMINISTRADOR ve los 5 links con sus rutas", () => {
     mockUseAuth.mockReturnValue(userWithRole("ADMINISTRADOR"));
     render(<AdminTopNav activeSection="ejercicios" />);
     expect(screen.getByRole("link", { name: "Membresías" })).toHaveAttribute("href", "/membresias");
     expect(screen.getByRole("link", { name: "Rutinas" })).toHaveAttribute("href", "/rutinas");
     expect(screen.getByRole("link", { name: "Ejercicios" })).toHaveAttribute("href", "/ejercicios");
     expect(screen.getByRole("link", { name: "Clientes" })).toHaveAttribute("href", "/clientes");
+    expect(screen.getByRole("link", { name: "Configuración" })).toHaveAttribute("href", "/configuracion");
   });
 
   it("INSTRUCTOR solo ve Rutinas y Ejercicios", () => {

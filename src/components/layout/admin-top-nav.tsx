@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Bell, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 
-export type NavSection = "membresias" | "rutinas" | "ejercicios" | "clientes";
+export type NavSection = "membresias" | "rutinas" | "ejercicios" | "clientes" | "configuracion";
 
 interface NavItem {
   section: NavSection;
@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { section: "rutinas", label: "Rutinas", href: "/rutinas", roles: ["ADMINISTRADOR", "INSTRUCTOR"] },
   { section: "ejercicios", label: "Ejercicios", href: "/ejercicios", roles: ["ADMINISTRADOR", "INSTRUCTOR"] },
   { section: "clientes", label: "Clientes", href: "/clientes", roles: ["ADMINISTRADOR", "RECEPCIONISTA"] },
+  { section: "configuracion", label: "Configuración", href: "/configuracion", roles: ["ADMINISTRADOR"] },
 ];
 
 interface TopNavProps {
