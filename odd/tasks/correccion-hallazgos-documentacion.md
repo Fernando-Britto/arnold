@@ -1,6 +1,6 @@
 # Corrección de los hallazgos de la documentación
 
-**Estado**: en curso
+**Estado**: cerrado (2026-10-15) — 34 hallazgos corregidos; quedan P-11 (diferido por D-51) y P-39 (necesita decisión del negocio)
 **Rama**: `dev`
 **Origen**: la pasada de documentación del 2026-10-15 (vault `../arnold-vault`). Los hallazgos están en
 `Hallazgos/` con evidencia `archivo:línea`.
@@ -55,6 +55,12 @@ cerrarlo se actualiza la nota (`estado: cerrado`) y el [[Validaciones/00 - Mapa 
 
 ## Verificación
 
-- `npx tsc --noEmit`
-- `npm test`
-- `npm run test:integration`
+- `npx tsc --noEmit` — limpio
+- `npm test` — 178 suites / 2294 tests
+- `npm run test:integration` — 18 tests contra Postgres real
+- `npm run build` — compila
+
+## Resultado
+
+Seis commits: `bfb01d9` (RBAC), `f7f3eea` (auth y dispositivos), `d429479` (datos y dinero),
+`55bd42e` (borde y comentarios), `da21087` (arquitectura + CI), `df99121` (dispositivos y progreso).
