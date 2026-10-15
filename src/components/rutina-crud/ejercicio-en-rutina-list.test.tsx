@@ -1,7 +1,8 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { EjercicioEnRutinaList, EjercicioEnRutinaRow } from "./ejercicio-en-rutina-list";
+import { EjercicioEnRutinaList } from "./ejercicio-en-rutina-list";
+import { type EjercicioEnRutinaRow } from "@/api/rutinas";
 import { Ejercicio } from "@prisma/client";
 
 const mockEjercicios: Ejercicio[] = [

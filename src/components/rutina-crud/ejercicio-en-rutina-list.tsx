@@ -1,18 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { Ejercicio } from "@prisma/client";
+import type { EjercicioEnRutinaRow } from "@/api/rutinas";
 import { formatDescansoDisplay, parseDescansoInput } from "./descanso-utils";
-
-/**
- * Represents an ejercicio being added to a rutina (before persisting to DB)
- */
-export interface EjercicioEnRutinaRow {
-  ejercicioId: string;
-  ejercicioNombre: string;
-  series: number;
-  repeticiones: number;
-  descanso: number; // stored as seconds
-  orden?: number; // 0-indexed position for reordering
-}
 
 export interface EjercicioEnRutinaListProps {
   rows: EjercicioEnRutinaRow[];

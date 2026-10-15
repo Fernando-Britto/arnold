@@ -2,9 +2,7 @@
  * Cliente domain model
  * Represents a Socio (member/client) with membership and account status
  */
-import { randomBytes } from "node:crypto";
 import type { EstadoCuota, Prisma } from "@prisma/client";
-import { hashPassword } from "@/lib/auth";
 import { validarPin } from "@/domains/acceso/pin";
 import { validateDNI, validateEmail, validatePhone } from "@/utils/validation";
 
@@ -73,11 +71,17 @@ const ALFABETO_TEMP_PASSWORD = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
  * H10: el sufijo sale de `randomBytes` (CSPRNG), no de `Math.random()`, que no es apto para
  * credenciales. Se descartan los bytes que introducirían sesgo de módulo.
  */
+/** `node:crypto` en forma diferida: este modulo llega al navegador y no puede arrastrarlo (ARQ-2). */
+function cryptoRandomBytes(n: number): Uint8Array {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return (require("node:crypto") as typeof import("node:crypto")).randomBytes(n);
+}
+
 export function generateTemporaryPassword(): string {
   const LARGO = 8;
   let sufijo = "";
   while (sufijo.length < LARGO) {
-    for (const byte of randomBytes(LARGO)) {
+    for (const byte of cryptoRandomBytes(LARGO)) {
       // 252 = 7 * 36: cada símbolo recibe exactamente 7 de los 256 valores posibles.
       if (byte >= 252) continue;
       sufijo += ALFABETO_TEMP_PASSWORD[byte % ALFABETO_TEMP_PASSWORD.length];
@@ -219,6 +223,16 @@ export class ClienteRepository {
   }
 
   /**
+   * Import diferido de `@/lib/auth` (bcryptjs, jsonwebtoken, node:crypto). Este módulo llega
+   * al navegador vía `src/api/clientes.ts` (la página es "use client"); un import estático
+   * arrastraría esas librerías de servidor al bundle. Mismo patrón que `getPrisma()`.
+   */
+  private async hashPassword(password: string): Promise<string> {
+    const { hashPassword } = await import("@/lib/auth");
+    return hashPassword(password);
+  }
+
+  /**
    * Create a new cliente in the database
    * Omits id, fechaAlta, createdAt, updatedAt — Prisma auto-generates
    * @returns CreateClienteResult with Cliente + plaintext tempPassword (ephemeral)
@@ -266,8 +280,8 @@ export class ClienteRepository {
     // Create Usuario with temporary password (hashed)
     // User must change password on first login (TODO: T-013 auth flow)
     const tempPassword = generateTemporaryPassword();
-    const hashedPassword = await hashPassword(tempPassword);
-    const pinHash = data.pin ? await hashPassword(data.pin) : undefined;
+    const hashedPassword = await this.hashPassword(tempPassword);
+    const pinHash = data.pin ? await this.hashPassword(data.pin) : undefined;
     
     // P-04: Usuario y Socio se crean en UNA transacción; si el Socio falla (p. ej. DNI duplicado
     // por una carrera entre dos altas) se deshace también el Usuario y no queda uno huérfano.
@@ -412,7 +426,7 @@ export class ClienteRepository {
       if (!validarPin(data.pin)) {
         throw new Error("VALIDATION_ERROR: El PIN debe tener exactamente 4 dígitos");
       }
-      pinHash = await hashPassword(data.pin);
+      pinHash = await this.hashPassword(data.pin);
     }
 
     const updateData: Prisma.SocioUncheckedUpdateInput = {};

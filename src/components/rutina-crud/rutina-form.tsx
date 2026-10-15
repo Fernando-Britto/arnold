@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Rutina, Ejercicio } from "@prisma/client";
-import {
-  EjercicioEnRutinaList,
-  EjercicioEnRutinaRow,
-} from "./ejercicio-en-rutina-list";
+import { EjercicioEnRutinaList } from "./ejercicio-en-rutina-list";
+import { type EjercicioEnRutinaRow } from "@/api/rutinas";
 import { validateRutina, OBJETIVOS_PRINCIPALES } from "@/domains/rutina/rutina";
 
 const NIVEL_OPTIONS = [

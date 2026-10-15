@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Ejercicio } from "@prisma/client";
 import { RutinaForm } from "@/components/rutina-crud/rutina-form";
-import { type EjercicioEnRutinaRow } from "@/components/rutina-crud/ejercicio-en-rutina-list";
+import { type EjercicioEnRutinaRow } from "@/api/rutinas";
 import { RutinaListPanel } from "@/components/rutina-crud/rutina-list";
 import { useAuth } from "@/contexts/auth";
 import { useNotifications } from "@/contexts/notifications";

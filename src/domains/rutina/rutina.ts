@@ -1,5 +1,16 @@
 import { Prisma, Rutina as PrismaRutina, NivelDeDificultad } from "@prisma/client";
-import { prisma } from "@/lib/db";
+
+/**
+ * Import diferido del cliente Prisma: el dominio no debe tener un edge ESTÁTICO con la
+ * infraestructura (`@/lib/db`). Mismo patrón que `src/lib/configuracion.ts`.
+ *
+ * PENDIENTE: esto NO vuelve puro al módulo. El refactor que falta es inyectar el cliente
+ * (como `ConfiguracionReader`/`OfertaReader`) y sacar el acceso a datos de `src/domains`.
+ */
+async function getPrisma() {
+  const { prisma } = await import("@/lib/db");
+  return prisma;
+}
 
 /**
  * Canonical list of training objectives (NF-4). Single source of truth: the
@@ -159,9 +170,9 @@ export class RutinaRepository {
   /**
     * Create a new rutina in the database.
     *
-    * `client` defaults to the module Prisma client, but callers that must couple this
-    * write with others (p. ej. `EjercicioEnRutina`) pass the transaction client `tx` so
-    * both writes commit or roll back together.
+    * `client` defaults to the lazily-loaded module Prisma client, but callers that must
+    * couple this write with others (p. ej. `EjercicioEnRutina`) pass the transaction client
+    * `tx` so both writes commit or roll back together.
     */
   async create(
     data: {
@@ -172,7 +183,7 @@ export class RutinaRepository {
       descripcion?: string | null;
       objetivoPrincipal?: string;
     },
-    client: Prisma.TransactionClient = prisma
+    client?: Prisma.TransactionClient
   ): Promise<PrismaRutina> {
     // Validate first
     const validation = validateRutina(data);
@@ -181,7 +192,8 @@ export class RutinaRepository {
     }
 
     // Create in database
-    return client.rutina.create({
+    const db = client ?? (await getPrisma());
+    return db.rutina.create({
       data: {
         nombre: data.nombre,
         frecuenciaSemanal: data.frecuenciaSemanal,
@@ -197,6 +209,7 @@ export class RutinaRepository {
     * Retrieve a rutina by ID
     */
   async getById(id: string): Promise<PrismaRutina | null> {
+    const prisma = await getPrisma();
     return prisma.rutina.findUnique({
       where: { id },
     });
@@ -205,8 +218,8 @@ export class RutinaRepository {
   /**
    * Update a rutina.
    *
-   * `client` defaults to the module Prisma client; callers that synchronize the
-   * exercises inside the same transaction pass `tx` so the read-for-validation, the
+   * `client` defaults to the lazily-loaded module Prisma client; callers that synchronize
+   * the exercises inside the same transaction pass `tx` so the read-for-validation, the
    * update and the exercise sync share one atomic boundary.
    */
   async update(
@@ -219,8 +232,10 @@ export class RutinaRepository {
       descripcion: string | null;
       objetivoPrincipal: string | null;
     }>,
-    client: Prisma.TransactionClient = prisma
+    client?: Prisma.TransactionClient
   ): Promise<PrismaRutina | null> {
+    const db = client ?? (await getPrisma());
+
     // Validate if updating validation fields
     if (
       data.nombre !== undefined ||
@@ -229,7 +244,7 @@ export class RutinaRepository {
       data.nivelDeDificultad !== undefined ||
       data.objetivoPrincipal !== undefined
     ) {
-      const current = await client.rutina.findUnique({ where: { id } });
+      const current = await db.rutina.findUnique({ where: { id } });
       if (!current) return null;
 
       const merged = { ...current, ...data };
@@ -250,7 +265,7 @@ export class RutinaRepository {
     if (data.descripcion !== undefined) updateData.descripcion = data.descripcion;
     if (data.objetivoPrincipal !== undefined) updateData.objetivoPrincipal = data.objetivoPrincipal;
 
-    return client.rutina.update({
+    return db.rutina.update({
       where: { id },
       data: updateData,
     });
@@ -260,6 +275,7 @@ export class RutinaRepository {
     * Delete a rutina
     */
   async delete(id: string): Promise<PrismaRutina> {
+    const prisma = await getPrisma();
     return prisma.rutina.delete({
       where: { id },
     });

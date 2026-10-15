@@ -2,7 +2,20 @@ import { Ejercicio, EjercicioEnRutina, Rutina } from "@prisma/client";
 import { RutinaRepository, validateRutina } from "@/domains/rutina/rutina";
 import { prisma } from "@/lib/db";
 import { throwIfNotOk } from "@/utils/api-error";
-import type { EjercicioEnRutinaRow } from "@/components/rutina-crud/ejercicio-en-rutina-list";
+
+/**
+ * Fila de ejercicio dentro de una rutina, tal como la consume el formulario de edición.
+ * Vive en la capa API (no en `src/components`) para respetar la dirección de dependencias:
+ * el componente la importa desde acá, no al revés.
+ */
+export interface EjercicioEnRutinaRow {
+  ejercicioId: string;
+  ejercicioNombre: string;
+  series: number;
+  repeticiones: number;
+  descanso: number; // almacenado en segundos
+  orden?: number; // posición 0-indexada para el reordenamiento
+}
 
 export type RutinaWithCount = Rutina & { _count: { ejercicios: number } };
 

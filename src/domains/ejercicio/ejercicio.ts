@@ -1,5 +1,16 @@
-import { prisma } from "@/lib/db";
 import { Ejercicio } from "@prisma/client";
+
+/**
+ * Import diferido del cliente Prisma: el dominio no debe tener un edge ESTÁTICO con la
+ * infraestructura (`@/lib/db`). Mismo patrón que `src/lib/configuracion.ts`.
+ *
+ * PENDIENTE: esto NO vuelve puro al módulo. El refactor que falta es inyectar el cliente
+ * (como `ConfiguracionReader`/`OfertaReader`) y sacar el acceso a datos de `src/domains`.
+ */
+async function getPrisma() {
+  const { prisma } = await import("@/lib/db");
+  return prisma;
+}
 
 /**
  * Canonical list of muscle groups (AC-002). This is the single source of truth:
@@ -122,6 +133,7 @@ export class EjercicioRepository {
       throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
     }
 
+    const prisma = await getPrisma();
     return prisma.ejercicio.create({
       data: {
         nombre: data.nombre,
@@ -137,6 +149,7 @@ export class EjercicioRepository {
    * @returns Ejercicio or null if not found
    */
   async getById(id: string): Promise<Ejercicio | null> {
+    const prisma = await getPrisma();
     return prisma.ejercicio.findUnique({
       where: { id },
     });
@@ -149,6 +162,7 @@ export class EjercicioRepository {
    * @returns Array of ejercicios matching filters
    */
   async getAll(options?: { muscleGroup?: string; search?: string }): Promise<Ejercicio[]> {
+    const prisma = await getPrisma();
     const where: any = {};
     
     if (options?.muscleGroup) {
@@ -185,6 +199,7 @@ export class EjercicioRepository {
   ): Promise<Ejercicio | null> {
     // H-6: la lectura de validación y la escritura van en UNA sola transacción
     // para eliminar la ventana TOCTOU del read-then-write.
+    const prisma = await getPrisma();
     return prisma.$transaction(async (tx) => {
       const currentEjercicio = await tx.ejercicio.findUnique({ where: { id } });
       if (!currentEjercicio) return null;
@@ -219,6 +234,7 @@ export class EjercicioRepository {
    * @throws Error if ejercicio is in use (DELETE_BLOCKED_ASSIGNED)
    */
   async delete(id: string): Promise<boolean> {
+    const prisma = await getPrisma();
     try {
       await prisma.ejercicio.delete({
         where: { id },
@@ -251,6 +267,7 @@ export class EjercicioRepository {
    * @returns Total count
    */
   async count(): Promise<number> {
+    const prisma = await getPrisma();
     return prisma.ejercicio.count();
   }
 }

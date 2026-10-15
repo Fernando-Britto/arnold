@@ -1,0 +1,36 @@
+# CI mínimo (PRO-1). `openspec/config.yaml` declara `strict_tdd: true` y el README pide
+# `npm test` en verde antes de mergear, pero no había ningún gate automático. Este workflow
+# lo hace cumplir en cada push y pull_request: chequeo de tipos + tests unitarios.
+#
+# La suite de integración (`npm run test:integration`) queda afuera a propósito: aunque
+# ubuntu-latest trae Docker, levanta un Postgres efímero (pull de imagen, arranque, migraciones)
+# y agregaría minutos y flakiness a este gate. Se puede sumar como paso aparte si hace falta.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      # `npm ci` ejecuta el postinstall de @prisma/client, que corre `prisma generate`
+      # (el chequeo de tipos necesita el cliente de Prisma generado).
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Chequeo de tipos
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
