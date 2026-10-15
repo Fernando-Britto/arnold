@@ -140,6 +140,36 @@ describe("EjercicioRepository contra Postgres real", () => {
     expect(resultados.every((e) => e.grupoMuscular === "Pecho")).toBe(true);
   });
 
+  it("getAll pliega tildes en la búsqueda con unaccent (H12, real)", async () => {
+    await ejercicioRepository.create({ nombre: "Tríceps", grupoMuscular: "Brazos" });
+    await ejercicioRepository.create({ nombre: "Sentadilla", grupoMuscular: "Piernas" });
+
+    // Sin tilde, en mayúsculas y con tilde: las tres formas encuentran "Tríceps".
+    expect((await ejercicioRepository.getAll({ search: "triceps" })).map((e) => e.nombre)).toEqual([
+      "Tríceps",
+    ]);
+    expect((await ejercicioRepository.getAll({ search: "TRICEPS" })).map((e) => e.nombre)).toEqual([
+      "Tríceps",
+    ]);
+    expect((await ejercicioRepository.getAll({ search: "Tríceps" })).map((e) => e.nombre)).toEqual([
+      "Tríceps",
+    ]);
+
+    // Término inexistente: nada.
+    expect(await ejercicioRepository.getAll({ search: "no-existe-xyz" })).toEqual([]);
+  });
+
+  it("getAll combina search (con tildes) y grupoMuscular (H12, real)", async () => {
+    await ejercicioRepository.create({ nombre: "Tríceps", grupoMuscular: "Brazos" });
+    await ejercicioRepository.create({ nombre: "Tríceps femoral", grupoMuscular: "Piernas" });
+
+    const soloBrazos = await ejercicioRepository.getAll({
+      search: "triceps",
+      muscleGroup: "Brazos",
+    });
+    expect(soloBrazos.map((e) => e.nombre)).toEqual(["Tríceps"]);
+  });
+
   it("update persiste y es atómico (se re-lee de la base)", async () => {
     const creado = await ejercicioRepository.create({
       nombre: "Sentadilla",

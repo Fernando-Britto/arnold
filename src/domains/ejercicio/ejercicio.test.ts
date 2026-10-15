@@ -1,5 +1,5 @@
 import { createEjercicio, validateEjercicio } from "./ejercicio";
-import { EjercicioRepository } from "./ejercicio-repositorio";
+import { EjercicioRepository, type EjercicioReader } from "./ejercicio-repositorio";
 import * as EjercicioDomain from "./ejercicio";
 
 // Prisma simulado en memoria (FX-16, P-19): este test NO debe tocar la base real. Antes cada corrida
@@ -225,6 +225,24 @@ describe("Ejercicio Domain Model", () => {
   describe("Ejercicio Repository", () => {
     let repository: EjercicioRepository;
 
+    // H12: cliente falso inyectable para inspeccionar la consulta que emite `getAll`.
+    function dbFalsa() {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const $queryRaw = jest.fn().mockResolvedValue([]);
+      const db = {
+        ejercicio: {
+          create: jest.fn(),
+          findUnique: jest.fn(),
+          findMany,
+          update: jest.fn(),
+          delete: jest.fn(),
+          count: jest.fn(),
+        },
+        $queryRaw,
+      } as unknown as EjercicioReader;
+      return { db, findMany, $queryRaw };
+    }
+
     beforeEach(() => {
       // Initialize with empty data
       repository = new EjercicioRepository();
@@ -392,6 +410,53 @@ describe("Ejercicio Domain Model", () => {
       const list = await emptyRepo.getAll();
 
       expect(Array.isArray(list)).toBe(true);
+    });
+
+    // H12: con `search` la búsqueda debe plegar tildes vía SQL crudo, con el término
+    // parametrizado (nunca interpolado en el texto de la consulta).
+    it("H12: con search emite $queryRaw con el término parametrizado (sin interpolar)", async () => {
+      const { db, findMany, $queryRaw } = dbFalsa();
+
+      await repository.getAll({ search: "TRICEPS" }, db);
+
+      expect($queryRaw).toHaveBeenCalledTimes(1);
+      expect(findMany).not.toHaveBeenCalled();
+
+      const consulta = $queryRaw.mock.calls[0][0] as { sql: string; values: unknown[] };
+      // El término viaja como parámetro (`?`), no incrustado en el SQL.
+      expect(consulta.sql).toContain('unaccent("nombre") ILIKE unaccent(?)');
+      expect(consulta.sql).not.toContain("TRICEPS");
+      expect(consulta.values).toEqual(["%TRICEPS%"]);
+    });
+
+    it("H12: sin search sigue usando findMany (sin SQL crudo)", async () => {
+      const { db, findMany, $queryRaw } = dbFalsa();
+
+      await repository.getAll(undefined, db);
+
+      expect(findMany).toHaveBeenCalledWith({ where: {}, orderBy: { nombre: "asc" } });
+      expect($queryRaw).not.toHaveBeenCalled();
+    });
+
+    it("H12: el filtro por grupo muscular aplica en findMany (sin search)", async () => {
+      const { db, findMany } = dbFalsa();
+
+      await repository.getAll({ muscleGroup: "Brazos" }, db);
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: { grupoMuscular: "Brazos" },
+        orderBy: { nombre: "asc" },
+      });
+    });
+
+    it("H12: el filtro por grupo muscular aplica en el SQL crudo (con search)", async () => {
+      const { db, $queryRaw } = dbFalsa();
+
+      await repository.getAll({ search: "triceps", muscleGroup: "Brazos" }, db);
+
+      const consulta = $queryRaw.mock.calls[0][0] as { sql: string; values: unknown[] };
+      expect(consulta.sql).toContain('"grupoMuscular" = ?');
+      expect(consulta.values).toEqual(["%triceps%", "Brazos"]);
     });
 
      it("should reject invalid data on create", async () => {

@@ -1,4 +1,4 @@
-import type { Ejercicio } from "@prisma/client";
+import type { Ejercicio, Prisma } from "@prisma/client";
 import { validateEjercicio, type EjercicioInput } from "./ejercicio";
 
 /**
@@ -18,7 +18,7 @@ export interface EjercicioReader {
     }): Promise<Ejercicio>;
     findUnique(args: { where: { id: string } }): Promise<Ejercicio | null>;
     findMany(args?: {
-      where?: { grupoMuscular?: string; nombre?: { contains: string; mode: "insensitive" } };
+      where?: { grupoMuscular?: string };
       orderBy?: { nombre: "asc" | "desc" };
     }): Promise<Ejercicio[]>;
     update(args: {
@@ -28,6 +28,11 @@ export interface EjercicioReader {
     delete(args: { where: { id: string } }): Promise<Ejercicio>;
     count(): Promise<number>;
   };
+  /** Consulta cruda para la búsqueda con tildes (H12). Ver `getAll`. */
+  $queryRaw<T = unknown>(
+    query: TemplateStringsArray | Prisma.Sql,
+    ...values: unknown[]
+  ): Promise<T>;
 }
 
 /** Cliente con transacción interactiva: `update` necesita leer y escribir en la misma transacción. */
@@ -111,25 +116,33 @@ export class EjercicioRepository {
     db?: EjercicioReader
   ): Promise<Ejercicio[]> {
     const cliente = db ?? (await getPrisma());
-    const where: {
-      grupoMuscular?: string;
-      nombre?: { contains: string; mode: "insensitive" };
-    } = {};
-
-    if (options?.muscleGroup) {
-      where.grupoMuscular = options.muscleGroup;
-    }
 
     if (options?.search) {
-      // H12: `contains` + `insensitive` es el `ILIKE` de Postgres: pliega mayúsculas,
-      // pero NO tildes ("triceps" no matchea "Tríceps"). Plegar tildes en la base exige
-      // la extensión `unaccent` o una columna normalizada (cambio de schema, fuera de
-      // alcance). La búsqueda de la pantalla de ejercicios filtra en el cliente con
-      // `normalizeSortText`, así que este filtro server-side queda sólo case-insensitive.
-      where.nombre = {
-        contains: options.search,
-        mode: "insensitive",
-      };
+      // H12: `contains` + `insensitive` es el `ILIKE` de Postgres: pliega mayúsculas, pero NO
+      // tildes ("triceps" no matcheaba "Tríceps"). Acá se pliegan las DOS partes con `unaccent`
+      // (extensión creada por la migración 20261015200000_unaccent). El término va SIEMPRE como
+      // parámetro (`$1`), nunca concatenado dentro del SQL.
+      //
+      // `unaccent()` no es IMMUTABLE, así que no puede respaldar un índice y esta búsqueda
+      // escanea la tabla. Es aceptable para un catálogo de ejercicios de este tamaño.
+      const { Prisma } = await import("@prisma/client");
+      const patron = `%${options.search}%`;
+      const filtroGrupo = options.muscleGroup
+        ? Prisma.sql`AND "grupoMuscular" = ${options.muscleGroup}`
+        : Prisma.empty;
+
+      return cliente.$queryRaw<Ejercicio[]>(Prisma.sql`
+        SELECT * FROM "Ejercicio"
+        WHERE unaccent("nombre") ILIKE unaccent(${patron})
+        ${filtroGrupo}
+        ORDER BY "nombre" ASC
+      `);
+    }
+
+    // Sin `search`, Prisma alcanza: filtra por grupo (si lo hay) y ordena por nombre.
+    const where: { grupoMuscular?: string } = {};
+    if (options?.muscleGroup) {
+      where.grupoMuscular = options.muscleGroup;
     }
 
     return cliente.ejercicio.findMany({
