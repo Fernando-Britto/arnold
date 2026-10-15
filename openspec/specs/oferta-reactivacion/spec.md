@@ -6,7 +6,8 @@ Ofrecer un descuento sobre el cobro de la cuota a un socio que **dejó de asisti
 tiempo de espera configurables por el Administrador (D-54). Complementa `pagos-cuotas` (cuánto y cuándo se paga) y `member-access-check`
 (quién entra); no cambia ninguna de las dos.
 
-Estado: **diseño aprobado, sin código** (T-043a, T-045a a T-045d). La spec describe el comportamiento objetivo.
+Estado: diseño aprobado. **Hecho (T-045a)**: las funciones puras de elegibilidad y descuento (`src/domains/pago/oferta-reactivacion.ts`). Sin código todavía: la
+migración (T-045b), el cobro y la vista previa (T-045c) y los avisos (T-045d). La spec describe el comportamiento objetivo.
 
 ## Modelo
 
@@ -39,7 +40,11 @@ Un socio **MUST** ser elegible si y solo si se cumplen **todas** estas condicion
 3. Su estado de pago (`estadoCuotaSocio`) es `VENCIDA`. `PENDIENTE`, `AL_DIA` y `SIN_CUOTA` no son elegibles.
 4. La **referencia de actividad** es anterior o igual a `hoy − diasSinAsistirParaOferta`. La referencia es la `fechaHora` de la última `Asistencia`
    con `estado = PERMITIDO`; si el socio nunca asistió, es `Socio.fechaAlta`.
-5. No tiene un `Pago` `CONFIRMADO` con descuento aplicado y `fechaPago` posterior a `hoy − enfriamientoOfertaDias`.
+5. No tiene un `Pago` `CONFIRMADO` con descuento aplicado y `fechaPago` posterior a `hoy − enfriamientoOfertaDias`. Con `enfriamientoOfertaDias = 0` no bloquea nunca.
+
+Si un parámetro de la oferta no es un número válido (días negativos o que no son un número), **MUST** no ofrecerse: ante la duda se cobra de lista. La función informa
+el motivo de cada rechazo (`OFERTA_APAGADA`, `CONFIGURACION_INVALIDA`, `CUENTA_NO_HABILITADA`, `SIN_MEMBRESIA`, `CUOTA_NO_VENCIDA`, `ACTIVIDAD_RECIENTE`, `EN_ENFRIAMIENTO`), siempre
+la primera condición que falla en el orden de esta lista.
 
 #### Scenario: Socio vencido que dejó de venir
 
@@ -87,7 +92,7 @@ Un socio **MUST** ser elegible si y solo si se cumplen **todas** estas condicion
 
 - GIVEN el socio usó una oferta hace 100 días y `enfriamientoOfertaDias` es 180
 - WHEN se evalúa la oferta
-- THEN no es elegible; con 181 días o más, sí
+- THEN no es elegible; en cuanto se cumple el plazo (180 días o más) vuelve a serlo. El límite es exacto: un pago con descuento bloquea solo si es **posterior** a `hoy − enfriamiento`
 
 ### Requirement: Cálculo del descuento
 
