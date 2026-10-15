@@ -77,6 +77,8 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
     prisma.asistencia.groupBy({ by: ["socioId"], where: { estado: "PERMITIDO" }, _max: { fechaHora: true } }),
     // Último pago con descuento por socio (D-54): una sola consulta para todos los socios, sin ventana en
     // la base (dependería de la config y agregaría una ronda); el enfriamiento se aplica después en el dominio.
+    // Corre también con la oferta apagada, a propósito: condicionarla obligaría a leer la config primero y
+    // a hacer una segunda ronda secuencial en cada carga del tablero, que cuesta más que esta consulta.
     prisma.pago.groupBy({
       by: ["socioId"],
       where: { estado: "CONFIRMADO", descuentoPct: { not: null } },

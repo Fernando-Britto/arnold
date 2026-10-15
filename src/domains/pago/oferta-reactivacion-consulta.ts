@@ -48,11 +48,19 @@ export async function evaluarOfertaDeSocio(
   contexto: ContextoOferta,
   hoy: Date,
 ): Promise<EvaluacionOferta> {
-  // Con la oferta apagada la decisión no depende de la base: `evaluarOferta` devuelve
-  // OFERTA_APAGADA antes de mirar nada más. Cortar acá evita dos lecturas de más dentro de la
-  // transacción Serializable que cobra, en el camino por defecto (la oferta arranca apagada).
+  // Con la oferta apagada la decisión no depende de la base: se delega igual en `evaluarOferta`
+  // (que devuelve OFERTA_APAGADA antes de mirar nada) en vez de re-escribir la regla acá, así no se
+  // puede desincronizar si la regla pura cambia. Las fechas no importan porque no se llega a usarlas,
+  // y cortar antes del `Promise.all` evita dos lecturas de más dentro de la transacción Serializable
+  // que cobra, en el camino por defecto (la oferta arranca apagada).
   if (!config.ofertaReactivacionActiva) {
-    return { elegible: false, motivo: "OFERTA_APAGADA" };
+    return evaluarOferta({
+      ...contexto,
+      config,
+      ultimaAsistenciaPermitida: null,
+      ultimoPagoConDescuento: null,
+      hoy,
+    });
   }
 
   const [asistencia, pago] = await Promise.all([

@@ -574,8 +574,11 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   - Claude entrega los cambios como archivos **`.patch`** (`git format-patch`), numerados. Fernando los copia a una carpeta `~/files` fuera del repo y corre
     `git am ~/files/*.patch`. Claude no necesita permisos de escritura y el repo no se ensucia con archivos sueltos.
   - **Commit y push solo al terminar una actividad**, no a medias. Una actividad = uno o varios commits en `dev`.
-  - Se mantienen Strict TDD, **≤400 LOC por patch**, mensajes Conventional Commits con tarea y decisión (`feat(pagos): … (T-031, D-40)`), y autor
-    `Fernando Britto <fernando@example.com>` para que los commits queden consistentes.
+  - Se mantienen Strict TDD, **≤400 LOC por patch** y mensajes Conventional Commits con tarea y decisión (`feat(pagos): … (T-031, D-40)`).
+  - **Autor de los commits — actualizado el 2026-10-15**: la convención era `Fernando Britto <fernando@example.com>` "para que los commits queden
+    consistentes". Fernando pidió que salgan con su identidad real, `Fernando Nicolas Britto <fernandobritto925@gmail.com>`; los cuatro commits de la
+    oferta de reactivación (T-043a, T-045a) se reescribieron así. Si aparece un patch nuevo con el email de ejemplo, conviene reescribir el autor antes
+    de pushear para no volver a mezclar identidades.
 - **Reglas prácticas** (porque `git am` aplica en orden alfabético y exige un árbol limpio):
   - `dev` limpia y al día (`git status`, `git pull`) antes de aplicar.
   - Carpeta `files` **vacía entre tandas**: si quedan patches viejos, `git am` intenta reaplicarlos y falla. Los patches se numeran (`0001-…`) y, cuando una tanda

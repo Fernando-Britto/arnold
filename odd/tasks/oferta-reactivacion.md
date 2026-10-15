@@ -72,8 +72,17 @@ diseño ya está aprobado y especificado; lo que falta es código.
 - `npx tsc --noEmit`
 - `npm test`
 - `npx prisma migrate status` (la base queda al día)
+- `npm run test:integration` (Postgres efímero en Docker): aplica las 13 migraciones desde cero y
+  ejercita el lector y el escritor de configuración, la auditoría y el cobro con oferta contra una
+  base real, incluido el round-trip de los `Decimal` nuevos
 
 ## Progreso
 
 - **T-045a y T-043a**: ya hechos y revisados (commits `bd7e95b`…`8bcccf5`, revisión nativa
   `review-d52846a6fd139dae` aprobada y quemada).
+- **Cierre (2026-10-15)**: además de `tsc`, `npm test` (173/2211) y `prisma migrate status`, se corrió
+  `npm run test:integration` (Docker Desktop hubo que levantarlo): 17 tests en verde contra un Postgres
+  real, 8 de ellos nuevos para esta feature. Los dos hallazgos advisory que habían quedado abiertos se
+  cerraron: el corte temprano de `evaluarOfertaDeSocio` ahora delega en `evaluarOferta` (una sola
+  fuente para la regla `OFERTA_APAGADA`) y el `groupBy` de Home_Interno quedó documentado como
+  decisión deliberada.
