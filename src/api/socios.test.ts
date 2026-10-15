@@ -11,13 +11,23 @@ jest.mock("@/lib/db", () => {
   const prisma: any = {
     socio: { findUnique: jest.fn() },
     cuota: { findFirst: jest.fn() },
+    pago: { findFirst: jest.fn() },
+    asistencia: { findFirst: jest.fn() },
     configuracionDelSistema: { findFirst: jest.fn() },
   };
   return { prisma };
 });
 
 const d = (iso: string) => new Date(`${iso}-03:00`);
+const DIA_MS = 24 * 60 * 60 * 1000;
 const CONFIG = { diaLimitePago: 10, diaCorteAltaTardia: 20, periodoGracia: 0 };
+const CONFIG_OFERTA_ACTIVA = {
+  ...CONFIG,
+  ofertaReactivacionActiva: true,
+  diasSinAsistirParaOferta: 30,
+  descuentoReactivacion: 10,
+  enfriamientoOfertaDias: 180,
+};
 
 async function armarSocio() {
   const { prisma } = await import("@/lib/db");
@@ -28,8 +38,12 @@ async function armarSocio() {
     usuario: { nombre: "Ana García", email: "ana@example.com", password: "HASH-SECRETO" },
     membresiaAsignadaId: "plan-gold",
     membresiaAsignada: { id: "plan-gold", nombre: "Gold", precio: 30000 },
+    estadoCuota: "AL_DIA",
+    fechaAlta: d("2025-01-01T10:00:00"),
   });
   (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue(CONFIG);
+  (prisma.asistencia.findFirst as jest.Mock).mockResolvedValue(null);
+  (prisma.pago.findFirst as jest.Mock).mockResolvedValue(null);
   return prisma;
 }
 
@@ -59,6 +73,7 @@ describe("handleBuscarSocio", () => {
         cubreDesde: inicioDePeriodo("2026-11").toISOString(),
         cubreHasta: finDePeriodo("2026-11").toISOString(),
       },
+      oferta: null,
     });
     expect(JSON.stringify(r)).not.toContain("HASH-SECRETO");
     expect((r as { password?: unknown }).password).toBeUndefined();
@@ -110,6 +125,36 @@ describe("handleBuscarSocio", () => {
     (prisma.socio.findUnique as jest.Mock).mockResolvedValue(null);
 
     await expect(handleBuscarSocio("00000000", d("2026-11-05T10:00:00"))).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("oferta null cuando el socio no es elegible (oferta activa pero con actividad reciente)", async () => {
+    const prisma = await armarSocio();
+    (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue(CONFIG_OFERTA_ACTIVA);
+    (prisma.cuota.findFirst as jest.Mock).mockResolvedValue({ fechaVencimiento: finDePeriodo("2026-10") });
+    const hoy = d("2026-11-15T10:00:00");
+    (prisma.asistencia.findFirst as jest.Mock).mockResolvedValue({
+      fechaHora: new Date(hoy.getTime() - 5 * DIA_MS),
+    });
+
+    const r = await handleBuscarSocio("30123456", hoy);
+
+    expect(r.estadoCuota).toBe("VENCIDA");
+    expect(r.oferta).toBeNull();
+  });
+
+  it("oferta con montoLista, descuentoPct y montoFinal cuando el socio es elegible", async () => {
+    const prisma = await armarSocio();
+    (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue(CONFIG_OFERTA_ACTIVA);
+    (prisma.cuota.findFirst as jest.Mock).mockResolvedValue({ fechaVencimiento: finDePeriodo("2026-10") });
+    const hoy = d("2026-11-15T10:00:00");
+    (prisma.asistencia.findFirst as jest.Mock).mockResolvedValue({
+      fechaHora: new Date(hoy.getTime() - 40 * DIA_MS),
+    });
+
+    const r = await handleBuscarSocio("30123456", hoy);
+
+    expect(r.plan?.monto).toBe(30000);
+    expect(r.oferta).toEqual({ montoLista: 30000, descuentoPct: 10, montoFinal: 27000 });
   });
 
   it("normaliza el DNI con puntos antes de buscar (30.123.456 → 30123456)", async () => {

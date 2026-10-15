@@ -84,6 +84,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // El recepcionista no envía ningún campo de descuento: solo puede mandar el monto que vio.
+  if (
+    body.montoEsperado !== undefined &&
+    (typeof body.montoEsperado !== "number" ||
+      !Number.isFinite(body.montoEsperado) ||
+      body.montoEsperado < 0)
+  ) {
+    return NextResponse.json(
+      { code: "VALIDATION_ERROR", message: "El monto esperado no es válido" },
+      { status: 400 }
+    );
+  }
+
   const { status, body: responseBody } = await handleRegistrarPagoRequest(body);
   if (status === 201) {
     // Auditoría best-effort: no altera la respuesta HTTP.

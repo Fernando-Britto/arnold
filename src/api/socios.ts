@@ -13,6 +13,8 @@ import {
   type PlanDePago,
   type TipoPlanDePago,
 } from "@/domains/pago/cuota";
+import { aplicarOferta, type ConfigOferta } from "@/domains/pago/oferta-reactivacion";
+import { evaluarOfertaDeSocio } from "@/domains/pago/oferta-reactivacion-consulta";
 import { getConfiguracion } from "@/lib/configuracion";
 import { normalizeDNI } from "@/domains/cliente/cliente";
 import { throwIfNotOk } from "@/utils/api-error";
@@ -47,6 +49,11 @@ export interface SocioBusqueda {
   estadoCuota: EstadoCuotaSocio;
   /** Monto a cobrar hoy. `null` si el socio no tiene membresía asignada. */
   plan: PlanDePagoDTO | null;
+  /**
+   * Vista previa de la oferta de reactivación (D-54): `null` si el socio no es elegible o no
+   * tiene plan. El descuento real se recalcula en el servidor al cobrar.
+   */
+  oferta: { montoLista: number; descuentoPct: number; montoFinal: number } | null;
 }
 
 function serializarPlan(plan: PlanDePago): PlanDePagoDTO {
@@ -86,16 +93,47 @@ export async function handleBuscarSocio(dni: string, hoy: Date = new Date()): Pr
   const ultimoPeriodoCubierto = ultimaCuota ? periodoDe(ultimaCuota.fechaVencimiento) : null;
 
   const membresia = socio.membresiaAsignada;
-  const plan = membresia
-    ? serializarPlan(
-        planDePago({
-          ultimoPeriodoCubierto,
-          hoy,
-          precio: Number(membresia.precio),
-          diaCorte,
-        })
-      )
+  const planComoDominio = membresia
+    ? planDePago({
+        ultimoPeriodoCubierto,
+        hoy,
+        precio: Number(membresia.precio),
+        diaCorte,
+      })
     : null;
+  const plan = planComoDominio ? serializarPlan(planComoDominio) : null;
+
+  const estadoPago = estadoCuotaSocio({ ultimoPeriodoCubierto, hoy, diaLimite, gracia });
+
+  // Vista previa de la oferta (D-54): solo lectura. Se evalúa sobre el monto SIN serializar y el
+  // descuento real se vuelve a calcular en el servidor al cobrar (`registrarPago`).
+  const configOferta: ConfigOferta = {
+    ofertaReactivacionActiva: config.ofertaReactivacionActiva,
+    diasSinAsistirParaOferta: config.diasSinAsistirParaOferta,
+    descuentoReactivacion: config.descuentoReactivacion,
+    enfriamientoOfertaDias: config.enfriamientoOfertaDias,
+  };
+  const cobro = planComoDominio
+    ? aplicarOferta({
+        monto: planComoDominio.monto,
+        evaluacion: await evaluarOfertaDeSocio(
+          prisma,
+          socio.id,
+          configOferta,
+          {
+            estadoCuenta: socio.estadoCuota,
+            tieneMembresia: true,
+            estadoPago,
+            fechaAlta: socio.fechaAlta,
+          },
+          hoy,
+        ),
+      })
+    : null;
+  const oferta =
+    cobro && cobro.montoLista !== null && cobro.descuentoPct !== null
+      ? { montoLista: cobro.montoLista, descuentoPct: cobro.descuentoPct, montoFinal: cobro.monto }
+      : null;
 
   return {
     id: socio.id,
@@ -106,8 +144,9 @@ export async function handleBuscarSocio(dni: string, hoy: Date = new Date()): Pr
     membresia: membresia
       ? { id: membresia.id, nombre: membresia.nombre, precio: Number(membresia.precio) }
       : null,
-    estadoCuota: estadoCuotaSocio({ ultimoPeriodoCubierto, hoy, diaLimite, gracia }),
+    estadoCuota: estadoPago,
     plan,
+    oferta,
   };
 }
 

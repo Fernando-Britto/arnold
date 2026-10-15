@@ -177,6 +177,37 @@ describe("mapErrorToResponse — pago duplicado (PAYMENT_ALREADY_REGISTERED)", (
   });
 });
 
+describe("mapErrorToResponse — monto esperado desactualizado (AMOUNT_CHANGED)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el prefijo AMOUNT_CHANGED a 409 con el prefijo quitado del mensaje", () => {
+    const res = mapErrorToResponse(new Error("AMOUNT_CHANGED: El monto cambió a 30000"));
+
+    expect(res).toEqual({
+      code: "AMOUNT_CHANGED",
+      message: "El monto cambió a 30000",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea un código explícito AMOUNT_CHANGED a 409", () => {
+    const conCodigo = Object.assign(new Error("AMOUNT_CHANGED: El monto cambió a 21000"), {
+      code: "AMOUNT_CHANGED",
+    });
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res.status).toBe(409);
+    expect(res.code).toBe("AMOUNT_CHANGED");
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
 describe("mapErrorToResponse — ejercicio duplicado en rutina (DUPLICATE_EXERCISE)", () => {
   let spy: jest.SpyInstance;
   beforeEach(() => {

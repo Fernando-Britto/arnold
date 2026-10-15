@@ -30,6 +30,7 @@ const socio = {
   membresia: null,
   estadoCuota: "AL_DIA" as const,
   plan: null,
+  oferta: null,
 };
 
 const rutinas = [

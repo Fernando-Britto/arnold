@@ -33,6 +33,7 @@ const socio = {
     cubreDesde: "2026-11-01T03:00:00.000Z",
     cubreHasta: "2026-11-30T02:59:59.999Z",
   },
+  oferta: null,
 };
 
 async function buscarSocio(user: ReturnType<typeof userEvent.setup>) {

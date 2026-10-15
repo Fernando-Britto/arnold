@@ -50,6 +50,7 @@ function stripCodePrefix(message: string): string {
  * - "DELETE_BLOCKED_REFERENCES: ..." → 409 DELETE_BLOCKED_REFERENCES (PG-6/H2)
  * - "CASH_CLOSE_CONFLICT: ..." → 409 CASH_CLOSE_CONFLICT (cierre de caja duplicado)
  * - "PAYMENT_ALREADY_REGISTERED: ..." → 409 PAYMENT_ALREADY_REGISTERED (pago duplicado, PG-4)
+ * - "AMOUNT_CHANGED: ..." → 409 AMOUNT_CHANGED (el monto esperado cambió, oferta de reactivación)
  * - Prisma "P2034" (fallo de serialización/deadlock) → 409 CASH_CLOSE_CONFLICT
  * - "FORBIDDEN: ..." → 403 FORBIDDEN (with custom message per route)
  * - "NOT_FOUND: ..." → 404 NOT_FOUND (with resource-specific name)
@@ -109,6 +110,14 @@ export function mapErrorToResponse(
         status: 409,
       };
     }
+    // El monto que vio el recepcionista ya no es el vigente (oferta de reactivación).
+    if (code === "AMOUNT_CHANGED") {
+      return {
+        code: "AMOUNT_CHANGED",
+        message: stripCodePrefix(message),
+        status: 409,
+      };
+    }
     // Ejercicio repetido en la misma rutina (unique [rutinaId, ejercicioId], NF-11).
     if (code === "DUPLICATE_EXERCISE") {
       return {
@@ -136,7 +145,7 @@ export function mapErrorToResponse(
 
   // Extract specific error codes from message prefix (VALIDATION_XXX, MEMBERSHIP_XXX, NOT_FOUND, etc.)
   const validationCodeMatch = message.match(
-    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_REFERENCES|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|DUPLICATE_EXERCISE|ASIGNACION_CONFLICTO|NOT_FOUND):\s*(.+)$/
+    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_REFERENCES|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|AMOUNT_CHANGED|DUPLICATE_EXERCISE|ASIGNACION_CONFLICTO|NOT_FOUND):\s*(.+)$/
   );
   if (validationCodeMatch) {
     const [, errorCode, errorMessage] = validationCodeMatch;
@@ -145,6 +154,7 @@ export function mapErrorToResponse(
     if (errorCode === "DELETE_BLOCKED_REFERENCES") status = 409;
     if (errorCode === "CASH_CLOSE_CONFLICT") status = 409;
     if (errorCode === "PAYMENT_ALREADY_REGISTERED") status = 409;
+    if (errorCode === "AMOUNT_CHANGED") status = 409;
     if (errorCode === "DUPLICATE_EXERCISE") status = 409;
     if (errorCode === "ASIGNACION_CONFLICTO") status = 409;
     if (errorCode === "NOT_FOUND") status = 404;

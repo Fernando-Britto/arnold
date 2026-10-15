@@ -44,8 +44,10 @@ diseño ya está aprobado y especificado; lo que falta es código.
 - [x] **T3** · T-043c: pantalla `/configuracion` agrupada y validada
       — grupos Acceso/Cuotas/Aforo/Oferta, rangos reusados de `CAMPOS_CONFIGURACION`, diff antes de
       enviar, `notify` al guardar; link en el nav de Admin; `npm test` 170/2176 verde
-- [ ] **T4** · T-045c: `registrarPago` aplica la oferta dentro de la transacción `Serializable`;
+- [x] **T4** · T-045c: `registrarPago` aplica la oferta dentro de la transacción `Serializable`;
       vista previa en `GET /api/socios?dni=`; `montoEsperado` en `POST /api/pagos` → `409 AMOUNT_CHANGED`
+      — consulta de elegibilidad separada del módulo puro (`oferta-reactivacion-consulta.ts`); con la
+      oferta apagada el cobro queda idéntico; `npm test` 171/2193 verde
 - [ ] **T5** · T-045d: avisos en la pantalla de pagos, la card de Home_Interno y Home_Socio
 - [ ] **T6** · Docs: avances en D-54, `PROJECT-STATUS.md` y `openspec/sdd-tasks-tdd.md`; P-40 cerrado
       cuando se confirmen los valores con el negocio

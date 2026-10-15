@@ -28,6 +28,7 @@ const socio = {
   membresia: { id: "gold-1", nombre: "Gold", precio: 30000 },
   estadoCuota: "PENDIENTE" as const,
   plan: null,
+  oferta: null,
 };
 
 type User = ReturnType<typeof userEvent.setup>;

@@ -85,6 +85,15 @@ describe("handleRegistrarPagoRequest (sin NextRequest)", () => {
     expect(r.status).toBe(409);
     expect((r.body as { code: string }).code).toBe("PAYMENT_ALREADY_REGISTERED");
   });
+
+  it("409 si el monto esperado cambió (AMOUNT_CHANGED)", async () => {
+    mockRegistrar.mockRejectedValueOnce(new Error("AMOUNT_CHANGED: El monto cambió a 30000"));
+
+    const r = await handleRegistrarPagoRequest({ socioId: "socio-1", metodoPago: "EFECTIVO" });
+
+    expect(r.status).toBe(409);
+    expect((r.body as { code: string }).code).toBe("AMOUNT_CHANGED");
+  });
 });
 
 describe("handleListarPagosRequest (sin NextRequest)", () => {
@@ -166,6 +175,34 @@ describe("POST /api/pagos", () => {
       responsableId: "u-rec",
       detalles: { pagoId: "pago-1", socioId: "socio-1" },
     });
+  });
+
+  it("reenvía montoEsperado al dominio", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+    mockRegistrar.mockResolvedValueOnce(pagoFalso as never);
+
+    const res = await POST(
+      postReq({ socioId: "socio-1", metodoPago: "EFECTIVO", montoEsperado: 27000 })
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockRegistrar).toHaveBeenCalledWith({
+      socioId: "socio-1",
+      metodoPago: "EFECTIVO",
+      montoEsperado: 27000,
+    });
+  });
+
+  it("400 si montoEsperado no es un número, sin llamar al dominio", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+
+    const res = await POST(
+      postReq({ socioId: "socio-1", metodoPago: "EFECTIVO", montoEsperado: "mucho" })
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).message).toBe("El monto esperado no es válido");
+    expect(mockRegistrar).not.toHaveBeenCalled();
   });
 });
 

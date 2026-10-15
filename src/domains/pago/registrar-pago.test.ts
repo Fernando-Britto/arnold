@@ -19,7 +19,8 @@ jest.mock("@/lib/db", () => {
   const prisma: any = {
     socio: { findUnique: jest.fn(), update: jest.fn() },
     cuota: { findFirst: jest.fn(), create: jest.fn() },
-    pago: { create: jest.fn(), findMany: jest.fn() },
+    pago: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
+    asistencia: { findFirst: jest.fn() },
     configuracionDelSistema: { findFirst: jest.fn() },
   };
   prisma.$transaction = jest.fn((ops) =>
@@ -44,6 +45,8 @@ async function armarSocio(ultimaCuota: { fechaVencimiento: Date } | null = null)
     id: "socio-1",
     membresiaAsignadaId: "plan-gold",
     membresiaAsignada: { id: "plan-gold", precio: 30000 },
+    estadoCuota: "AL_DIA",
+    fechaAlta: d("2025-01-01T10:00:00"),
   });
   // `cuota.findFirst` se usa dos veces: (1) la última cuota para calcular el plan
   // (sin filtro por `fechaVencimiento`) y (2) el guard anti doble-cobro dentro de la
@@ -55,6 +58,10 @@ async function armarSocio(ultimaCuota: { fechaVencimiento: Date } | null = null)
   (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue(CONFIG);
   (prisma.cuota.create as jest.Mock).mockResolvedValue({ id: "cuota-1", socioId: "socio-1" });
   (prisma.pago.create as jest.Mock).mockResolvedValue({ id: "pago-1", socioId: "socio-1", cuotaId: "cuota-1" });
+  // Sin filas: por defecto el socio nunca asistió ni usó una oferta.
+  (prisma.asistencia.findFirst as jest.Mock).mockResolvedValue(null);
+  (prisma.pago.findFirst as jest.Mock).mockResolvedValue(null);
+  return prisma;
 }
 
 describe("registrarPago — renovación", () => {
@@ -353,7 +360,116 @@ describe("registrarPago — anti doble-cobro (PG-4)", () => {
       cuota: { id: "cuota-1", socioId: "socio-1" },
       plan: expect.objectContaining({ tipo: "RENOVACION", monto: 30000 }),
       estadoCuota: "AL_DIA",
+      montoLista: null,
+      descuentoPct: null,
     });
+  });
+});
+
+describe("registrarPago — oferta de reactivación (D-54)", () => {
+  const DIA_MS = 24 * 60 * 60 * 1000;
+  const HOY_VENCIDO = d("2026-11-15T10:00:00");
+  const hace = (fecha: Date, dias: number) => new Date(fecha.getTime() - dias * DIA_MS);
+  const CONFIG_OFERTA_ACTIVA = {
+    ...CONFIG,
+    ofertaReactivacionActiva: true,
+    diasSinAsistirParaOferta: 30,
+    descuentoReactivacion: 10,
+    enfriamientoOfertaDias: 180,
+  };
+
+  /** Socio con cuota VENCIDA y sin actividad reciente: elegible con la oferta activa. */
+  async function armarElegible() {
+    const prisma = await armarSocio({ fechaVencimiento: finDePeriodo("2026-10") });
+    (prisma.configuracionDelSistema.findFirst as jest.Mock).mockResolvedValue(CONFIG_OFERTA_ACTIVA);
+    (prisma.asistencia.findFirst as jest.Mock).mockResolvedValue({ fechaHora: hace(HOY_VENCIDO, 40) });
+    (prisma.pago.findFirst as jest.Mock).mockResolvedValue(null);
+    return prisma;
+  }
+
+  it("con la oferta activa y socio elegible el Pago lleva el monto descontado, montoLista y descuentoPct", async () => {
+    const prisma = await armarElegible();
+    (prisma.pago.create as jest.Mock).mockResolvedValue({
+      id: "pago-1",
+      socioId: "socio-1",
+      cuotaId: "cuota-1",
+      montoLista: 30000,
+      descuentoPct: 10,
+    });
+
+    const r = await registrarPago({ socioId: "socio-1", metodoPago: "EFECTIVO", hoy: HOY_VENCIDO });
+
+    expect(r.plan.monto).toBe(30000);
+    expect(prisma.pago.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ monto: 27000, montoLista: 30000, descuentoPct: 10 }),
+    });
+    expect(r.montoLista).toBe(30000);
+    expect(r.descuentoPct).toBe(10);
+  });
+
+  it("con la oferta apagada el Pago lleva el monto del plan y nulls (comportamiento actual)", async () => {
+    const prisma = await armarSocio({ fechaVencimiento: finDePeriodo("2026-10") });
+
+    await registrarPago({ socioId: "socio-1", metodoPago: "EFECTIVO", hoy: HOY_VENCIDO });
+
+    expect(prisma.pago.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ monto: 30000, montoLista: null, descuentoPct: null }),
+    });
+  });
+
+  it("montoEsperado igual al monto calculado cobra normalmente", async () => {
+    const prisma = await armarElegible();
+
+    await registrarPago({
+      socioId: "socio-1",
+      metodoPago: "EFECTIVO",
+      hoy: HOY_VENCIDO,
+      montoEsperado: 27000,
+    });
+
+    expect(prisma.cuota.create).toHaveBeenCalledTimes(1);
+    expect(prisma.pago.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("montoEsperado distinto lanza AMOUNT_CHANGED y no crea ni cuota ni pago", async () => {
+    const prisma = await armarElegible();
+
+    await expect(
+      registrarPago({
+        socioId: "socio-1",
+        metodoPago: "EFECTIVO",
+        hoy: HOY_VENCIDO,
+        montoEsperado: 21000,
+      })
+    ).rejects.toThrow(/AMOUNT_CHANGED/);
+
+    expect(prisma.cuota.create).not.toHaveBeenCalled();
+    expect(prisma.pago.create).not.toHaveBeenCalled();
+  });
+
+  it("evalúa la oferta dentro de la transacción (usa el tx, no el cliente externo)", async () => {
+    const prisma = await armarSocio({ fechaVencimiento: finDePeriodo("2026-10") });
+    const tx = {
+      cuota: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: "cuota-1" }),
+      },
+      pago: {
+        create: jest.fn().mockResolvedValue({ id: "pago-1" }),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      asistencia: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    (prisma.$transaction as jest.Mock).mockImplementationOnce((ops: (t: unknown) => unknown) =>
+      Promise.resolve(ops(tx))
+    );
+
+    await registrarPago({ socioId: "socio-1", metodoPago: "EFECTIVO", hoy: HOY_VENCIDO });
+
+    expect(tx.asistencia.findFirst).toHaveBeenCalledTimes(1);
+    expect(tx.pago.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.asistencia.findFirst).not.toHaveBeenCalled();
+    expect(prisma.pago.findFirst).not.toHaveBeenCalled();
   });
 });
 

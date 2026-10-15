@@ -17,6 +17,8 @@ import {
   type EstadoCuotaSocio,
   type PlanDePago,
 } from "./cuota";
+import { aplicarOferta, type ConfigOferta } from "./oferta-reactivacion";
+import { evaluarOfertaDeSocio } from "./oferta-reactivacion-consulta";
 
 export const METODOS_PAGO = ["EFECTIVO", "TRANSFERENCIA", "TARJETA"] as const;
 export type MetodoPago = (typeof METODOS_PAGO)[number];
@@ -24,6 +26,13 @@ export type MetodoPago = (typeof METODOS_PAGO)[number];
 /** Conflicto cuando ya existe una cuota para el período que se intenta pagar (PG-4). */
 export const PAYMENT_ALREADY_REGISTERED =
   "PAYMENT_ALREADY_REGISTERED: Ya existe una cuota para el período que se intenta pagar";
+
+/**
+ * Conflicto cuando el monto que vio el recepcionista (`montoEsperado`) no coincide con el que
+ * calcula el servidor (por ejemplo, la oferta se apagó entre la vista previa y el cobro). No se
+ * crea nada: el mapper lo traduce a 409 (spec `oferta-reactivacion`).
+ */
+export const AMOUNT_CHANGED = "AMOUNT_CHANGED";
 
 /** Defaults de `ConfiguracionDelSistema` cuando todavía no existe la fila (D-40). La fuente única es `@/lib/configuracion`. */
 export const DIA_LIMITE_PAGO_DEFAULT = CONFIGURACION_POR_DEFECTO.diaLimitePago;
@@ -36,6 +45,12 @@ export interface RegistrarPagoInput {
   metodoPago: string;
   fechaPago?: Date;
   hoy?: Date;
+  /**
+   * Monto que el recepcionista vio en la vista previa (opcional). Si se envía y no coincide con el
+   * que calcula el servidor, se aborta con `AMOUNT_CHANGED` (409) y no se crea nada. Si no se envía,
+   * se cobra el monto calculado (comportamiento actual).
+   */
+  montoEsperado?: number;
 }
 
 export interface PagoRegistrado {
@@ -43,6 +58,10 @@ export interface PagoRegistrado {
   cuota: unknown;
   plan: PlanDePago;
   estadoCuota: EstadoCuotaSocio;
+  /** Precio de lista antes del descuento; null si no hubo oferta (D-54). */
+  montoLista: number | null;
+  /** Porcentaje de la oferta aplicada; null si no hubo oferta (D-54). */
+  descuentoPct: number | null;
 }
 
 function esMetodoValido(metodo: string): metodo is MetodoPago {
@@ -63,6 +82,8 @@ function esMetodoValido(metodo: string): metodo is MetodoPago {
  * @throws Error("NOT_FOUND") si el socio no existe (el route mapper lo traduce a 404).
  * @throws Error("PAYMENT_ALREADY_REGISTERED: ...") si ya hay una cuota para el período objetivo
  *   (PG-4, anti doble-cobro; el route mapper lo traduce a 409).
+ * @throws Error("AMOUNT_CHANGED: ...") si `montoEsperado` no coincide con el monto calculado
+ *   (spec `oferta-reactivacion`; el route mapper lo traduce a 409).
  */
 export async function registrarPago(input: RegistrarPagoInput): Promise<PagoRegistrado> {
   if (
@@ -102,7 +123,20 @@ export async function registrarPago(input: RegistrarPagoInput): Promise<PagoRegi
   const hoy = input.hoy ?? new Date();
   const { diaLimitePago: diaLimite, diaCorteAltaTardia: diaCorte, periodoGracia: gracia } = config;
 
+  // Configuración de la oferta (D-54) armada una sola vez, fuera de la transacción, desde la
+  // configuración ya leída. Con la oferta apagada `aplicarOferta` no cambia el monto.
+  const configOferta: ConfigOferta = {
+    ofertaReactivacionActiva: config.ofertaReactivacionActiva,
+    diasSinAsistirParaOferta: config.diasSinAsistirParaOferta,
+    descuentoReactivacion: config.descuentoReactivacion,
+    enfriamientoOfertaDias: config.enfriamientoOfertaDias,
+  };
+
   const ultimoPeriodoCubierto = ultimaCuota ? periodoDe(ultimaCuota.fechaVencimiento) : null;
+
+  // Estado de pago del socio ANTES de este cobro: es lo que la spec llama `estadoCuotaSocio` al
+  // momento de cobrar (la condición 3 de elegibilidad mira la cuota vencida, no la que se crea).
+  const estadoPagoAntes = estadoCuotaSocio({ ultimoPeriodoCubierto, hoy, diaLimite, gracia });
 
   const plan = planDePago({
     ultimoPeriodoCubierto,
@@ -130,6 +164,30 @@ export async function registrarPago(input: RegistrarPagoInput): Promise<PagoRegi
         throw new Error(PAYMENT_ALREADY_REGISTERED);
       }
 
+      // La elegibilidad y el descuento se evalúan DENTRO de la transacción Serializable: así dos
+      // cobros simultáneos del mismo socio no pueden usar la misma oferta dos veces (la segunda
+      // transacción ve el `Pago` con descuento que la primera acaba de confirmar).
+      const evaluacion = await evaluarOfertaDeSocio(
+        tx,
+        input.socioId,
+        configOferta,
+        {
+          estadoCuenta: socio.estadoCuota,
+          // El flujo ya salió antes si `socio.membresiaAsignada` es null.
+          tieneMembresia: true,
+          estadoPago: estadoPagoAntes,
+          fechaAlta: socio.fechaAlta,
+        },
+        hoy,
+      );
+      const cobro = aplicarOferta({ monto: plan.monto, evaluacion });
+
+      // El recepcionista confirmó un monto que ya no es el vigente (p. ej. la oferta se apagó o
+      // venció entre la vista previa y el cobro): se aborta sin crear nada.
+      if (input.montoEsperado !== undefined && input.montoEsperado !== cobro.monto) {
+        throw new Error(`${AMOUNT_CHANGED}: El monto cambió a ${cobro.monto}`);
+      }
+
       const cuotaCreada = await tx.cuota.create({
         data: {
           socioId: input.socioId,
@@ -140,7 +198,9 @@ export async function registrarPago(input: RegistrarPagoInput): Promise<PagoRegi
       });
       const pagoCreado = await tx.pago.create({
         data: {
-          monto: plan.monto,
+          monto: cobro.monto,
+          montoLista: cobro.montoLista,
+          descuentoPct: cobro.descuentoPct,
           metodoPago: input.metodoPago as PrismaMetodoPago,
           socioId: input.socioId,
           cuotaId: cuotaCreada.id,
@@ -162,7 +222,14 @@ export async function registrarPago(input: RegistrarPagoInput): Promise<PagoRegi
     gracia,
   });
 
-  return { pago, cuota, plan, estadoCuota };
+  return {
+    pago,
+    cuota,
+    plan,
+    estadoCuota,
+    montoLista: pago.montoLista != null ? Number(pago.montoLista) : null,
+    descuentoPct: pago.descuentoPct != null ? Number(pago.descuentoPct) : null,
+  };
 }
 
 /**
