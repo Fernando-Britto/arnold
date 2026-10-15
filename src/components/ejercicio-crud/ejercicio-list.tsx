@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Ejercicio } from "@prisma/client";
 import {
   Table,
@@ -6,18 +6,32 @@ import {
   TableRow,
   TableCell,
   TableDetailRow,
+  compareSortValues,
   normalizeSortText,
+  toggleSort,
   type TableColumn,
+  type TableSort,
 } from "@/components/ui/table";
 import { shortId } from "@/utils/short-id";
 
 /** Columns exactly as the OpenPencil mockup (relative widths from the spec). */
 export const EJERCICIO_COLUMNS: TableColumn[] = [
   { key: "id", label: "ID", width: 100 },
-  { key: "nombre", label: "Nombre" },
-  { key: "grupo", label: "Grupo", width: 118 },
+  { key: "nombre", label: "Nombre", sortable: true },
+  { key: "grupo", label: "Grupo", width: 118, sortable: true },
   { key: "estado", label: "Estado", width: 102 },
 ];
+
+/** Sortable value per column, normalized for a case/accent-insensitive compare (H-7). */
+function ejercicioSortValue(ejercicio: Ejercicio, key: string): string | number {
+  switch (key) {
+    case "grupo":
+      return normalizeSortText(ejercicio.grupoMuscular);
+    case "nombre":
+    default:
+      return normalizeSortText(ejercicio.nombre);
+  }
+}
 
 export interface EjercicioListPanelProps {
   ejercicios: Ejercicio[];
@@ -36,19 +50,29 @@ export function EjercicioListPanel({
   onSelect,
   searchTerm = "",
 }: EjercicioListPanelProps) {
+  const [sort, setSort] = useState<TableSort | null>(null);
+
   const filtered = useMemo(() => {
     // H12: se pliega mayúsculas y tildes con `normalizeSortText` (el mismo helper que
     // usan las listas de rutinas), así "triceps" encuentra "Tríceps".
     const term = normalizeSortText(searchTerm.trim());
-    return [...ejercicios]
-      .filter(
-        (e) =>
-          !term ||
-          normalizeSortText(e.nombre).includes(term) ||
-          normalizeSortText(e.grupoMuscular).includes(term)
-      )
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [ejercicios, searchTerm]);
+    const rows = ejercicios.filter(
+      (e) =>
+        !term ||
+        normalizeSortText(e.nombre).includes(term) ||
+        normalizeSortText(e.grupoMuscular).includes(term)
+    );
+    // H-7: mismo orden por columna que las otras listas (helper compartido de table.tsx).
+    // Sin orden explícito se conserva el orden por nombre ascendente.
+    const key = sort?.key ?? "nombre";
+    const direction = sort?.direction ?? "asc";
+    return rows.sort((a, b) => {
+      const cmp = compareSortValues(ejercicioSortValue(a, key), ejercicioSortValue(b, key));
+      return direction === "asc" ? cmp : -cmp;
+    });
+  }, [ejercicios, searchTerm, sort]);
+
+  const handleSort = (key: string) => setSort((current) => toggleSort(current, key));
 
   if (ejercicios.length === 0) {
     return <div className="p-8 text-center text-sm text-[#71717A]">No hay ejercicios</div>;
@@ -56,7 +80,7 @@ export function EjercicioListPanel({
 
   return (
     <Table label="Ejercicios">
-      <TableHeader columns={EJERCICIO_COLUMNS} disclosure />
+      <TableHeader columns={EJERCICIO_COLUMNS} sort={sort} onSort={handleSort} disclosure />
       {filtered.map((ejercicio) => {
         const isSelected = ejercicio.id === selectedId;
         return (

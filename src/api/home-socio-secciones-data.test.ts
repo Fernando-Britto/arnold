@@ -7,7 +7,7 @@ jest.mock("@/lib/db", () => ({
     configuracionDelSistema: { findFirst: jest.fn() },
     rutinaAsignada: { findMany: jest.fn() },
     sesionDeEntrenamiento: { findMany: jest.fn(), findFirst: jest.fn() },
-    registroDeProgreso: { findMany: jest.fn() },
+    registroDeProgreso: { findMany: jest.fn(), groupBy: jest.fn() },
     pago: { findMany: jest.fn() },
     cuota: { findFirst: jest.fn() },
     asistencia: { findMany: jest.fn() },
@@ -53,6 +53,8 @@ function seed() {
     { carga: dec(60), repeticiones: 10, fecha: at("2026-09-22T15:00:00Z"), ejercicio: { id: "e1", nombre: "Press banca" } },
     { carga: dec(65), repeticiones: 8, fecha: at("2026-10-05T15:00:00Z"), ejercicio: { id: "e1", nombre: "Press banca" } },
   ]);
+  // La mejor marca sale de un agregado all-time en la base.
+  db.registroDeProgreso.groupBy.mockResolvedValue([{ ejercicioId: "e1", _max: { carga: dec(65) } }]);
   db.pago.findMany.mockResolvedValue([
     {
       id: "p1",
@@ -166,6 +168,40 @@ describe("buildHomeSocioSeccionesPayload", () => {
     expect(db.asistencia.findMany.mock.calls[0][0].where.estado).toBe("PERMITIDO");
   });
 
+  // NEW-8: el progreso se lee acotado a la ventana; la mejor marca sigue mirando todo el historial.
+  it("NEW-8: acota la lectura del progreso y agrega la mejor marca all-time en la base", async () => {
+    seed();
+    await buildHomeSocioSeccionesPayload("u1", NOW);
+
+    // findMany acotado por fecha (ventana de 84 días).
+    const fechaWhere = db.registroDeProgreso.findMany.mock.calls[0][0].where.fecha;
+    expect(fechaWhere.gte).toBeInstanceOf(Date);
+    expect((fechaWhere.gte as Date).getTime()).toBe(NOW.getTime() - 84 * 24 * 60 * 60 * 1000);
+
+    // El agregado de mejores marcas NO filtra por fecha: considera todo el historial.
+    expect(db.registroDeProgreso.groupBy).toHaveBeenCalledWith({
+      by: ["ejercicioId"],
+      where: { socioId: "socio-1" },
+      _max: { carga: true },
+    });
+  });
+
+  it("NEW-8: la mejor marca usa registros fuera de la ventana (all-time)", async () => {
+    seed();
+    // El agregado trae una marca vieja más pesada que cualquier registro de la ventana.
+    db.registroDeProgreso.groupBy.mockResolvedValue([{ ejercicioId: "e1", _max: { carga: dec(120) } }]);
+
+    const res = await buildHomeSocioSeccionesPayload("u1", NOW);
+
+    // Progreso (ventana) sigue mostrando solo lo de los últimos 84 días...
+    expect(res?.progreso[0].serie).toEqual([
+      { fecha: "2026-09-22", carga: 60 },
+      { fecha: "2026-10-05", carga: 65 },
+    ]);
+    // ...pero la mejor marca refleja el récord histórico.
+    expect(res?.ejercicios.find((e) => e.nombre === "Press banca")?.mejorMarca).toBe(120);
+  });
+
   it("estados vacíos: sin rutina, sin sesiones, sin progreso, sin membresía ni pagos", async () => {
     seed();
     db.socio.findUnique.mockResolvedValue({ id: "socio-1", membresiaAsignada: null });
@@ -173,6 +209,7 @@ describe("buildHomeSocioSeccionesPayload", () => {
     db.sesionDeEntrenamiento.findMany.mockResolvedValue([]);
     db.sesionDeEntrenamiento.findFirst.mockResolvedValue(null);
     db.registroDeProgreso.findMany.mockResolvedValue([]);
+    db.registroDeProgreso.groupBy.mockResolvedValue([]);
     db.pago.findMany.mockResolvedValue([]);
     db.cuota.findFirst.mockResolvedValue(null);
     db.asistencia.findMany.mockResolvedValue([]);

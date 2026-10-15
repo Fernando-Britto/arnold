@@ -348,4 +348,45 @@ describe("EjercicioForm Component", () => {
       expect(screen.getByLabelText(/Descripción/i)).toHaveValue("");
     });
   });
+
+  describe("AC-004 · ID tras crear", () => {
+    const creado: Ejercicio = {
+      id: "nuevo-1",
+      nombre: "Press",
+      grupoMuscular: "Pecho",
+      descripcion: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it("muestra el ID creado como read-only tras un alta exitosa", async () => {
+      const onSave = jest.fn().mockResolvedValue(creado);
+      const user = userEvent.setup();
+      render(<EjercicioForm onSave={onSave} initialData={null} />);
+
+      await user.type(screen.getByLabelText(/Nombre/i), "Press");
+      await user.selectOptions(screen.getByLabelText(/Grupo Muscular/i), "Pecho");
+      await user.click(screen.getByRole("button", { name: /Guardar/i }));
+
+      const idField = (await screen.findByDisplayValue("nuevo-1")) as HTMLInputElement;
+      expect(idField).toBeDisabled();
+      // Los campos editables se limpian para la próxima carga.
+      expect(screen.getByLabelText(/Nombre/i)).toHaveValue("");
+    });
+
+    it("al empezar una nueva creación se limpia el ID mostrado", async () => {
+      const onSave = jest.fn().mockResolvedValue(creado);
+      const user = userEvent.setup();
+      render(<EjercicioForm onSave={onSave} initialData={null} />);
+
+      await user.type(screen.getByLabelText(/Nombre/i), "Press");
+      await user.selectOptions(screen.getByLabelText(/Grupo Muscular/i), "Pecho");
+      await user.click(screen.getByRole("button", { name: /Guardar/i }));
+      await screen.findByDisplayValue("nuevo-1");
+
+      await user.type(screen.getByLabelText(/Nombre/i), "Remo");
+
+      expect(screen.queryByDisplayValue("nuevo-1")).not.toBeInTheDocument();
+    });
+  });
 });

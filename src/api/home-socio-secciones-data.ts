@@ -4,7 +4,6 @@ import { getConfiguracion } from "@/lib/configuracion";
 import { selectRutinaActiva } from "@/domains/home-socio/home-socio";
 import {
   buildCalendarioAsistencias,
-  computeMejoresMarcas,
   computeProgresoPorEjercicio,
   computeRachaDeAsistencias,
   resumirMembresia,
@@ -25,7 +24,8 @@ import type { HomeSocioSeccionesViewModel } from "@/api/home-socio-secciones";
  * - Historial de pagos: los últimos 24.
  * - Calendario de asistencias: 35 días del gimnasio (5 semanas) terminando hoy.
  * - Racha: hasta 53 semanas de asistencias PERMITIDO (mismo tope que Home_Socio).
- * - Progreso: ventana de 84 días (12 semanas), un punto por día con la mayor carga.
+ * - Progreso: ventana de 84 días (12 semanas), un punto por día con la mayor carga. La ventana
+ *   se filtra en la base (NEW-8); la mejor marca sale de un agregado all-time (`groupBy`).
  * - Día límite de pago y gracia salen de ConfiguracionDelSistema (D-40).
  */
 const MAX_SEMANAS_RACHA = 53;
@@ -50,7 +50,7 @@ export async function buildHomeSocioSeccionesPayload(
 
   const { diaLimitePago: diaLimite, periodoGracia: gracia } = await getConfiguracion(prisma);
 
-  const [asignaciones, sesiones, sesionEnCurso, registros, pagos, ultimaCuota, asistencias] =
+  const [asignaciones, sesiones, sesionEnCurso, registros, mejoresFilas, pagos, ultimaCuota, asistencias] =
     await Promise.all([
       prisma.rutinaAsignada.findMany({
         where: { socioId: socio.id, activa: true },
@@ -88,8 +88,12 @@ export async function buildHomeSocioSeccionesPayload(
         orderBy: { horaInicio: "desc" },
         select: { id: true, horaInicio: true, ejercicioActualId: true, serieActual: true },
       }),
+      // NEW-8: el progreso se acota en la base a la ventana; el resto del historial no se trae.
       prisma.registroDeProgreso.findMany({
-        where: { socioId: socio.id },
+        where: {
+          socioId: socio.id,
+          fecha: { gte: new Date(now.getTime() - VENTANA_PROGRESO_DIAS * DAY_MS) },
+        },
         orderBy: { fecha: "asc" },
         select: {
           carga: true,
@@ -97,6 +101,13 @@ export async function buildHomeSocioSeccionesPayload(
           fecha: true,
           ejercicio: { select: { id: true, nombre: true } },
         },
+      }),
+      // NEW-8: la mejor marca sí mira TODO el historial, pero como agregado en la base:
+      // una fila por ejercicio en vez de todo el historial.
+      prisma.registroDeProgreso.groupBy({
+        by: ["ejercicioId"],
+        where: { socioId: socio.id },
+        _max: { carga: true },
       }),
       prisma.pago.findMany({
         where: { socioId: socio.id },
@@ -145,7 +156,11 @@ export async function buildHomeSocioSeccionesPayload(
     repeticiones: r.repeticiones,
     fecha: r.fecha,
   }));
-  const mejores = computeMejoresMarcas(registrosRef);
+  // Mismo resultado que `computeMejoresMarcas` (máximo por ejercicio), pero calculado en la base.
+  const mejores = new Map<string, number>();
+  for (const fila of mejoresFilas) {
+    if (fila._max.carga !== null) mejores.set(fila.ejercicioId, Number(fila._max.carga));
+  }
 
   const ejercicios = (rutina?.ejercicios ?? []).map((e) => ({
     id: e.ejercicio.id,

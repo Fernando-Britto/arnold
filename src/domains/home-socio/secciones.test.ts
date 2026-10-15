@@ -1,5 +1,4 @@
 import {
-  computeMejoresMarcas,
   computeProgresoPorEjercicio,
   buildCalendarioAsistencias,
   resumirMembresia,
@@ -16,21 +15,6 @@ const reg = (ejercicioId: string, ejercicioNombre: string, carga: number, fecha:
   fecha: at(fecha),
 });
 
-describe("computeMejoresMarcas (T-039 §Mis ejercicios: mejor marca por ejercicio)", () => {
-  it("devuelve la carga máxima por ejercicio", () => {
-    const marcas = computeMejoresMarcas([
-      reg("e1", "Press banca", 60, "2026-10-01T13:00:00Z"),
-      reg("e1", "Press banca", 80, "2026-10-05T13:00:00Z"),
-      reg("e2", "Remo", 50, "2026-10-02T13:00:00Z"),
-    ]);
-    expect(marcas.get("e1")).toBe(80);
-    expect(marcas.get("e2")).toBe(50);
-  });
-
-  it("sin registros devuelve un mapa vacío", () => {
-    expect(computeMejoresMarcas([]).size).toBe(0);
-  });
-});
 
 describe("computeProgresoPorEjercicio (T-039 §Progreso: cargas en el tiempo)", () => {
   const HOY = at("2026-10-07T15:00:00Z");

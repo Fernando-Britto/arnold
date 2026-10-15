@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EjercicioListPanel } from "./ejercicio-list";
 import { Ejercicio } from "@prisma/client";
@@ -116,5 +116,34 @@ describe("EjercicioListPanel", () => {
     ];
     render(<EjercicioListPanel ejercicios={sinTilde} searchTerm="Tríceps" />);
     expect(screen.getByText("Triceps en polea")).toBeInTheDocument();
+  });
+
+  // H-7: orden por columna reutilizando el helper compartido (toggleSort/compareSortValues).
+  const nombresEnOrden = () =>
+    screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => within(row).getAllByRole("cell")[1].textContent);
+
+  it("ordena por Grupo muscular al clickear la columna", async () => {
+    const user = userEvent.setup();
+    render(<EjercicioListPanel ejercicios={mockEjercicios} />);
+
+    await user.click(screen.getByRole("button", { name: "Grupo" }));
+
+    // Hombros (Press Militar), Pecho (Press Banca), Piernas (Sentadilla).
+    expect(nombresEnOrden()).toEqual(["Press Militar", "Press Banca", "Sentadilla"]);
+  });
+
+  it("ordena por Nombre y alterna el sentido al segundo click", async () => {
+    const user = userEvent.setup();
+    render(<EjercicioListPanel ejercicios={mockEjercicios} />);
+
+    const header = screen.getByRole("button", { name: "Nombre" });
+    await user.click(header);
+    expect(nombresEnOrden()).toEqual(["Press Banca", "Press Militar", "Sentadilla"]);
+
+    await user.click(header);
+    expect(nombresEnOrden()).toEqual(["Sentadilla", "Press Militar", "Press Banca"]);
   });
 });

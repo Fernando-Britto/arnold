@@ -101,6 +101,8 @@ export function EjerciciosPage() {
       // Reset form and selection
       setEditing(null);
       setSelectedId(null);
+      // AC-004: el form usa el Ejercicio devuelto para mostrar el ID tras crear.
+      return savedEjercicio;
     } catch (err) {
       setError(handleApiError(err, "No se pudo guardar el ejercicio."));
     } finally {

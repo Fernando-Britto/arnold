@@ -36,16 +36,6 @@ export interface PuntoProgreso {
   carga: number;
 }
 
-/** Mejor marca (carga máxima) por ejercicio, considerando TODOS los registros. */
-export function computeMejoresMarcas(registros: RegistroProgresoRef[]): Map<string, number> {
-  const marcas = new Map<string, number>();
-  for (const r of registros) {
-    const actual = marcas.get(r.ejercicioId);
-    if (actual === undefined || r.carga > actual) marcas.set(r.ejercicioId, r.carga);
-  }
-  return marcas;
-}
-
 export interface ProgresoEjercicioResumen {
   ejercicioId: string;
   ejercicioNombre: string;

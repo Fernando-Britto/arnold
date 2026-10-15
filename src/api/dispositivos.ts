@@ -145,6 +145,47 @@ export interface AccesoPuertaRespuesta {
   nombre?: string;
 }
 
+/** Client-side: lista los dispositivos (sin token ni hash). Requiere Administrador. */
+export async function fetchDispositivos(): Promise<DispositivoDTO[]> {
+  const response = await fetch("/api/dispositivos");
+  await throwIfNotOk(response, "No se pudieron cargar los dispositivos");
+  return response.json();
+}
+
+/**
+ * Client-side: crea un dispositivo y devuelve su token en claro UNA sola vez.
+ * Requiere Administrador.
+ */
+export async function crearDispositivo(input: {
+  nombre: string;
+  tipo?: TipoDispositivo;
+}): Promise<CrearDispositivoResult> {
+  const response = await fetch("/api/dispositivos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  await throwIfNotOk(response, "No se pudo crear el dispositivo");
+  return response.json();
+}
+
+/**
+ * Client-side: cambia el estado del dispositivo. Desactivar (INACTIVO) revoca el token.
+ * Requiere Administrador.
+ */
+export async function cambiarEstadoDispositivo(
+  id: string,
+  estado: EstadoDispositivo
+): Promise<DispositivoDTO> {
+  const response = await fetch(`/api/dispositivos/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ estado }),
+  });
+  await throwIfNotOk(response, "No se pudo actualizar el dispositivo");
+  return response.json();
+}
+
 /** Client-side: check-in de la puerta con el token del dispositivo. */
 export async function accesoDispositivo(
   input: { dni: string; pin: string },

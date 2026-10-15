@@ -3,12 +3,16 @@ import { Ejercicio } from "@prisma/client";
 import { GRUPOS_MUSCULARES } from "@/domains/ejercicio/ejercicio";
 
 export interface EjercicioFormProps {
+  /**
+   * Devuelve el Ejercicio guardado (con su `id`) para poder mostrarlo en el alta (AC-004).
+   * El modo edición puede ignorar el retorno.
+   */
   onSave: (data: {
     id?: string;
     nombre: string;
     grupoMuscular: string;
     descripcion: string;
-  }) => Promise<void> | void;
+  }) => Promise<Ejercicio | void> | Ejercicio | void;
   initialData: Ejercicio | null;
   isLoading?: boolean;
 }
@@ -90,7 +94,8 @@ export function EjercicioForm({
     field: keyof FormState,
     value: string
   ) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // AC-004: al empezar a cargar un ejercicio nuevo se limpia el ID de la creación anterior.
+    setFormData(prev => ({ ...prev, ...(initialData ? {} : { id: undefined }), [field]: value }));
     // Clear error for this field on change
     if (errors[field]) {
       setErrors(prev => {
@@ -143,17 +148,22 @@ export function EjercicioForm({
 
     setIsSubmitting(true);
     try {
-      await onSave({
+      const resultado = await onSave({
         ...(formData.id ? { id: formData.id } : {}),
         nombre: formData.nombre.trim(),
         grupoMuscular: formData.grupoMuscular,
         descripcion: formData.descripcion.trim(),
       });
 
-      // Clear form if in create mode (no initialData means create)
+      // Clear form if in create mode (no initialData means create).
+      // AC-004: tras crear, el ID devuelto queda visible y read-only; los demás campos se limpian.
       if (!initialData) {
+        const idCreado =
+          resultado && typeof resultado === "object" && "id" in resultado
+            ? (resultado as Ejercicio).id
+            : undefined;
         setFormData({
-          id: undefined,
+          id: idCreado,
           nombre: "",
           grupoMuscular: "",
           descripcion: "",
@@ -169,7 +179,7 @@ export function EjercicioForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
-      {/* ID field (read-only in edit mode) */}
+      {/* ID field (read-only; populated on edit and after a successful creation — AC-004) */}
       {formData.id && (
         <div>
           <label htmlFor="id" className="block text-sm font-medium">
