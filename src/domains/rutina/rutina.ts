@@ -1,16 +1,12 @@
-import { Prisma, Rutina as PrismaRutina, NivelDeDificultad } from "@prisma/client";
+import { NivelDeDificultad } from "@prisma/client";
 
 /**
- * Import diferido del cliente Prisma: el dominio no debe tener un edge ESTÁTICO con la
- * infraestructura (`@/lib/db`). Mismo patrón que `src/lib/configuracion.ts`.
- *
- * PENDIENTE: esto NO vuelve puro al módulo. El refactor que falta es inyectar el cliente
- * (como `ConfiguracionReader`/`OfertaReader`) y sacar el acceso a datos de `src/domains`.
+ * Dominio PURO de Rutina: tipos, constantes, mapeo de nivel y validación, sin acceso a datos.
+ * El repositorio vive en `./rutina-repositorio` (`RutinaRepository`), que recibe el cliente por
+ * parámetro y lo carga de forma diferida. Este archivo NO debe referenciar `@/lib/db`: lo importa
+ * el formulario de rutinas (`src/components/rutina-crud/rutina-form.tsx`), que llega al navegador.
+ * El test guardián `src/domains/dominios-puros.guard.test.ts` lo verifica.
  */
-async function getPrisma() {
-  const { prisma } = await import("@/lib/db");
-  return prisma;
-}
 
 /**
  * Canonical list of training objectives (NF-4). Single source of truth: the
@@ -161,123 +157,4 @@ export function validateRutina(data: Partial<Rutina>): ValidationResult {
     valid: errors.length === 0,
     errors,
   };
-}
-
-/**
- * Rutina Repository for database operations
- */
-export class RutinaRepository {
-  /**
-    * Create a new rutina in the database.
-    *
-    * `client` defaults to the lazily-loaded module Prisma client, but callers that must
-    * couple this write with others (p. ej. `EjercicioEnRutina`) pass the transaction client
-    * `tx` so both writes commit or roll back together.
-    */
-  async create(
-    data: {
-      nombre: string;
-      frecuenciaSemanal: number;
-      duracionEstimada: number;
-      nivelDeDificultad: string;
-      descripcion?: string | null;
-      objetivoPrincipal?: string;
-    },
-    client?: Prisma.TransactionClient
-  ): Promise<PrismaRutina> {
-    // Validate first
-    const validation = validateRutina(data);
-    if (!validation.valid) {
-      throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
-    }
-
-    // Create in database
-    const db = client ?? (await getPrisma());
-    return db.rutina.create({
-      data: {
-        nombre: data.nombre,
-        frecuenciaSemanal: data.frecuenciaSemanal,
-        duracionEstimada: data.duracionEstimada,
-        nivelDeDificultad: mapNivelDeDificultad(data.nivelDeDificultad),
-        descripcion: data.descripcion,
-        objetivoPrincipal: data.objetivoPrincipal || DEFAULT_OBJETIVO_PRINCIPAL,
-      },
-    });
-  }
-
-  /**
-    * Retrieve a rutina by ID
-    */
-  async getById(id: string): Promise<PrismaRutina | null> {
-    const prisma = await getPrisma();
-    return prisma.rutina.findUnique({
-      where: { id },
-    });
-  }
-
-  /**
-   * Update a rutina.
-   *
-   * `client` defaults to the lazily-loaded module Prisma client; callers that synchronize
-   * the exercises inside the same transaction pass `tx` so the read-for-validation, the
-   * update and the exercise sync share one atomic boundary.
-   */
-  async update(
-    id: string,
-    data: Partial<{
-      nombre: string;
-      frecuenciaSemanal: number;
-      duracionEstimada: number;
-      nivelDeDificultad: string;
-      descripcion: string | null;
-      objetivoPrincipal: string | null;
-    }>,
-    client?: Prisma.TransactionClient
-  ): Promise<PrismaRutina | null> {
-    const db = client ?? (await getPrisma());
-
-    // Validate if updating validation fields
-    if (
-      data.nombre !== undefined ||
-      data.frecuenciaSemanal !== undefined ||
-      data.duracionEstimada !== undefined ||
-      data.nivelDeDificultad !== undefined ||
-      data.objetivoPrincipal !== undefined
-    ) {
-      const current = await db.rutina.findUnique({ where: { id } });
-      if (!current) return null;
-
-      const merged = { ...current, ...data };
-      const validation = validateRutina(merged);
-      if (!validation.valid) {
-        throw new Error(`Validación fallida: ${validation.errors.join(", ")}`);
-      }
-    }
-
-    // Map nivel de dificultad if provided and filter out undefined null values
-    // NF-14: contrato de campos opcionales: `undefined` = no cambiar, `null` = vaciar.
-    // `descripcion` es nullable, así que un `null` explícito limpia la columna.
-    const updateData: Record<string, any> = {};
-    if (data.nombre !== undefined) updateData.nombre = data.nombre;
-    if (data.frecuenciaSemanal !== undefined) updateData.frecuenciaSemanal = data.frecuenciaSemanal;
-    if (data.duracionEstimada !== undefined) updateData.duracionEstimada = data.duracionEstimada;
-    if (data.nivelDeDificultad !== undefined) updateData.nivelDeDificultad = mapNivelDeDificultad(data.nivelDeDificultad);
-    if (data.descripcion !== undefined) updateData.descripcion = data.descripcion;
-    if (data.objetivoPrincipal !== undefined) updateData.objetivoPrincipal = data.objetivoPrincipal;
-
-    return db.rutina.update({
-      where: { id },
-      data: updateData,
-    });
-  }
-
-  /**
-    * Delete a rutina
-    */
-  async delete(id: string): Promise<PrismaRutina> {
-    const prisma = await getPrisma();
-    return prisma.rutina.delete({
-      where: { id },
-    });
-  }
 }

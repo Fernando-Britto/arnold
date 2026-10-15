@@ -1,7 +1,7 @@
 import { handleEjercicioCreate, handleEjercicioUpdate, handleEjercicioDelete, handleEjercicioList } from "./ejercicios";
-import { ejercicioRepository } from "@/domains/ejercicio/ejercicio";
+import { ejercicioRepository } from "@/domains/ejercicio/ejercicio-repositorio";
 
-jest.mock("@/domains/ejercicio/ejercicio");
+jest.mock("@/domains/ejercicio/ejercicio-repositorio");
 
 const mockRepository = ejercicioRepository as jest.Mocked<typeof ejercicioRepository>;
 

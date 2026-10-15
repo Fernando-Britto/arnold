@@ -1,6 +1,7 @@
 import { Ejercicio } from "@prisma/client";
 import { throwIfNotOk } from "@/utils/api-error";
-import { ejercicioRepository, EjercicioInput } from "@/domains/ejercicio/ejercicio";
+import { EjercicioInput } from "@/domains/ejercicio/ejercicio";
+import { ejercicioRepository } from "@/domains/ejercicio/ejercicio-repositorio";
 
 // Re-export types for route handlers
 export type { Ejercicio, EjercicioInput };

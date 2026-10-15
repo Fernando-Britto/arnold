@@ -1,4 +1,5 @@
-import { createEjercicio, validateEjercicio, EjercicioRepository } from "./ejercicio";
+import { createEjercicio, validateEjercicio } from "./ejercicio";
+import { EjercicioRepository } from "./ejercicio-repositorio";
 import * as EjercicioDomain from "./ejercicio";
 
 // Prisma simulado en memoria (FX-16, P-19): este test NO debe tocar la base real. Antes cada corrida

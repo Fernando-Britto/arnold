@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { ejercicioRepository } from "@/domains/ejercicio/ejercicio";
+import { ejercicioRepository } from "@/domains/ejercicio/ejercicio-repositorio";
 import { buildEjercicioEnRutina } from "../factories/ejercicio-en-rutina";
 import { buildRutina } from "../factories/rutina";
 

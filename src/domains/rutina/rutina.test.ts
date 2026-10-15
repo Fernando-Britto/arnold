@@ -1,4 +1,5 @@
-import { createRutina, validateRutina, RutinaRepository } from "./rutina";
+import { createRutina, validateRutina } from "./rutina";
+import { RutinaRepository } from "./rutina-repositorio";
 import * as RutinaDomain from "./rutina";
 
 let memoryRutinas: any[] = [];

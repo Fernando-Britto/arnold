@@ -1,6 +1,5 @@
 import { Ejercicio, EjercicioEnRutina, Rutina } from "@prisma/client";
-import { RutinaRepository, validateRutina } from "@/domains/rutina/rutina";
-import { prisma } from "@/lib/db";
+import { RutinaRepository } from "@/domains/rutina/rutina-repositorio";
 import { throwIfNotOk } from "@/utils/api-error";
 
 /**
@@ -85,6 +84,9 @@ export async function handleRutinaCreate(
   data: RutinaInput & { ejercicios?: EjercicioEnRutinaInput[] }
 ): Promise<Rutina> {
   const rutinaRepo = new RutinaRepository();
+  // Import diferido: este módulo llega al navegador por los helpers `fetch*`, no puede
+  // arrastrar Prisma de forma estática. Solo los handlers de servidor tocan la base.
+  const { prisma } = await import("@/lib/db");
 
   // NF-2: la rutina y sus ejercicios son un único estado acoplado. Si `createMany`
   // falla, la rutina no debe quedar creada: se escriben en UNA transacción.
@@ -129,6 +131,7 @@ export async function handleRutinaCreate(
  * Lists all rutinas with exercise count (for ListPanel)
  */
 export async function handleRutinaList(): Promise<RutinaWithCount[]> {
+  const { prisma } = await import("@/lib/db");
   return prisma.rutina.findMany({
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { ejercicios: true } } },
@@ -145,6 +148,7 @@ export async function handleRutinaGet(
 ): Promise<
   (Rutina & { ejercicios: (EjercicioEnRutina & { ejercicio: Ejercicio })[] }) | null
 > {
+  const { prisma } = await import("@/lib/db");
   return prisma.rutina.findUnique({
     where: { id },
     include: {
@@ -167,6 +171,7 @@ export async function handleRutinaUpdate(
   data: Partial<RutinaInput> & { ejercicios?: EjercicioEnRutinaInput[] }
 ): Promise<Rutina | null> {
   const rutinaRepo = new RutinaRepository();
+  const { prisma } = await import("@/lib/db");
 
   // NF-2: el update de la rutina y la sincronización de ejercicios (delete + recreate)
   // son un único estado acoplado: van en UNA transacción para que un fallo intermedio
@@ -235,6 +240,8 @@ export async function handleRutinaUpdate(
  * 3. If not assigned: delete Rutina + all EjercicioEnRutina rows (Prisma cascade)
  */
 export async function handleRutinaDelete(id: string): Promise<void> {
+  const { prisma } = await import("@/lib/db");
+
   // Check if rutina exists
   const rutina = await prisma.rutina.findUnique({ where: { id } });
   if (!rutina) {
