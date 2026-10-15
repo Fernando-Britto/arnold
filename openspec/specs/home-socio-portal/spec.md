@@ -113,17 +113,17 @@ The system **MUST** show a weekly streak counter, a 7-day (Mon–Sun) visual ind
 
 ### Requirement: MembresiCard Status Display
 
-The system **MUST** show the Socio's current membership plan name, expiration countdown, renewal date, and a status badge, with a "Renovar ahora" action when expiring soon.
+The system **MUST** show the Socio's current membership plan name (`Membresia.nombre`), a remaining-days countdown to expiry, a status badge, and a "Renovar ahora" action when expiring soon. `Membresia` has no expiry date of its own (only `periodicidad`, in days), so the expiry is derived from the Socio's last `Cuota.fechaVencimiento` (the farthest one); the card is shown only when the Socio has both a `membresiaAsignada` and a `Cuota`.
 
 #### Scenario: Membership expiring within warning window
 
-- GIVEN the Socio's Membresía has `fecha_vencimiento` within 7 days
+- GIVEN the Socio's derived membership expiry (last `Cuota.fechaVencimiento`) is within 7 days
 - WHEN MembresiCard renders
 - THEN the expiration text uses status-warning styling and "Renovar ahora" button is visible
 
 #### Scenario: Membership in good standing
 
-- GIVEN the Socio's Membresía is active with more than 7 days remaining
+- GIVEN the Socio's derived membership expiry (last `Cuota.fechaVencimiento`) is more than 7 days away
 - WHEN MembresiCard renders
 - THEN status badge shows "Al día" and "Renovar ahora" is not shown
 
@@ -160,8 +160,8 @@ The system **MUST** show the Socio's current membership plan name, expiration co
 | EjercicioEnRutina: series=3, repeticiones=10, descanso=120 | Stats grid: "3×10", "2 min" |
 | Máquina estado=Disponible for current exercise | Footer: no wait message, machine ready |
 | Máquina estado=Ocupada, estimated free in 5 min | Footer: "Libre en ~5 min" |
-| Membresía fecha_vencimiento in 15 days | "Vence en 15 días", badge "Al día" |
-| Membresía fecha_vencimiento in 3 days | "Vence en 3 días" (status-warning), "Renovar ahora" visible |
+| last `Cuota.fechaVencimiento` in 15 days | "Vence en 15 días", badge "Al día" |
+| last `Cuota.fechaVencimiento` in 3 days | "Vence en 3 días" (status-warning), "Renovar ahora" visible |
 
 ## Error Handling
 

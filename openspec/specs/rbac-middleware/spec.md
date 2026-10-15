@@ -9,7 +9,7 @@ Protect every page and API route by role (RN-06). Administrador has access to ev
 ## Implementation notes
 
 - Runs in `src/proxy.ts` (Next 16, **Node.js runtime**; the former `middleware.ts` ran on the Edge runtime, where Prisma and `jsonwebtoken` do not work).
-- The decision logic is the pure function `decideAccess` (`src/lib/access-decision.ts`); the access matrix lives in `src/lib/authorization.ts` (`ROLE_PERMISSIONS`, `hasRouteAccess`) and is the **single source of truth**. The table in this document mirrors it as of 2026-10-05; if they differ, the code is right and this table must be updated.
+- The decision logic is the pure function `decideAccess` (`src/lib/access-decision.ts`); the access matrix lives in `src/lib/authorization.ts` (`ROLE_PERMISSIONS`, `hasRouteAccess`) and is the **single source of truth**. The table in this document mirrors `src/lib/authorization.ts` as of 2026-10-15; if they differ, the code is right and this table must be updated. Note that `src/middleware/rn06-spec.test.ts` only checks a subset of it (the routes named by RN-06), not every row.
 - `ROLE_GATE_MATRIX` (`src/middleware/role-gating.ts`) is kept aligned for UI use (e.g. disabling Home_Interno controls). `matrix-consistency.test.ts` verifies both matrices agree and `rn06-spec.test.ts` verifies they match this specification.
 
 ## Requirements
@@ -105,9 +105,11 @@ Route handlers **MUST** obtain the identity from the session cookie (Bearer head
 
 Failed authentication and denied authorization **SHOULD** be written to `AuditoriaAcceso` with `ACTION=DENIED` (see `access-audit-logging`). Not implemented.
 
-## Route-to-Role Mapping (as of 2026-10-05)
+## Route-to-Role Mapping (as of 2026-10-15)
 
-`A` = ADMINISTRADOR (wildcard, every method), `I` = INSTRUCTOR, `R` = RECEPCIONISTA, `S` = SOCIO. `—` = not allowed.
+`A` = ADMINISTRADOR, `I` = INSTRUCTOR, `R` = RECEPCIONISTA, `S` = SOCIO. `✔` = allowed, `—` = not allowed.
+
+The Administrador is **not** limited to the rows below: its wildcard (`*`, every method on every path) grants every route, and two explicit entries override it — `/home-socio` is **denied** (`[]`, AC-001 / D-17) and `/api/configuracion` grants `GET, PUT` only (D-54). Every other `A` cell is `✔` because of the wildcard, not a per-route grant.
 
 ### Public routes
 
@@ -128,23 +130,30 @@ Failed authentication and denied authorization **SHOULD** be written to `Auditor
 | `/rutinas` | ✔ | ✔ | — | — | rutinas-crud RN-06 |
 | `/clientes` | ✔ | — | ✔ | — | clientes-crud AC-008 |
 | `/membresias` | ✔ | — | — | — | membresias-crud AC-008 |
+| `/pagos` | ✔ | — | ✔ | — | pantalla "Registrar Pago" (T-033); Administrador vía el comodín |
+| `/cierres` | ✔ | — | ✔ | — | pantalla "Cierre de Caja" (T-040); Administrador vía el comodín |
+| `/acceso` | ✔ | — | ✔ | — | kiosco de check-in por DNI + PIN (T-035); Administrador vía el comodín |
 
 ### API routes
 
 | Route | Method | A | I | R | S | Notes |
 |-------|--------|---|---|---|---|-------|
 | `/api/home-interno` | GET | ✔ | ✔ | ✔ | — | |
-| `/api/home-socio` | GET | ✔ | — | — | ✔ | Endpoint not implemented yet (T-028) |
+| `/api/home-socio` | GET | ✔ | — | — | ✔ | Implementado (T-028 / D-29). `A` solo por el comodín; el handler devuelve 403 a cualquier rol que no sea SOCIO |
 | `/api/ejercicios` | GET, POST, PUT, DELETE | ✔ | ✔ | — | — | |
 | `/api/rutinas` | GET, POST, PUT, DELETE | ✔ | ✔ | — | — | Socio gets their routine via `/api/home-socio` |
+| `/api/rutinas-asignadas` | GET, POST | ✔ | ✔ | — | — | Asignar rutina (T-034); Administrador vía el comodín |
 | `/api/clientes` | GET, POST, PUT, DELETE | ✔ | — | ✔ | — | |
 | `/api/membresias` | GET, POST, PUT, DELETE | ✔ | — | — | — | Management is Administrador-only (RN-06) |
 | `/api/membresias/activas` | GET | ✔ | — | ✔ | — | Read-only list of **active** membresías for the Clientes form dropdown (membresias-crud AC-004); added by fix `ebeec5d` |
 | `/api/socios` | GET | ✔ | ✔ | ✔ | — | R also POST, PUT. Socio has no access (B1): own record only, via `/api/home-socio` |
 | `/api/socios/{id}/access-override` | POST | ✔ | — | — | — | The proxy lets R through `/api/socios` (POST); the handler then **requires ADMINISTRADOR** |
 | `/api/pagos` | GET | ✔ | — | ✔ | — | R also POST. Socio has no access (B1): own payments via `/api/home-socio` |
-| `/api/sesiones` | GET, POST / GET, PUT | ✔ | GET, PUT | — | GET, POST | I: view and update sessions; S: own sessions |
-| `/api/cierres` | GET, POST | ✔ | — | ✔ | — | |
+| `/api/sesiones` | GET, POST, PUT | ✔ | GET, PUT | — | GET, POST, PUT | Socio also PUT to finish the workout (D-44); I views and updates |
+| `/api/cierres` | GET, POST | ✔ | — | ✔ | — | Cierre de caja (T-040) |
+| `/api/acceso` | GET, POST | ✔ | — | ✔ | — | Check-in en el kiosco (T-035); Administrador vía el comodín |
+| `/api/configuracion` | GET, PUT | ✔ | — | — | — | Entrada **explícita** solo para el Administrador (D-54); recorta el comodín, así que el Administrador no puede PATCH/DELETE |
+| `/api/dispositivos` | GET, POST | ✔ | — | — | — | Administración de dispositivos (T-036); sin entrada explícita, `A` por el comodín, y el handler además exige `ADMINISTRADOR` |
 
 ## Error Responses
 

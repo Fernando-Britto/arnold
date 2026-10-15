@@ -5,8 +5,8 @@
 Definir cuánto y cuándo paga un socio, y cómo se deduce de sus pagos si hoy puede entrar al gimnasio. Esta spec es la fuente de verdad de los
 **estados de pago** (`AL_DIA`, `PENDIENTE`, `VENCIDA`, `SIN_CUOTA`); `member-access-check` los consume para decidir el check-in.
 
-Alcance de esta versión: **reglas de cálculo** (`src/domains/pago/cuota.ts`, T-031). El registro del pago (API), las pantallas y el cierre de
-caja son tareas siguientes (ver *Fuera de alcance*).
+Alcance de esta versión: **reglas de cálculo** (`src/domains/pago/cuota.ts`, T-031). El registro del pago (API), las pantallas, el cierre de
+caja, el check-in y la oferta de reactivación ya están implementados (ver *Implementado*).
 
 ## Modelo
 
@@ -138,10 +138,16 @@ El sistema **MUST** tratar como alta a un socio que no tiene cobertura ni en el 
 | Cubierto hasta octubre, hoy 14/11, gracia 3 | VENCIDA (a las 00:00; el 13/11 sigue PENDIENTE) |
 | Cubierto hasta septiembre, hoy 05/11 | VENCIDA |
 
-## Fuera de alcance (tareas siguientes)
+## Implementado (ya no es alcance futuro)
 
-- **Registrar el pago**: `POST /api/pagos` transaccional (crear `Pago` + `Cuota`, `membresiaId`, auditoría), y anulación de pagos.
-- **Pantallas**: "Registrar Pago" (Home_Interno), "Mis pagos" (socio) y comprobante.
-- **Cierre de caja**.
-- **Check-in**: conectar `estadoCuotaSocio` con `member-access-check`.
-- Pagos parciales (un pago cubre una cuota entera) y `descuentoReactivacion` para el reingreso.
+Estas piezas estaban listadas como trabajo futuro y hoy están implementadas. El detalle de cada decisión vive en `decisions.md`:
+
+- **Registrar el pago**: `POST /api/pagos` crea `Pago` + `Cuota`, con `membresiaId` y auditoría, y las pantallas "Registrar Pago" (Home_Interno) y "Mis pagos" (socio) (D-40).
+- **Cierre de caja**: pantalla y API (D-40).
+- **Check-in**: `estadoCuotaSocio` conectado con `member-access-check` en el kiosco por DNI + PIN (D-47).
+- **Oferta de reactivación**: descuento para el reingreso, configurable desde el panel de parámetros del Administrador (D-54).
+
+## Fuera de alcance (todavía no implementado)
+
+- **Anulación de pagos**: `Pago.estado = ANULADO` está en el enum y se lee, pero ningún código lo escribe; anular un pago tampoco revierte su `Cuota` (P-39).
+- **Pagos parciales**: un pago sigue cubriendo una cuota entera.
