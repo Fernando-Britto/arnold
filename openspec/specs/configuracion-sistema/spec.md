@@ -3,9 +3,9 @@
 ## Purpose
 
 Que el Administrador vea y cambie los parámetros del gimnasio desde la aplicación, con un único lugar de lectura y un registro de cada cambio (D-54).
-Hoy la tabla `ConfiguracionDelSistema` solo la escribe el seed (`npm run seed`) y se lee desde 6 lugares con criterios distintos.
+Hoy la tabla `ConfiguracionDelSistema` se lee y se escribe desde un único punto (`src/lib/configuracion.ts`), y un test guardián impide que otro archivo la toque.
 
-Estado: **diseño aprobado, sin código** (T-043a a T-043c).
+Estado: **implementado** (T-043a a T-043c, D-54). El lector único, la API y la pantalla están en `dev` y verificados.
 
 ## Requirements
 

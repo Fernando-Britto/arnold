@@ -6,8 +6,7 @@ Ofrecer un descuento sobre el cobro de la cuota a un socio que **dejó de asisti
 tiempo de espera configurables por el Administrador (D-54). Complementa `pagos-cuotas` (cuánto y cuándo se paga) y `member-access-check`
 (quién entra); no cambia ninguna de las dos.
 
-Estado: diseño aprobado. **Hecho (T-045a)**: las funciones puras de elegibilidad y descuento (`src/domains/pago/oferta-reactivacion.ts`). Sin código todavía: la
-migración (T-045b), el cobro y la vista previa (T-045c) y los avisos (T-045d). La spec describe el comportamiento objetivo.
+Estado: **implementado** (T-045a a T-045d, D-54). Las funciones puras de elegibilidad y descuento, la migración, el cobro con la oferta aplicada dentro de la transacción, la vista previa y los avisos están en `dev`. La oferta **viene apagada por defecto**: hasta que se active desde `/configuracion`, el sistema cobra igual que siempre.
 
 ## Modelo
 
