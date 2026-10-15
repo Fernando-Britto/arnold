@@ -20,6 +20,12 @@ interface MembresiaFormProps {
   isLoading?: boolean;
 }
 
+/**
+ * Form de Membresía. NO dibuja su propio marco ni su título: los aporta `FormPanelShell`
+ * en la pantalla (igual que ClienteForm/EjercicioForm/RutinaForm). Antes traía su tarjeta
+ * `max-w-md` + h2 propios dentro del panel, así que el título salía duplicado y quedaba
+ * una tarjeta anidada.
+ */
 export function MembresiaForm({
   initialData,
   onSave,
@@ -116,11 +122,7 @@ export function MembresiaForm({
   };
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-200 w-full max-w-md">
-      <h2 className="text-lg font-semibold mb-4">
-        {initialData?.id ? "Editar Membresía" : "Nueva Membresía"}
-      </h2>
-
+    <div className="flex flex-col">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Nombre */}
         <div>

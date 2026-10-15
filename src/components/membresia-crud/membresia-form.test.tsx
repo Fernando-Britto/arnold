@@ -56,10 +56,13 @@ describe("MembresiaForm", () => {
       expect(screen.getByDisplayValue("Premium membership")).toBeInTheDocument();
     });
 
-    it("should show 'Nueva Membresía' title when creating", () => {
+    it("no dibuja encabezado propio: el título lo aporta FormPanelShell en la pantalla", () => {
       render(<MembresiaForm onSave={mockOnSave} onCancel={mockOnCancel} />);
 
-      expect(screen.getByText(/Nueva Membresía/i)).toBeInTheDocument();
+      // Antes traía su propio h2 "Nueva Membresía" DENTRO del panel, así que el título
+      // salía duplicado. Este assert evita que vuelva.
+      expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/Nombre/i)).toBeInTheDocument();
     });
 
     it("should hint an integer precio placeholder (no cents)", () => {
@@ -68,7 +71,7 @@ describe("MembresiaForm", () => {
       expect(screen.getByLabelText(/Precio/i)).toHaveAttribute("placeholder", "Ej: 15000");
     });
 
-    it("should show 'Editar Membresía' title when editing", () => {
+    it("en edición tampoco dibuja encabezado propio", () => {
       render(
         <MembresiaForm
           initialData={mockMembresia}
@@ -77,7 +80,8 @@ describe("MembresiaForm", () => {
         />
       );
 
-      expect(screen.getByText(/Editar Membresía/i)).toBeInTheDocument();
+      expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+      expect(screen.getByDisplayValue("Gold")).toBeInTheDocument();
     });
   });
 
