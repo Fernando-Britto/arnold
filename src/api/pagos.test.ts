@@ -3,12 +3,7 @@
  * El dominio va mockeado: acá se verifica que la capa API delegue y que los helpers
  * de fetch armen bien la petición.
  */
-import {
-  handleRegistrarPago,
-  handleListarPagos,
-  createPago,
-  fetchPagosDeSocio,
-} from "./pagos";
+import { handleRegistrarPago, handleListarPagos, createPago } from "./pagos";
 import {
   registrarPago,
   listarPagosDeSocio,
@@ -74,23 +69,5 @@ describe("createPago (fetch client)", () => {
         headers: expect.objectContaining({ "Content-Type": "application/json" }),
       })
     );
-  });
-});
-
-describe("fetchPagosDeSocio (fetch client)", () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it("hace GET /api/pagos?socioId=... y devuelve la lista", async () => {
-    const lista = [{ id: "pago-1", monto: 30000 }];
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => lista,
-    });
-
-    const r = await fetchPagosDeSocio("socio-1");
-
-    expect(r).toEqual(lista);
-    // PG-7: la sesión va en cookie; el fetch no adjunta headers.
-    expect(global.fetch).toHaveBeenCalledWith("/api/pagos?socioId=socio-1");
   });
 });

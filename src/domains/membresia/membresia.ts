@@ -166,6 +166,10 @@ export function createMembresia(data: {
  * Normalize precio to a whole peso amount: in Argentina prices have no cents,
  * so the stored value is rounded to the nearest integer on save. To preserve
  * the `precio > 0` invariant, a positive value that rounds to 0 is stored as 1.
+ *
+ * D-55 (N9): this rounding is the decided behavior — the project unified currency
+ * display to whole ARS pesos on 2026-10-13, so storing cents the UI never shows
+ * would be the inconsistency. AC-002 in the spec was corrected to match this.
  */
 function normalizePrecio(precio: number): number {
   const rounded = Math.round(precio);

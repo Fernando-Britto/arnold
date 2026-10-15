@@ -795,6 +795,25 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 
 ---
 
+### D-55 · El precio de la membresía se guarda en pesos enteros: se mantiene el redondeo (N9)
+- **Origen**: barrido del 2026-10-15 (hallazgo N9). `MembresiaRepository.create`/`update` redondean `precio` a pesos enteros
+  (`normalizePrecio` con `Math.round` en `src/domains/membresia/membresia.ts`), pero la spec `membresias-crud` AC-002 pedía
+  "exactly 2 decimal places". La contradicción quedaba sin resolver.
+- **Decisión**: **mantener el redondeo**; el comportamiento correcto es el del código. El proyecto unificó la moneda a
+  **pesos enteros de ARS** el 2026-10-13 (`formatMoney` redondea al entero para mostrar y la base ya guarda enteros). Guardar
+  centavos que la UI nunca muestra era la inconsistencia, no el redondeo. Se corrige la spec para describir lo que el sistema
+  hace: entero > 0, redondeado al guardar, con el clamp `0 < x < 1 → 1` para preservar el invariante `precio > 0`.
+- **Alternativas descartadas**: volver a mostrar/almacenar 2 decimales (revertir la unificación de moneda) o rechazar los
+  valores con centavos (rompería la carga de precios redondos tipeados como 15000.00). Ambas agregan trabajo sin cambiar lo
+  que ve el negocio.
+- **Dónde quedó**: `src/domains/membresia/membresia.ts` (`normalizePrecio`, comentado con esta decisión);
+  spec `openspec/specs/membresias-crud/spec.md` (AC-002, escenario de normalización, edge case y data scenarios);
+  `src/components/membresia-crud/membresia-form.tsx` ya redondeaba en el `onBlur`.
+- **Verificado**: los tests de `src/domains/membresia/membresia.test.ts` fijan el redondeo en `createMembresia` y en el
+  repositorio (`15000.5 → 15001`, `0.4 → 1`).
+
+---
+
 ## 2. Registro de defectos corregidos
 
 | ID | Síntoma | Causa raíz | Corrección | Commit | Cómo se detectó |

@@ -516,7 +516,7 @@ model AuditoriaAcceso {
   socio         Socio?   @relation(fields: [socioId], references: [id], onDelete: SetNull)
   socioId       String?  // nullable for login actions
   accion        AccionAcceso
-  motivo        String?  // required for OVERRIDE_GRANT; null for others
+  motivo        String?  // requerido en OVERRIDE_GRANT; también lo escriben LOGIN, CHECK_IN y ACCESS_DENIED; null cuando no aplica
   resultado     ResultadoAcceso
   timestamp     DateTime @default(now())
   ipAddress     String   // IPv4/IPv6

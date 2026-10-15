@@ -89,6 +89,23 @@ export function validateEjercicio(data: any): ValidationResult {
 }
 
 /**
+ * Mensaje del bloqueo por clave foránea al borrar un ejercicio (H11). Prisma informa en
+ * `error.meta` la relación que restringe (el nombre del constraint contiene el modelo):
+ * `EjercicioEnRutina` (está en rutinas) o `RegistroDeProgreso` (tiene historial). Si el
+ * meta falta o no se reconoce, el mensaje cubre las dos relaciones posibles.
+ */
+function mensajeBloqueoPorRelacion(error: { meta?: unknown } | null | undefined): string {
+  const meta = JSON.stringify(error?.meta ?? "");
+  if (/EjercicioEnRutina/.test(meta)) {
+    return "No se puede eliminar el ejercicio porque está asignado a una o más rutinas";
+  }
+  if (/RegistroDeProgreso/.test(meta)) {
+    return "No se puede eliminar el ejercicio porque tiene historial de entrenamiento";
+  }
+  return "No se puede eliminar el ejercicio porque está en uso";
+}
+
+/**
  * Repository for Ejercicio domain operations
  * Handles persistence and retrieval from the database
  */
@@ -139,6 +156,11 @@ export class EjercicioRepository {
     }
     
     if (options?.search) {
+      // H12: `contains` + `insensitive` es el `ILIKE` de Postgres: pliega mayúsculas,
+      // pero NO tildes ("triceps" no matchea "Tríceps"). Plegar tildes en la base exige
+      // la extensión `unaccent` o una columna normalizada (cambio de schema, fuera de
+      // alcance). La búsqueda de la pantalla de ejercicios filtra en el cliente con
+      // `normalizeSortText`, así que este filtro server-side queda sólo case-insensitive.
       where.nombre = {
         contains: options.search,
         mode: "insensitive",
@@ -203,10 +225,14 @@ export class EjercicioRepository {
       });
       return true;
     } catch (error: any) {
-      // P2003: Foreign key constraint failed (ejercicio is in use in EjercicioEnRutina)
+      // P2003: falla de clave foránea. Al ejercicio lo referencian DOS relaciones con
+      // onDelete: Restrict: `EjercicioEnRutina.ejercicio` (asignado a rutinas) y
+      // `RegistroDeProgreso.ejercicio` (historial de entrenamiento). Prisma informa cuál
+      // en `error.meta` (nombre del constraint/campo), así que el mensaje se elige según
+      // la relación (H11); sin meta reconocible, cae a un mensaje que cubre las dos.
       if (error?.code === "P2003" || error?.message?.includes("foreign key")) {
         throw Object.assign(
-          new Error("DELETE_BLOCKED_ASSIGNED: No se puede eliminar el ejercicio porque está asignado a una o más rutinas"),
+          new Error(`DELETE_BLOCKED_ASSIGNED: ${mensajeBloqueoPorRelacion(error)}`),
           { code: "DELETE_BLOCKED_ASSIGNED" }
         );
       }

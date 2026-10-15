@@ -146,6 +146,36 @@ describe("POST /api/sesiones", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("VALIDATION_ERROR");
   });
+
+  // SE-6: el 404 lleva el recurso que falta en el mensaje del dominio, no un texto fijo.
+  it("404 con el mensaje del socio cuando falta el socio", async () => {
+    mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+    mockIniciar.mockRejectedValueOnce(
+      Object.assign(new Error("NOT_FOUND: Socio no encontrado"), { code: "NOT_FOUND" })
+    );
+
+    const res = await POST(postReq({ rutinaAsignadaId: "asig-1", socioId: "socio-9" }));
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.code).toBe("NOT_FOUND");
+    expect(body.message).toContain("Socio");
+    expect(body.message).not.toContain("Rutina asignada");
+  });
+
+  it("404 con el mensaje de la asignación cuando falta la rutina asignada", async () => {
+    mockUser.mockReturnValue({ id: "u-admin", rol: "ADMINISTRADOR" });
+    mockIniciar.mockRejectedValueOnce(
+      Object.assign(new Error("NOT_FOUND: Rutina asignada no encontrada"), { code: "NOT_FOUND" })
+    );
+
+    const res = await POST(postReq({ rutinaAsignadaId: "asig-1", socioId: "socio-9" }));
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.code).toBe("NOT_FOUND");
+    expect(body.message).toContain("Rutina asignada");
+  });
 });
 
 describe("GET /api/sesiones?enCurso=1", () => {

@@ -6,6 +6,7 @@ import {
   TableRow,
   TableCell,
   TableDetailRow,
+  normalizeSortText,
   type TableColumn,
 } from "@/components/ui/table";
 import { shortId } from "@/utils/short-id";
@@ -36,13 +37,15 @@ export function EjercicioListPanel({
   searchTerm = "",
 }: EjercicioListPanelProps) {
   const filtered = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    // H12: se pliega mayúsculas y tildes con `normalizeSortText` (el mismo helper que
+    // usan las listas de rutinas), así "triceps" encuentra "Tríceps".
+    const term = normalizeSortText(searchTerm.trim());
     return [...ejercicios]
       .filter(
         (e) =>
           !term ||
-          e.nombre.toLowerCase().includes(term) ||
-          e.grupoMuscular.toLowerCase().includes(term)
+          normalizeSortText(e.nombre).includes(term) ||
+          normalizeSortText(e.grupoMuscular).includes(term)
       )
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [ejercicios, searchTerm]);

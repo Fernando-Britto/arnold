@@ -12,9 +12,11 @@ jest.mock("@/lib/auth", () => ({
   ...jest.requireActual("@/lib/auth"),
   extractUserFromRequest: jest.fn(),
 }));
+jest.mock("@/lib/audit", () => ({ registrarOperacion: jest.fn() }));
 
 import { handleAsignarRutina, handleListarRutinasDeSocio } from "@/api/rutinas-asignadas";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import {
   POST,
   GET,
@@ -27,6 +29,7 @@ const mockListar = handleListarRutinasDeSocio as jest.MockedFunction<
   typeof handleListarRutinasDeSocio
 >;
 const mockUser = extractUserFromRequest as jest.Mock;
+const mockAudit = registrarOperacion as jest.Mock;
 
 const asignacionFalsa = {
   id: "asig-1",
@@ -148,6 +151,32 @@ describe("POST /api/rutinas-asignadas", () => {
       expect.objectContaining({ success: true, rutinaAsignada: asignacionFalsa })
     );
     expect(mockAsignar).toHaveBeenCalledWith({ socioId: "socio-1", rutinaId: "rutina-1" });
+  });
+
+  // NF-15 / D-32: la asignación deja auditoría de negocio.
+  it("registra ALTA con responsableId, socioId y rutinaId tras una asignación exitosa", async () => {
+    mockUser.mockReturnValue({ id: "u-inst", rol: "INSTRUCTOR" });
+    mockAsignar.mockResolvedValueOnce(asignacionFalsa as never);
+
+    const res = await POST(postReq({ socioId: "socio-1", rutinaId: "rutina-1" }));
+
+    expect(res.status).toBe(201);
+    expect(mockAudit).toHaveBeenCalledTimes(1);
+    expect(mockAudit).toHaveBeenCalledWith({
+      tipoOperacion: "ALTA",
+      responsableId: "u-inst",
+      detalles: { socioId: "socio-1", rutinaId: "rutina-1" },
+    });
+  });
+
+  it("no registra auditoría si la asignación falla en el dominio", async () => {
+    mockUser.mockReturnValue({ id: "u-inst", rol: "INSTRUCTOR" });
+    mockAsignar.mockRejectedValueOnce(new Error("VALIDATION_ERROR: Rutina requerida"));
+
+    const res = await POST(postReq({ socioId: "socio-1", rutinaId: "" }));
+
+    expect(res.status).toBe(400);
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 });
 

@@ -48,12 +48,3 @@ export async function createPago(input: RegistrarPagoInput): Promise<PagoRegistr
   await throwIfNotOk(response, "No se pudo registrar el pago");
   return response.json();
 }
-
-/**
- * Client-side API call: historial de pagos de un socio.
- */
-export async function fetchPagosDeSocio(socioId: string) {
-  const response = await fetch(`/api/pagos?socioId=${encodeURIComponent(socioId)}`);
-  await throwIfNotOk(response, "No se pudieron cargar los pagos");
-  return response.json();
-}

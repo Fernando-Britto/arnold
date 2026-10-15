@@ -4,7 +4,7 @@
  * de Authorization ni tocar localStorage (mismo criterio que P-14 en clientes.ts).
  */
 import { fetchSocioPorDni } from "./socios";
-import { createPago, fetchPagosDeSocio } from "./pagos";
+import { createPago } from "./pagos";
 import { fetchSesionEnCurso } from "./sesiones";
 import { fetchPreviewCierre, createCierre, fetchCierres } from "./cierres";
 import { checkIn } from "./acceso";
@@ -29,9 +29,6 @@ describe("PG-7: los fetches del cliente no usan tokens de localStorage", () => {
   it("GETs sin headers de auth (sin segundo argumento)", async () => {
     await fetchSocioPorDni("30123456");
     expect(global.fetch).toHaveBeenLastCalledWith("/api/socios?dni=30123456");
-
-    await fetchPagosDeSocio("socio-1");
-    expect(global.fetch).toHaveBeenLastCalledWith("/api/pagos?socioId=socio-1");
 
     await fetchSesionEnCurso();
     expect(global.fetch).toHaveBeenLastCalledWith("/api/sesiones?enCurso=1");

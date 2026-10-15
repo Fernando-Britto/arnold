@@ -94,6 +94,21 @@ describe("handleRegistrarPagoRequest (sin NextRequest)", () => {
     expect(r.status).toBe(409);
     expect((r.body as { code: string }).code).toBe("AMOUNT_CHANGED");
   });
+
+  it("409 con código propio si el cobro chocó por serialización (PG-8), no un conflicto de cierre", async () => {
+    mockRegistrar.mockRejectedValueOnce(
+      Object.assign(new Error("PAYMENT_CONFLICT: Otro pago se registró al mismo tiempo"), {
+        code: "PAYMENT_CONFLICT",
+      })
+    );
+
+    const r = await handleRegistrarPagoRequest({ socioId: "socio-1", metodoPago: "EFECTIVO" });
+
+    expect(r.status).toBe(409);
+    expect((r.body as { code: string }).code).toBe("PAYMENT_CONFLICT");
+    expect((r.body as { message: string }).message).toMatch(/pago/i);
+    expect((r.body as { message: string }).message).not.toMatch(/cierre/i);
+  });
 });
 
 describe("handleListarPagosRequest (sin NextRequest)", () => {

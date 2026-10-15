@@ -9,7 +9,7 @@ import type { SessionUser } from "@/contexts/auth";
 /**
  * Lee la cookie de sesión (solo servidor). Devuelve solo lo que el cliente necesita: nunca el hash.
  *
- * L / P-39: en páginas PÚBLICAS el proxy no corre, así que este es el único control de sesión.
+ * L: en páginas PÚBLICAS el proxy no corre, así que este es el único control de sesión.
  * Antes alcanzaba con verificar la firma del JWT, y por eso un token revocado o de un usuario
  * deshabilitado/borrado seguía dando un `initialUser` truthy. Ahora validamos contra la base:
  * el usuario debe existir y estar `ACTIVO` (sin `deletedAt`) y el `jti` no debe estar revocado,

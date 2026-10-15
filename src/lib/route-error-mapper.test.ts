@@ -1,5 +1,29 @@
 import { mapErrorToResponse } from "./route-error-mapper";
 
+describe("mapErrorToResponse — NOT_FOUND con el recurso en el mensaje (SE-6)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("usa el recurso que trae el error cuando lleva code NOT_FOUND", () => {
+    const res = mapErrorToResponse(
+      Object.assign(new Error("NOT_FOUND: Socio no encontrado"), { code: "NOT_FOUND" }),
+      { resourceName: "Rutina asignada" }
+    );
+
+    expect(res).toEqual({ code: "NOT_FOUND", message: "Socio no encontrado", status: 404 });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("cae al resourceName cuando el error no dice qué falta", () => {
+    const res = mapErrorToResponse(new Error("NOT_FOUND"), { resourceName: "Sesión" });
+
+    expect(res).toEqual({ code: "NOT_FOUND", message: "Sesión no encontrado", status: 404 });
+  });
+});
+
 describe("mapErrorToResponse — errores inesperados", () => {
   let spy: jest.SpyInstance;
   beforeEach(() => {

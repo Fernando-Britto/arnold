@@ -86,4 +86,35 @@ describe("EjercicioListPanel", () => {
     render(<EjercicioListPanel ejercicios={mockEjercicios} searchTerm="zzz" />);
     expect(screen.getByText(/No se encontraron ejercicios/i)).toBeInTheDocument();
   });
+
+  // H12: la búsqueda pliega tildes. "triceps" (sin tilde) encuentra "Tríceps".
+  it("encuentra el ejercicio buscando sin tildes", () => {
+    const conTilde: Ejercicio[] = [
+      {
+        id: "9",
+        nombre: "Tríceps en polea",
+        grupoMuscular: "Brazos",
+        descripcion: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+    render(<EjercicioListPanel ejercicios={conTilde} searchTerm="triceps" />);
+    expect(screen.getByText("Tríceps en polea")).toBeInTheDocument();
+  });
+
+  it("encuentra el ejercicio con tilde en el término aunque el dato no la tenga", () => {
+    const sinTilde: Ejercicio[] = [
+      {
+        id: "9",
+        nombre: "Triceps en polea",
+        grupoMuscular: "Brazos",
+        descripcion: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+    render(<EjercicioListPanel ejercicios={sinTilde} searchTerm="Tríceps" />);
+    expect(screen.getByText("Triceps en polea")).toBeInTheDocument();
+  });
 });

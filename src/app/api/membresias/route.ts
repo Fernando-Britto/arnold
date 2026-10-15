@@ -81,13 +81,13 @@ export async function handleMembresiaCreateRequest(
 
 /**
  * GET /api/membresias
- * Returns list of all membresias with assigned member counts
- * Optional: activeOnly=true returns ACTIVA only (for T-013 dropdown)
+ * Returns list of all membresias with assigned member counts.
+ * The active-only dropdown (T-013) uses GET /api/membresias/activas, so this
+ * endpoint has no `activeOnly` filter.
  * Requires: Administrador role (handled by middleware)
  */
-export async function GET(request: NextRequest) {
-  const activeOnly = request.nextUrl.searchParams.get("activeOnly") === "true";
-  const result = await handleMembresiaListRequest(activeOnly);
+export async function GET() {
+  const result = await handleMembresiaListRequest();
 
   if (isListSuccess(result)) {
     return NextResponse.json(result, { status: 200 });

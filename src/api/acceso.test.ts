@@ -196,6 +196,36 @@ describe("handleCheckIn — identidad (DNI + PIN)", () => {
   });
 });
 
+describe("handleCheckIn — DNI normalizado (AC-9)", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (comparePassword as jest.Mock).mockResolvedValue(true);
+  });
+
+  it("un DNI con puntos encuentra al socio buscándolo normalizado", async () => {
+    const prisma = await armarSocio();
+
+    const r = await handleCheckIn({ dni: "30.123.456", pin: "1234", ahora: AHORA });
+
+    expect(r.resultado).toBe("PERMITIDO");
+    expect(r.socio).toEqual({ id: "socio-1", nombre: "Ana García", membresia: "Gold" });
+    expect(prisma.socio.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { dni: "30123456" } })
+    );
+  });
+
+  it("el DNI con puntos y el mismo sin puntos se buscan con la misma forma normalizada", async () => {
+    const prisma = await armarSocio();
+
+    await handleCheckIn({ dni: "30.123.456", pin: "1234", ahora: AHORA });
+    await handleCheckIn({ dni: "30123456", pin: "1234", ahora: AHORA });
+
+    const llamadas = (prisma.socio.findUnique as jest.Mock).mock.calls;
+    expect(llamadas[0][0].where).toEqual({ dni: "30123456" });
+    expect(llamadas[1][0].where).toEqual(llamadas[0][0].where);
+  });
+});
+
 describe("handleCheckIn — decisión y registros", () => {
   beforeEach(() => {
     jest.clearAllMocks();

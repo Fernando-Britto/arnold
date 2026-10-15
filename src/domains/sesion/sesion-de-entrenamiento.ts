@@ -132,7 +132,8 @@ function validarRir(rir: number | null): number | null {
  * `ABANDONADA` (con `horaFin`) dentro de la misma transacción antes de crear la nueva. Así
  * `ABANDONADA` tiene un disparador real y se cumple "a lo sumo una `EN_CURSO` por socio".
  *
- * @throws Error("NOT_FOUND") si el socio o la asignación no existen.
+ * @throws Error("NOT_FOUND: ...") con el recurso que falta (socio o asignación) en el mensaje,
+ *   para que el mapa de errores no muestre siempre el mismo "Rutina asignada" (SE-6).
  * @throws Error("VALIDATION_ERROR: ...") si la asignación no está activa o no es del socio.
  */
 export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIniciada> {
@@ -142,7 +143,11 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
     where: { id: input.socioId },
     select: { id: true },
   });
-  if (!socio) throw new Error("NOT_FOUND");
+  // SE-6: el error lleva su propio recurso. Con `code: "NOT_FOUND"` el mapa de errores
+  // usa este mensaje en vez del `resourceName` fijo de la ruta.
+  if (!socio) {
+    throw Object.assign(new Error("NOT_FOUND: Socio no encontrado"), { code: "NOT_FOUND" });
+  }
 
   const asignada = (await prisma.rutinaAsignada.findUnique({
     where: { id: input.rutinaAsignadaId },
@@ -158,7 +163,11 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
     },
   })) as unknown as AsignacionConRutina | null;
 
-  if (!asignada) throw new Error("NOT_FOUND");
+  if (!asignada) {
+    throw Object.assign(new Error("NOT_FOUND: Rutina asignada no encontrada"), {
+      code: "NOT_FOUND",
+    });
+  }
   if (!asignada.activa) {
     throw new Error("VALIDATION_ERROR: La rutina asignada no está activa");
   }

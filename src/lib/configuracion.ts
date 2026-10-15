@@ -15,12 +15,11 @@ export interface Configuracion {
   capacidadMaxima: number;
   periodoGracia: number;
   diasInactividad: number;
-  /** Porcentaje (Decimal en la base). Hoy nada cobra con él (D-40); ver spec `oferta-reactivacion`. */
+  /** Porcentaje (Decimal en la base). Lo aplica la oferta de reactivación; ver spec `oferta-reactivacion` y D-54. */
   descuentoReactivacion: number;
   /**
-   * Los tres campos de la oferta de reactivación (spec `oferta-reactivacion`) todavía no son columnas:
-   * T-045b las agrega. Hasta entonces la fila no los trae y el lector devuelve su valor por defecto
-   * (oferta apagada), así el resto del código ya puede depender de la forma final.
+   * Los tres campos de la oferta de reactivación (spec `oferta-reactivacion`). Son columnas desde T-045b;
+   * si a una fila le faltan, el lector devuelve su valor por defecto (oferta apagada).
    */
   ofertaReactivacionActiva: boolean;
   diasSinAsistirParaOferta: number;

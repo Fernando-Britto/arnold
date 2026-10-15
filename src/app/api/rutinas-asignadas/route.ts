@@ -4,6 +4,7 @@ import type { AsignarRutinaInput } from "@/api/rutinas-asignadas";
 import { EntidadNoEncontradaError } from "@/domains/rutina/asignar-rutina";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 
 /** Roles que pueden asignar y consultar rutinas (D-42 / matriz de autorización). */
 const ALLOWED_ROLES = ["ADMINISTRADOR", "INSTRUCTOR"];
@@ -90,6 +91,17 @@ export async function POST(request: NextRequest) {
   }
 
   const { status, body: responseBody } = await handleAsignarRutinaRequest(body);
+
+  // NF-15 / D-32: la asignación deja auditoría de negocio (ALTA) con el socio y la rutina.
+  // Sólo en el alta exitosa: los fallos de validación no escriben auditoría.
+  if (status === 201) {
+    await registrarOperacion({
+      tipoOperacion: "ALTA",
+      responsableId: user.id,
+      detalles: { socioId: body.socioId, rutinaId: body.rutinaId },
+    });
+  }
+
   return NextResponse.json(responseBody, { status });
 }
 

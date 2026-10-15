@@ -19,6 +19,7 @@ import {
   type ResultadoAcceso,
 } from "@/domains/acceso/check-in";
 import { validarPin } from "@/domains/acceso/pin";
+import { normalizeDNI } from "@/domains/cliente/cliente";
 import { hashPassword, comparePassword } from "@/lib/auth";
 import { isRateLimited, recordRateLimitHit } from "@/lib/rateLimit";
 import { toGymWallClock } from "@/lib/gym-time";
@@ -154,8 +155,11 @@ export async function handleCheckIn(input: CheckInInput): Promise<CheckInResulta
 
   const { prisma } = (await import("@/lib/db")) as unknown as { prisma: PrismaLike };
 
+  // AC-9: el DNI se guarda normalizado (solo dígitos, `normalizeDNI` en el alta). El check-in
+  // normaliza igual antes de buscar, así "30.123.456" encuentra al mismo socio que "30123456"
+  // (el kiosco usa teclado numérico y manda sólo dígitos, pero otros clientes pueden mandar puntos).
   const socio = (await prisma.socio.findUnique({
-    where: { dni: input.dni },
+    where: { dni: normalizeDNI(input.dni) },
     include: { usuario: true, membresiaAsignada: true },
   })) as {
     id: string;

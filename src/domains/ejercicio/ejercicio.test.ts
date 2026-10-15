@@ -306,6 +306,47 @@ describe("Ejercicio Domain Model", () => {
       });
     });
 
+    // H11: el mismo P2003 puede venir de la relación con rutinas o con el historial de
+    // progreso; el mensaje debe decir cuál, y sin meta reconocible debe cubrir las dos.
+    it("H11: distingue la rutina como relación que bloquea el borrado", async () => {
+      const { prisma } = jest.requireMock("@/lib/db");
+      const created = await repository.create({ nombre: "Dominadas", grupoMuscular: "Espalda" });
+      prisma.ejercicio.delete.mockRejectedValueOnce({
+        code: "P2003",
+        message: "Foreign key constraint failed on the field: `ejercicioId`",
+        meta: { field_name: "EjercicioEnRutina_ejercicioId_fkey (index)" },
+      });
+
+      await expect(repository.delete(created.id)).rejects.toThrow(/una o más rutinas/);
+    });
+
+    it("H11: distingue el historial de progreso como relación que bloquea el borrado", async () => {
+      const { prisma } = jest.requireMock("@/lib/db");
+      const created = await repository.create({ nombre: "Peso muerto", grupoMuscular: "Espalda" });
+      prisma.ejercicio.delete.mockRejectedValueOnce({
+        code: "P2003",
+        message: "Foreign key constraint failed on the field: `ejercicioId`",
+        meta: { field_name: "RegistroDeProgreso_ejercicioId_fkey (index)" },
+      });
+
+      await expect(repository.delete(created.id)).rejects.toThrow(/historial de entrenamiento/);
+    });
+
+    it("H11: sin meta reconocible mantiene el código de bloqueo y un mensaje genérico", async () => {
+      const { prisma } = jest.requireMock("@/lib/db");
+      const created = await repository.create({ nombre: "Press francés", grupoMuscular: "Brazos" });
+      prisma.ejercicio.delete.mockRejectedValueOnce({
+        code: "P2003",
+        message: "Foreign key constraint failed on the field: `otroId`",
+        meta: { field_name: "OtraRelacion_otroId_fkey (index)" },
+      });
+
+      await expect(repository.delete(created.id)).rejects.toMatchObject({
+        code: "DELETE_BLOCKED_ASSIGNED",
+        message: expect.stringContaining("está en uso"),
+      });
+    });
+
     it("should return false when deleting a non-existent ejercicio", async () => {
       await expect(repository.delete("non-existent-id")).resolves.toBe(false);
     });

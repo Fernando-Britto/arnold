@@ -36,6 +36,19 @@ function stripCodePrefix(message: string): string {
 }
 
 /**
+ * Mensaje para un NOT_FOUND. Si el error trae el recurso en su mensaje
+ * ("NOT_FOUND: Socio no encontrado") se usa ese texto, porque el dominio sabe qué
+ * falta (SE-6). Si sólo dice "NOT_FOUND", cae al `resourceName` que pasa la ruta.
+ */
+function mensajeNotFound(message: string, resourceName: string): string {
+  const detalle = stripCodePrefix(message).trim();
+  if (!detalle || detalle.toUpperCase() === "NOT_FOUND") {
+    return `${resourceName} no encontrado`;
+  }
+  return detalle;
+}
+
+/**
  * Map error messages to HTTP response codes per API spec
  * Shared across all route.ts files
  *
@@ -147,7 +160,7 @@ export function mapErrorToResponse(
     if (code === "NOT_FOUND") {
       return {
         code: "NOT_FOUND",
-        message: `${resourceName} no encontrado`,
+        message: mensajeNotFound(message, resourceName),
         status: 404,
       };
     }
@@ -169,7 +182,9 @@ export function mapErrorToResponse(
     if (errorCode === "ASIGNACION_CONFLICTO") status = 409;
     if (errorCode === "NOT_FOUND") status = 404;
     
-    // For NOT_FOUND, use localized resourceName message instead of generic message
+    // For NOT_FOUND, keep the localized resourceName message (the generic contract).
+    // An error that wants a resource-specific message sets `code: "NOT_FOUND"` and the
+    // explicit-code branch above honors it (SE-6).
     const finalMessage = errorCode === "NOT_FOUND" ? `${resourceName} no encontrado` : errorMessage;
     
     return {

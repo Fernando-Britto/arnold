@@ -268,9 +268,9 @@ describe("Ejercicios CRUD Screen (Page)", () => {
       render(<EjerciciosPage />);
       await user.click(await screen.findByText("Press Militar"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
-      expect(
-        await screen.findByText("No se puede eliminar: este ejercicio está en uso por una o más rutinas"),
-      ).toBeInTheDocument();
+      // H11: el aviso usa el mensaje específico que manda el servidor (rutinas o historial),
+      // no un texto fijo de rutinas.
+      expect(await screen.findByText("mensaje del servidor")).toBeInTheDocument();
       expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
       confirmSpy.mockRestore();
     });

@@ -136,9 +136,10 @@ export function EjerciciosPage() {
       setSelectedId(null);
       notify("success", "Ejercicio eliminado");
     } catch (err) {
-      // Integridad referencial: el servidor responde 409 DELETE_BLOCKED_ASSIGNED
+      // Integridad referencial: el servidor responde 409 DELETE_BLOCKED_ASSIGNED con el
+      // mensaje de la relación que bloquea (rutinas o historial de entrenamiento, H11).
       if (err instanceof ApiError && err.code === "DELETE_BLOCKED_ASSIGNED") {
-        setError("No se puede eliminar: este ejercicio está en uso por una o más rutinas");
+        setError(err.message || "No se puede eliminar: este ejercicio está en uso");
       } else {
         setError(handleApiError(err, "No se pudo eliminar el ejercicio."));
       }

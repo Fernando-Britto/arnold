@@ -24,11 +24,11 @@ The system **MUST** restrict access to Membresías CRUD to Administrador role on
 
 ### Requirement: Membresía Creation Validation
 
-The system **MUST** validate `nombre` (required, 3–50 chars), `precio` (required, decimal > 0, 2 decimals), `periodicidad` (required, integer > 0 days), `descripcion` (optional, max 300 chars), `estado` (required, Activa or Inactiva).
+The system **MUST** validate `nombre` (required, 3–50 chars), `precio` (required, > 0, stored as a whole number of ARS pesos — rounded on write), `periodicidad` (required, integer > 0 days), `descripcion` (optional, max 300 chars), `estado` (required, Activa or Inactiva).
 
 #### Scenario: Valid creation succeeds
 
-- GIVEN nombre="Gold", precio=15000.00, periodicidad=30, estado="Activa"
+- GIVEN nombre="Gold", precio=15000, periodicidad=30, estado="Activa"
 - WHEN the user submits the FormPanel
 - THEN the system creates the Membresía, populates the read-only ID, and adds it to ListPanel with 0 miembros
 
@@ -44,11 +44,11 @@ The system **MUST** validate `nombre` (required, 3–50 chars), `precio` (requir
 - WHEN the user submits
 - THEN the system rejects with "Debe ser mayor a 0"
 
-#### Scenario: Precio formatted with 2 decimals
+#### Scenario: Precio normalized to whole pesos
 
-- GIVEN the user enters precio=15000 (no decimals)
+- GIVEN the user enters precio=15000.5
 - WHEN the field loses focus or the form submits
-- THEN the system normalizes display to "15000,00" (2 decimals) per the field's placeholder convention
+- THEN the system normalizes it to the whole number "15001" (ARS prices carry no cents)
 
 ### Requirement: Membresía Deactivation Guard (RN-01 downstream effect)
 
@@ -102,7 +102,7 @@ The system **MUST** show a live "Miembros" count column reflecting the number of
 ## Acceptance Criteria
 
 - **AC-001**: Nombre is required, 3–50 chars.
-- **AC-002**: Precio is required, must be > 0, displayed/stored with exactly 2 decimal places.
+- **AC-002**: Precio is required, must be > 0, and is stored as a whole number of ARS pesos (rounded to the nearest integer on write, D-55). The UI shows whole pesos (`formatMoney`).
 - **AC-003**: Periodicidad is required, must be a positive integer (days).
 - **AC-004**: Descripcion is optional, capped at 300 chars.
 - **AC-005**: Deactivating a Membresía with ≥1 assigned Socio requires an explicit confirmation showing the affected count.
@@ -112,7 +112,7 @@ The system **MUST** show a live "Miembros" count column reflecting the number of
 
 ## Edge Cases
 
-- **Precio with more than 2 decimals entered**: MUST round or truncate to 2 decimals on save, not reject outright, unless the raw input is non-numeric.
+- **Precio with cents entered**: MUST round to the nearest whole peso on save, not reject outright, unless the raw input is non-numeric. A positive value that rounds to 0 is stored as 1 (AC-002, D-55).
 - **Duplicate nombre**: Not specified as unique in requirements.md; duplicates (e.g., "Gold" renamed variants) are technically allowed unless a project convention forbids it — treat as allowed, flag for product decision if uniqueness is desired later.
 - **Reactivating an Inactiva membership**: MUST be allowed at any time (no additional guard), immediately making it selectable again in Clientes CRUD.
 - **periodicidad edited on an active plan**: Changing periodicidad does NOT retroactively alter existing Socios' Cuota due dates already generated; it only affects future Cuota generation cycles.
@@ -122,7 +122,8 @@ The system **MUST** show a live "Miembros" count column reflecting the number of
 
 | Input | Expected Output |
 |-------|-----------------|
-| precio=15000, periodicidad=30 | Stored as 15000.00 / 30 days |
+| precio=15000, periodicidad=30 | Stored as 15000 (whole ARS pesos) / 30 days |
+| precio=15000.6, periodicidad=30 | Stored as 15001 (rounded) / 30 days |
 | precio=-10 | Rejected: "Debe ser mayor a 0" |
 | Deactivate "Gold" with 42 assigned Socios | Confirmation prompt: "42 socios tienen esta membresía asignada" |
 | Delete "Silver" with 0 assigned Socios | Deleted successfully |
