@@ -195,6 +195,10 @@ model Pago {
   monto             Decimal  @db.Decimal(10, 2)
   metodoPago        MetodoPago
   estado            EstadoPago @default(CONFIRMADO)
+  /// Precio de lista antes del descuento de la oferta; nulo si el pago no tuvo oferta (D-54)
+  montoLista        Decimal? @db.Decimal(10, 2)
+  /// Porcentaje de la oferta aplicada; nulo si el pago no tuvo oferta (D-54)
+  descuentoPct      Decimal? @db.Decimal(5, 2)
   cuota             Cuota?   @relation(fields: [cuotaId], references: [id], onDelete: SetNull)
   cuotaId           String?
   socio             Socio?   @relation("PagosDeSocio", fields: [socioId], references: [id], onDelete: SetNull) // relación opcional para pagos fuera de cuota
@@ -589,6 +593,12 @@ model ConfiguracionDelSistema {
   diaCorteAltaTardia    Int      @default(20)
   /// Ventana de anti-passback en minutos: no se permite un segundo ingreso dentro de ella (P-33)
   antiPassbackMinutos   Int      @default(60)
+  /// Días sin asistir a partir de los cuales el socio puede recibir la oferta (D-54)
+  diasSinAsistirParaOferta Int   @default(30)
+  /// Días que deben pasar desde la última oferta usada para poder recibir otra (D-54)
+  enfriamientoOfertaDias Int     @default(180)
+  /// Interruptor de la oferta de reactivación: apagada, el cobro es idéntico al de siempre (D-54)
+  ofertaReactivacionActiva Boolean @default(false)
   updatedAt             DateTime @updatedAt
 }
 
