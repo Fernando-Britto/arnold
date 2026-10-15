@@ -48,7 +48,11 @@ diseño ya está aprobado y especificado; lo que falta es código.
       vista previa en `GET /api/socios?dni=`; `montoEsperado` en `POST /api/pagos` → `409 AMOUNT_CHANGED`
       — consulta de elegibilidad separada del módulo puro (`oferta-reactivacion-consulta.ts`); con la
       oferta apagada el cobro queda idéntico; `npm test` 171/2193 verde
-- [ ] **T5** · T-045d: avisos en la pantalla de pagos, la card de Home_Interno y Home_Socio
+- [x] **T5** · T-045d: avisos en la pantalla de pagos, la card de Home_Interno y Home_Socio
+      — la card de pagos muestra lista/porcentaje/final y el form manda `montoEsperado` (con refresco de
+      la búsqueda ante `409 AMOUNT_CHANGED`); aviso propio en Home_Socio; la card de inactivos suma una
+      línea con cuántos son elegibles, con **una sola** consulta extra en bulk; `/puerta` no se tocó;
+      `npm test` 173/2211 verde
 - [ ] **T6** · Docs: avances en D-54, `PROJECT-STATUS.md` y `openspec/sdd-tasks-tdd.md`; P-40 cerrado
       cuando se confirmen los valores con el negocio
 

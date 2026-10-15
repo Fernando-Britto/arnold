@@ -48,6 +48,24 @@ describe("OperationCard (matches Home_Interno §Row_Operacion, reused for the 3 
     expect(screen.getByText("Sin personal registrado")).toBeInTheDocument();
   });
 
+  it("renders the extra 'nota' line when provided and nothing when it is absent (socios inactivos + oferta)", () => {
+    const { rerender } = render(
+      <OperationCard
+        label="Socios inactivos"
+        metric="42"
+        footer="Sin visita > 15 días"
+        nota="3 con oferta de reactivación"
+        icon={Dumbbell}
+      />
+    );
+    expect(screen.getByText("3 con oferta de reactivación")).toBeInTheDocument();
+
+    rerender(
+      <OperationCard label="Socios inactivos" metric="42" footer="Sin visita > 15 días" icon={Dumbbell} />
+    );
+    expect(screen.queryByText(/con oferta de reactivación/)).not.toBeInTheDocument();
+  });
+
   it("is disabled with a tooltip and does not fire onClick when the role has no access", async () => {
     const onClick = jest.fn();
     render(

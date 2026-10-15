@@ -8,6 +8,7 @@ describe("fetchHomeSocioData", () => {
     sesionEnProgreso: false,
     racha: { semanasRacha: 0, dias: [] },
     membresia: null,
+    oferta: null,
   };
 
   beforeEach(() => {

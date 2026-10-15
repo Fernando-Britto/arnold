@@ -7,7 +7,7 @@ jest.mock("@/lib/db", () => ({
   prisma: {
     configuracionDelSistema: { findFirst: jest.fn() },
     maquina: { findMany: jest.fn() },
-    pago: { findMany: jest.fn() },
+    pago: { findMany: jest.fn(), groupBy: jest.fn() },
     socio: { findMany: jest.fn() },
     usuario: { findMany: jest.fn() },
     cuota: { groupBy: jest.fn() },
@@ -65,6 +65,7 @@ function seed() {
     { estado: "CONFIRMADO", monto: dec(999), metodoPago: "TARJETA", fechaPago: at("2026-09-29T08:00:00Z"), socioId: null }, // 34 h atrás: no es del feed de 24 h
   ]);
   db.socio.findMany.mockResolvedValue(PADRON.map((p) => p.socio));
+  db.pago.groupBy.mockResolvedValue([]); // últimos pagos con descuento por socio (oferta, D-54)
   db.usuario.findMany.mockImplementation(async (args: { where: Record<string, unknown> }) =>
     "empleado" in args.where
       ? [{ rol: "INSTRUCTOR" }, { rol: "RECEPCIONISTA" }]
@@ -99,14 +100,14 @@ describe("buildHomeInternoPayload — mapeo de la base al contrato", () => {
   it("devuelve la hora del servidor y la configuración", async () => {
     const p = await buildHomeInternoPayload(NOW);
     expect(p.ahora).toBe("2026-09-30T18:00:00.000Z");
-    expect(p.config).toEqual({ capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15 });
+    expect(p.config).toEqual({ capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15, ofertaReactivacionActiva: false });
   });
 
   it("sin fila de configuración, entrega los valores por defecto del lector único (T-043a)", async () => {
     db.configuracionDelSistema.findFirst.mockResolvedValue(null);
     const p = await buildHomeInternoPayload(NOW);
     // Antes llegaban nulls y el dominio aplicaba estos mismos valores: lo que ve la persona no cambia.
-    expect(p.config).toEqual({ capacidadMaxima: 0, periodoGracia: 0, diasInactividad: 15 });
+    expect(p.config).toEqual({ capacidadMaxima: 0, periodoGracia: 0, diasInactividad: 15, ofertaReactivacionActiva: false });
   });
 
   it("pide la configuración una sola vez y por el lector único (fila más reciente)", async () => {
@@ -238,6 +239,58 @@ describe("buildHomeInternoPayload — mapeo de la base al contrato", () => {
   });
 });
 
+describe("buildHomeInternoPayload — oferta de reactivación (D-54)", () => {
+  it("cuenta los inactivos elegibles con UNA consulta extra, sin consultar por socio", async () => {
+    db.configuracionDelSistema.findFirst.mockResolvedValue({
+      capacidadMaxima: 100,
+      periodoGracia: 3,
+      diasInactividad: 15,
+      ofertaReactivacionActiva: true,
+      diasSinAsistirParaOferta: 30,
+      descuentoReactivacion: 10,
+      enfriamientoOfertaDias: 180,
+    });
+    db.socio.findMany.mockResolvedValue([
+      { id: "s-ana", usuarioId: "u-s-ana", membresiaAsignadaId: "m-pro", fechaAlta: VIEJO, estadoCuota: "AL_DIA" },
+      { id: "s-pablo", usuarioId: "u-s-pablo", membresiaAsignadaId: null, fechaAlta: VIEJO, estadoCuota: "AL_DIA" },
+    ]);
+    db.usuario.findMany.mockImplementation(async (args: { where: Record<string, unknown> }) =>
+      "empleado" in args.where
+        ? []
+        : [
+            { id: "u-s-ana", nombre: "Ana López", estado: "ACTIVO", deletedAt: null },
+            { id: "u-s-pablo", nombre: "Pablo R.", estado: "ACTIVO", deletedAt: null },
+          ]
+    );
+    db.asistencia.groupBy.mockResolvedValue([
+      { socioId: "s-ana", _max: { fechaHora: at("2026-08-01T14:00:00Z") } }, // 60 días: inactiva
+      { socioId: "s-pablo", _max: { fechaHora: at("2026-09-30T14:00:00Z") } }, // hoy: activa
+    ]);
+    db.cuota.groupBy.mockResolvedValue([
+      { socioId: "s-ana", _max: { fechaVencimiento: at("2026-08-31T02:59:59Z") } }, // agosto: cuota VENCIDA
+    ]);
+    db.pago.groupBy.mockResolvedValue([]);
+
+    const p = await buildHomeInternoPayload(NOW);
+
+    // Ana: inactiva + membresía + cuenta AL_DIA + cuota vencida → elegible. Pablo no tiene membresía.
+    expect(p.inactivosConOferta).toBe(1);
+    expect(p.config.ofertaReactivacionActiva).toBe(true);
+    // Una sola consulta, para todos los socios (nunca una por socio).
+    expect(db.pago.groupBy).toHaveBeenCalledTimes(1);
+    expect(db.pago.groupBy).toHaveBeenCalledWith({
+      by: ["socioId"],
+      where: { estado: "CONFIRMADO", descuentoPct: { not: null } },
+      _max: { fechaPago: true },
+    });
+  });
+
+  it("con la oferta apagada el conteo es 0", async () => {
+    const p = await buildHomeInternoPayload(NOW);
+    expect(p.inactivosConOferta).toBe(0);
+  });
+});
+
 describe("buildHomeInternoPayload — rendimiento (P-07): pocas idas y vueltas a la base", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const todasLasLlamadas = (): [string, any][] =>
@@ -254,10 +307,10 @@ describe("buildHomeInternoPayload — rendimiento (P-07): pocas idas y vueltas a
     const lanzadas = new Set(todasLasLlamadas().map(([nombre]) => nombre));
     expect([...lanzadas].sort()).toEqual([
       "asistencia.findMany", "asistencia.groupBy", "configuracionDelSistema.findFirst", "cuota.groupBy",
-      "ejercicio.count", "maquina.findMany", "membresia.findMany", "pago.findMany", "rutina.count",
-      "rutina.findMany", "rutinaAsignada.findMany", "socio.findMany", "usuario.findMany",
+      "ejercicio.count", "maquina.findMany", "membresia.findMany", "pago.findMany", "pago.groupBy",
+      "rutina.count", "rutina.findMany", "rutinaAsignada.findMany", "socio.findMany", "usuario.findMany",
     ]);
-    expect(todasLasLlamadas()).toHaveLength(14); // 13 modelos/métodos; usuario.findMany se usa dos veces
+    expect(todasLasLlamadas()).toHaveLength(15); // 14 modelos/métodos; usuario.findMany se usa dos veces
   });
 
   it("ninguna consulta anida relaciones en `select` (cada relación anidada es otra consulta, encadenada)", async () => {
@@ -281,7 +334,7 @@ describe("contrato servidor ↔ cliente ↔ dominio (el mismo camino que recorre
     expect(vm.aforo).toMatchObject({ ocupacionActual: 5, capacidadMaxima: 100, porcentaje: 5 });
     expect(vm.equipos).toEqual({ metric: "90%", footer: "2 en mantenimiento" });
     expect(vm.personal).toEqual({ metric: "2", footer: "1 entrenador, 1 staff" });
-    expect(vm.inactivos).toEqual({ metric: "1", footer: "Sin visita > 15 días" }); // Juan P.: nunca vino
+    expect(vm.inactivos).toEqual({ metric: "1", footer: "Sin visita > 15 días", nota: null }); // Juan P.: nunca vino
     expect(vm.alertas.map((a) => a.texto)).toEqual(["Vencimiento · Marta G."]);
     expect(vm.gestion).toEqual({ rutinas: "124", ejercicios: "342", clientes: "7", membresias: "15" });
     expect(vm.actividad.map((a) => a.nombre)).toEqual([

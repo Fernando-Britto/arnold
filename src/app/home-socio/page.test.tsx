@@ -89,6 +89,7 @@ const baseViewModel: HomeSocioViewModel = {
     dias28: new Array(28).fill(false),
     totalAsistencias28Dias: 12,
   },
+  oferta: null,
 };
 
 const waitForLoadingComplete = () =>
@@ -148,6 +149,25 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
     ]) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }
+  });
+
+  it("muestra el aviso de oferta de reactivación arriba de las filas cuando el socio es elegible (D-54)", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    mockFetch.mockResolvedValue({ ...baseViewModel, oferta: { descuentoPct: 10 } });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    const aviso = screen.getByTestId("aviso-oferta-reactivacion");
+    expect(aviso).toBeInTheDocument();
+    // El aviso va antes de la primera fila.
+    expect(aviso.compareDocumentPosition(screen.getByTestId("fila-1")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("no muestra el aviso de oferta cuando el socio no es elegible", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+    expect(screen.queryByTestId("aviso-oferta-reactivacion")).not.toBeInTheDocument();
   });
 
   it("con datos vacíos muestra el estado vacío propio de cada tarjeta, no el placeholder 'Trabajando en esto'", async () => {

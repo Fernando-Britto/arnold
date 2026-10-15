@@ -5,11 +5,12 @@ jest.mock("@/lib/db", () => ({
   prisma: {
     socio: { findUnique: jest.fn() },
     configuracionDelSistema: { findFirst: jest.fn() },
-    asistencia: { findMany: jest.fn() },
+    asistencia: { findMany: jest.fn(), findFirst: jest.fn() },
     registroDeProgreso: { findMany: jest.fn() },
     reglaDeProgresion: { findFirst: jest.fn() },
     rutinaAsignada: { findMany: jest.fn() },
     sesionDeEntrenamiento: { findFirst: jest.fn() },
+    pago: { findFirst: jest.fn() },
   },
 }));
 
@@ -23,6 +24,8 @@ const at = (iso: string) => new Date(iso);
 
 const SOCIO = {
   id: "socio-1",
+  estadoCuota: "AL_DIA",
+  fechaAlta: at("2025-01-01T12:00:00Z"),
   membresiaAsignada: { nombre: "Premium", periodicidad: 30 },
   cuotas: [{ fechaVencimiento: at("2026-10-20T03:00:00Z") }],
 };
@@ -185,6 +188,68 @@ describe("buildHomeSocioPayload", () => {
 
     const res = await buildHomeSocioPayload("u1", NOW);
     expect(res).toMatchObject({ progreso: null, rutinaActiva: null, membresia: null, sesionEnProgreso: false });
+  });
+
+  it("oferta: null y sin consultar asistencia/pago de la oferta cuando está apagada (D-54)", async () => {
+    seed();
+    const res = await buildHomeSocioPayload("u1", NOW);
+    expect(res?.oferta).toBeNull();
+    expect(db.asistencia.findFirst).not.toHaveBeenCalled();
+    expect(db.pago.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("oferta: el socio vencido que dejó de venir recibe el aviso (D-54)", async () => {
+    seed();
+    db.configuracionDelSistema.findFirst.mockResolvedValue({
+      capacidadMaxima: 50,
+      ventanaAforoMinutos: 90,
+      ofertaReactivacionActiva: true,
+      diasSinAsistirParaOferta: 30,
+      descuentoReactivacion: 10,
+      enfriamientoOfertaDias: 180,
+    });
+    db.socio.findUnique.mockResolvedValue({
+      ...SOCIO,
+      cuotas: [{ fechaVencimiento: at("2026-08-31T03:00:00Z") }], // agosto: VENCIDA en octubre
+    });
+    db.asistencia.findFirst.mockResolvedValue({ fechaHora: at("2026-08-01T13:00:00Z") }); // 60 días sin venir
+    db.pago.findFirst.mockResolvedValue(null);
+
+    const res = await buildHomeSocioPayload("u1", NOW);
+
+    expect(res?.oferta).toEqual({ descuentoPct: 10 });
+    expect(db.asistencia.findFirst).toHaveBeenCalledWith({
+      where: { socioId: "socio-1", estado: "PERMITIDO" },
+      orderBy: { fechaHora: "desc" },
+      select: { fechaHora: true },
+    });
+    expect(db.pago.findFirst).toHaveBeenCalledWith({
+      where: { socioId: "socio-1", estado: "CONFIRMADO", descuentoPct: { not: null } },
+      orderBy: { fechaPago: "desc" },
+      select: { fechaPago: true },
+    });
+  });
+
+  it("oferta: sin aviso cuando el socio sigue viniendo (actividad reciente, D-54)", async () => {
+    seed();
+    db.configuracionDelSistema.findFirst.mockResolvedValue({
+      capacidadMaxima: 50,
+      ventanaAforoMinutos: 90,
+      ofertaReactivacionActiva: true,
+      diasSinAsistirParaOferta: 30,
+      descuentoReactivacion: 10,
+      enfriamientoOfertaDias: 180,
+    });
+    db.socio.findUnique.mockResolvedValue({
+      ...SOCIO,
+      cuotas: [{ fechaVencimiento: at("2026-08-31T03:00:00Z") }],
+    });
+    db.asistencia.findFirst.mockResolvedValue({ fechaHora: at("2026-10-05T13:00:00Z") }); // hace 2 días
+    db.pago.findFirst.mockResolvedValue(null);
+
+    const res = await buildHomeSocioPayload("u1", NOW);
+
+    expect(res?.oferta).toBeNull();
   });
 
   it("sin configuración del sistema: capacidad 0 en vez de romper", async () => {

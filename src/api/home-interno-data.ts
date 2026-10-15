@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { getConfiguracion } from "@/lib/configuracion";
 import { hourInGym, startOfGymDay, turnoActual } from "@/lib/gym-time";
+import { estadoCuotaSocio, periodoDe } from "@/domains/pago/cuota";
+import { computeInactivosConOferta, type CandidatoOferta } from "@/domains/home-interno/home-interno";
 import type { HomeInternoDTO } from "@/api/home-interno";
 
 /**
@@ -57,7 +59,7 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
   // UNA sola ronda: ninguna consulta depende de otra ni anida relaciones (ver nota de la cabecera).
   const [
     config, maquinas, pagosRecientes, socios, usuariosSocio, ultimasCuotas, ultimasVisitas,
-    asistencias, personal, rutinas, ejercicios, planes, asignaciones, rutinasAsignadas,
+    ultimosDescuentos, asistencias, personal, rutinas, ejercicios, planes, asignaciones, rutinasAsignadas,
   ] = await Promise.all([
     getConfiguracion(prisma),
     prisma.maquina.findMany({ select: { estado: true } }),
@@ -66,11 +68,20 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
       where: { estado: { in: ["CONFIRMADO", "ANULADO"] }, fechaPago: { gte: hace36h } },
       select: { estado: true, monto: true, metodoPago: true, fechaPago: true, socioId: true },
     }),
-    prisma.socio.findMany({ select: { id: true, usuarioId: true, membresiaAsignadaId: true, fechaAlta: true } }),
+    prisma.socio.findMany({
+      select: { id: true, usuarioId: true, membresiaAsignadaId: true, fechaAlta: true, estadoCuota: true },
+    }),
     prisma.usuario.findMany({ where: { rol: "SOCIO" }, select: { id: true, nombre: true, estado: true, deletedAt: true } }),
     // Última cuota y última visita por socio, agregadas en la base: una fila por socio en vez de traer todo el historial.
     prisma.cuota.groupBy({ by: ["socioId"], _max: { fechaVencimiento: true } }),
     prisma.asistencia.groupBy({ by: ["socioId"], where: { estado: "PERMITIDO" }, _max: { fechaHora: true } }),
+    // Último pago con descuento por socio (D-54): una sola consulta para todos los socios, sin ventana en
+    // la base (dependería de la config y agregaría una ronda); el enfriamiento se aplica después en el dominio.
+    prisma.pago.groupBy({
+      by: ["socioId"],
+      where: { estado: "CONFIRMADO", descuentoPct: { not: null } },
+      _max: { fechaPago: true },
+    }),
     prisma.asistencia.findMany({
       where: { estado: "PERMITIDO", fechaHora: { gte: desdeAsistencias } },
       select: { fechaHora: true },
@@ -108,6 +119,11 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
   const rutinaPorId = new Map(rutinasAsignadas.map((r) => [r.id, r.nombre]));
   const cuotaPorSocio = new Map(ultimasCuotas.map((c) => [c.socioId, c._max.fechaVencimiento]));
   const visitaPorSocio = new Map(ultimasVisitas.map((v) => [v.socioId, v._max.fechaHora]));
+  const descuentoPorSocio = new Map(
+    ultimosDescuentos
+      .filter((d) => d.socioId !== null)
+      .map((d) => [d.socioId as string, d._max.fechaPago])
+  );
   const nombreDeSocio = (socioId: string | null | undefined) => {
     const socio = socioId ? socioPorId.get(socioId) : undefined;
     return socio ? usuarioPorId.get(socio.usuarioId)?.nombre : undefined;
@@ -119,6 +135,36 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
     return u !== undefined && u.estado === "ACTIVO" && u.deletedAt === null;
   });
   const clientes = socios.filter((s) => usuarioPorId.get(s.usuarioId)?.deletedAt === null).length;
+
+  // Oferta de reactivación (D-54): solo para el padrón activo, reusando los datos ya cargados.
+  // La decisión de cada socio la toma `computeInactivosConOferta` (en el dominio).
+  const candidatos: CandidatoOferta[] = padron.map((s) => {
+    const vencimiento = cuotaPorSocio.get(s.id);
+    return {
+      estadoCuenta: s.estadoCuota,
+      tieneMembresia: s.membresiaAsignadaId !== null,
+      estadoPago: estadoCuotaSocio({
+        ultimoPeriodoCubierto: vencimiento ? periodoDe(vencimiento) : null,
+        hoy: now,
+        diaLimite: config.diaLimitePago,
+        gracia: config.periodoGracia,
+      }),
+      ultimaVisita: visitaPorSocio.get(s.id) ?? null,
+      fechaAlta: s.fechaAlta,
+      ultimoPagoConDescuento: descuentoPorSocio.get(s.id) ?? null,
+    };
+  });
+  const inactivosConOferta = computeInactivosConOferta({
+    candidatos,
+    config: {
+      ofertaReactivacionActiva: config.ofertaReactivacionActiva,
+      diasSinAsistirParaOferta: config.diasSinAsistirParaOferta,
+      descuentoReactivacion: config.descuentoReactivacion,
+      enfriamientoOfertaDias: config.enfriamientoOfertaDias,
+      diasInactividad: config.diasInactividad,
+    },
+    hoy: now,
+  });
 
   const eventos: HomeInternoDTO["eventos"] = [
     ...pagosRecientes
@@ -166,6 +212,7 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
       capacidadMaxima: config.capacidadMaxima,
       periodoGracia: config.periodoGracia,
       diasInactividad: config.diasInactividad,
+      ofertaReactivacionActiva: config.ofertaReactivacionActiva,
     },
     maquinas: maquinas.map((m) => ({ estado: m.estado })),
     pagos: pagosRecientes
@@ -183,6 +230,7 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
         : [];
     }),
     ultimasAsistencias: padron.map((s) => visitaPorSocio.get(s.id)?.toISOString() ?? null),
+    inactivosConOferta,
     aforo: {
       asistenciasActivas: asistencias.filter((a) => a.fechaHora >= desdeVentana).length,
       horas,

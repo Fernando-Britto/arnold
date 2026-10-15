@@ -125,7 +125,7 @@ describe("HomeInternoPage Part 1 (Row_Acciones, Row_Hoy, Row_Operacion)", () => 
 
   it("shows 'Aforo no configurado' instead of crashing when ConfiguracionDelSistema values are null", async () => {
     mockAuth.mockReturnValue(staff);
-    mockFetch.mockResolvedValue({ ...data, config: { capacidadMaxima: null, periodoGracia: null, diasInactividad: null } });
+    mockFetch.mockResolvedValue({ ...data, config: { capacidadMaxima: null, periodoGracia: null, diasInactividad: null, ofertaReactivacionActiva: false } });
     render(<HomeInternoPage />);
     await loaded();
     expect(screen.getByText("Aforo no configurado")).toBeInTheDocument();

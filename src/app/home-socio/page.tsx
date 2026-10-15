@@ -11,6 +11,7 @@ import { TarjetaRutina } from "@/components/home-socio/tarjeta-rutina";
 import { TarjetaDetalle } from "@/components/home-socio/tarjeta-detalle";
 import { RachaSemanal } from "@/components/home-socio/racha-semanal";
 import { MembresiaCard } from "@/components/home-socio/membresia-card";
+import { AvisoOfertaReactivacion } from "@/components/home-socio/aviso-oferta";
 import { EjecucionRutina } from "@/components/home-socio/ejecucion-rutina";
 
 /**
@@ -119,6 +120,9 @@ export function HomeSocioPage() {
 
       {/* MainContent: padding 0/48/48/48, 24px gap (design-alignment.md). */}
       <main className="flex w-full flex-col gap-6 px-12 pb-12">
+        {/* Aviso de oferta de reactivación (D-54): solo se renderiza si el socio es elegible. */}
+        <AvisoOfertaReactivacion descuentoPct={data.oferta?.descuentoPct ?? null} />
+
         {/* Fila1 — FilaProgreso (1157) + Aforo (633) */}
         <div data-testid="fila-1" className="grid gap-6 lg:grid-cols-[1157fr_633fr]">
           {/* Sin registros en la ventana → la sección muestra su propio estado vacío (no un placeholder). */}

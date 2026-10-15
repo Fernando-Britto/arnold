@@ -16,13 +16,15 @@ export interface OperationCardProps {
   /** Pre-formatted, e.g. "98%", "6", "42". */
   metric: string;
   footer: string;
+  /** Segunda línea del pie; no se renderiza si es null. */
+  nota?: string | null;
   icon: LucideIcon;
   onClick?: () => void;
   /** The role cannot open the destination. */
   disabled?: boolean;
 }
 
-export function OperationCard({ label, metric, footer, icon: Icon, onClick, disabled = false }: OperationCardProps) {
+export function OperationCard({ label, metric, footer, nota, icon: Icon, onClick, disabled = false }: OperationCardProps) {
   return (
     <button
       type="button"
@@ -41,6 +43,7 @@ export function OperationCard({ label, metric, footer, icon: Icon, onClick, disa
         </div>
       </div>
       <p className="text-xs text-zinc-400">{footer}</p>
+      {nota && <p className="text-xs text-amber-700">{nota}</p>}
     </button>
   );
 }

@@ -48,8 +48,16 @@ export function SocioPagoCard({ socio }: { socio: SocioBusqueda }) {
           <span className={ESTADO_CLASS[socio.estadoCuota]}>{ESTADO_LABEL[socio.estadoCuota]}</span>
         </Dato>
         <Dato label="Monto a cobrar">
-          {socio.plan ? formatMoney(socio.plan.monto) : "—"}
+          {socio.plan ? formatMoney(socio.oferta ? socio.oferta.montoFinal : socio.plan.monto) : "—"}
         </Dato>
+        {socio.oferta && (
+          <>
+            <Dato label="Precio de lista">{formatMoney(socio.oferta.montoLista)}</Dato>
+            <Dato label="Descuento">
+              <span className="text-green-700">{`−${socio.oferta.descuentoPct} %`}</span>
+            </Dato>
+          </>
+        )}
         {socio.plan && <Dato label="Período">{socio.plan.periodos.join(", ")}</Dato>}
       </dl>
 

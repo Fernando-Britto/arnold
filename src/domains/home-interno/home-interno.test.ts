@@ -1,6 +1,7 @@
 import {
   computeEstadoEquipos,
   computeSociosInactivos,
+  computeInactivosConOferta,
   computeCajaHoy,
   filterActivityFeed,
   computeAforo,
@@ -8,6 +9,7 @@ import {
   computePersonalEnTurno,
   aggregateHomeInterno,
   type ActivityEvent,
+  type CandidatoOferta,
   type HomeInternoRaw,
 } from "./home-interno";
 
@@ -58,6 +60,42 @@ describe("computeSociosInactivos (uses ConfiguracionDelSistema.diasInactividad)"
 
   it("counts a socio who never attended (null) as inactive", () => {
     expect(computeSociosInactivos([null], 15, hoy).cantidad).toBe(1);
+  });
+});
+
+describe("computeInactivosConOferta (D-54: cuántos de los inactivos son elegibles para la oferta)", () => {
+  const hoy = new Date("2026-09-30T12:00:00Z");
+  const config = {
+    ofertaReactivacionActiva: true,
+    diasSinAsistirParaOferta: 30,
+    descuentoReactivacion: 10,
+    enfriamientoOfertaDias: 180,
+    diasInactividad: 15,
+  };
+  const base: CandidatoOferta = {
+    estadoCuenta: "AL_DIA",
+    tieneMembresia: true,
+    estadoPago: "VENCIDA",
+    ultimaVisita: new Date("2026-08-01T12:00:00Z"), // 60 días: inactivo y sin actividad reciente
+    fechaAlta: new Date("2024-01-01T12:00:00Z"),
+    ultimoPagoConDescuento: null,
+  };
+
+  it("devuelve el conteo correcto sobre un fixture mixto (usa evaluarOferta, no reimplementa las condiciones)", () => {
+    const candidatos: CandidatoOferta[] = [
+      base, // inactivo, vencido y sin enfriamiento → elegible
+      { ...base, estadoPago: "AL_DIA" }, // ya paga: no
+      { ...base, ultimaVisita: new Date("2026-09-25T12:00:00Z") }, // sigue viniendo: no
+      { ...base, ultimoPagoConDescuento: new Date("2026-09-20T12:00:00Z") }, // en enfriamiento: no
+      { ...base, ultimaVisita: null }, // nunca asistió: inactivo y elegible
+    ];
+    expect(computeInactivosConOferta({ candidatos, config, hoy })).toBe(2);
+  });
+
+  it("con la oferta apagada no cuenta a nadie, aunque sean inactivos", () => {
+    expect(
+      computeInactivosConOferta({ candidatos: [base], config: { ...config, ofertaReactivacionActiva: false }, hoy })
+    ).toBe(0);
   });
 });
 
@@ -227,7 +265,7 @@ describe("computePersonalEnTurno (spec edge case: no staff -> 0 / 'Sin personal 
 describe("aggregateHomeInterno (composes Row_Hoy + Row_Operacion from raw data)", () => {
   const hoy = new Date("2026-09-30T18:00:00Z");
   const raw: HomeInternoRaw = {
-    config: { capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15 },
+    config: { capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15, ofertaReactivacionActiva: false },
     maquinas: [
       ...Array(2).fill({ estado: "FUERA_DE_SERVICIO" as const }),
       ...Array(18).fill({ estado: "DISPONIBLE" as const }),
@@ -238,6 +276,7 @@ describe("aggregateHomeInterno (composes Row_Hoy + Row_Operacion from raw data)"
     ],
     cuotas: [{ socioId: "s1", socioNombre: "Marta G.", fechaVencimiento: new Date("2026-10-01T00:00:00Z") }],
     ultimasAsistencias: Array(42).fill(new Date("2026-09-01T00:00:00Z")),
+    inactivosConOferta: 0,
     aforo: { asistenciasActivas: 87, horas: [{ hora: 18, ocupacion: 87 }], horaActual: 18 },
     personal: [{ rol: "INSTRUCTOR" }, { rol: "RECEPCIONISTA" }],
     contadores: { rutinas: 124, ejercicios: 342, clientes: 892, membresias: 0 },
@@ -254,18 +293,38 @@ describe("aggregateHomeInterno (composes Row_Hoy + Row_Operacion from raw data)"
     expect(vm.aforo).toMatchObject({ ocupacionActual: 87, capacidadMaxima: 100, porcentaje: 87 });
     expect(vm.caja).toEqual({ efectivo: 150, transferencia: 200, tarjeta: 0, total: 350 });
     expect(vm.equipos).toEqual({ metric: "90%", footer: "2 en mantenimiento" });
-    expect(vm.inactivos).toEqual({ metric: "42", footer: "Sin visita > 15 días" });
+    expect(vm.inactivos).toEqual({ metric: "42", footer: "Sin visita > 15 días", nota: null });
     expect(vm.personal).toEqual({ metric: "2", footer: "1 entrenador, 1 staff" });
     expect(vm.alertas).toHaveLength(1);
   });
 
   it("falls back to defaults when ConfiguracionDelSistema values are null, without crashing", () => {
     const vm = aggregateHomeInterno(
-      { ...raw, config: { capacidadMaxima: null, periodoGracia: null, diasInactividad: null } },
+      { ...raw, config: { capacidadMaxima: null, periodoGracia: null, diasInactividad: null, ofertaReactivacionActiva: false } },
       hoy
     );
     expect(vm.aforo.porcentaje).toBe(0);
     expect(vm.inactivos.footer).toBe("Sin visita > 15 días");
+  });
+
+  it("Socios inactivos: muestra la línea de oferta solo con la oferta activa y al menos un elegible", () => {
+    const conOferta = aggregateHomeInterno(
+      { ...raw, config: { ...raw.config, ofertaReactivacionActiva: true }, inactivosConOferta: 3 },
+      hoy
+    );
+    expect(conOferta.inactivos.nota).toBe("3 con oferta de reactivación");
+
+    const sinElegibles = aggregateHomeInterno(
+      { ...raw, config: { ...raw.config, ofertaReactivacionActiva: true }, inactivosConOferta: 0 },
+      hoy
+    );
+    expect(sinElegibles.inactivos.nota).toBeNull();
+
+    const ofertaApagada = aggregateHomeInterno(
+      { ...raw, config: { ...raw.config, ofertaReactivacionActiva: false }, inactivosConOferta: 3 },
+      hoy
+    );
+    expect(ofertaApagada.inactivos.nota).toBeNull();
   });
 
   it("Row_Gestion: exposes the 4 live counts as display strings (zero stays '0')", () => {

@@ -86,6 +86,11 @@ export interface HomeSocioViewModel {
   sesionEnProgreso: boolean;
   racha: RachaDTO;
   membresia: MembresiaDTO | null;
+  /**
+   * Oferta de reactivación del propio socio (D-54): `null` si no es elegible. Solo informa el
+   * porcentaje para el aviso; el descuento real se recalcula al cobrar.
+   */
+  oferta: { descuentoPct: number } | null;
 }
 
 export async function fetchHomeSocioData(): Promise<HomeSocioViewModel> {

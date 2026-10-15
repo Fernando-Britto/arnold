@@ -3,6 +3,9 @@ import { getConfiguracion } from "@/lib/configuracion";
 import { startOfGymDay, toGymWallClock } from "@/lib/gym-time";
 import { buildAforoHoras } from "@/api/home-interno-data";
 import type { HomeSocioViewModel } from "@/api/home-socio";
+import { estadoCuotaSocio, periodoDe } from "@/domains/pago/cuota";
+import { evaluarOfertaDeSocio } from "@/domains/pago/oferta-reactivacion-consulta";
+import type { ConfigOferta } from "@/domains/pago/oferta-reactivacion";
 import {
   DEFAULT_INCREMENTO_KG,
   buildSemanaCalendario,
@@ -41,6 +44,8 @@ export async function buildHomeSocioPayload(
     where: { usuarioId },
     select: {
       id: true,
+      estadoCuota: true,
+      fechaAlta: true,
       membresiaAsignada: { select: { nombre: true, periodicidad: true } },
       cuotas: { orderBy: { fechaVencimiento: "desc" }, take: 1, select: { fechaVencimiento: true } },
     },
@@ -52,7 +57,24 @@ export async function buildHomeSocioPayload(
   const ventanaMin = config.ventanaAforoMinutos;
   const desdeVentana = new Date(now.getTime() - ventanaMin * 60 * 1000);
 
-  const [asistenciasGym, asistenciasSocio, registros, regla, asignaciones, sesion] = await Promise.all([
+  // Oferta de reactivación (D-54): es un solo socio, así que se reusan los datos ya cargados
+  // (cuota, membresía, config) y `evaluarOfertaDeSocio` agrega solo lo que le falta (última
+  // asistencia y último pago con descuento). Con la oferta apagada no consulta nada.
+  const ultimaCuota = socio.cuotas[0];
+  const estadoPago = estadoCuotaSocio({
+    ultimoPeriodoCubierto: ultimaCuota ? periodoDe(ultimaCuota.fechaVencimiento) : null,
+    hoy: now,
+    diaLimite: config.diaLimitePago,
+    gracia: config.periodoGracia,
+  });
+  const configOferta: ConfigOferta = {
+    ofertaReactivacionActiva: config.ofertaReactivacionActiva,
+    diasSinAsistirParaOferta: config.diasSinAsistirParaOferta,
+    descuentoReactivacion: config.descuentoReactivacion,
+    enfriamientoOfertaDias: config.enfriamientoOfertaDias,
+  };
+
+  const [asistenciasGym, asistenciasSocio, registros, regla, asignaciones, sesion, evaluacionOferta] = await Promise.all([
     prisma.asistencia.findMany({
       where: { estado: "PERMITIDO", fechaHora: { gte: new Date(Math.min(inicioDia.getTime(), desdeVentana.getTime())) } },
       select: { fechaHora: true },
@@ -100,6 +122,18 @@ export async function buildHomeSocioPayload(
       orderBy: { horaInicio: "desc" },
       select: { id: true, ejercicioActualId: true },
     }),
+    evaluarOfertaDeSocio(
+      prisma,
+      socio.id,
+      configOferta,
+      {
+        estadoCuenta: socio.estadoCuota,
+        tieneMembresia: socio.membresiaAsignada !== null,
+        estadoPago,
+        fechaAlta: socio.fechaAlta,
+      },
+      now,
+    ),
   ]);
 
   // Aforo (AC-005): mismo cálculo que Home_Interno.
@@ -177,5 +211,6 @@ export async function buildHomeSocioPayload(
             totalAsistencias28Dias: dias28.total,
           }
         : null,
+    oferta: evaluacionOferta.elegible ? { descuentoPct: evaluacionOferta.descuentoPct } : null,
   };
 }

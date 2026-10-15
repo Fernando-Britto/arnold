@@ -5,6 +5,9 @@
  * already-fetched arrays rather than querying Prisma directly, since
  * Máquina/Pago/Asistencia aggregation has no repository layer yet.
  */
+import type { EstadoCuenta } from "@/domains/acceso/check-in";
+import type { EstadoCuotaSocio } from "@/domains/pago/cuota";
+import { evaluarOferta, type ConfigOferta } from "@/domains/pago/oferta-reactivacion";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -45,18 +48,60 @@ export interface SociosInactivosResult {
 
 /** A Socio counts as inactive when they never attended, or their last
  * Asistencia is older than `diasInactividad` days. */
+const esInactivo = (ultimaVisita: Date | null, diasInactividad: number, hoy: Date): boolean => {
+  if (!ultimaVisita) return true;
+  return (hoy.getTime() - ultimaVisita.getTime()) / MS_PER_DAY > diasInactividad;
+};
+
 export function computeSociosInactivos(
   ultimasAsistencias: (Date | null)[],
   diasInactividad: number,
   hoy: Date
 ): SociosInactivosResult {
-  const cantidad = ultimasAsistencias.filter((fecha) => {
-    if (!fecha) return true;
-    const dias = (hoy.getTime() - fecha.getTime()) / MS_PER_DAY;
-    return dias > diasInactividad;
-  }).length;
+  const cantidad = ultimasAsistencias.filter((fecha) => esInactivo(fecha, diasInactividad, hoy)).length;
 
   return { cantidad, footer: `Sin visita > ${diasInactividad} días` };
+}
+
+/** Lo que hace falta de cada socio para saber si, estando inactivo, es elegible para la oferta (D-54). */
+export interface CandidatoOferta {
+  /** Estado de la CUENTA (`Socio.estadoCuota`, D-46). */
+  estadoCuenta: EstadoCuenta;
+  tieneMembresia: boolean;
+  /** Estado de PAGO calculado con `estadoCuotaSocio` (D-40). */
+  estadoPago: EstadoCuotaSocio;
+  /** Última asistencia con `estado = PERMITIDO`, o null si nunca asistió. */
+  ultimaVisita: Date | null;
+  fechaAlta: Date;
+  /** `fechaPago` del último `Pago` CONFIRMADO con descuento, o null si nunca usó la oferta. */
+  ultimoPagoConDescuento: Date | null;
+}
+
+/**
+ * Cuántos de los socios inactivos son elegibles para la oferta de reactivación. La decisión de cada
+ * socio sale de `evaluarOferta` (las cinco condiciones de la spec), no se reimplementa acá.
+ * Función pura: recibe los candidatos ya armados, no consulta la base.
+ */
+export function computeInactivosConOferta(input: {
+  candidatos: CandidatoOferta[];
+  config: ConfigOferta & { diasInactividad: number };
+  hoy: Date;
+}): number {
+  const { candidatos, config, hoy } = input;
+  return candidatos.filter(
+    (c) =>
+      esInactivo(c.ultimaVisita, config.diasInactividad, hoy) &&
+      evaluarOferta({
+        config,
+        estadoCuenta: c.estadoCuenta,
+        tieneMembresia: c.tieneMembresia,
+        estadoPago: c.estadoPago,
+        ultimaAsistenciaPermitida: c.ultimaVisita,
+        fechaAlta: c.fechaAlta,
+        ultimoPagoConDescuento: c.ultimoPagoConDescuento,
+        hoy,
+      }).elegible
+  ).length;
 }
 
 export type MetodoPago = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA";
@@ -237,7 +282,13 @@ export function formatHaceTiempo(fecha: Date, hoy: Date): string {
 }
 
 export interface HomeInternoRaw {
-  config: { capacidadMaxima: number | null; periodoGracia: number | null; diasInactividad: number | null };
+  config: {
+    capacidadMaxima: number | null;
+    periodoGracia: number | null;
+    diasInactividad: number | null;
+    /** Interruptor de la oferta de reactivación (D-54). Solo hace falta para decidir si se muestra el aviso. */
+    ofertaReactivacionActiva: boolean;
+  };
   maquinas: { estado: EstadoMaquina }[];
   pagos: Pago[];
   cuotas: CuotaPorVencer[];
@@ -248,11 +299,19 @@ export interface HomeInternoRaw {
   contadores: { rutinas: number; ejercicios: number; clientes: number; membresias: number };
   /** Unfiltered candidate events; the feed rules are applied in aggregateHomeInterno. */
   eventos: ActivityEvent[];
+  /**
+   * Inactivos que además son elegibles para la oferta (D-54). Se calcula en el servidor con
+   * `computeInactivosConOferta` (una sola consulta extra, sin consultar por socio) y viaja ya contado
+   * para no mandar al navegador los datos de cada socio.
+   */
+  inactivosConOferta: number;
 }
 
 export interface OperationCardView {
   metric: string;
   footer: string;
+  /** Segunda línea del pie; null cuando no corresponde mostrarla (p. ej. sin oferta de reactivación). */
+  nota?: string | null;
 }
 
 export interface HomeInternoViewModel {
@@ -287,7 +346,15 @@ export function aggregateHomeInterno(
     caja: computeCajaHoy(raw.pagos, hoy),
     equipos: { metric: `${equipos.porcentaje}%`, footer: `${equipos.enMantenimiento} en mantenimiento` },
     personal: { metric: String(personal.cantidad), footer: personal.footer },
-    inactivos: { metric: String(inactivos.cantidad), footer: inactivos.footer },
+    inactivos: {
+      metric: String(inactivos.cantidad),
+      footer: inactivos.footer,
+      // Solo con la oferta activa y al menos un elegible; si no, no se agrega ninguna línea (D-54).
+      nota:
+        raw.config.ofertaReactivacionActiva && raw.inactivosConOferta > 0
+          ? `${raw.inactivosConOferta} con oferta de reactivación`
+          : null,
+    },
     gestion: {
       rutinas: String(raw.contadores.rutinas),
       ejercicios: String(raw.contadores.ejercicios),

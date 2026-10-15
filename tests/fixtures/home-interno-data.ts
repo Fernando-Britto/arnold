@@ -9,7 +9,7 @@ import type { HomeInternoData } from "@/api/home-interno";
 export function buildHomeInternoData(overrides: Partial<HomeInternoData> = {}): HomeInternoData {
   return {
     ahora: new Date("2026-09-30T18:00:00Z"),
-    config: { capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15 },
+    config: { capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15, ofertaReactivacionActiva: false },
     maquinas: [
       ...Array(2).fill({ estado: "FUERA_DE_SERVICIO" as const }),
       ...Array(18).fill({ estado: "DISPONIBLE" as const }),
@@ -20,6 +20,7 @@ export function buildHomeInternoData(overrides: Partial<HomeInternoData> = {}): 
     ],
     cuotas: [{ socioId: "s1", socioNombre: "Marta G.", fechaVencimiento: new Date("2026-10-01T00:00:00Z") }],
     ultimasAsistencias: Array(42).fill(new Date("2026-09-01T00:00:00Z")),
+    inactivosConOferta: 0,
     aforo: { asistenciasActivas: 87, horas: [{ hora: 18, ocupacion: 87 }], horaActual: 18 },
     personal: [{ rol: "INSTRUCTOR" }, { rol: "RECEPCIONISTA" }],
     contadores: { rutinas: 124, ejercicios: 342, clientes: 892, membresias: 15 },
