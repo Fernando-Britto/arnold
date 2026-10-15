@@ -12,6 +12,8 @@ import { prisma } from "@/lib/db";
 import { getConfiguracion, actualizarConfiguracion } from "@/lib/configuracion";
 import { registrarPago } from "@/domains/pago/registrar-pago";
 import { evaluarOfertaDeSocio } from "@/domains/pago/oferta-reactivacion-consulta";
+import { anularPago } from "@/domains/pago/anular-pago";
+import { planDePago, periodoDe } from "@/domains/pago/cuota";
 
 const HOY = new Date("2026-11-15T10:00:00-03:00");
 /** Último instante de octubre: el período cubierto por la última cuota del socio. */
@@ -261,5 +263,56 @@ describe("Oferta de reactivación y configuración contra Postgres real (D-54)",
 
     const fila = await prisma.pago.findUniqueOrThrow({ where: { id: (pago as { id: string }).id } });
     expect(Number(fila.monto)).toBe(27000);
+  });
+
+  it("anular un pago deshace su cuota, vuelve a pedir el período y no revive la oferta (P-39)", async () => {
+    const socio = await crearSocio({ diasSinAsistir: 40 });
+    await prisma.configuracionDelSistema.create({ data: CONFIG_OFERTA_ACTIVA });
+
+    // 1. Cobro con la oferta: el Pago guarda montoLista/descuentoPct y crea la Cuota de noviembre.
+    const { pago } = await registrarPago({ socioId: socio.id, metodoPago: "EFECTIVO", hoy: HOY });
+    const pagoId = (pago as { id: string }).id;
+    const cuotaId = (pago as { cuotaId: string }).cuotaId;
+    expect(cuotaId).toBeTruthy();
+
+    // 2. Se anula.
+    const resultado = await anularPago({ pagoId, motivo: "Cobro por error del recepcionista" });
+    expect(resultado.cuotaEliminada).toBe(cuotaId);
+
+    // El Pago queda ANULADO (se conserva para auditoría) con su descuento histórico.
+    const fila = await prisma.pago.findUniqueOrThrow({ where: { id: pagoId } });
+    expect(fila.estado).toBe("ANULADO");
+    expect(Number(fila.montoLista)).toBe(PRECIO);
+    expect(Number(fila.descuentoPct)).toBe(10);
+    expect(fila.cuotaId).toBeNull(); // la cuota se borró y el vínculo quedó en null (SetNull)
+
+    // 3. La Cuota del período cobrado ya no existe.
+    expect(await prisma.cuota.findUnique({ where: { id: cuotaId } })).toBeNull();
+
+    // 4. Al socio se le vuelve a pedir el mismo período: la última cuota es otra vez la de octubre,
+    // y el plan de pago calcula de nuevo la renovación de noviembre.
+    const ultima = await prisma.cuota.findFirst({
+      where: { socioId: socio.id },
+      orderBy: { fechaVencimiento: "desc" },
+    });
+    expect(ultima).not.toBeNull();
+    const plan = planDePago({
+      ultimoPeriodoCubierto: periodoDe(ultima!.fechaVencimiento),
+      hoy: HOY,
+      precio: PRECIO,
+      diaCorte: 20,
+    });
+    expect(plan.tipo).toBe("RENOVACION");
+    expect(plan.periodos).toEqual(["2026-11"]);
+
+    // 5. La oferta NO vuelve: el Pago anulado conserva el descuento y deja al socio en enfriamiento.
+    const oferta = await evaluarOfertaDeSocio(
+      prisma,
+      socio.id,
+      { ofertaReactivacionActiva: true, diasSinAsistirParaOferta: 30, descuentoReactivacion: 10, enfriamientoOfertaDias: 180 },
+      { estadoCuenta: "AL_DIA", tieneMembresia: true, estadoPago: "VENCIDA", fechaAlta: new Date("2025-01-01T10:00:00-03:00") },
+      HOY
+    );
+    expect(oferta).toEqual({ elegible: false, motivo: "EN_ENFRIAMIENTO" });
   });
 });
