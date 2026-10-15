@@ -143,9 +143,11 @@ describe("Access Override Authorization (T-025)", () => {
   describe("Handler (mocked)", () => {
     beforeEach(() => {
       jest.clearAllMocks();
+      (fineGrainedAuth.rolVigente as jest.Mock).mockResolvedValue("ADMINISTRADOR");
     });
 
     it("should throw FORBIDDEN for non-ADMIN user", async () => {
+      (fineGrainedAuth.rolVigente as jest.Mock).mockResolvedValue("RECEPCIONISTA");
       (fineGrainedAuth.canApproveAccessOverride as jest.Mock).mockReturnValue(
         false
       );
@@ -216,6 +218,7 @@ describe("Access Override Authorization (T-025)", () => {
   describe("Atomicity (audit + asistencia in ONE transaction)", () => {
     beforeEach(() => {
       jest.clearAllMocks();
+      (fineGrainedAuth.rolVigente as jest.Mock).mockResolvedValue("ADMINISTRADOR");
       (fineGrainedAuth.canApproveAccessOverride as jest.Mock).mockReturnValue(true);
     });
 
@@ -285,6 +288,7 @@ describe("Access Override Authorization (T-025)", () => {
       (fineGrainedAuth.canApproveAccessOverride as jest.Mock).mockImplementation(
         realAuth.canApproveAccessOverride
       );
+      (fineGrainedAuth.rolVigente as jest.Mock).mockResolvedValue("RECEPCIONISTA");
       const prisma = await mocks();
       (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio1", estadoCuota: "BLOQUEADA" });
 
@@ -306,6 +310,7 @@ describe("Access Override Authorization (T-025)", () => {
       (fineGrainedAuth.canApproveAccessOverride as jest.Mock).mockImplementation(
         realAuth.canApproveAccessOverride
       );
+      (fineGrainedAuth.rolVigente as jest.Mock).mockResolvedValue("ADMINISTRADOR");
       const prisma = await mocks();
       (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio1", estadoCuota: "BLOQUEADA" });
       (prisma.auditoriaAcceso.create as jest.Mock).mockResolvedValue({ id: "aud-1" });
@@ -316,6 +321,53 @@ describe("Access Override Authorization (T-025)", () => {
       expect(result.success).toBe(true);
       expect(prisma.auditoriaAcceso.create).toHaveBeenCalledTimes(1);
       expect(prisma.asistencia.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("T — el rol sale de la base, no del JWT", () => {
+    const realAuth = jest.requireActual<typeof fineGrainedAuth>("@/lib/fine-grained-auth");
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      (fineGrainedAuth.canApproveAccessOverride as jest.Mock).mockImplementation(
+        realAuth.canApproveAccessOverride
+      );
+    });
+
+    it("un JWT viejo de ADMINISTRADOR con rol real RECEPCIONISTA se NIEGA", async () => {
+      (fineGrainedAuth.rolVigente as jest.Mock).mockResolvedValue("RECEPCIONISTA");
+      const prisma = await mocks();
+      (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio1" });
+
+      const staleAdmin = {
+        user: { id: "u1", rol: "ADMINISTRADOR" }, // rol firmado en el token (viejo)
+        body: { motivo: "Próximo pago confirmado para 2026-08-15" },
+        ip: "192.168.1.1",
+        headers: { "user-agent": "Mozilla/5.0" },
+      } as unknown as Parameters<typeof handleAccessOverride>[0];
+
+      await expect(handleAccessOverride(staleAdmin, "socio1")).rejects.toThrow(
+        "Rol de administrador requerido"
+      );
+      expect(prisma.auditoriaAcceso.create).not.toHaveBeenCalled();
+      expect(prisma.asistencia.create).not.toHaveBeenCalled();
+    });
+
+    it("sin rol vigente (cuenta inactiva/baja) se NIEGA", async () => {
+      (fineGrainedAuth.rolVigente as jest.Mock).mockResolvedValue(null);
+      const prisma = await mocks();
+
+      const staleAdmin = {
+        user: { id: "u1", rol: "ADMINISTRADOR" },
+        body: { motivo: "Próximo pago confirmado para 2026-08-15" },
+        ip: "192.168.1.1",
+        headers: { "user-agent": "Mozilla/5.0" },
+      } as unknown as Parameters<typeof handleAccessOverride>[0];
+
+      await expect(handleAccessOverride(staleAdmin, "socio1")).rejects.toThrow(
+        "Rol de administrador requerido"
+      );
+      expect(prisma.auditoriaAcceso.create).not.toHaveBeenCalled();
     });
   });
 });

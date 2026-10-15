@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { RequestWithUser } from "@/lib/auth";
-import { canApproveAccessOverride } from "@/lib/fine-grained-auth";
+import { canApproveAccessOverride, rolVigente } from "@/lib/fine-grained-auth";
 
 /**
  * Access override request body
@@ -63,7 +63,10 @@ export async function handleAccessOverride(
 
   // Sólo ADMINISTRADOR puede autorizar el override (D-47/P-24): ni el recepcionista ni el
   // instructor pueden saltar una cuenta INACTIVA/BLOQUEADA. La regla vive en `canApproveAccessOverride`.
-  if (!canApproveAccessOverride(req.user.rol)) {
+  // T: el rol sale de la base, no del JWT (que puede estar viejo): un degradado a RECEPCIONISTA
+  // debe perder el override aunque su token siga diciendo ADMINISTRADOR. Sin rol vigente, se niega.
+  const rol = await rolVigente(req.user.id);
+  if (!rol || !canApproveAccessOverride(rol)) {
     throw new Error("FORBIDDEN: Rol de administrador requerido");
   }
 

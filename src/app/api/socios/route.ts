@@ -3,8 +3,8 @@ import { handleBuscarSocio } from "@/api/socios";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
 
-/** Roles que pueden buscar socios para cobrar (D-42 / matriz de autorización). */
-const ALLOWED_ROLES = ["ADMINISTRADOR", "RECEPCIONISTA"];
+/** Roles que pueden buscar socios: cobrar (D-42) y asignar rutina (el Instructor ubica al socio; N1). */
+const ALLOWED_ROLES = ["ADMINISTRADOR", "RECEPCIONISTA", "INSTRUCTOR"];
 
 interface HandlerResult {
   status: number;
@@ -21,7 +21,7 @@ export async function handleBuscarSocioRequest(dni: string): Promise<HandlerResu
     return { status: 200, body: socio };
   } catch (error) {
     const mapped = mapErrorToResponse(error, {
-      forbiddenMessage: "Se requiere rol de administrador o recepcionista",
+      forbiddenMessage: "Se requiere rol de administrador, recepcionista o instructor",
       resourceName: "Socio",
     });
     return { status: mapped.status, body: { code: mapped.code, message: mapped.message } };
@@ -30,7 +30,7 @@ export async function handleBuscarSocioRequest(dni: string): Promise<HandlerResu
 
 /**
  * GET /api/socios?dni= — busca un socio por DNI con estado de cuota y plan de pago.
- * Requiere rol ADMINISTRADOR o RECEPCIONISTA. Solo lectura.
+ * Requiere rol ADMINISTRADOR, RECEPCIONISTA o INSTRUCTOR. Solo lectura.
  */
 export async function GET(request: NextRequest) {
   const user = extractUserFromRequest(request);
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   }
   if (!user.rol || !ALLOWED_ROLES.includes(user.rol)) {
     return NextResponse.json(
-      { code: "FORBIDDEN", message: "Se requiere rol de administrador o recepcionista" },
+      { code: "FORBIDDEN", message: "Se requiere rol de administrador, recepcionista o instructor" },
       { status: 403 }
     );
   }

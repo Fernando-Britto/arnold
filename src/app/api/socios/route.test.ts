@@ -76,12 +76,23 @@ describe("GET /api/socios", () => {
     expect(mockBuscar).not.toHaveBeenCalled();
   });
 
-  it("403 para un rol no autorizado (INSTRUCTOR)", async () => {
-    mockUser.mockReturnValue({ id: "u1", rol: "INSTRUCTOR" });
+  it("403 para un rol no autorizado (SOCIO)", async () => {
+    mockUser.mockReturnValue({ id: "u1", rol: "SOCIO" });
     const res = await GET(getReq("?dni=30123456"));
     expect(res.status).toBe(403);
     expect((await res.json()).code).toBe("FORBIDDEN");
     expect(mockBuscar).not.toHaveBeenCalled();
+  });
+
+  it("200 para INSTRUCTOR: busca el socio para asignarle una rutina (N1)", async () => {
+    mockUser.mockReturnValue({ id: "u-inst", rol: "INSTRUCTOR" });
+    mockBuscar.mockResolvedValueOnce(socioFalso as never);
+
+    const res = await GET(getReq("?dni=30123456"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(socioFalso);
+    expect(mockBuscar).toHaveBeenCalledWith("30123456");
   });
 
   it("400 si falta el parámetro dni", async () => {

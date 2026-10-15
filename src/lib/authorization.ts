@@ -44,7 +44,7 @@ INSTRUCTOR: {
     '/api/ejercicios': ['GET', 'POST', 'PUT', 'DELETE'],
     '/api/rutinas-asignadas': ['GET', 'POST'], // asignar rutina (T-034); Admin por wildcard
     '/api/rutinas': ['GET', 'POST', 'PUT', 'DELETE'],
-    '/api/sesiones': ['GET', 'PUT'],
+    '/api/sesiones': ['GET'], // N2: el Instructor solo lee sesiones; el POST/PUT los rechaza el handler
     '/api/auth/logout': ['POST'],
   },
 },

@@ -77,9 +77,15 @@ describe("Authorization Matrix", () => {
       expect(result.allowed).toBe(false);
     });
 
-    it("should allow INSTRUCTOR GET and PUT on /api/sesiones", () => {
+    it("should allow INSTRUCTOR GET but NOT PUT on /api/sesiones (N2)", () => {
       expect(hasRouteAccess("INSTRUCTOR", "/api/sesiones", "GET").allowed).toBe(true);
-      expect(hasRouteAccess("INSTRUCTOR", "/api/sesiones", "PUT").allowed).toBe(true);
+      expect(hasRouteAccess("INSTRUCTOR", "/api/sesiones", "PUT").allowed).toBe(false);
+    });
+
+    it("la matriz no le da PUT al INSTRUCTOR en /api/sesiones/[id] (N2)", () => {
+      const result = hasRouteAccess("INSTRUCTOR", "/api/sesiones/s1", "PUT");
+      expect(result.allowed).toBe(false);
+      expect(result.basePath).toBe("/api/sesiones");
     });
 
     it("should deny INSTRUCTOR DELETE on /api/sesiones", () => {

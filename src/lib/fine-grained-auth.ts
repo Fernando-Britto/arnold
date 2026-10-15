@@ -26,3 +26,21 @@ export function canApproveAccessOverride(rol: UserRole): boolean {
   return rol === 'ADMINISTRADOR';
 }
 
+/**
+ * Rol vigente leído de la base. El JWT firma el rol al emitirse, así que puede estar viejo (T):
+ * un usuario degradado de ADMINISTRADOR sigue con el rol viejo hasta que vence el token (24 h).
+ * Devuelve el rol solo si la cuenta está ACTIVA y no dada de baja; si no, null (sesión no válida).
+ *
+ * Import diferido de Prisma, igual que `src/lib/configuracion.ts`: este módulo llega al navegador
+ * (vía `src/api/socios/access-override.ts`) y no puede arrastrar el cliente.
+ */
+export async function rolVigente(usuarioId: string): Promise<UserRole | null> {
+  const { prisma } = await import('@/lib/db');
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: usuarioId },
+    select: { rol: true, estado: true, deletedAt: true },
+  });
+  if (!usuario || usuario.estado !== 'ACTIVO' || usuario.deletedAt) return null;
+  return usuario.rol as UserRole;
+}
+
