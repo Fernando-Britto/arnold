@@ -102,10 +102,17 @@ describe("buildHomeInternoPayload — mapeo de la base al contrato", () => {
     expect(p.config).toEqual({ capacidadMaxima: 100, periodoGracia: 3, diasInactividad: 15 });
   });
 
-  it("sin fila de configuración, entrega nulls (el dominio aplica los defaults)", async () => {
+  it("sin fila de configuración, entrega los valores por defecto del lector único (T-043a)", async () => {
     db.configuracionDelSistema.findFirst.mockResolvedValue(null);
     const p = await buildHomeInternoPayload(NOW);
-    expect(p.config).toEqual({ capacidadMaxima: null, periodoGracia: null, diasInactividad: null });
+    // Antes llegaban nulls y el dominio aplicaba estos mismos valores: lo que ve la persona no cambia.
+    expect(p.config).toEqual({ capacidadMaxima: 0, periodoGracia: 0, diasInactividad: 15 });
+  });
+
+  it("pide la configuración una sola vez y por el lector único (fila más reciente)", async () => {
+    await buildHomeInternoPayload(NOW);
+    expect(db.configuracionDelSistema.findFirst).toHaveBeenCalledTimes(1);
+    expect(db.configuracionDelSistema.findFirst).toHaveBeenCalledWith({ orderBy: { updatedAt: "desc" } });
   });
 
   it("máquinas: solo el estado", async () => {

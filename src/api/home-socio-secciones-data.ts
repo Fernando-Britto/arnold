@@ -1,9 +1,6 @@
 import { prisma } from "@/lib/db";
 import { toGymWallClock } from "@/lib/gym-time";
-import {
-  DIA_LIMITE_PAGO_DEFAULT,
-  PERIODO_GRACIA_DEFAULT,
-} from "@/domains/pago/registrar-pago";
+import { getConfiguracion } from "@/lib/configuracion";
 import { selectRutinaActiva } from "@/domains/home-socio/home-socio";
 import {
   buildCalendarioAsistencias,
@@ -51,9 +48,7 @@ export async function buildHomeSocioSeccionesPayload(
   });
   if (!socio) return null;
 
-  const config = await prisma.configuracionDelSistema.findFirst({ orderBy: { updatedAt: "desc" } });
-  const diaLimite = config?.diaLimitePago ?? DIA_LIMITE_PAGO_DEFAULT;
-  const gracia = config?.periodoGracia ?? PERIODO_GRACIA_DEFAULT;
+  const { diaLimitePago: diaLimite, periodoGracia: gracia } = await getConfiguracion(prisma);
 
   const [asignaciones, sesiones, sesionEnCurso, registros, pagos, ultimaCuota, asistencias] =
     await Promise.all([

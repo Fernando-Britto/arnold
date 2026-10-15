@@ -150,7 +150,7 @@ Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`).
 6. **Secciones del socio** (T-039, D-45) — ✅ Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias (ownership server-side).
 7. **Cierre de caja** (T-040) — ✅ `/cierres` + totales por método.
 8. **Molinete y huella** (T-041, D-49; fase final, depende del hardware). ⏳
-9. **Panel de parámetros y oferta de reactivación** (T-043a–c, T-045a–d, D-54) — ⏳ diseñada (specs `configuracion-sistema` y `oferta-reactivacion`), **sin código**. Descuento y tiempo de activación configurables por el Administrador; oferta apagada por defecto.
+9. **Panel de parámetros y oferta de reactivación** (T-043a–c, T-045a–d, D-54) — ⏳ diseñada (specs `configuracion-sistema` y `oferta-reactivacion`); **T-043a ✅ (lector único)**, el resto sin código. Descuento y tiempo de activación configurables por el Administrador; oferta apagada por defecto.
 
 Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-040). Falta que Fernando genere y aplique **una** migración (`sesion_en_curso_y_dispositivo`) y pruebe en dev.
 
@@ -193,7 +193,10 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-39 | No existe un flujo para anular un pago (`ANULADO` nadie lo escribe) | Baja |
 | P-40 | Confirmar con el negocio los valores de la oferta de reactivación (D-54) | Baja |
 
-## Cambios recientes (2026-10-07 al 2026-10-11)
+## Cambios recientes (2026-10-07 al 2026-10-14)
+
+- **Lector único de configuración (T-043a, D-54)**: `getConfiguracion()` reemplaza las 6 lecturas sueltas de `ConfiguracionDelSistema`; un test guardián impide volver a
+  leerla por otro camino. Sin cambio de comportamiento salvo la forma del payload de `GET /api/home-interno` cuando no hay fila (ver D-54).
 
 - **Etapa de ampliación documentada (D-41 a D-45)**: forma de trabajo con patches, alcance y orden, control de acceso por DNI/huella y molinete, registro de la
   ejecución de rutina y secciones del socio. Son decisiones y propuestas: **todavía no hay código** más allá de T-031. Cada D-xx indica qué decidió Fernando y qué

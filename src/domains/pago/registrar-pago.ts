@@ -9,6 +9,7 @@
  * Spec: openspec/specs/pagos-cuotas/spec.md
  */
 import type { MetodoPago as PrismaMetodoPago } from "@prisma/client";
+import { CONFIGURACION_POR_DEFECTO, getConfiguracion } from "@/lib/configuracion";
 import {
   estadoCuotaSocio,
   periodoDe,
@@ -24,10 +25,10 @@ export type MetodoPago = (typeof METODOS_PAGO)[number];
 export const PAYMENT_ALREADY_REGISTERED =
   "PAYMENT_ALREADY_REGISTERED: Ya existe una cuota para el período que se intenta pagar";
 
-/** Defaults de `ConfiguracionDelSistema` cuando todavía no existe la fila (D-40). */
-export const DIA_LIMITE_PAGO_DEFAULT = 10;
-export const DIA_CORTE_ALTA_TARDIA_DEFAULT = 20;
-export const PERIODO_GRACIA_DEFAULT = 0;
+/** Defaults de `ConfiguracionDelSistema` cuando todavía no existe la fila (D-40). La fuente única es `@/lib/configuracion`. */
+export const DIA_LIMITE_PAGO_DEFAULT = CONFIGURACION_POR_DEFECTO.diaLimitePago;
+export const DIA_CORTE_ALTA_TARDIA_DEFAULT = CONFIGURACION_POR_DEFECTO.diaCorteAltaTardia;
+export const PERIODO_GRACIA_DEFAULT = CONFIGURACION_POR_DEFECTO.periodoGracia;
 
 export interface RegistrarPagoInput {
   socioId: string;
@@ -95,13 +96,11 @@ export async function registrarPago(input: RegistrarPagoInput): Promise<PagoRegi
       where: { socioId: input.socioId },
       orderBy: { fechaVencimiento: "desc" },
     }),
-    prisma.configuracionDelSistema.findFirst(),
+    getConfiguracion(prisma),
   ]);
 
   const hoy = input.hoy ?? new Date();
-  const diaLimite = config?.diaLimitePago ?? DIA_LIMITE_PAGO_DEFAULT;
-  const diaCorte = config?.diaCorteAltaTardia ?? DIA_CORTE_ALTA_TARDIA_DEFAULT;
-  const gracia = config?.periodoGracia ?? PERIODO_GRACIA_DEFAULT;
+  const { diaLimitePago: diaLimite, diaCorteAltaTardia: diaCorte, periodoGracia: gracia } = config;
 
   const ultimoPeriodoCubierto = ultimaCuota ? periodoDe(ultimaCuota.fechaVencimiento) : null;
 

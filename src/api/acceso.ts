@@ -14,10 +14,6 @@ import {
   type EstadoCuotaSocio,
 } from "@/domains/pago/cuota";
 import {
-  DIA_LIMITE_PAGO_DEFAULT,
-  PERIODO_GRACIA_DEFAULT,
-} from "@/domains/pago/registrar-pago";
-import {
   decidirAcceso,
   type EstadoCuenta,
   type ResultadoAcceso,
@@ -26,10 +22,11 @@ import { validarPin } from "@/domains/acceso/pin";
 import { hashPassword, comparePassword } from "@/lib/auth";
 import { isRateLimited, recordRateLimitHit } from "@/lib/rateLimit";
 import { toGymWallClock } from "@/lib/gym-time";
+import { CONFIGURACION_POR_DEFECTO, getConfiguracion, type ConfiguracionReader } from "@/lib/configuracion";
 import { throwIfNotOk } from "@/utils/api-error";
 
 /** Ventana de anti-passback por defecto (P-33): configurable vía `ConfiguracionDelSistema.antiPassbackMinutos`. */
-export const VENTANA_ANTI_PASSBACK_MINUTOS = 60;
+export const VENTANA_ANTI_PASSBACK_MINUTOS = CONFIGURACION_POR_DEFECTO.antiPassbackMinutos;
 /** Intentos de check-in por IP y minuto (reutiliza `rateLimit`, como el login). */
 export const LIMITE_INTENTOS_CHECK_IN_POR_MINUTO = 20;
 const RATE_LIMIT_ROUTE = "acceso:check-in";
@@ -40,19 +37,12 @@ export const MENSAJE_RATE_LIMIT = "Demasiados intentos. Probá de nuevo en un mi
 /** PIN válido: exactamente 4 dígitos (se permiten ceros a la izquierda). Definido en el dominio. */
 export { validarPin };
 
-interface PrismaLike {
+interface PrismaLike extends ConfiguracionReader {
   socio: {
     findUnique(args: unknown): Promise<unknown>;
     update(args: unknown): Promise<unknown>;
   };
   cuota: { findFirst(args: unknown): Promise<{ fechaVencimiento: Date } | null> };
-  configuracionDelSistema: {
-    findFirst(): Promise<{
-      diaLimitePago: number;
-      periodoGracia: number;
-      antiPassbackMinutos: number;
-    } | null>;
-  };
   asistencia: {
     findFirst(args: unknown): Promise<unknown>;
     create(args: unknown): Promise<unknown>;
@@ -198,11 +188,10 @@ export async function handleCheckIn(input: CheckInInput): Promise<CheckInResulta
 
   const [ultimaCuota, config] = await Promise.all([
     prisma.cuota.findFirst({ where: { socioId: socio.id }, orderBy: { fechaVencimiento: "desc" } }),
-    prisma.configuracionDelSistema.findFirst(),
+    getConfiguracion(prisma),
   ]);
 
-  const diaLimite = config?.diaLimitePago ?? DIA_LIMITE_PAGO_DEFAULT;
-  const gracia = config?.periodoGracia ?? PERIODO_GRACIA_DEFAULT;
+  const { diaLimitePago: diaLimite, periodoGracia: gracia } = config;
   const ultimoPeriodoCubierto = ultimaCuota ? periodoDe(ultimaCuota.fechaVencimiento) : null;
   const estadoCuota = estadoCuotaSocio({ ultimoPeriodoCubierto, hoy: ahora, diaLimite, gracia });
 

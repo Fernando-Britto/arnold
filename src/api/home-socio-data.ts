@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getConfiguracion } from "@/lib/configuracion";
 import { startOfGymDay, toGymWallClock } from "@/lib/gym-time";
 import { buildAforoHoras } from "@/api/home-interno-data";
 import type { HomeSocioViewModel } from "@/api/home-socio";
@@ -29,7 +30,6 @@ import {
  *   schema, así que el payload no trae estado de máquina.
  */
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_VENTANA_AFORO_MIN = 90;
 const VENTANA_PROGRESO_DIAS = 28;
 const MAX_SEMANAS_RACHA = 53;
 
@@ -48,8 +48,8 @@ export async function buildHomeSocioPayload(
   if (!socio) return null;
 
   const inicioDia = startOfGymDay(now);
-  const config = await prisma.configuracionDelSistema.findFirst({ orderBy: { updatedAt: "desc" } });
-  const ventanaMin = config?.ventanaAforoMinutos ?? DEFAULT_VENTANA_AFORO_MIN;
+  const config = await getConfiguracion(prisma);
+  const ventanaMin = config.ventanaAforoMinutos;
   const desdeVentana = new Date(now.getTime() - ventanaMin * 60 * 1000);
 
   const [asistenciasGym, asistenciasSocio, registros, regla, asignaciones, sesion] = await Promise.all([
@@ -142,7 +142,7 @@ export async function buildHomeSocioPayload(
     ),
     aforo: {
       ocupacionActual: asistenciasGym.filter((a) => a.fechaHora >= desdeVentana).length,
-      capacidadMaxima: config?.capacidadMaxima ?? 0,
+      capacidadMaxima: config.capacidadMaxima,
       horas,
       horaActual,
     },

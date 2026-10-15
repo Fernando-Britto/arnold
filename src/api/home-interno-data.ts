@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getConfiguracion } from "@/lib/configuracion";
 import { hourInGym, startOfGymDay, turnoActual } from "@/lib/gym-time";
 import type { HomeInternoDTO } from "@/api/home-interno";
 
@@ -28,7 +29,6 @@ import type { HomeInternoDTO } from "@/api/home-interno";
  *   esperar a la configuración para saber desde cuándo traer (eso era un viaje de más).
  */
 const HOUR_MS = 60 * 60 * 1000;
-const DEFAULT_VENTANA_AFORO_MIN = 90;
 const MAX_VENTANA_AFORO_MIN = 6 * 60; // tope razonable para "personas adentro ahora"
 const MAX_EVENTOS = 50;
 const SLOTS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
@@ -59,7 +59,7 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
     config, maquinas, pagosRecientes, socios, usuariosSocio, ultimasCuotas, ultimasVisitas,
     asistencias, personal, rutinas, ejercicios, planes, asignaciones, rutinasAsignadas,
   ] = await Promise.all([
-    prisma.configuracionDelSistema.findFirst({ orderBy: { updatedAt: "desc" } }),
+    getConfiguracion(prisma),
     prisma.maquina.findMany({ select: { estado: true } }),
     // Una sola consulta alimenta la caja (CONFIRMADO, día argentino) y el feed de 24 h (CONFIRMADO + ANULADO).
     prisma.pago.findMany({
@@ -95,7 +95,7 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
     }),
   ]);
 
-  const ventanaMin = Math.min(config?.ventanaAforoMinutos ?? DEFAULT_VENTANA_AFORO_MIN, MAX_VENTANA_AFORO_MIN);
+  const ventanaMin = Math.min(config.ventanaAforoMinutos, MAX_VENTANA_AFORO_MIN);
   const desdeVentana = new Date(now.getTime() - ventanaMin * 60 * 1000);
 
   const entradasDeHoy = asistencias.map((a) => a.fechaHora).filter((f) => f >= inicioDia);
@@ -163,9 +163,9 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
   return {
     ahora: now.toISOString(),
     config: {
-      capacidadMaxima: config?.capacidadMaxima ?? null,
-      periodoGracia: config?.periodoGracia ?? null,
-      diasInactividad: config?.diasInactividad ?? null,
+      capacidadMaxima: config.capacidadMaxima,
+      periodoGracia: config.periodoGracia,
+      diasInactividad: config.diasInactividad,
     },
     maquinas: maquinas.map((m) => ({ estado: m.estado })),
     pagos: pagosRecientes

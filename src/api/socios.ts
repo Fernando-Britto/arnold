@@ -13,11 +13,7 @@ import {
   type PlanDePago,
   type TipoPlanDePago,
 } from "@/domains/pago/cuota";
-import {
-  DIA_CORTE_ALTA_TARDIA_DEFAULT,
-  DIA_LIMITE_PAGO_DEFAULT,
-  PERIODO_GRACIA_DEFAULT,
-} from "@/domains/pago/registrar-pago";
+import { getConfiguracion } from "@/lib/configuracion";
 import { normalizeDNI } from "@/domains/cliente/cliente";
 import { throwIfNotOk } from "@/utils/api-error";
 
@@ -83,12 +79,10 @@ export async function handleBuscarSocio(dni: string, hoy: Date = new Date()): Pr
       where: { socioId: socio.id },
       orderBy: { fechaVencimiento: "desc" },
     }),
-    prisma.configuracionDelSistema.findFirst(),
+    getConfiguracion(prisma),
   ]);
 
-  const diaLimite = config?.diaLimitePago ?? DIA_LIMITE_PAGO_DEFAULT;
-  const diaCorte = config?.diaCorteAltaTardia ?? DIA_CORTE_ALTA_TARDIA_DEFAULT;
-  const gracia = config?.periodoGracia ?? PERIODO_GRACIA_DEFAULT;
+  const { diaLimitePago: diaLimite, diaCorteAltaTardia: diaCorte, periodoGracia: gracia } = config;
   const ultimoPeriodoCubierto = ultimaCuota ? periodoDe(ultimaCuota.fechaVencimiento) : null;
 
   const membresia = socio.membresiaAsignada;

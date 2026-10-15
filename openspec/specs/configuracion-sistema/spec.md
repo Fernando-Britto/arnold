@@ -16,7 +16,7 @@ por defecto cuando no existe la fila. Si hubiera más de una fila, **MUST** usar
 
 Valores por defecto: `capacidadMaxima` 0 · `periodoGracia` 0 · `diasInactividad` 15 · `ventanaAforoMinutos` 90 · `diaLimitePago` 10 ·
 `diaCorteAltaTardia` 20 · `antiPassbackMinutos` 60 · `descuentoReactivacion` 0 · `ofertaReactivacionActiva` `false` · `diasSinAsistirParaOferta` 30 ·
-`enfriamientoOfertaDias` 180.
+`enfriamientoOfertaDias` 180. Los tres últimos (`ofertaReactivacionActiva`, `diasSinAsistirParaOferta`, `enfriamientoOfertaDias`) el lector ya los devuelve (T-043a), pero la fila los trae recién cuando T-045b agrega las columnas: hasta entonces valen su valor por defecto y la oferta queda apagada.
 
 #### Scenario: Sin fila de configuración
 

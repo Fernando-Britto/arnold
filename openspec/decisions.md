@@ -763,6 +763,15 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   Cada uno es un patch con tests primero y de hasta 400 líneas.
 - **Fuera de alcance**: avisos por email o WhatsApp (canal, planificador y consentimiento), anulación de pagos (P-39), reportes de descuentos otorgados.
 - **Sin código todavía**: este cambio es solo documentación y specs.
+- **Avance — T-043a (2026-10-14)**: `src/lib/configuracion.ts` con `getConfiguracion(db?)` y `CONFIGURACION_POR_DEFECTO`. Reemplaza las 6 lecturas sueltas (`registrar-pago`, `socios`, `acceso`,
+  `home-socio-data`, `home-socio-secciones-data`, `home-interno-data`); las 3 que no ordenaban ahora toman la fila más reciente, lo que solo importa si algún día hubiera dos filas.
+  Decisiones: (1) el valor por defecto es **por campo**: a una fila con un campo ausente se le completa solo ese campo, igual que el `??` de antes, y un 0 de la fila no se confunde con "falta";
+  (2) el lector **no importa la base de forma estática**: `registrar-pago.ts` y `socios.ts` la cargan diferida para que Prisma no llegue al navegador, y `getConfiguracion()` sin parámetro hace lo mismo;
+  (3) un **test guardián** (`configuracion.guard.test.ts`) falla si un archivo de `src` distinto del lector menciona `configuracionDelSistema`; (4) el lector ya devuelve los tres campos de la oferta de reactivación (`ofertaReactivacionActiva` apagada, `diasSinAsistirParaOferta` 30, `enfriamientoOfertaDias` 180) aunque todavía no sean columnas: la fila no los trae y se completan con el valor por defecto, así `oferta-reactivacion.ts` (T-045a) puede tipar su configuración con `Pick<Configuracion, …>`; T-045b agrega las columnas; (5) **un cambio de contrato**: sin fila de configuración,
+  el `config` de `GET /api/home-interno` pasó de nulls a los valores por defecto (0 / 0 / 15); el dominio ya aplicaba esos mismos valores, así que lo que se ve no cambia. `DIA_LIMITE_PAGO_DEFAULT`,
+  `DIA_CORTE_ALTA_TARDIA_DEFAULT`, `PERIODO_GRACIA_DEFAULT` y `VENTANA_ANTI_PASSBACK_MINUTOS` se conservan, ahora derivados del lector. **Verificado** (cliente de Prisma generado sin motor de consultas):
+  `tsc` sin errores y la suite unitaria con 2.046 tests pasando y ninguno fallando; unas 11 suites figuran como "failed to run" solo por la falta del motor (cambian de una corrida a otra y las que corrí
+  de a una pasan). **No verificado**: nada contra una base real, el lector dentro de una transacción (se le pasa `prisma`, no `tx`) ni las pantallas en el navegador.
 - **Cierra P-25.**
 
 ---
