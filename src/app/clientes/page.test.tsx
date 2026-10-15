@@ -137,6 +137,31 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
     });
   });
 
+  describe("Precarga del panel (paridad con el resto de las pantallas CRUD)", () => {
+    it("muestra el form completo mientras la lista sigue esperando la BD", async () => {
+      let resolver: (clientes: (typeof ana)[]) => void = () => {};
+      mockClientesApi.fetchClientes.mockReturnValue(
+        new Promise<(typeof ana)[]>((resolve) => {
+          resolver = resolve;
+        }),
+      );
+      mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
+
+      render(<ClientesPage />);
+
+      // Precarga: el panel del form ya está armado antes de que responda la lista.
+      expect(screen.getByRole("heading", { name: "Nuevo Cliente" })).toBeInTheDocument();
+      expect(screen.getByLabelText(/Nombre/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Crear/i })).toBeDisabled();
+      // La lista sí avisa que sigue cargando.
+      expect(screen.getByText("Cargando...")).toBeInTheDocument();
+
+      resolver([ana]);
+      await waitForLoadingComplete();
+      expect(await screen.findByText("Ana García")).toBeInTheDocument();
+    });
+  });
+
   describe("Table (mockup alignment)", () => {
     it("renderiza las columnas exactas y el badge de estado de cuota", async () => {
       mockClientesApi.fetchClientes.mockResolvedValue([ana]);

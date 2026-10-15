@@ -52,6 +52,11 @@ export interface ClienteFormProps {
     estado: "ACTIVA" | "INACTIVA";
   }>;
   isLoading?: boolean;
+  /**
+   * El desplegable de membresías viaja en su propia carga: mientras llega, el panel
+   * muestra el form completo (precarga) con el select en estado "cargando".
+   */
+  membresiasLoading?: boolean;
 }
 
 interface FormState {
@@ -72,12 +77,18 @@ interface ValidationErrors {
 /** H8: mensaje único del control de unicidad de DNI (AC-002), verificado al perder foco. */
 const DNI_DUPLICADO = "El DNI ya está registrado";
 
+/**
+ * Form de Cliente. NO dibuja su propio marco ni su título: los aporta `FormPanelShell`
+ * (igual que EjercicioForm/RutinaForm), así el panel mide los 380px del diseño en todas
+ * las pantallas CRUD en lugar de los 448px de un `max-w-md` propio.
+ */
 export function ClienteForm({
   onSave,
   onCancel,
   initialData,
   availableMembresias,
   isLoading = false,
+  membresiasLoading = false,
 }: ClienteFormProps) {
   const [formData, setFormData] = useState<FormState>({
     id: initialData?.id || undefined,
@@ -267,13 +278,7 @@ export function ClienteForm({
   );
 
   return (
-    <div className="flex bg-white rounded-lg shadow-sm border border-gray-200 w-full max-w-md overflow-hidden">
-      <div className="w-[3px] shrink-0 bg-[#FC4C02]" />
-      <div className="flex-1 p-6">
-      <h2 className="text-lg font-semibold mb-4">
-        {initialData?.id ? "Editar Cliente" : "Nuevo Cliente"}
-      </h2>
-
+    <div className="flex flex-col">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* ID (read-only) */}
         {initialData?.id && (
@@ -429,7 +434,14 @@ export function ClienteForm({
           <label htmlFor="membresiaAsignada" className="block text-sm font-medium text-gray-700 mb-1">
             Membresía Asignada *
           </label>
-          {activeMembresias.length === 0 ? (
+          {membresiasLoading ? (
+            <div
+              aria-busy="true"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm"
+            >
+              Cargando membresías...
+            </div>
+          ) : activeMembresias.length === 0 ? (
             <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm">
               No hay membresías activas
             </div>
@@ -487,7 +499,13 @@ export function ClienteForm({
         <div className="flex gap-2">
           <button
             type="submit"
-            disabled={isSubmitting || isLoading || dniDuplicate || activeMembresias.length === 0}
+            disabled={
+              isSubmitting ||
+              isLoading ||
+              membresiasLoading ||
+              dniDuplicate ||
+              activeMembresias.length === 0
+            }
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
           >
             {isSubmitting ? "Guardando..." : initialData?.id ? "Actualizar" : "Crear"}
@@ -504,7 +522,6 @@ export function ClienteForm({
           )}
         </div>
       </form>
-      </div>
     </div>
   );
 }

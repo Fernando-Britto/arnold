@@ -27,7 +27,26 @@ describe("ClienteForm", () => {
         />
       );
 
-      expect(screen.getByText("Nuevo Cliente")).toBeInTheDocument();
+      // El título lo aporta FormPanelShell en la pantalla; el form sólo trae los campos.
+      expect(screen.getByLabelText(/Nombre/i)).toHaveValue("");
+      expect(screen.getByLabelText(/DNI/i)).toHaveValue("");
+      expect(screen.getByLabelText(/Email/i)).toHaveValue("");
+    });
+
+    it("mientras cargan las membresías el select queda en espera, no en 'sin membresías'", () => {
+      const onSave = jest.fn();
+      render(
+        <ClienteForm
+          onSave={onSave}
+          initialData={null}
+          availableMembresias={[]}
+          membresiasLoading
+        />
+      );
+
+      expect(screen.getByText(/Cargando membresías/i)).toBeInTheDocument();
+      expect(screen.queryByText("No hay membresías activas")).not.toBeInTheDocument();
+      expect(screen.getByText("Crear")).toBeDisabled();
     });
 
     it("should show membership dropdown with only active memberships", () => {
@@ -300,7 +319,7 @@ describe("ClienteForm", () => {
       fechaAlta: new Date("2024-01-15"), // ISO string, will arrive like this from API
     };
 
-    it("should render form with 'Editar Cliente' title", () => {
+    it("renderiza en modo edición con el ID como campo propio", () => {
       const onSave = jest.fn();
       render(
         <ClienteForm
@@ -310,7 +329,9 @@ describe("ClienteForm", () => {
         />
       );
 
-      expect(screen.getByText("Editar Cliente")).toBeInTheDocument();
+      // El título "Editar Cliente" vive en FormPanelShell (ver page.test.tsx).
+      expect(screen.getByDisplayValue("cliente-1")).toBeInTheDocument();
+      expect(screen.getByText("Actualizar")).toBeInTheDocument();
     });
 
     it("should show ID as read-only", () => {

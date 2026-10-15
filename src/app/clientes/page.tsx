@@ -15,7 +15,7 @@ import {
 } from "@/api/clientes";
 import { fetchMembresias, type MembresiaDropdown } from "@/api/membresias";
 import { Cliente } from "@/domains/cliente/cliente";
-import { CrudPageLayout } from "@/components/layout/crud-page-layout";
+import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
 import { CrudActions } from "@/components/layout/crud-actions";
 import { useModalA11y } from "@/hooks/use-modal-a11y";
 import { formatMoney } from "@/utils/formatting";
@@ -39,6 +39,9 @@ export function ClientesPage() {
   }>({ visible: false, password: "" });
 
   const [membresiasError, setMembresiasError] = useState(false);
+  // El desplegable de membresías tiene su propia carga: el panel del form se muestra
+  // desde el primer render (precarga) aunque la lista de clientes siga esperando la BD.
+  const [membresiasLoading, setMembresiasLoading] = useState(true);
 
   // Esc + focus-trap + foco de retorno al trigger para el modal de contraseña temporal.
   const closeTempPassword = () =>
@@ -68,6 +71,7 @@ export function ClientesPage() {
     const loadData = async () => {
       try {
         setLoading(true);
+        setMembresiasLoading(true);
         setError(null);
         // P-03: allSettled, no all. Si falla solo el desplegable de membresías, la lista de
         // clientes se sigue viendo (con un aviso); solo si fallan los clientes se muestra el error.
@@ -90,6 +94,7 @@ export function ClientesPage() {
         setError(handleApiError(err, "No se pudieron cargar los clientes."));
       } finally {
         setLoading(false);
+        setMembresiasLoading(false);
       }
     };
 
@@ -294,7 +299,7 @@ export function ClientesPage() {
           />
         }
         formPanel={
-          loading ? null : (
+          <FormPanelShell title={editing ? "Editar Cliente" : "Nuevo Cliente"}>
             <ClienteForm
               onSave={handleSave}
               onCancel={() => setEditing(null)}
@@ -314,23 +319,21 @@ export function ClientesPage() {
               }
               availableMembresias={membresias}
               isLoading={isSaving}
+              membresiasLoading={membresiasLoading}
             />
-          )
+          </FormPanelShell>
         }
         listPanel={
-          loading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-gray-500">Cargando clientes...</p>
-            </div>
-          ) : (
+          <ListPanelShell>
             <ClienteList
               clientes={clientes}
               selectedId={selectedId}
               onSelect={handleSelect}
               searchTerm={searchTerm}
               membresiaLabels={membresiaLabels}
+              isLoading={loading}
             />
-          )
+          </ListPanelShell>
         }
       />
     </>
