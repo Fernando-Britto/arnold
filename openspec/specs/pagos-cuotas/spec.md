@@ -115,6 +115,41 @@ El sistema **MUST** tratar como alta a un socio que no tiene cobertura ni en el 
 - WHEN se calcula el pago
 - THEN aplica las reglas de alta: prorrateo (21/30) porque 10 ≤ 20
 
+### Requirement: Anulación de un pago
+
+Un pago registrado por error **MUST** poder anularse. Solo `ADMINISTRADOR` y `RECEPCIONISTA` pueden
+hacerlo, con un **motivo obligatorio**, y la acción queda en `RegistroDeAuditoria` como `ANULACION` con
+el responsable.
+
+El estado de pago del socio **no se deriva del `Pago` sino de la `Cuota`** (`planDePago` mira
+`ultimaCuota.fechaVencimiento` y `estadoCuotaSocio` decide con eso). Por eso anular **MUST**:
+
+- dejar el `Pago` en `ANULADO`, sin borrarlo: es la evidencia de que existió;
+- **borrar la `Cuota`** que ese pago cubría —si ningún otro pago vigente la cubre— para que el sistema
+  **vuelva a pedir ese período**. Dejar la `Cuota` en pie regalaría el mes: la puerta seguiría dejando
+  entrar al socio y `planDePago` no le cobraría nada.
+
+Anular **MUST NOT** devolver la oferta de reactivación: el descuento fue por el primer mes de vuelta. Un
+pago con descuento cuenta como "oferta ya usada" **aunque después se anule**.
+
+#### Scenario: Cobro mal cargado
+
+- GIVEN el socio pagó por error el período que ya tenía cubierto
+- WHEN el Administrador o el Recepcionista anula ese pago con un motivo
+- THEN el `Pago` queda `ANULADO`, su `Cuota` se borra y el sistema le vuelve a pedir ese período
+
+#### Scenario: La oferta no vuelve
+
+- GIVEN el socio usó la oferta y su pago con descuento se anuló
+- WHEN se evalúa la oferta de nuevo
+- THEN no es elegible: sigue en enfriamiento
+
+#### Scenario: Anular dos veces
+
+- GIVEN un pago ya anulado
+- WHEN se intenta anular otra vez
+- THEN responde `409` y no cambia nada
+
 ## Reglas de cálculo
 
 - Todas las fechas se interpretan en hora argentina; el cambio de mes usa esa hora, no UTC.
@@ -146,8 +181,8 @@ Estas piezas estaban listadas como trabajo futuro y hoy están implementadas. El
 - **Cierre de caja**: pantalla y API (D-40).
 - **Check-in**: `estadoCuotaSocio` conectado con `member-access-check` en el kiosco por DNI + PIN (D-47).
 - **Oferta de reactivación**: descuento para el reingreso, configurable desde el panel de parámetros del Administrador (D-54).
+- **Anulación de un pago**: `ANULADO` con motivo obligatorio, borra la `Cuota` y deja de cubrir el período; la oferta ya usada no vuelve (P-39, cerrado el 2026-10-15).
 
 ## Fuera de alcance (todavía no implementado)
 
-- **Anulación de pagos**: `Pago.estado = ANULADO` está en el enum y se lee, pero ningún código lo escribe; anular un pago tampoco revierte su `Cuota` (P-39).
 - **Pagos parciales**: un pago sigue cubriendo una cuota entera.

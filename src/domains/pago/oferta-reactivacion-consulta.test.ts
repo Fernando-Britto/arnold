@@ -90,16 +90,30 @@ describe("evaluarOfertaDeSocio — consultas a la base", () => {
     expect(r).toEqual({ elegible: true, descuentoPct: 10 });
   });
 
-  it("el filtro de pago exige CONFIRMADO y descuento aplicado", async () => {
+  it("el filtro de pago exige un pago con descuento CONFIRMADO o ANULADO (P-39)", async () => {
     const { reader, pago } = fakeReader();
 
     await evaluarOfertaDeSocio(reader, "socio-1", CONFIG, CONTEXTO, HOY);
 
     expect(pago.findFirst).toHaveBeenCalledWith({
-      where: { socioId: "socio-1", estado: "CONFIRMADO", descuentoPct: { not: null } },
+      where: {
+        socioId: "socio-1",
+        estado: { in: ["CONFIRMADO", "ANULADO"] },
+        descuentoPct: { not: null },
+      },
       orderBy: { fechaPago: "desc" },
       select: { fechaPago: true },
     });
+  });
+
+  it("un pago con descuento ya ANULADO sigue dejando al socio en enfriamiento (la oferta no vuelve)", async () => {
+    const { reader, pago } = fakeReader();
+    // El pago anulado conserva su fechaPago y descuentoPct, así que la consulta lo ve.
+    pago.findFirst.mockResolvedValue({ fechaPago: hace(100) });
+
+    const r = await evaluarOfertaDeSocio(reader, "socio-1", CONFIG, CONTEXTO, HOY);
+
+    expect(r).toEqual({ elegible: false, motivo: "EN_ENFRIAMIENTO" });
   });
 
   it("un pago CONFIRMADO con descuento reciente deja al socio en enfriamiento", async () => {

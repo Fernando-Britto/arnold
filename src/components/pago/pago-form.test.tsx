@@ -7,16 +7,17 @@ import userEvent from "@testing-library/user-event";
 import { PagoForm } from "./pago-form";
 import { useNotifications } from "@/contexts/notifications";
 import { fetchSocioPorDni } from "@/api/socios";
-import { createPago } from "@/api/pagos";
+import { createPago, fetchPagosDeSocio } from "@/api/pagos";
 import { ApiError } from "@/utils/api-error";
 
 jest.mock("@/contexts/notifications");
 jest.mock("@/api/socios", () => ({ fetchSocioPorDni: jest.fn() }));
-jest.mock("@/api/pagos", () => ({ createPago: jest.fn() }));
+jest.mock("@/api/pagos", () => ({ createPago: jest.fn(), fetchPagosDeSocio: jest.fn() }));
 
 const mockNotify = jest.fn();
 const mockFetch = fetchSocioPorDni as jest.MockedFunction<typeof fetchSocioPorDni>;
 const mockCreate = createPago as jest.MockedFunction<typeof createPago>;
+const mockHistorial = fetchPagosDeSocio as jest.MockedFunction<typeof fetchPagosDeSocio>;
 
 const socio = {
   id: "socio-1",
@@ -47,6 +48,8 @@ describe("PagoForm", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
+    // El historial se monta al encontrar el socio; sin pagos por defecto.
+    mockHistorial.mockResolvedValue([]);
   });
 
   it("busca por DNI y muestra la tarjeta con estado de cuota y monto a cobrar", async () => {

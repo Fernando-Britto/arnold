@@ -224,7 +224,11 @@ describe("buildHomeSocioPayload", () => {
       select: { fechaHora: true },
     });
     expect(db.pago.findFirst).toHaveBeenCalledWith({
-      where: { socioId: "socio-1", estado: "CONFIRMADO", descuentoPct: { not: null } },
+      where: {
+        socioId: "socio-1",
+        estado: { in: ["CONFIRMADO", "ANULADO"] },
+        descuentoPct: { not: null },
+      },
       orderBy: { fechaPago: "desc" },
       select: { fechaPago: true },
     });

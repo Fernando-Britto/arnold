@@ -190,7 +190,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-25 | ~~Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado)~~ → **resuelto (D-53)**: Postgres efímero en Docker + `npm run test:integration`; `npm test` sigue sin Docker | — |
 | P-37 | ~~`scripts/test-integration.mjs` puede declarar "Postgres listo" durante el `initdb` (socket unix vs TCP)~~ → **resuelto**: el gate fuerza TCP; carrera reproducida (1/88 muestras) | — |
 | P-38 | ~~`npm run test:integration --keep` reusa cualquier container con el nombre esperado, sin validarlo~~ → **resuelto**: valida imagen/base/puerto y recrea si no coincide | — |
-| P-39 | No existe un flujo para anular un pago (`ANULADO` nadie lo escribe) | Baja |
+| P-39 | ~~No existe un flujo para anular un pago~~ → **resuelto (2026-10-15)**: `POST /api/pagos/{id}/anular`, con motivo obligatorio, auditado y disponible para Administrador y Recepcionista. Anular deja el `Pago` en `ANULADO`, **borra la `Cuota`** (el sistema vuelve a pedir ese período) y **no devuelve la oferta**. | — |
 | P-40 | ~~Confirmar con el negocio los valores de la oferta de reactivación (D-54)~~ → **resuelto (2026-10-15)**: Fernando confirmó la propuesta básica — 30 días sin asistir, 180 de enfriamiento y tope del 50 %—; son configurables desde `/configuracion`, así que el negocio los ajusta sin tocar código | — |
 
 ## Cambios recientes (2026-10-07 al 2026-10-15)

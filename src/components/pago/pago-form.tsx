@@ -8,6 +8,7 @@ import { useNotifications } from "@/contexts/notifications";
 import { handleApiError, ApiError } from "@/utils/api-error";
 import { formatMoney } from "@/utils/formatting";
 import { SocioPagoCard } from "./socio-pago-card";
+import { PagosHistorial } from "./pagos-historial";
 
 const METODO_LABEL: Record<MetodoPago, string> = {
   EFECTIVO: "Efectivo",
@@ -85,6 +86,17 @@ export function PagoForm() {
     }
   };
 
+  // Tras anular un pago, el estado de pago y el plan a cobrar pueden cambiar (se vuelve a pedir
+  // el período). Se refresca la tarjeta del socio además de la lista.
+  const recargarSocio = async () => {
+    if (!socio) return;
+    try {
+      setSocio(await fetchSocioPorDni(socio.dni));
+    } catch {
+      // Si el refresco falla, se mantiene lo que ya se veía.
+    }
+  };
+
   return (
     <div className="flex w-full max-w-lg flex-col gap-5 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold">Registrar Pago</h2>
@@ -122,6 +134,8 @@ export function PagoForm() {
       {socio && (
         <>
           <SocioPagoCard socio={socio} />
+
+          <PagosHistorial socioId={socio.id} onAnulado={recargarSocio} />
 
           <div>
             <label htmlFor="pago-metodo" className="mb-1 block text-sm font-medium text-gray-700">

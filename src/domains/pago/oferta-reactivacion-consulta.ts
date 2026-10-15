@@ -19,7 +19,14 @@ export interface OfertaReader {
   };
   pago: {
     findFirst(args: {
-      where: { socioId: string; estado: "CONFIRMADO"; descuentoPct: { not: null } };
+      where: {
+        socioId: string;
+        // Un pago ANULADO cuenta igual que uno CONFIRMADO (P-39): la oferta ya se usó y no
+        // vuelve. Con `estado: "CONFIRMADO"` a secas, anular el pago con descuento lo borraría
+        // de esta mirada y la oferta reaparecería.
+        estado: { in: ("CONFIRMADO" | "ANULADO")[] };
+        descuentoPct: { not: null };
+      };
       orderBy: { fechaPago: "desc" };
       select: { fechaPago: true };
     }): Promise<{ fechaPago: Date } | null>;
@@ -70,7 +77,7 @@ export async function evaluarOfertaDeSocio(
       select: { fechaHora: true },
     }),
     db.pago.findFirst({
-      where: { socioId, estado: "CONFIRMADO", descuentoPct: { not: null } },
+      where: { socioId, estado: { in: ["CONFIRMADO", "ANULADO"] }, descuentoPct: { not: null } },
       orderBy: { fechaPago: "desc" },
       select: { fechaPago: true },
     }),

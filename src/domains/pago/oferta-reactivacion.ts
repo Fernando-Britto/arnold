@@ -5,7 +5,8 @@
  * La elegibilidad se calcula al consultar (no hay proceso programado ni columna que la guarde). Quien
  * consulta la base arma la entrada: `ultimaAsistenciaPermitida` es la `fechaHora` de la última `Asistencia`
  * con `estado = PERMITIDO` (el ingreso autorizado por excepción cuenta, el DENEGADO no) y
- * `ultimoPagoConDescuento` es la `fechaPago` del último `Pago` CONFIRMADO con descuento aplicado.
+ * `ultimoPagoConDescuento` es la `fechaPago` del último `Pago` CONFIRMADO o ANULADO con descuento
+ * aplicado (un pago anulado usó la oferta igual: no vuelve, P-39).
  * El descuento se aplica en el servidor al registrar el pago (T-045c); la pantalla solo muestra una vista previa.
  */
 import type { EstadoCuenta } from "@/domains/acceso/check-in";
@@ -33,7 +34,7 @@ export interface EvaluarOfertaInput {
   /** Última asistencia con `estado = PERMITIDO`, o null si nunca asistió. */
   ultimaAsistenciaPermitida: Date | null;
   fechaAlta: Date;
-  /** `fechaPago` del último `Pago` CONFIRMADO con descuento aplicado, o null si nunca usó una oferta. */
+  /** `fechaPago` del último `Pago` (CONFIRMADO o ANULADO) con descuento aplicado, o null si nunca usó una oferta. */
   ultimoPagoConDescuento: Date | null;
   hoy: Date;
 }

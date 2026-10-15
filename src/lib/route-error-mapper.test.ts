@@ -201,6 +201,39 @@ describe("mapErrorToResponse — pago duplicado (PAYMENT_ALREADY_REGISTERED)", (
   });
 });
 
+describe("mapErrorToResponse — pago ya anulado (PAYMENT_ALREADY_ANNULLED)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el prefijo PAYMENT_ALREADY_ANNULLED a 409 con el mensaje del dominio", () => {
+    const res = mapErrorToResponse(
+      new Error("PAYMENT_ALREADY_ANNULLED: El pago ya está anulado")
+    );
+
+    expect(res).toEqual({
+      code: "PAYMENT_ALREADY_ANNULLED",
+      message: "El pago ya está anulado",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea un código explícito PAYMENT_ALREADY_ANNULLED a 409", () => {
+    const conCodigo = Object.assign(new Error("PAYMENT_ALREADY_ANNULLED: El pago ya está anulado"), {
+      code: "PAYMENT_ALREADY_ANNULLED",
+    });
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res.status).toBe(409);
+    expect(res.code).toBe("PAYMENT_ALREADY_ANNULLED");
+    expect(res.message).toBe("El pago ya está anulado");
+  });
+});
+
 describe("mapErrorToResponse — monto esperado desactualizado (AMOUNT_CHANGED)", () => {
   let spy: jest.SpyInstance;
   beforeEach(() => {

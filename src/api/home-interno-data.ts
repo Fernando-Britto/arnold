@@ -79,9 +79,10 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
     // la base (dependería de la config y agregaría una ronda); el enfriamiento se aplica después en el dominio.
     // Corre también con la oferta apagada, a propósito: condicionarla obligaría a leer la config primero y
     // a hacer una segunda ronda secuencial en cada carga del tablero, que cuesta más que esta consulta.
+    // Un pago ANULADO cuenta igual (P-39): la oferta ya se usó y no vuelve.
     prisma.pago.groupBy({
       by: ["socioId"],
-      where: { estado: "CONFIRMADO", descuentoPct: { not: null } },
+      where: { estado: { in: ["CONFIRMADO", "ANULADO"] }, descuentoPct: { not: null } },
       _max: { fechaPago: true },
     }),
     prisma.asistencia.findMany({

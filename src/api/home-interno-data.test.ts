@@ -280,7 +280,7 @@ describe("buildHomeInternoPayload — oferta de reactivación (D-54)", () => {
     expect(db.pago.groupBy).toHaveBeenCalledTimes(1);
     expect(db.pago.groupBy).toHaveBeenCalledWith({
       by: ["socioId"],
-      where: { estado: "CONFIRMADO", descuentoPct: { not: null } },
+      where: { estado: { in: ["CONFIRMADO", "ANULADO"] }, descuentoPct: { not: null } },
       _max: { fechaPago: true },
     });
   });

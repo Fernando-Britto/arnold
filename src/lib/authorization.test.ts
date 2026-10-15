@@ -116,6 +116,17 @@ describe("Authorization Matrix", () => {
       expect(hasRouteAccess("RECEPCIONISTA", "/api/pagos", "POST").allowed).toBe(true);
     });
 
+    it("should allow RECEPCIONISTA and ADMINISTRADOR POST on /api/pagos/{id}/anular (P-39)", () => {
+      // La anulación cuelga de /api/pagos: el prefijo ya está permitido, no hay que tocar la matriz.
+      expect(hasRouteAccess("RECEPCIONISTA", "/api/pagos/pago-1/anular", "POST").allowed).toBe(true);
+      expect(hasRouteAccess("ADMINISTRADOR", "/api/pagos/pago-1/anular", "POST").allowed).toBe(true);
+    });
+
+    it("should deny INSTRUCTOR and SOCIO POST on /api/pagos/{id}/anular (P-39)", () => {
+      expect(hasRouteAccess("INSTRUCTOR", "/api/pagos/pago-1/anular", "POST").allowed).toBe(false);
+      expect(hasRouteAccess("SOCIO", "/api/pagos/pago-1/anular", "POST").allowed).toBe(false);
+    });
+
     it("should deny RECEPCIONISTA to /api/ejercicios", () => {
       const result = hasRouteAccess("RECEPCIONISTA", "/api/ejercicios", "GET");
       expect(result.allowed).toBe(false);
