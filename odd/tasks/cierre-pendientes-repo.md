@@ -48,3 +48,27 @@ prueba tiene que cubrir ambos caminos.
 ## Progreso
 
 - 2026-10-16 — Documento creado. Puntos verificados contra el código y la base (ver tabla).
+- 2026-10-16 — Segunda pasada: **`npm run start` verificado** (P-28) y **barrido del vault** (`Modulos/` + `Proyecto/UML*`).
+
+### `npm run start` (P-28) — verificado
+
+Levanta y sirve en 1,1–1,8 s. Resultados contra el build de producción local:
+
+| Request | Resultado |
+|---|---|
+| `GET /login` (sin base) | 200 en **0,07 s** |
+| `POST /api/auth/login` (seed) | 200 |
+| `GET /home-interno` sin sesión | 307 (redirige a login) |
+| `GET /home-interno` con sesión | 200 |
+| `GET /api/home-interno` con sesión | 200 — **3,21 s la 1ª (fría)**, 1,71 s y 1,33 s las siguientes |
+| `GET /clientes` con sesión | 200 |
+
+**Hallazgo 1 — `JWT_SECRET`**: con `next start` (NODE_ENV=production) **cualquier flujo de auth falla** con `JWT_SECRET must be set in production` si el `.env` no lo define (`src/lib/auth.ts:9-13`). En `next dev` cae a un fallback y no se nota. Se agregó un `JWT_SECRET` local al `.env` (generado con `crypto.randomBytes(48)`; no impreso) para poder verificar. **En producción real: usar un valor propio y distinto.**
+
+**Hallazgo 2 — el costo de la conexión directa (evidencia para el pooler)**: `/login` sin tocar la base tarda 0,07 s, pero `/api/home-interno` tarda 3,21 s en frío y 1,33–1,71 s en caliente. La diferencia frío/caliente (~1,5 s) es el establecimiento de conexión que el pooler de Supabase debería amortiguar. También refuerza P-11 (el proxy consulta la base en cada navegación).
+
+**Gotcha de proceso**: matar el wrapper `npm` **no** mata el `next-server` hijo; queda huérfano tomando el puerto 3000 y hay que matarlo por proceso (`pkill -f next-server`). Me pasó dos veces durante esta verificación.
+
+### Barrido del vault
+
+`Modulos/` y `Proyecto/UML*` corregidos: la anulación de pagos (P-39) ya existe, `?from=` (P-09) ya se respeta, el refresh (P-20) pasa a **D-57**, y P-28 queda con la distinción build ✅ / start ✅ / pooler ❌. Extra: la oferta de reactivación **sí** cuenta pagos `ANULADO` en el enfriamiento (`oferta-reactivacion-consulta.ts:80`), y `Clientes.md` citaba siete hallazgos cerrados como vigentes.
