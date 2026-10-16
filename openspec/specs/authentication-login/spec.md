@@ -1,20 +1,23 @@
 # Authentication & Login Specification
 
-> **Revision 2026-10-10 (P-22).** Rewritten to match the implementation (T-026, T-027, T-029, D-32, D-33, D-34). The original
+> **Revision 2026-10-16 (P-22, P-20).** Rewritten to match the implementation (T-026, T-027, T-029, P-20; D-32, D-33, D-34, D-57). The original
 > text was written before the code: it used the cookie name `Authorization`, the page `/auth/login`, a `Usuario` model with
-> `ADMIN` / `ACTIVE` / `password_hash`, the error codes `SESSION_EXPIRED` and `TOKEN_REVOKED`, and promised automatic token
-> refresh and "log out of all sessions". Those differences and why they exist are in `openspec/decisions.md` (D-17, D-18, D-23, §6).
-> **Automatic token refresh is not implemented** (P-20); see [Deferred](#deferred-automatic-token-refresh-p-20).
+> `ADMIN` / `ACTIVE` / `password_hash`, the error codes `SESSION_EXPIRED` and `TOKEN_REVOKED`, and promised "log out of all sessions". Those
+> differences and why they exist are in `openspec/decisions.md` (D-17, D-18, D-23, §6). **Token refresh with rotation is now implemented**
+> (P-20, D-57); see [Requirement: Token Refresh and Rotation](#requirement-token-refresh-and-rotation).
 
 ## Purpose
 
 Let every user (Administrador, Instructor, Recepcionista **and Socio**) authenticate with email and password, keep the session in
-an httpOnly cookie, close it by revoking the token, and limit and audit login attempts.
+an httpOnly cookie, extend it by rotating a refresh token, close it by revoking the token, and limit and audit login attempts.
 
 ## Implementation notes
 
 - Session = a JWT in the cookie `authToken`: `HttpOnly`, `SameSite=Strict`, `Path=/`, `Max-Age=86400`, and `Secure` **only when
   `NODE_ENV` is `production`** (so it also works over plain HTTP in development).
+- Login also sets a refresh token cookie `authRefresh` (same flags, `Max-Age=2592000` = 30 days): an opaque 32-byte base64url value,
+  stored in `RefreshToken` only as a bcrypt hash (`src/lib/refresh-token.ts`; D-57). It extends the session through
+  `POST /api/auth/refresh` without asking for credentials again.
 - JWT: signed with `JWT_SECRET` (required in production: without it the app throws; outside production a development fallback is used),
   expires in 24 h, claims `sub` (user id), `rol`, `email`, `nombre`, `jti`, `iat`, `exp`. It never carries the password or its hash.
 - Passwords are stored with `bcryptjs`, cost 10, in `Usuario.password`.
@@ -24,9 +27,9 @@ an httpOnly cookie, close it by revoking the token, and limit and audit login at
   `/login`, `/api/auth/login` and `/api/auth/logout`. The access matrix itself is specified in `rbac-middleware`.
 - Handlers that need the caller's identity read the cookie first and the `Authorization: Bearer` header as a fallback (D-18). They do
   not query revocations or the user again: they rely on the proxy having already filtered the request.
-- Main files: `src/api/auth.ts` (login handler), `src/app/api/auth/login/route.ts`, `src/app/api/auth/logout/route.ts`, `src/lib/auth.ts`,
-  `src/lib/token-revocation.ts`, `src/proxy.ts`, `src/lib/access-decision.ts`, `src/lib/client-ip.ts`, `src/lib/rateLimit.ts`,
-  `src/lib/audit.ts`, `src/app/login/page.tsx`, `src/contexts/auth.tsx`.
+- Main files: `src/api/auth.ts` (login and refresh handlers), `src/app/api/auth/login/route.ts`, `src/app/api/auth/refresh/route.ts`,
+  `src/app/api/auth/logout/route.ts`, `src/lib/auth.ts`, `src/lib/refresh-token.ts`, `src/lib/token-revocation.ts`, `src/proxy.ts`,
+  `src/lib/access-decision.ts`, `src/lib/client-ip.ts`, `src/lib/rateLimit.ts`, `src/lib/audit.ts`, `src/app/login/page.tsx`, `src/contexts/auth.tsx`.
 
 ## Requirements
 
@@ -41,7 +44,9 @@ the session cookie and returns `{ success: true, role }`.
 - WHEN `POST /api/auth/login` with `{ email, password }`
 - THEN the system returns HTTP 200 with `{ success: true, role: "<ROL>" }` and no password or hash in the body
 - AND sets the cookie `authToken=<jwt>; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400` (plus `Secure` in production)
+- AND stores a hashed refresh token and sets `authRefresh=<opaque>; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000` (D-57)
 - AND the JWT expires 86400 s after it was issued and carries `sub`, `rol` and a `jti`
+- AND if the refresh token cannot be stored, the login still succeeds (the refresh cookie is additive)
 - AND the same applies to a Socio (the role only changes the destination chosen by the client)
 
 #### Scenario: The email is normalised
@@ -126,7 +131,8 @@ reloads and navigation and stops working as soon as it is no longer valid.
 - GIVEN a logged-in user whose cookie has not expired
 - WHEN the user reloads the page or navigates
 - THEN the browser sends the cookie, the proxy verifies the JWT signature and expiry, loads the user and lets the request continue
-- AND the cookie is not renewed: the session lasts 24 h from login (there is no sliding expiry, see Deferred)
+- AND the cookie is not renewed on a normal request: the access token lasts 24 h from login; the client extends it explicitly through
+  `POST /api/auth/refresh` (see [Token Refresh and Rotation](#requirement-token-refresh-and-rotation))
 
 #### Scenario: A session is valid only if all of this holds
 
@@ -182,12 +188,43 @@ The system **MUST** end the session on logout and make the logged-out token unus
 - WHEN the user presses "Cerrar sesión" (available in the top bar of the staff and of the Socio, FX-19)
 - THEN the client calls `POST /api/auth/logout` and then goes to `/login`, **even if the call fails** (for example, no network)
 
-## Deferred: Automatic Token Refresh (P-20)
+### Requirement: Token Refresh and Rotation
 
-**Not implemented.** The original design had a refresh token (7 d) rotated automatically. Today there is none: no `/api/auth/refresh`,
-no refresh cookie. When the 24 h JWT expires the API answers 401 `TOKEN_INVALID`, pages redirect to `/login`, and the user logs in
-again. Revocation (above) is independent of this and already works. If refresh is built, this section becomes a requirement and a
-dedicated code for an expired session may be added then (today expired and revoked tokens are both `TOKEN_INVALID`).
+The system **MUST** provide `POST /api/auth/refresh` that rotates the refresh token and issues a new access token, so a session can be
+extended without asking for credentials again, and **MUST** detect the reuse of an already-rotated token and cut the whole token chain
+(D-57; code in `94089ca`).
+
+#### Scenario: A valid refresh token rotates the pair
+
+- GIVEN a browser holding a valid, not-revoked `authRefresh` token
+- WHEN `POST /api/auth/refresh`
+- THEN the system returns HTTP 204 with no body
+- AND sets a new `authToken` (24 h) and a new `authRefresh` (30 days)
+- AND marks the used row in `RefreshToken` with `revokedAt` and `replacedByTokenId` pointing at the new token
+- AND the read → check → issue → revoke sequence runs in a single `Serializable` transaction, so two concurrent requests with the same
+  token cannot both produce a valid pair
+
+#### Scenario: A missing, expired, revoked, or inactive-user token is rejected
+
+- GIVEN no `authRefresh` cookie, or a token that is expired, already revoked, or belongs to a non-`ACTIVO` / deleted user
+- WHEN `POST /api/auth/refresh`
+- THEN the system returns HTTP 401 `{ code: "AUTH_INVALID", message: "Sesión de refresco inválida. Iniciá sesión de nuevo.", recoverable: true }`
+- AND no cookie is set
+- AND a concurrent-rotation conflict (Prisma `P2034`) answers the same 401, never a 500
+
+#### Scenario: Reuse of a rotated token revokes the whole chain
+
+- GIVEN a refresh token that was already used and rotated (its row already has `revokedAt`)
+- WHEN `POST /api/auth/refresh` presents it again
+- THEN the system assumes theft and revokes **every currently valid refresh token of that user** (`revokedAt` set on all rows with `revokedAt = null`)
+- AND returns HTTP 401
+- AND the newly issued token is therefore also rejected afterwards
+
+#### Scenario: Storage keeps no plaintext
+
+- THEN the `RefreshToken` row stores only the bcrypt hash of the token (never the plaintext), plus `usuarioId`, `expiresAt`, `revokedAt`
+  and `replacedByTokenId`
+- AND the token value is never logged
 
 ## Error Responses
 
@@ -202,6 +239,7 @@ The login endpoint answers errors with this envelope:
 | VALIDATION_ERROR | 400 | login | Missing or malformed email/password |
 | AUTH_INVALID | 401 | login | Wrong email or password |
 | AUTH_DISABLED | 403 | login | Account is `INACTIVO` or `BLOQUEADO` (correct password) |
+| AUTH_INVALID | 401 | refresh | Refresh token missing, expired, revoked (including reuse), or user not `ACTIVO`/deleted |
 
 Errors produced by the proxy have **no** `recoverable` field (`{ "code": "...", "message": "..." }`):
 
@@ -222,6 +260,8 @@ Defined in `prisma/schema.prisma` (the schema wins over any older name used in t
 Usuario          id (cuid), nombre, email (unique), password (bcrypt), rol (ADMINISTRADOR | INSTRUCTOR | RECEPCIONISTA | SOCIO),
                  estado (ACTIVO | INACTIVO | BLOQUEADO), createdAt, updatedAt, deletedAt?
 TokenRevocation  jti (primary key), usuarioId?, expiraEn, revocadoEn
+RefreshToken     id (cuid), usuarioId, tokenHash (bcrypt, never plaintext), expiresAt, revokedAt?,
+                 replacedByTokenId?, createdAt                                  -- rotation chain (D-57)
 RateLimitLog     id, key (IP or user id), route, timestamp      -- sliding-window counter
 AuditoriaAcceso  see access-audit-logging
 ```
@@ -238,7 +278,9 @@ AuditoriaAcceso  see access-audit-logging
 - ✅ Login attempts are rate limited per IP, and an unknown IP fails closed (shared counter).
 - ✅ Every login attempt is audited without affecting the response.
 - ⚠️ Logout revokes **only the token of the session that logs out**; there is no "log out of all sessions".
-- ⚠️ No refresh and no rotation: a session lasts exactly 24 h and cannot be extended (P-20).
+- ⚠️ Refresh **rotates on every use** and a reused (already-rotated) token revokes the whole chain: a stolen refresh token is a one-time
+  risk, but it also means a client that loses the race on rotation has to log in again (D-57).
+- ⚠️ Without a refresh, an access token lasts exactly 24 h; the refresh token lasts 30 days and is the only thing that extends a session (D-57).
 - ⚠️ `getSessionUser` (used by the root layout, to hand the user to the client, and by `/`, to redirect by role) now also
   validates the session against the database: it only returns a user that exists, is `ACTIVO`, has no `deletedAt` and whose
   `jti` is not revoked. This is needed because public pages never go through the proxy. It adds a user lookup plus a
@@ -256,3 +298,4 @@ AuditoriaAcceso  see access-audit-logging
 | Login audit | `src/api/auth.test.ts`, `src/lib/audit.test.ts` | Rows `LOGIN/DENY`, `LOGIN/ALLOW` in `AuditoriaAcceso` (2026-10-08) |
 | Session validation | `src/proxy.test.ts`, `src/lib/access-decision.test.ts`, `src/lib/auth.test.ts` | Indirectly: every check above went through the proxy |
 | Logout and revocation | `src/app/api/auth/logout/route.test.ts`, `src/lib/token-revocation.test.ts`, `src/proxy.test.ts`, `src/contexts/auth-logout.test.tsx` | 403 before logout and 401 `TOKEN_INVALID` after, with `curl` (2026-10-09) |
+| Token refresh and rotation | `src/api/refresh.test.ts`, `src/app/api/auth/refresh/route.test.ts`, `src/proxy.test.ts` | Login → refresh `204` and rotation; reuse → 401 with the whole chain revoked, with `curl` (2026-10-16, D-57) |

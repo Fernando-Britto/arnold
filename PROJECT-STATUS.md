@@ -1,6 +1,6 @@
 # Arnold — Estado del proyecto
 
-**Actualizado**: 2026-10-14 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
+**Actualizado**: 2026-10-16 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
 **Decisiones y defectos**: [`openspec/decisions.md`](openspec/decisions.md) · **Modo**: Strict TDD
 
 Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19, Prisma 6 sobre PostgreSQL, Jest.
@@ -11,9 +11,9 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
   datos)**, y la autenticación (login, logout, proxy con permisos por rol).
 - **Todas las tareas del plan original están hechas.** Desde el 2026-10-11 hay una etapa de ampliación (pagos → asistencia → registro de rutina), ver *Ampliación en curso*. T-023b (utilidades de UI) está conectada a las cuatro pantallas CRUD (D-39); T-024 dejó factories en `tests/factories/` que todavía no reemplazan a los mocks viejos (D-38).
 - Lo hecho hasta el 2026-10-10 está **verificado** (ver *Qué se verificó y qué no*). Lo del 2026-10-11 (T-023b conectada a las pantallas, T-024) se
-  probó en el entorno de Claude, pero **falta correr `npm test` y `npx tsc --noEmit` en la máquina de Fernando** antes del merge (paso 11 de *Antes de seguir*).
-- Quedan: el despliegue (P-28: pooler de Supabase y build de producción, D-35), la oferta de reactivación con su panel de parámetros (D-54, sin código) y el proxy consultando
-  la base en cada request (P-11, diferido por D-51). El refresh token (P-20) tiene código en `94089ca`, pero falta documentarlo y verificarlo. P-24, P-25 y P-27 ya están cerrados (D-50, D-53 y `a9adb51`).
+  probó en el entorno de Claude; en la máquina de Fernando ya corrieron `npm test`, `npx tsc --noEmit` y `npm run build` (2026-10-16, ver verificación).
+- Quedan: el despliegue (P-28: el pooler de Supabase sigue sin probar; `npm run build` ya está verificado, D-35) y el proxy consultando
+  la base en cada request (P-11, diferido por D-51). El refresh token (P-20) quedó implementado y verificado contra la base (D-57). P-24, P-25 y P-27 ya están cerrados (D-50, D-53 y `a9adb51`).
 
 ## Tareas
 
@@ -29,7 +29,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-018, T-019 | Home_Socio | ✅ |
 | T-028 ➕ | `GET /api/home-socio` (datos reales de Home_Socio) | ✅ sin probar con un socio real (P-05, D-29) |
 | T-029 ➕ | Auditoría de accesos: login y accesos denegados en `AuditoriaAcceso` | ✅ verificado contra la base (P-15, D-32) |
-| T-027 ➕ | Revocación de tokens en el logout (el refresh queda para P-20) | ✅ verificado contra la base (P-06, D-34) |
+| T-027 ➕ | Revocación de tokens en el logout (el refresh se agregó después, D-57) | ✅ verificado contra la base (P-06, D-34) |
 | T-030 ➕ | Home_Interno: consultas planas en una sola ronda + `Server-Timing` | ✅ medido contra la base: ~0,4 s fuera de Next (P-07, D-35) |
 | T-020 | Home_Interno: componentes base | ✅ |
 | T-021a | Home_Interno Parte 1 (acciones, hoy, operación) | ✅ 934 LOC (estimado 250) |
@@ -38,11 +38,11 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 | T-026a/b/c ➕ | Login/logout, página `/login`, proxy + RBAC | ✅ (de Fernando) |
 | T-023b | Utilidades de UI (validación, formato, errores de API, notificaciones) | ✅ `PR-009-D`; conectada a las cuatro pantallas CRUD (D-37, D-39) |
 | T-024 | Fixtures y factories (`tests/factories/`) | ✅ (D-38) |
-| T-031 ➕ | Cuotas mensuales: reglas de cálculo (vence el 10, alta con prorrateo o cuota doble) | ✅ 28 tests; **migración sin verificar** (P-29); sin API ni pantalla todavía (D-40) |
+| T-031 ➕ | Cuotas mensuales: reglas de cálculo (vence el 10, alta con prorrateo o cuota doble) | ✅ 28 tests; migración aplicada y verificada (P-29); API y pantalla hechas (T-032, T-033; D-40) |
 | T-032 ➕ | `POST /api/pagos`: registrar pago (crea `Pago` + `Cuota`) | ✅ (D-40, D-46) |
 | T-033 ➕ | Pantalla "Registrar Pago" (`/pagos`) + búsqueda `GET /api/socios?dni=` | ✅ ("Mis pagos" del socio → T-039) |
 | T-034 ➕ | Asignar rutina: modal + `/api/rutinas-asignadas` (RN-04: una activa) | ✅ |
-| T-035 ➕ | Check-in por DNI + PIN de 4 dígitos (`/acceso`) | ✅ código · **migración sin aplicar** (D-47) |
+| T-035 ➕ | Check-in por DNI + PIN de 4 dígitos (`/acceso`) | ✅ migración aplicada (D-47) |
 
 ➕ = agregada durante la ejecución, no estaba en el plan. El detalle de por qué T-021 pasó de 400 a 1.806 LOC y se
 partió en 7 PRs está en `decisions.md` (D-01).
@@ -50,6 +50,17 @@ partió en 7 PRs está en `decisions.md` (D-01).
 ## Qué se verificó y qué no
 
 **Verificado con evidencia**
+- **Máquina de Fernando (2026-10-16)**: `npm test` → `Test Suites: 189 passed` · `Tests: 2394 passed, 2394 total`.
+  `npm run build` → exit 0 · `Compiled successfully in 9.4s` · `Finished TypeScript in 18.2s` · 45 páginas generadas · sin errores ni warnings
+  (Next.js 16.2.12, Turbopack). `npx tsc --noEmit` → exit 0 (ver el gotcha de `.next/dev/types` en *Calidad*).
+- **Refresh token contra la base (2026-10-16, `curl` a `npm run dev`, usuario `admin@arnold.test`)**: `POST /api/auth/login` → `200` con
+  `authToken` (24 h) y `authRefresh` (30 días); `POST /api/auth/refresh` → `204` y rota (la fila vieja queda con `revokedAt` y `replacedByTokenId`
+  apuntando a la nueva); reusar el refresh viejo → `401` y, tras el reuso, **toda la cadena** del usuario queda revocada (4 filas, 4 revocadas,
+  0 vigentes; volver a usar la nueva también da `401`). Constantes: `SESSION_TTL_SECONDS` 24 h (`src/api/auth.ts:8`), `REFRESH_TTL_SECONDS` 30 días
+  (`src/lib/refresh-token.ts:19`); cookies `authToken`/`authRefresh`. Commit `94089ca`; migración `20261014120000_refresh_token` (aplicada).
+- **Migraciones (2026-10-16)**: `npx prisma migrate status` → 15 migraciones, "Database schema is up to date!". Verificado además contra la base:
+  `Socio.huellaId` (integer, nullable, único) y `Socio.huellaConsentimientoEn` (timestamp, nullable), tabla `SolicitudDeHuella` (0 filas), enums
+  `AccionHuella`/`EstadoSolicitudHuella` e índice único `Socio_huellaId_key` (migración `20261016120000_add_huella_socio`, aplicada).
 - Logs de `next dev` de Fernando: login `200`; `/home-interno` y `GET /api/home-interno` `200`; Clientes carga para
   Administrador y Recepcionista; `GET /api/membresias/activas` `200`.
 - Tests en la máquina de Fernando (2026-10-10, `npm test`): **91 de 91 suites; 1.197 de 1.198 tests pasan** (1 `todo`). Ver FX-16 y FX-18 en
@@ -76,13 +87,14 @@ partió en 7 PRs está en `decisions.md` (D-01).
   sumaron errores de lint.
 
 **No verificado**
-- Los patches de T-024 y de D-39 (Clientes, Ejercicios, Rutinas, Membresías) **en la máquina de Fernando**: `npm test` con el motor de Prisma real y
-  `npx tsc --noEmit`.
+- **Los 4 CRUD (Clientes, Ejercicios, Rutinas, Membresías) no se abrieron en un navegador** (T-024 / D-39). `npm test` y `tsc` ya corrieron en la
+  máquina de Fernando (2026-10-16), pero la verificación visual de las pantallas queda pendiente y la tiene que hacer Fernando.
 - Los avisos de éxito y los mensajes de error nuevos (D-39) **en el navegador**, incluido el `NotificationProvider` montado en `layout.tsx` (D-37).
 - Los supuestos de negocio de Home_Interno (turnos, franjas, "activo"; ver *Supuestos*) no están confirmados con el negocio, aunque los números
   se contrastaron con datos reales (P-02).
 - `/api/home-socio` y la pantalla del Socio con un socio real del seed (P-05), incluido el botón "Cerrar sesión" del Socio (FX-19).
-- El despliegue: el pooler de Supabase con esta aplicación y `npm run build` / `npm run start` (D-35).
+- El despliegue: el pooler de Supabase con esta aplicación (P-28). `npm run build` ya está verificado (2026-10-16); falta probar la URL *pooled*
+  (puerto 6543, `?pgbouncer=true&connection_limit=1`), que no existe en el repo, y `npm run start` (D-35).
 
 ## Roles y acceso
 
@@ -103,8 +115,8 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 
 1. ~~`npx tsc --noEmit` en la máquina local~~ → hecho el 2026-10-08, sin errores (P-01). El 2026-10-09 (tras D-35) dio 1 error en el mock de
    `ejercicio.test.ts` (FX-20) y ninguno en el código de la aplicación.
-2. ~~**Confirmar que las migraciones están aplicadas**~~ → hecho el 2026-10-10: `npx prisma migrate status` informa 5 migraciones y el esquema al día
-   (incluye `20261008190000_add_estado_cuota_inactiva_bloqueada`, D-27, FX-17, y `20261008230000_add_token_revocation`, D-34).
+2. ~~**Confirmar que las migraciones están aplicadas**~~ → hecho el 2026-10-10 (5 migraciones al día) y **reconfirmado el 2026-10-16**: `npx prisma
+   migrate status` informa **15 migraciones** y el esquema al día, incluidas `20261012235038_sesion_en_curso_y_dispositivo` y `20261016120000_add_huella_socio`.
 3. ~~**Editar un cliente** como Administrador y como Recepcionista (nombre, email, teléfono, membresía y estado de cuenta)~~ → hecho, confirmado por
    Fernando el 2026-10-10 (P-21; FX-13, FX-14).
 4. ~~**Revisar los clientes que se intentaron editar mientras el error estaba abierto**~~ → hecho el 2026-10-11: la consulta devolvió **0 filas** (FX-09). Se conserva
@@ -133,10 +145,10 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
    coincide con el seed. No mejoró de forma evidente (no hay un "antes" comparable); ver D-35.
 8. ~~**Medir la base**~~ → hecho el 2026-10-09 (`npm run db:latency`): consulta ≈ 212 ms, 14 a la vez ≈ 203 ms (el pool paraleliza bien), conexión nueva ≈ 2,2 s.
 9. ~~**Medir fuera de Next**~~ → hecho el 2026-10-09 (`npm run bench:home-interno`): armado ≈ 405 ms, sesión ≈ 207 ms, primera corrida (en frío) ≈ 2,1 s.
-11. **Antes del merge de `dev` a `main`**: con todos los patches aplicados, correr `npm test` y `npx tsc --noEmit` en la máquina de Fernando y abrir
-    las cuatro pantallas CRUD para ver un aviso de éxito (crear, editar, eliminar) y un error de la API (D-37, D-38, D-39).
-10. *(opcional)* **Confirmar con el build de producción**: `npm run build`, `npm run start` y repetir el `curl` a `/api/home-interno` (P-07, D-35): el proxy
-    debería quedar cerca de 0,2 s y `datos` cerca de 0,4 s.
+11. **Antes del merge de `dev` a `main`**: `npm test`, `npx tsc --noEmit` y `npm run build` **ya corrieron** en la máquina de Fernando (2026-10-16). Falta
+    **abrir las cuatro pantallas CRUD en un navegador** para ver un aviso de éxito (crear, editar, eliminar) y un error de la API (D-37, D-38, D-39).
+10. *(opcional)* **Confirmar con el build de producción**: `npm run build` ya pasó (2026-10-16, exit 0, 45 páginas); falta `npm run start` y repetir el `curl` a
+    `/api/home-interno` (P-07, D-35): el proxy debería quedar cerca de 0,2 s y `datos` cerca de 0,4 s.
 
 ## Ampliación en curso
 
@@ -145,16 +157,16 @@ Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`).
 1. **Pagos y cuotas** (D-40) — ✅ reglas (T-031), ✅ API (T-032), ✅ `/pagos` (T-033), ✅ "Mis pagos" del socio (T-039).
 2. **Asignar rutina** (T-034) — ✅ modal + `/api/rutinas-asignadas`.
 3. **Check-in por DNI + PIN** (T-035, D-47) — ✅ dominio, API, kiosco `/acceso`, anti-passback, rate limit. Migración de T-035 **aplicada**.
-4. **Pantalla de puerta** (T-036, D-47) — ✅ `/puerta` con auth de dispositivo + modelo `Dispositivo` (token hasheado, se muestra una vez). **Migración pendiente de generar**.
-5. **Sesión de entrenamiento** (T-037, T-038, D-48) — ✅ `EN_CURSO`, registrar serie con peso/reps/**RIR**, cronómetro por hora guardada, `ultimaCarga` para precargar. **Migración pendiente de generar**.
+4. **Pantalla de puerta** (T-036, D-47) — ✅ `/puerta` con auth de dispositivo + modelo `Dispositivo` (token hasheado, se muestra una vez). Migración **aplicada**.
+5. **Sesión de entrenamiento** (T-037, T-038, D-48) — ✅ `EN_CURSO`, registrar serie con peso/reps/**RIR**, cronómetro por hora guardada, `ultimaCarga` para precargar. Migración **aplicada**.
 6. **Secciones del socio** (T-039, D-45) — ✅ Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias (ownership server-side).
 7. **Cierre de caja** (T-040) — ✅ `/cierres` + totales por método.
-8. **Molinete y huella** (T-041, D-49/D-56) — ✅ software: dominio, servicio, endpoints de dispositivo (`/api/dispositivo/...`), ruta de administración, panel en `/clientes` y firmware `.ino` actualizado a las rutas nuevas. **Pendiente y sin verificar**: aplicar la migración `20261016120000_add_huella_socio` (**generada, NO aplicada**) y probar con el hardware real (sensor óptico, relé); nada se probó contra una base con la migración ni contra el sensor.
+8. **Molinete y huella** (T-041, D-49/D-56) — ✅ software: dominio, servicio, endpoints de dispositivo (`/api/dispositivo/...`), ruta de administración, panel en `/clientes` y firmware `.ino` actualizado a las rutas nuevas. La migración `20261016120000_add_huella_socio` quedó **aplicada** (verificado contra la base el 2026-10-16). **Pendiente y sin verificar**: probar con el hardware real (sensor óptico, relé); nada se probó contra el sensor.
 9. **Panel de parámetros y oferta de reactivación** (T-043a–c, T-045a–d, D-54) — ✅ completa: lector único de configuración, `GET`/`PUT /api/configuracion` solo para el Administrador con auditoría, pantalla `/configuracion`, migración aplicada, cobro con descuento y vista previa, y avisos en pagos, Home_Interno y Home_Socio. La pantalla de la puerta no la muestra (D-47). **La oferta viene apagada por defecto**: el sistema cobra igual hasta que se active desde el panel.
 
-Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-041). Falta que Fernando genere y aplique las migraciones pendientes (`sesion_en_curso_y_dispositivo` y `add_huella_socio`) y pruebe en dev (la huella, además, con el hardware real).
+Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-041) y **las migraciones están aplicadas** (`sesion_en_curso_y_dispositivo` y `add_huella_socio`; `npx prisma migrate status`: 15 migraciones, esquema al día). Falta probar en dev y, la huella, con el hardware real.
 
-Sugeridos y sin confirmar: usuarios internos y cambio de contraseña (T-042, T-044). La configuración (T-043) quedó confirmada en D-54, sin la parte de máquinas. Despliegue y refresh token (P-20/P-28) **después** de terminar la ampliación (D-49).
+Sugeridos y sin confirmar: usuarios internos y cambio de contraseña (T-042, T-044). La configuración (T-043) quedó confirmada en D-54, sin la parte de máquinas. El refresh token (P-20) ya está hecho (D-57); queda el despliegue (P-28), que se evalúa con el pooler de Supabase (D-35).
 
 ## Pendientes principales
 
@@ -170,22 +182,24 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-06 | ~~Sin revocación de tokens~~ → resuelto y verificado (T-027, D-34) | Baja |
 | P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ → cerrado (D-35): fuera de Next el armado tarda ~0,4 s y la sesión ~0,2 s; el resto es del servidor de desarrollo. Pendiente aparte: evaluar el pooler de Supabase para el despliegue | Baja |
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto y verificado (`npm run seed`, D-30; Fernando lo corrió y Home_Interno coincide con el seed, D-35) | Baja |
+| P-09 | ~~El login ignora `?from=`~~ → resuelto: `postLoginRoute`/`safeRedirectTarget` en `src/lib/login-redirect.ts` (rechaza `//host`, backslashes y caracteres de control); lo usa `src/app/login/page.tsx` | — |
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
 | P-16 | ~~Rate limit del login: fuera de Vercel todos comparten la IP `unknown`~~ → resuelto y verificado (D-33, opt-in `TRUST_PROXY_HEADERS`) | Baja |
-| P-20 | Refresh token con rotación (la revocación ya está, D-34) → código en `94089ca`; falta documentarlo y verificarlo contra la base | Media |
+| P-18 | ~~El nav del Socio no tiene botón de salir~~ → resuelto: `logout` de `useAuth()` cableado a `onLogoutClick` del `TopNav` (`src/components/home-socio/socio-shell.tsx`) | — |
+| P-20 | ~~Refresh token con rotación~~ → **resuelto y verificado contra la base (2026-10-16)**: rotación + detección de reuso; commit `94089ca`, migración `20261014120000_refresh_token` aplicada (D-57) | — |
 | P-21 | ~~Probar la edición de clientes contra la base~~ → resuelto (2026-10-10) | Baja |
 | P-22 | ~~Reescribir el spec `authentication-login`~~ → resuelto (D-36) | Baja |
 | P-26 | ~~`useMemo` después de `return` tempranos en Clientes~~ → resuelto (2026-10-13, `a9adb51`) | — |
 | P-27 | ~~Errores de `eslint` en paneles de Membresías y `any`~~ → resuelto (2026-10-13, `a9adb51`) | — |
-| P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) | Media |
+| P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) → **parcial**: `npm run build` verificado (2026-10-16, exit 0); el pooler sigue **bloqueado** por falta de la URL *pooled* (puerto 6543, `?pgbouncer=true&connection_limit=1`), que no existe en el repo, y falta `npm run start` | Media |
 | P-29 | ~~Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`~~ → aplicada por Fernando (2026-10-12); SQL coincide con `schema.prisma` | — |
-| P-30 | Elegir hardware de molinete y huella y confirmar lo legal de datos biométricos → **el software de la huella está implementado (T-041, D-56)**, pero falta elegir/probar el hardware real (sensor óptico, relé) y confirmar lo legal; la migración `add_huella_socio` está generada sin aplicar (D-49) | Baja |
+| P-30 | Elegir hardware de molinete y huella y confirmar lo legal de datos biométricos → **el software de la huella está implementado (T-041, D-56) y la migración `add_huella_socio` está aplicada**; falta elegir/probar el hardware real (sensor óptico, relé) y confirmar lo legal | Baja |
 | P-31 | ~~Qué hace el registro de pagos con `Socio.estadoCuota`~~ → resuelto (D-46): la columna es estado de cuenta; el pago se calcula | — |
 | P-32 | Confirmar con el negocio la política de cobro (pago tardío, reingreso, día de corte) | Baja |
 | P-33 | Parámetros del control de acceso (anti-passback, PIN olvidado) → decidido DNI + PIN en D-47; quedan valores por defecto (anti-passback 60 min) | Baja |
 | P-34 | ~~Registro de rutina por serie o por ejercicio~~ → resuelto (D-48): por serie, con RIR | — |
 | P-35 | ~~`README` dice "una rama por tarea"~~ → resuelto (2026-10-13, `a9adb51`) | — |
-| P-36 | `.patch` sueltos en la raíz del repo | Baja |
+| P-36 | ~~`.patch` sueltos en la raíz del repo~~ → **resuelto**: no quedan `.patch` (`ls *.patch` no encuentra ninguno) y `.gitignore` ya los ignora con un comentario que cita P-36 | — |
 | P-24 | ~~Completar los estados de `EstadoCuota` (por alcance solo `INACTIVA` y `BLOQUEADA`, D-27)~~ → **resuelto (D-50)**: el enum queda en `AL_DIA`/`INACTIVA`/`BLOQUEADA` (estado de la cuenta) y el pago se calcula | — |
 | P-25 | ~~Tests de integración del repositorio de Ejercicio contra una base de pruebas (FX-16 lo pasó a Prisma simulado)~~ → **resuelto (D-53)**: Postgres efímero en Docker + `npm run test:integration`; `npm test` sigue sin Docker | — |
 | P-37 | ~~`scripts/test-integration.mjs` puede declarar "Postgres listo" durante el `initdb` (socket unix vs TCP)~~ → **resuelto**: el gate fuerza TCP; carrera reproducida (1/88 muestras) | — |
@@ -193,7 +207,10 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-39 | ~~No existe un flujo para anular un pago~~ → **resuelto (2026-10-15)**: `POST /api/pagos/{id}/anular`, con motivo obligatorio, auditado y disponible para Administrador y Recepcionista. Anular deja el `Pago` en `ANULADO`, **borra la `Cuota`** (el sistema vuelve a pedir ese período) y **no devuelve la oferta**. | — |
 | P-40 | ~~Confirmar con el negocio los valores de la oferta de reactivación (D-54)~~ → **resuelto (2026-10-15)**: Fernando confirmó la propuesta básica — 30 días sin asistir, 180 de enfriamiento y tope del 50 %—; son configurables desde `/configuracion`, así que el negocio los ajusta sin tocar código | — |
 
-## Cambios recientes (2026-10-07 al 2026-10-15)
+## Cambios recientes (2026-10-07 al 2026-10-16)
+
+- **Refresh token con rotación (P-20, D-57)**: `POST /api/auth/refresh` y `src/lib/refresh-token.ts`; el login emite `authRefresh` (30 días) junto con
+  `authToken` (24 h), la rotación guarda `replacedByTokenId` y el reuso de un token rotado revoca toda la cadena del usuario. Verificado contra la base el 2026-10-16.
 
 - **Oferta de reactivación completa (T-045b a T-045d, T-043b y T-043c, D-54)**: migración aplicada, panel de
   parámetros (API + pantalla) y cobro con descuento, vista previa y avisos en las tres pantallas. La oferta
@@ -212,7 +229,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 
 - **Cuotas mensuales (T-031, D-40)**: el mes se paga del 1 al 10; las altas pagan prorrateo hasta el día 20 y, después, una cuota completa que cubre dos
   períodos. Funciones puras en `src/domains/pago/cuota.ts`, spec `pagos-cuotas`, `ConfiguracionDelSistema.diaLimitePago` / `diaCorteAltaTardia` y
-  `Cuota.membresiaId`. Requiere aplicar una migración (P-29).
+  `Cuota.membresiaId`. La migración quedó aplicada (P-29).
 
 - **Utilidades de UI (T-023b, D-37, D-39)**: validaciones compartidas (Cliente las reutiliza), formato de DNI y teléfono, `ApiError` / `handleApiError` y
   `NotificationProvider`. Conectadas a Clientes, Ejercicios, Rutinas y Membresías: avisos de éxito al crear, editar y eliminar, y mensajes de error según el
@@ -221,7 +238,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 - **Hallazgos sin arreglar**: P-26 (`useMemo` de Clientes) y P-27 (lint previo en los paneles de Membresías). P-28 pasa a ser el ítem explícito del despliegue.
 
 - **Seguridad de la sesión**: auditoría de logins y accesos denegados (T-029, D-32), límite de intentos de login con IP confiable (D-33) y revocación
-  del token en el logout (T-027, D-34), con el botón "Cerrar sesión" del Socio (FX-19). Falta el refresh con rotación (P-20).
+  del token en el logout (T-027, D-34), con el botón "Cerrar sesión" del Socio (FX-19). Se suma el refresh token con rotación y detección de reuso (P-20, D-57).
 - **Rendimiento de Home_Interno**: una sola ronda de consultas con `Server-Timing` (T-030) y scripts de diagnóstico `npm run db:latency` y
   `npm run bench:home-interno` (D-35, FX-21). P-07 cerrado: fuera de Next tarda ~0,4 s; falta evaluar el pooler de Supabase para desplegar.
 - **Datos de desarrollo**: `npm run seed` repetible con usuarios por rol (D-30).
@@ -229,7 +246,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 
 - **Clientes**: editar nombre/email y membresía en una sola transacción, sin `any` (FX-13, D-26); mapeo de estado de
   cuota alineado con el enum de Prisma (FX-14, D-27). Actualización 2026-10-08: Inactivo y Bloqueado tienen valores propios
-  en el enum (`INACTIVA`, `BLOQUEADA`; FX-17) y requieren aplicar una migración.
+  en el enum (`INACTIVA`, `BLOQUEADA`; FX-17); la migración quedó aplicada.
 - **Rutinas**: campos numéricos vacíos ya no quedan en `NaN` (FX-15, D-28).
 - **Tests**: `ejercicio.test.ts` usa Prisma simulado y ya no escribe en la base (FX-16); `waitFor` espera 5 s en toda la suite (FX-18).
 - **Documentación unificada**: `decisions.md` incorpora el registro del segundo desarrollador (D-17…D-25, FX-11/12,
@@ -245,10 +262,13 @@ límite 10, corte de altas 20, pago tardío sin recargo (D-40, supuestos 13–15
 
 ## Calidad
 
-- Los archivos de cada PR de esta etapa están sin errores nuevos de lint. El repositorio arrastra **147 errores y 56
-  avisos en 58 archivos** (medido el 2026-10-10 con `npx eslint`; deuda preexistente, L-14): el ítem "`npm run lint` limpio" del checklist TDD se interpreta
-  como "sin errores nuevos en lo tocado" (D-14).
+- **`npx eslint .` limpio (2026-10-16)**: 0 errores y 0 avisos en 398 archivos. La deuda preexistente (L-14) se saldó en el commit
+  `7f15382` (`chore(lint): limpiar la deuda de lint y hacer que CI la exija`); el checklist TDD ya se cumple a nivel repositorio.
 - Tamaño de PR: todos ≤400 LOC (el mayor, 389).
+- **Gotcha de `tsc` (2026-10-16)**: `npx tsc --noEmit` puede fallar con `error TS1128` dentro de `.next/dev/types/validator.ts`, un archivo
+  **generado por `next dev`** que `tsconfig.json` incluye (`.next/dev/types/**/*.ts`). Ese archivo queda corrupto si un `next dev` se corta a medias
+  (aparecía una línea espuria que apuntaba a `./../src/app/api/dispositivos/route.ts`). **Workaround**: `rm -rf .next` y reconstruir; `next build`
+  **no** genera `.next/dev/types`, así que el error no viene del código de la aplicación.
 
 ## Documentación
 

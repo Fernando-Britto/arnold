@@ -1,6 +1,6 @@
 # Registro de decisiones — ARNOLD MVP Core
 
-**Actualizado**: 2026-10-11 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
+**Actualizado**: 2026-10-16 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
 
 Este documento registra **por qué** el proyecto se desvió del plan original durante `sdd-apply`, qué
 alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace; acá queda el *porqué*.
@@ -99,10 +99,11 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   simulado para igualar tiempos de respuesta con email inexistente; el estado de la cuenta se revisa **después**
   de validar la contraseña; los handlers priorizan la cookie sobre el header `Bearer`, y una cookie inválida no
   cae al `Bearer`.
-- **Desvíos respecto de la spec**: (1) la cookie se llama `authToken`, no `Authorization`; (2) **no hay refresh
-  token ni tabla `TokenRevocation`**: el `jti` se genera pero nada lo consulta, así que el logout solo borra la
-  cookie y un token robado sigue válido hasta las 24 h.
-- **Pendiente**: migración de `TokenRevocation` si se quiere revocación real (ver [§3](#3-pendientes-abiertos)).
+- **Desvíos respecto de la spec**: (1) la cookie se llama `authToken`, no `Authorization`; (2) en su momento **no había refresh
+  token ni tabla `TokenRevocation`**: el `jti` se generaba pero nada lo consultaba, así que el logout solo borraba la
+  cookie y un token robado seguía válido hasta las 24 h.
+- **Pendiente original**: migración de `TokenRevocation` si se quiere revocación real (ver [§3](#3-pendientes-abiertos)).
+- **Actualización**: la revocación se implementó en D-34 (T-027) y el refresh con rotación en D-57 (P-20): ambos desvíos quedaron saldados.
 
 ### D-09 · RN-06 y Clientes: el Recepcionista lee solo `GET /api/membresias/activas`
 - **Conflicto real entre dos specs**: RN-06 dice que Membresías es solo del Administrador; la spec de Clientes
@@ -154,9 +155,10 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - Conventional Commits con referencia `(T-xxx, PR-xxx)`; los más recientes están en español.
 
 ### D-14 · Criterio de lint del checklist TDD
-- El ítem "`npm run lint` clean" **no se cumple a nivel repositorio**: hay 115 errores y 41 warnings
-  preexistentes en 52 archivos. Se interpreta como **"sin errores nuevos en los archivos tocados"** hasta saldar
+- En su momento el ítem "`npm run lint` clean" **no se cumplía a nivel repositorio**: había 115 errores y 41 warnings
+  preexistentes en 52 archivos. Se interpretaba como **"sin errores nuevos en los archivos tocados"** hasta saldar
   la deuda. Cada PR de este trabajo lo cumplió.
+- **Actualización 2026-10-16**: la deuda se saldó (commit `7f15382`): `npx eslint .` da 0 errores y 0 avisos; el checklist ya se cumple tal cual (P-12).
 
 ### D-15 · Numeración de PRs y tareas nuevas
 - `PR-009-C` estaba asignado en el plan a T-023b (utilidades). Se usó para la API de Home_Interno, así que
@@ -246,8 +248,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Cookie `authToken`**: `HttpOnly`, `SameSite=Strict`, `Path=/`, `Max-Age=86400`, y `Secure` solo en producción
   (para que funcione en `http://localhost`). JWT de 24 h con `jti` (queda listo para una revocación futura).
   `JWT_SECRET` se lee en tiempo de ejecución y no tiene valor por defecto en producción (FX-10). Logout borra la
-  cookie (`Max-Age=0`) y es ruta pública. **Refresh token y revocación se difieren** (propuesta T-027, requiere
-  migración; P-06).
+  cookie (`Max-Age=0`) y es ruta pública. **Refresh token y revocación se difirieron entonces** (propuesta T-027, requería
+  migración; P-06). **Actualización**: revocación en D-34 y refresh con rotación en D-57; ya no están diferidos.
 - **Login**: el email se normaliza (`trim`, minúsculas) y se excluyen usuarios con `deletedAt`; se compara siempre la
   contraseña (hash falso si el usuario no existe, para igualar tiempos); el **estado de la cuenta se evalúa después de
   la contraseña** (quien no la conoce no descubre qué cuentas están bloqueadas) y cualquier estado distinto de
@@ -264,7 +266,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   pantalla se podía usar con un login real.
 - **Decisión**: T-026 en 3 PRs encadenados: PR-011-A (API de login y logout), PR-011-B (página de login, usuario de
   sesión, logout) y PR-011-C (proxy, matriz RBAC unificada, credenciales en handlers). Los arreglos al probar la app
-  real fueron commits aparte. **Diferidos**: refresh y revocación (T-027), log de accesos denegados (T-029), `?from=`.
+  real fueron commits aparte. **Diferidos**: refresh y revocación (T-027), log de accesos denegados (T-029), `?from=`. **Actualización**: los tres se
+  resolvieron después — revocación D-34, log D-32, `?from=` P-09; y el refresh en D-57.
 - Refuerza L-07. El reparto de T-021 en PR-009-A1…A3 / B / C1…C3 está en D-01 y D-15.
 
 ### D-25 · Alcance documentado de las pantallas de inicio
@@ -419,7 +422,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   o falle la base al revocar (en ese caso el error queda en el log). Un token revocado no genera `ACCESS_DENIED`: es sesión inválida.
 - **Límites**: (1) solo se revoca el token de la sesión que cierra; no hay "cerrar todas las sesiones". (2) Deshabilitar o borrar
   un usuario ya cortaba el acceso (el proxy mira `estado` y `deletedAt`). (3) `extractUserFromRequest` en los handlers no consulta
-  revocaciones: confía en que el proxy ya las filtró. (4) **El refresh con rotación (P-20) sigue pendiente**.
+  revocaciones: confía en que el proxy ya las filtró. (4) **El refresh con rotación se implementó después (P-20, D-57)**.
 - **Verificado contra la base (2026-10-09)**: con dos tokens de Socio, `GET /api/clientes` daba `403` antes del logout y `401 TOKEN_INVALID` después de
   `POST /api/auth/logout`. Se probó el endpoint con `curl`; el botón de FX-19 no se probó aparte.
 
@@ -477,12 +480,13 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   "cerrar todas las sesiones") y su aviso de revisión quedó desactualizado cuando se hizo la revocación (D-34).
 - **Decisión**: reescribirlo describiendo lo que existe, con cada escenario contrastado contra el código y los tests, y una tabla de trazabilidad
   (tests y qué se verificó contra la base). Requisitos: login, límite de intentos (D-33), auditoría (D-32), validación de la sesión en cada request,
-  y logout con revocación (D-34). El refresh con rotación queda como sección *Deferred* (P-20), no como requisito.
+  y logout con revocación (D-34). Entonces el refresh con rotación quedó como sección *Deferred* (P-20); **actualización 2026-10-16**: ya está implementado
+  (D-57) y el spec pasó a documentarlo como requisito.
 - **Qué cambió respecto del original** (el código hace otra cosa): `SESSION_EXPIRED` y `TOKEN_REVOKED` no se usan (un token vencido o revocado da
   `TOKEN_INVALID`); los errores del proxy no llevan `recoverable`; las cuentas `INACTIVO` y `BLOQUEADO` dan `AUTH_DISABLED`; `Secure` solo en
   producción; el JWT lleva `email` y `nombre`; el logout revoca solo el token de esa sesión (se descartó "cerrar todas las sesiones").
 - **Límites que quedan anotados en el spec, sin corregir**: `getSessionUser` solo verifica la firma y confía en el proxy; `/api/auth/register`
-  figura pública pero la ruta no existe (P-10); el login ignora `?from=` (P-09).
+  figura pública pero la ruta no existe (P-10). (El login ya no ignora `?from=`: P-09 se resolvió después.)
 - **Sin cambios de código**: solo documentación.
 
 ### D-37 · T-023b: utilidades de UI, y qué quedó sin conectar
@@ -613,7 +617,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   DNI (API + recepción) · T-036 Pantalla de puerta y dispositivos · T-037 Sesión de entrenamiento (migración + API) · T-038 Ejecución de rutina con cronómetro (UI) · T-039 Secciones
   del socio · T-040 Cierre de caja · T-041 Molinete y huella · T-042 Usuarios internos · T-043 Configuración y máquinas · T-044 Cambio de contraseña.
 - **Sugerencias de Claude no pedidas por Fernando** (entran solo si las confirma): T-042 a T-044; comprobante imprimible y anulación de pagos con auditoría (`ANULACION` ya existe en
-  `TipoOperacion`); resolver P-20 (refresh token) y P-28 (despliegue) **antes de conectar un dispositivo real**. Para más adelante, no ahora: reportes de recaudación y asistencia,
+  `TipoOperacion`); resolver el despliegue P-28 **antes de conectar un dispositivo real** (el refresh P-20 se resolvió en D-57). Para más adelante, no ahora: reportes de recaudación y asistencia,
   visor de auditoría y recuperación de inactivos (Fase 2).
 - **Alcance de cada bloque**: cada uno se parte en varios patches de ≤400 LOC con tests primero; las migraciones las aplica Fernando (D-41). Las decisiones de cada bloque se
   agregan acá a medida que se toman.
@@ -698,6 +702,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **P-30 (huella/molinete)**: pasa a la **fase final** (T-041), después de que el resto de la ampliación esté andando. No bloquea nada más.
 - **P-20 (refresh token) y P-28 (despliegue)**: **primero se termina la ampliación y se manda a producción**; el refresh con rotación se hace "cuando sobre tiempo". El despliegue se evalúa con el pooler de Supabase (D-35) antes de conectar hardware real.
 - **Consecuencia**: T-032 … T-040 son la prioridad; T-041 (hardware) queda para el final y P-20 no bloquea el cierre.
+- **Actualización 2026-10-16**: el refresh (P-20) ya está implementado y verificado (D-57); queda P-28 (el pooler de Supabase sigue sin probar).
 
 ### D-50 · P-24: semántica final de `EstadoCuota` (la cuenta, nunca el pago)
 - **Origen**: Fernando (2026-10-13/14), criterio explícito: "`Socio.estadoCuota` = estado de la CUENTA solamente".
@@ -814,7 +819,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 
 ---
 
-### D-56 · Acceso y enrolamiento por huella (T-041): backend implementado, migración generada sin aplicar
+### D-56 · Acceso y enrolamiento por huella (T-041): backend implementado, migración aplicada
 - **Origen**: T-041 (cierre de la ampliación, D-43 propuesta 5 y D-47 decisión 5). El lector compara la huella por su
   cuenta y manda sólo el ID de la plantilla; **Arnold no guarda plantillas biométricas** (Ley 25.326, P-30): guarda
   únicamente la relación `socio ↔ huellaId` y una fecha de consentimiento informado.
@@ -841,11 +846,41 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **UI**: `src/components/cliente-crud/panel-huella.tsx` (panel del socio seleccionado en `/clientes`) encola el
   enrolamiento o la baja y sigue la solicitud por polling de `GET` cada 2 s (tope 60 s). Los fetches del navegador
   viven en `src/api/huellas-client.ts`, separados de `@/api/huellas` para no arrastrar `@/lib/auth` al bundle cliente.
-- **Estado de la migración**: `20261016120000_add_huella_socio` **está generada pero NO aplicada** (D-41: la aplica
-  Fernando). Hasta aplicarla, las columnas `Socio.huellaId`/`huellaConsentimientoEn` y la tabla `SolicitudDeHuella` no
-  existen en la base.
+- **Estado de la migración**: `20261016120000_add_huella_socio` quedó **aplicada** (verificado contra la base el 2026-10-16, ver *Actualización*
+  más abajo). Las columnas `Socio.huellaId`/`huellaConsentimientoEn`, la tabla `SolicitudDeHuella` y los enums ya existen en la base.
 - **Verificado**: `npm test` y `tsc` en verde (Prisma simulado en los tests de servicio); el panel con Testing Library.
-  **No verificado**: nada contra el hardware real (sensor, relé) ni contra una base con la migración aplicada.
+  **No verificado**: nada contra el hardware real (sensor, relé).
+- **Actualización 2026-10-16**: la migración `20261016120000_add_huella_socio` quedó **aplicada** (`npx prisma migrate status`, 15 migraciones, esquema al día).
+  Verificado contra la base: `Socio.huellaId` (integer, nullable, único), `Socio.huellaConsentimientoEn` (timestamp, nullable), tabla `SolicitudDeHuella` (0 filas),
+  enums `AccionHuella`/`EstadoSolicitudHuella` e índice único `Socio_huellaId_key`. Sigue **sin verificar** el hardware real.
+
+---
+
+### D-57 · Refresh token con rotación y detección de reuso (P-20)
+- **Origen**: P-20; el código quedó en el commit `94089ca`, se documentó y verificó contra la base el 2026-10-16.
+- **Qué hace**: el login ahora emite, además del access token (`authToken`, 24 h), un **refresh token opaco** (`authRefresh`, 30 días) que
+  extiende la sesión sin volver a pedir credenciales. `POST /api/auth/refresh` rota el par y responde `204` sin cuerpo.
+- **Por qué**: el JWT duraba 24 h y no se renovaba (D-23, D-34): el usuario volvía a loguearse cada día o la sesión se extendía a costa de la seguridad.
+  El refresh separa un acceso corto de una sesión larga.
+- **Contrato** (`src/app/api/auth/refresh/route.ts`, `handleRefreshRequest` en `src/api/auth.ts`):
+  - Éxito: `204` sin cuerpo; setea un `authToken` nuevo (24 h) y un `authRefresh` nuevo (30 días).
+  - `401` (`AUTH_INVALID`, "Sesión de refresco inválida. Iniciá sesión de nuevo.") cuando falta el token, venció, estaba revocado, el usuario
+    no existe / no está `ACTIVO` / está borrado, o dos rotaciones concurrentes chocaron (P2034). Nunca `500`.
+- **Rotación**: al refrescar, la fila usada queda con `revokedAt` y con `replacedByTokenId` apuntando a la nueva; el token nuevo se emite dentro
+  de la **misma transacción `Serializable`**, para que dos requests concurrentes con el mismo token no puedan emitir dos pares válidos.
+- **Detección de reuso**: si el token presentado **ya estaba revocado** (se rotó antes), se asume robo y `revokeRefreshChain` revoca **toda la cadena
+  vigente del usuario** (`revokedAt = null` → todos revocados); el request responde `401`.
+- **Almacenamiento**: la tabla `RefreshToken` guarda **solo el hash bcrypt** del token (nunca en claro), más `usuarioId`, `expiresAt`, `revokedAt` y
+  `replacedByTokenId`. Como bcrypt usa salt por fila, no se puede consultar por hash: para validar se recorren los vigentes y se compara (aceptable a
+  esta escala; a más volumen convendría un patrón selector/verificador con el id en el token).
+- **Constantes**: `SESSION_TTL_SECONDS = 24 h` (`src/api/auth.ts:8`), `REFRESH_TTL_SECONDS = 30 días` (`src/lib/refresh-token.ts:19`); cookies
+  `authToken` / `authRefresh`.
+- **Implementación**: `src/lib/refresh-token.ts`, `src/api/auth.ts` (`handleRefreshRequest`), `src/app/api/auth/refresh/route.ts`; migración
+  `20261014120000_refresh_token` (aplicada). La emisión en el login es **aditiva**: si falla, el login (access token) igual prospera.
+- **Verificado contra la base (2026-10-16, usuario `admin@arnold.test`, `curl` a `npm run dev`)**: login → `200` (cookies `authToken` 24 h y
+  `authRefresh` 30 días); refresh → `204` y la fila vieja queda con `revokedAt` y `replacedByTokenId`; reusar el refresh viejo → `401` y, tras el reuso,
+  **toda la cadena quedó revocada** (4 filas, 4 revocadas, 0 vigentes; volver a usar la nueva también da `401`).
+- **Cierra P-20.**
 
 ---
 
@@ -890,33 +925,33 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-03 | ~~La pantalla de Clientes se cae entera si falla el desplegable de membresías~~ | — | **Resuelto** en D-31 |
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real: con el seed cargado (P-08) alcanza con iniciar sesión como `socio1@arnold.test` y abrir `/home-socio` |
-| P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto y verificado** en D-34 (T-027): el logout revoca el `jti`. El refresh sigue pendiente (P-20) |
+| P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto y verificado** en D-34 (T-027): el logout revoca el `jti`. El refresh se agregó después (P-20, D-57) |
 | P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ | — | **Cerrado** (D-35): el código ya hace una sola ronda de consultas (~0,4 s fuera de Next, sesión ~0,2 s). Lo que queda en `npm run dev` (1,2–4,2 s) es del servidor de desarrollo. Pendiente aparte: evaluar el pooler de Supabase para el despliegue |
 | P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto y verificado** en D-30 (`npm run seed`): Fernando lo corrió contra la base y Home_Interno coincide con el seed (D-35) |
-| P-09 | El login ignora `?from=` | Baja | El proxy lo envía; la página siempre va al home del rol. Si se implementa, validar que sea una ruta relativa (riesgo de open redirect) |
+| P-09 | ~~El login ignora `?from=`~~ | — | **Resuelto**: `src/lib/login-redirect.ts` (`postLoginRoute`, `safeRedirectTarget`) resuelve el destino y **rechaza** `//host`, backslashes y caracteres de control (anti open redirect); lo usa `src/app/login/page.tsx` |
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |
 | P-11 | El proxy consulta la base en cada navegación de página (incluido el prefetch) | Baja | **Sigue abierto** (no resuelto). D-51: se mantiene así por ahora (revocación inmediata, D-34); si la base se vuelve cuello de botella o el sistema crece, evaluar un cache corto en memoria por `jti` (TTL ~15-30s). Disparador: latencia/carga de la base |
-| P-12 | Deuda de lint: 115 errores / 41 warnings en 52 archivos | Baja | Ver D-14 |
+| P-12 | ~~Deuda de lint: 115 errores / 41 warnings en 52 archivos~~ | — | **Resuelto (2026-10-16)**: `npx eslint .` da 0 errores y 0 avisos en 398 archivos (commit `7f15382`, que además hace que CI lo exija). Ver D-14 |
 | P-13 | ~~T-023b (utilidades)~~ hecho (D-37); ~~T-024 (factories)~~ hecho (D-38) | — | Según el plan |
 | P-14 | ~~Código muerto: `getAuthHeaders()` en `src/api/clientes.ts`~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): la función siempre devolvía `{}` (nada escribe `localStorage`); se eliminó |
 | P-15 | ~~Registrar accesos denegados y fallos de autenticación en `AuditoriaAcceso`~~ | — | **Resuelto y verificado** en D-32 (T-029): migración aplicada, filas confirmadas en la base (2026-10-08) |
 | P-16 | ~~El rate limit usa `ipAddress` de `@vercel/functions`~~ | — | **Resuelto** en D-33 (opt-in `TRUST_PROXY_HEADERS`) |
 | P-17 | ~~Campos numéricos de Rutinas quedan en `NaN` al borrarlos~~ | — | **Resuelto** en FX-15 / D-28 |
-| P-18 | Botón de salir en el nav del Socio | Baja | Solo `AdminTopNav` lo tiene |
+| P-18 | ~~Botón de salir en el nav del Socio~~ | — | **Resuelto**: `src/components/home-socio/socio-shell.tsx` cablea `logout` de `useAuth()` a `onLogoutClick` del `TopNav` |
 | P-19 | Tests lentos o ruidosos: avisos `act(...)` (`ejercicios/page.test.tsx`, `cliente-form.test.tsx`) y `rutina-form.test.tsx` de 15–20 s (`ejercicio.test.ts` ya no usa la base, FX-16) | Baja | Envolver en `act(...)` y revisar los tests lentos |
-| P-20 | Refresh token con rotación | Media | La spec lo pide; hoy el JWT dura 24 h. Con la revocación (D-34) un token robado se puede cortar con el logout, pero la sesión sigue venciendo a las 24 h sin renovarse. **Actualización 2026-10-14**: el commit `94089ca` agrega la rotación y la detección de reuso, con tests y la migración `20261014120000_refresh_token`. Falta documentar la decisión y verificarlo contra la base; este registro no confirma que la migración esté aplicada |
+| P-20 | ~~Refresh token con rotación~~ | — | **Resuelto y verificado contra la base (2026-10-16)**: rotación + detección de reuso (D-57); commit `94089ca`, migración `20261014120000_refresh_token` aplicada. El login emite `authRefresh` (30 días) y `POST /api/auth/refresh` da `204` / `401` |
 | P-21 | ~~Probar la edición de clientes contra la base real~~ | — | **Resuelto** el 2026-10-10: confirmado por Fernando con las migraciones al día (`prisma migrate status`: 5 migraciones). Los clientes editados mientras FX-09 estaba abierto: la consulta de `Usuario` y `Socio` desfasados dio 0 filas (2026-10-11) |
-| P-22 | ~~Reescribir el spec `authentication-login`~~ | — | **Resuelto** el 2026-10-10 (D-36): spec reescrito según el código; el refresh con rotación queda como *Deferred* (P-20) |
+| P-22 | ~~Reescribir el spec `authentication-login`~~ | — | **Resuelto** el 2026-10-10 (D-36): spec reescrito según el código. El refresh, que quedó como *Deferred*, pasó a requisito implementado el 2026-10-16 (P-20, D-57) |
 | P-23 | Aclarar si el fallo de Edge en `POST /api/auth/login` se reprodujo (D-07) | Baja | Dev 2 lo reporta como reproducido, Fernando como riesgo; falta un log |
 | P-25 | ~~Tests de integración del repositorio de Ejercicio contra una base de pruebas (no la de desarrollo)~~ | — | **Resuelto** en D-53: Postgres efímero en Docker (`postgres:17-alpine`) + `prisma migrate deploy` + `npm run test:integration`. Verifica de verdad la FK `Restrict` (P2003), el P2025, el `mode: "insensitive"`, el `$transaction` de `update` y el `@@unique` (P2002). `npm test` sigue sin Docker (162 suites / 2038 tests). Con guarda que impide apuntar a la base de desarrollo |
 | P-37 | ~~`scripts/test-integration.mjs` puede declarar "Postgres listo" durante el `initdb`~~ | — | **Resuelto.** Hallazgo `R3-docker-readiness-race` de la revisión nativa de P-25. **Carrera reproducida**: muestreando dentro del contenedor, 1 de 88 lecturas dio `pg_isready` por socket OK con TCP todavía caído (ventana ~100 ms). El server temporal del `initdb` usa `listen_addresses=''` y no cambia el socket dir, así que su socket queda en `/var/run/postgresql` — justo donde mira `pg_isready` sin `-h`. Fix: el gate ahora fuerza TCP (`pg_isready -h 127.0.0.1 -p 5432 -U arnold -d arnold_test`) |
 | P-38 | ~~`npm run test:integration --keep` reusa cualquier container que tenga el nombre esperado~~ | — | **Resuelto.** Hallazgo `R3-keep-reuse-unvalidated` de la revisión nativa de P-25. Con `--keep` ahora se inspecciona el container y se reutiliza sólo si coinciden imagen, usuario, base y el mapeo `127.0.0.1:<puerto>→5432`; si no coincide, avisa y lo recrea. Verificado con un señuelo del mismo nombre y base distinta: salió el aviso y las 12 migraciones se aplicaron desde cero |
-| P-39 | ~~No existe un flujo para anular un pago~~ → **resuelto (2026-10-15)**: `POST /api/pagos/{id}/anular`, solo Administrador y Recepcionista, con motivo obligatorio y auditoría `ANULACION`. Las tres preguntas abiertas se resolvieron: anular **borra la `Cuota`** (el socio vuelve a deber el período, y la puerta deja de dejarlo entrar por ese mes), el `Pago` queda `ANULADO` como evidencia, y **la oferta usada no vuelve**: un pago con descuento cuenta como usado aunque se anule | — |
-| P-40 | Confirmar con el negocio los valores de la oferta de reactivación (30 días sin asistir, enfriamiento de 180, tope de 50 %) y que el descuento se acumule sobre el cobro de un reingreso (D-40) | Baja | Valores por defecto propuestos por Claude (D-54); se cambian desde el panel de parámetros |
+| P-39 | ~~No existe un flujo para anular un pago~~ | — | **Resuelto (2026-10-15)**: `POST /api/pagos/{id}/anular`, solo Administrador y Recepcionista, con motivo obligatorio y auditoría `ANULACION`. Las tres preguntas abiertas se resolvieron: anular **borra la `Cuota`** (el socio vuelve a deber el período, y la puerta deja de dejarlo entrar por ese mes), el `Pago` queda `ANULADO` como evidencia, y **la oferta usada no vuelve**: un pago con descuento cuenta como usado aunque se anule |
+| P-40 | ~~Confirmar con el negocio los valores de la oferta de reactivación (30 días sin asistir, enfriamiento de 180, tope de 50 %) y que el descuento se acumule sobre el cobro de un reingreso (D-40)~~ | — | **Resuelto (2026-10-15)**: Fernando confirmó la propuesta básica (ver D-54, línea del cierre); son configurables desde el panel de parámetros |
 | P-41 | ~~`hasRouteAccess` elegía el prefijo por orden de inserción, así que un prefijo corto podía tapar uno más específico~~ | — | **Resuelto** (barrido del 2026-10-13, hallazgo `I`): `matchBasePath` elige el prefijo **más largo**, sin depender del orden de las claves; con test de regresión en `src/lib/authorization.test.ts` |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
-| P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | Salió de P-07 y D-35 ("pendiente aparte"). Fuera de Next la base responde bien (consulta ≈ 212 ms, 14 a la vez ≈ 203 ms, conexión nueva ≈ 2,2 s); falta probarlo con el build de producción y el pooler. El `curl` a `/api/home-interno` debería dejar el proxy cerca de 0,2 s y `datos` cerca de 0,4 s |
+| P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | **Parcial**: `npm run build` verificado (2026-10-16, exit 0, 45 páginas). El **pooler sigue bloqueado**: no hay URL *pooled* (puerto 6543, `?pgbouncer=true&connection_limit=1`) en el repo y la conexión directa del `.env` no sirve para esa prueba; `.env.example` advierte que la app usa **transacciones interactivas** y que las migraciones necesitan conexión directa, así que la prueba debe cubrir ambos caminos. Falta `npm run start` y el `curl` a `/api/home-interno` (proxy ~0,2 s, `datos` ~0,4 s) |
 | P-24 | ~~Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo~~ | — | **Resuelto** en D-50: `EstadoCuota` = la **cuenta** (`AL_DIA`/`INACTIVA`/`BLOQUEADA`); se quitaron `VENCIDA`/`PENDIENTE`; el pago se calcula (D-40) y nunca se persiste. Un pago no reactiva una cuenta `INACTIVA` |
 | P-29 | ~~Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`~~ | — | **Resuelto** (Fernando la aplicó, 2026-10-12). El SQL se comparó con `schema.prisma` y coincide (`diaLimitePago`/`diaCorteAltaTardia` default 10/20, `Cuota.membresiaId` + FK `SetNull`); `npx prisma validate` pasa. No se pudo correr `migrate status` porque la base de Supabase no es alcanzable por la conexión directa desde el entorno del asistente |
 | P-30 | Elegir el hardware del molinete y del lector de huella, y confirmar los requisitos legales de datos biométricos (Ley 25.326) | Baja | **Diferido a la fase final** por D-49 (T-041), después de la ampliación y el despliegue. Propuesta vigente en D-43 (lector que compara por su cuenta, sin guardar plantillas en Arnold) |
@@ -925,7 +960,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-33 | Definir los parámetros del control de acceso | Baja | **Decidido** en D-47: DNI + PIN de 4 dígitos (huella al final); solo quedan abiertos los valores de la ventana de anti-passback y el PIN olvidado, que no bloquean T-035/T-036 |
 | P-34 | ~~Confirmar si el registro es por serie o por ejercicio~~ | — | **Resuelto** en D-48: por serie, con peso, reps, RIR y cronómetro. Habilita T-037/T-038 |
 | P-35 | ~~El `README` dice "una rama por tarea creada desde `main`"~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): alineado a D-41 (se trabaja en `dev`) |
-| P-36 | Archivos sueltos en la raíz del repo: `tests-clientes-update.patch` y `tests-enum-estadoCuota.patch` | Baja | Parecen restos de parches viejos. Confirmar con Fernando antes de borrarlos |
+| P-36 | ~~Archivos sueltos en la raíz del repo: `tests-clientes-update.patch` y `tests-enum-estadoCuota.patch`~~ | — | **Resuelto**: no queda ningún `.patch` en la raíz (`ls *.patch` no encuentra ninguno) y `.gitignore:50-51` ya los ignora con un comentario que cita P-36 |
 
 ---
 
@@ -1005,7 +1040,7 @@ Origen: Dev 2.
 | Mensajes de error | Inglés; el 403 nombraba el rol requerido | Español; mensaje genérico | D-17, `rbac-middleware` |
 | Rutas de ejemplo | `/recepcion/check-in`, `/admin/*`, `/instructor/*`, `/socio/*`, `/api/audit-logs` | Las reales: `/home-interno`, `/home-socio`, `/ejercicios`, `/rutinas`, `/clientes`, `/membresias` y sus APIs | `rbac-middleware` (reescrito) |
 | Redirect sin sesión | 302 | 307 (el que emite Next) | `rbac-middleware` |
-| Refresh token y revocación | Requeridos | Revocación **implementada** (T-027, D-34); refresh **diferido** | P-20 |
+| Refresh token y revocación | Requeridos | Revocación **implementada** (T-027, D-34) y refresh con rotación y detección de reuso **implementado** (P-20, D-57) | D-34, D-57 |
 | Log de accesos denegados | Requerido | **Implementado** (T-029) con tres diferencias: acción nueva `ACCESS_DENIED`; solo se registra con sesión válida; en el login fallido el `motivo` es un código (`AUTH_INVALID`/`AUTH_DISABLED`) y se atribuye al usuario apuntado si existe | P-15, D-32 |
 | Estado de cuota en edición | — | Mapeo alineado con el enum de Prisma | D-27 |
 
@@ -1019,7 +1054,7 @@ El segundo desarrollador numeraba sus decisiones como ADR-xx. Dónde quedó cada
 |---|---|---|
 | ADR-01 | Partir T-021 en más capas | D-01, D-15 |
 | ADR-02 | T-026 fuera del plan | D-24 |
-| ADR-03 | Cookie `authToken` y JWT de 24 h; refresh diferido | D-23, D-08 |
+| ADR-03 | Cookie `authToken` y JWT de 24 h; refresh diferido (hoy implementado, D-57) | D-23, D-08, D-57 |
 | ADR-04 | `middleware.ts` → `proxy.ts` | D-07, FX-05 (con la discrepancia anotada) |
 | ADR-05 | Política de acceso del proxy | D-17 |
 | ADR-06 | Una sola matriz de permisos | D-22, D-09, FX-11 |
