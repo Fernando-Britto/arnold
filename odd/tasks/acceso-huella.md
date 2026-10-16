@@ -103,15 +103,15 @@ la forma de los cuerpos/respuestas.
 
 ## Tareas
 
-- [ ] **A1** — Schema + migración (SQL generado, **no aplicada**) + `prisma generate`.
-- [ ] **A2** — `src/domains/acceso/huella.ts` + tests (elección de ID libre, lleno).
-- [ ] **A3** — Refactor `src/api/acceso.ts` (`evaluarYRegistrarAcceso`) sin romper los tests de DNI+PIN.
-- [ ] **A4** — `src/api/huellas.ts` + tests (enrolar/baja/confirmar/acceso, con Prisma simulado).
-- [ ] **A5** — Rutas de dispositivo + tests.
-- [ ] **A6** — `POST`/`GET /api/socios/[id]/huella` + tests.
-- [ ] **A7** — `panel-huella.tsx` + integración en `/clientes` + test.
-- [ ] **A8** — Actualizar `arnold_acceso_esp32.ino`.
-- [ ] **A9** — Nota en `openspec/decisions.md` (D-55) y `PROJECT-STATUS.md`.
+- [x] **A1** — Schema + migración (SQL generado, **no aplicada**) + `prisma generate`. → `0d623d6`
+- [x] **A2** — `src/domains/acceso/huella.ts` + tests (elección de ID libre, lleno). → `0d623d6`
+- [x] **A3** — Refactor `src/api/acceso.ts` (`evaluarYRegistrarAcceso`) sin romper los tests de DNI+PIN. → `0d623d6`
+- [x] **A4** — `src/api/huellas.ts` + tests (enrolar/baja/confirmar/acceso, con Prisma simulado). → `0d623d6`
+- [x] **A5** — Rutas de dispositivo + tests. → `0d623d6`
+- [x] **A6** — `POST`/`GET /api/socios/[id]/huella` + tests. → `0d623d6`
+- [x] **A7** — `panel-huella.tsx` + `src/api/huellas-client.ts` + integración en `/clientes` + test. → `4dcf471`
+- [x] **A8** — Actualizar `arnold_acceso_esp32.ino` (rutas bajo `/api/dispositivo/...`). → `4dcf471`
+- [x] **A9** — Nota en `openspec/decisions.md` (**D-56**, D-55 ya existía) y `PROJECT-STATUS.md`. → `4dcf471`
 
 ## Criterios de aceptación
 
@@ -137,4 +137,22 @@ la forma de los cuerpos/respuestas.
 
 ## Progreso
 
-- 2026-10-16 — Documento creado. Explorado el repo; diseño alineado a D-43/D-47. Pendiente: implementar A1–A9.
+- 2026-10-16 — Documento creado. Explorado el repo; diseño alineado a D-43/D-47.
+- 2026-10-16 — Backend commiteado (`0d623d6`): schema, migración generada (no aplicada),
+  dominio, servicio, rutas de dispositivo y de administración. 86 tests de huella/acceso en verde.
+- 2026-10-16 — UI, firmware y docs commiteados (`4dcf471`). Suite completa: 189 suites / 2394 tests.
+  `tsc --noEmit` y `eslint` sobre lo tocado, sin errores.
+
+### Qué falta (fuera de esta implementación)
+
+- **Aplicar la migración** `20261016120000_add_huella_socio` (la aplica Fernando, D-41).
+- **Probar con el hardware real**: sensor óptico, relé y electroimán. Nada se probó con el ESP32.
+- **Probar contra una base real**: el flujo completo de enrolamiento y acceso (base remota, no tocada).
+
+### Riesgos conocidos
+
+- La reserva de `huellaId` no es transaccional (lee usados + crea la solicitud por separado): dos
+  enrolamientos simultáneos podrían compartir un ID PENDIENTE. El `@unique` de `Socio.huellaId` lo
+  atrapa en la confirmación. `shortcut:` con un solo sensor y disparo manual desde el panel alcanza;
+  si se agregan múltiples lectores o enrolamiento masivo, envolver la reserva en una transacción.
+- El `.ino` usa `setInsecure()` en HTTPS: para producción, certificado del dominio.

@@ -131,6 +131,10 @@ export async function solicitarEnrolamiento(
 
   // IDs reservados: los ya asignados a un socio + los que tienen solicitudes PENDIENTES
   // (aún no confirmadas en el sensor). Evita que dos enrolamientos en curso usen el mismo ID.
+  // shortcut: la reserva no es transaccional (lectura + create separados); dos enrolamientos
+  // simultáneos podrían compartir un ID PENDIENTE. El @unique de Socio.huellaId lo atrapa al
+  // confirmar. Alcanza con un solo sensor y disparo manual; envolver en transacción si se
+  // agregan lectores o enrolamiento masivo.
   const [sociosConHuella, pendientes] = await Promise.all([
     prisma.socio.findMany({ where: { huellaId: { not: null } }, select: { huellaId: true } }),
     prisma.solicitudDeHuella.findMany({ where: { estado: "PENDIENTE" }, select: { huellaId: true } }),
