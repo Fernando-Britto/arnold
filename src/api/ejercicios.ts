@@ -1,10 +1,10 @@
 import { Ejercicio } from "@prisma/client";
 import { throwIfNotOk } from "@/utils/api-error";
-import { EjercicioInput } from "@/domains/ejercicio/ejercicio";
+import { EjercicioInput, type EjercicioConUso } from "@/domains/ejercicio/ejercicio";
 import { ejercicioRepository } from "@/domains/ejercicio/ejercicio-repositorio";
 
 // Re-export types for route handlers
-export type { Ejercicio, EjercicioInput };
+export type { Ejercicio, EjercicioInput, EjercicioConUso };
 
 /**
  * Handle POST /api/ejercicios
@@ -22,7 +22,7 @@ export async function handleEjercicioCreate(data: EjercicioInput): Promise<Ejerc
 export async function handleEjercicioList(options?: {
   muscleGroup?: string;
   search?: string;
-}): Promise<Ejercicio[]> {
+}): Promise<EjercicioConUso[]> {
   // Support combined filters (search + muscleGroup)
   if (options?.search || options?.muscleGroup) {
     return ejercicioRepository.getAll(options);
@@ -61,7 +61,7 @@ export async function handleEjercicioDelete(id: string): Promise<boolean> {
 /**
  * Client-side API call: fetch all ejercicios
  */
-export async function fetchEjercicios(): Promise<Ejercicio[]> {
+export async function fetchEjercicios(): Promise<EjercicioConUso[]> {
   const response = await fetch("/api/ejercicios");
   await throwIfNotOk(response, "No se pudieron cargar los ejercicios");
   return response.json();

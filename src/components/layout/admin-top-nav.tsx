@@ -26,7 +26,6 @@ const NAV_ITEMS: NavItem[] = [
   { section: "rutinas", label: "Rutinas", href: "/rutinas", roles: ["ADMINISTRADOR", "INSTRUCTOR"] },
   { section: "ejercicios", label: "Ejercicios", href: "/ejercicios", roles: ["ADMINISTRADOR", "INSTRUCTOR"] },
   { section: "clientes", label: "Clientes", href: "/clientes", roles: ["ADMINISTRADOR", "RECEPCIONISTA"] },
-  { section: "dispositivos", label: "Dispositivos", href: "/dispositivos", roles: ["ADMINISTRADOR"] },
   { section: "configuracion", label: "Configuración", href: "/configuracion", roles: ["ADMINISTRADOR"] },
 ];
 

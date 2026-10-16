@@ -7,6 +7,8 @@ import { useNotifications } from "@/contexts/notifications";
 import { fetchConfiguracion, guardarConfiguracion } from "@/api/configuracion";
 import { handleApiError } from "@/utils/api-error";
 import { SectionPageLayout } from "@/components/layout/section-page-layout";
+import { Tabs, TabPanel } from "@/components/ui/tabs";
+import { DispositivosPanel } from "@/components/dispositivos/dispositivos-panel";
 import {
   CAMPOS_CONFIGURACION,
   validarCambiosConfiguracion,
@@ -17,6 +19,13 @@ import type { Configuracion } from "@/lib/configuracion";
 
 /** Solo el Administrador abre el panel (D-54 / matriz de autorización). */
 const ALLOWED_ROLES = ["ADMINISTRADOR"];
+
+type TabId = "parametros" | "dispositivos";
+
+const TABS: ReadonlyArray<{ id: TabId; label: string }> = [
+  { id: "parametros", label: "Parámetros" },
+  { id: "dispositivos", label: "Dispositivos" },
+];
 
 type ValorFormulario = string | boolean;
 type Formulario = Record<CampoConfiguracion, ValorFormulario>;
@@ -96,6 +105,7 @@ export function ConfiguracionPage() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("parametros");
 
   const isAuthorized = Boolean(isAuthenticated && user && ALLOWED_ROLES.includes(user.rol));
 
@@ -197,81 +207,95 @@ export function ConfiguracionPage() {
     <SectionPageLayout breadcrumb="Configuración" activeSection="configuracion">
       <h1 className="sr-only">Configuración</h1>
 
-      {error && (
-        <p
-          role="alert"
-          className="w-full max-w-lg rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700"
-        >
-          {error}
-        </p>
-      )}
+      <Tabs
+        tabs={[...TABS]}
+        activeId={activeTab}
+        onChange={(id) => setActiveTab(id as TabId)}
+      >
+        {activeTab === "parametros" ? (
+          <TabPanel id="parametros">
+            {error && (
+              <p
+                role="alert"
+                className="w-full max-w-lg rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700"
+              >
+                {error}
+              </p>
+            )}
 
-      {loading ? (
-        <p className="text-gray-500">Cargando la configuración...</p>
-      ) : form ? (
-        <form
-          onSubmit={handleSubmit}
-          className="flex w-full max-w-lg flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6"
-        >
-          {GRUPOS.map((grupo) => (
-            <section key={grupo.titulo} className="flex flex-col gap-4">
-              <h2 className="text-sm font-bold text-zinc-900">{grupo.titulo}</h2>
-              {grupo.campos.map((campo) => {
-                const spec = CAMPOS_CONFIGURACION[campo];
-                const rango = rangoDe(campo);
+            {loading ? (
+              <p className="text-gray-500">Cargando la configuración...</p>
+            ) : form ? (
+              <form
+                onSubmit={handleSubmit}
+                className="flex w-full max-w-lg flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6"
+              >
+                {GRUPOS.map((grupo) => (
+                  <section key={grupo.titulo} className="flex flex-col gap-4">
+                    <h2 className="text-sm font-bold text-zinc-900">{grupo.titulo}</h2>
+                    {grupo.campos.map((campo) => {
+                      const spec = CAMPOS_CONFIGURACION[campo];
+                      const rango = rangoDe(campo);
 
-                if (spec.tipo === "booleano") {
-                  return (
-                    <div key={campo} className="flex items-center gap-2">
-                      <input
-                        id={campo}
-                        name={campo}
-                        data-testid={`campo-${campo}`}
-                        type="checkbox"
-                        checked={form[campo] === true}
-                        onChange={(event) => handleCambio(campo, event.target.checked)}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor={campo} className="text-sm font-medium text-gray-700">
-                        {ETIQUETAS[campo]}
-                      </label>
-                    </div>
-                  );
-                }
+                      if (spec.tipo === "booleano") {
+                        return (
+                          <div key={campo} className="flex items-center gap-2">
+                            <input
+                              id={campo}
+                              name={campo}
+                              data-testid={`campo-${campo}`}
+                              type="checkbox"
+                              checked={form[campo] === true}
+                              onChange={(event) => handleCambio(campo, event.target.checked)}
+                              className="h-4 w-4"
+                            />
+                            <label htmlFor={campo} className="text-sm font-medium text-gray-700">
+                              {ETIQUETAS[campo]}
+                            </label>
+                          </div>
+                        );
+                      }
 
-                return (
-                  <div key={campo} className="flex flex-col gap-1">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <label htmlFor={campo} className="text-sm font-medium text-gray-700">
-                        {ETIQUETAS[campo]}
-                      </label>
-                      {rango && <span className="text-xs text-zinc-400">{rango}</span>}
-                    </div>
-                    <input
-                      id={campo}
-                      name={campo}
-                      data-testid={`campo-${campo}`}
-                      type="number"
-                      step={spec.tipo === "decimal" ? "0.01" : "1"}
-                      value={String(form[campo])}
-                      onChange={(event) => handleCambio(campo, event.target.value)}
-                      className="rounded-md border border-[#E4E4E7] px-3 py-2 text-sm"
-                    />
-                  </div>
-                );
-              })}
-            </section>
-          ))}
+                      return (
+                        <div key={campo} className="flex flex-col gap-1">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <label htmlFor={campo} className="text-sm font-medium text-gray-700">
+                              {ETIQUETAS[campo]}
+                            </label>
+                            {rango && <span className="text-xs text-zinc-400">{rango}</span>}
+                          </div>
+                          <input
+                            id={campo}
+                            name={campo}
+                            data-testid={`campo-${campo}`}
+                            type="number"
+                            step={spec.tipo === "decimal" ? "0.01" : "1"}
+                            value={String(form[campo])}
+                            onChange={(event) => handleCambio(campo, event.target.value)}
+                            className="rounded-md border border-[#E4E4E7] px-3 py-2 text-sm"
+                          />
+                        </div>
+                      );
+                    })}
+                  </section>
+                ))}
 
-          <button
-            type="submit"
-            disabled={guardando}
-            className="rounded bg-[#FC4C02] px-4 py-2 font-medium text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
-          >
-            {guardando ? "Guardando..." : "Guardar cambios"}
-          </button>
-        </form>
-      ) : null}
+                <button
+                  type="submit"
+                  disabled={guardando}
+                  className="rounded bg-[#FC4C02] px-4 py-2 font-medium text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
+                >
+                  {guardando ? "Guardando..." : "Guardar cambios"}
+                </button>
+              </form>
+            ) : null}
+          </TabPanel>
+        ) : (
+          <TabPanel id="dispositivos">
+            <DispositivosPanel />
+          </TabPanel>
+        )}
+      </Tabs>
     </SectionPageLayout>
   );
 }

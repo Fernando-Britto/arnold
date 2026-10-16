@@ -3,8 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Ejercicio } from "@prisma/client";
+import { type EjercicioConUso } from "@/domains/ejercicio/ejercicio";
 import { EjercicioForm } from "@/components/ejercicio-crud/ejercicio-form";
 import { EjercicioListPanel } from "@/components/ejercicio-crud/ejercicio-list";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/contexts/auth";
 import { useNotifications } from "@/contexts/notifications";
 import { ApiError, handleApiError } from "@/utils/api-error";
@@ -17,13 +19,15 @@ export function EjerciciosPage() {
   const { user, isAuthenticated } = useAuth();
   const { notify } = useNotifications();
 
-  const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
+  const [ejercicios, setEjercicios] = useState<EjercicioConUso[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Ejercicio | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [borrando, setBorrando] = useState(false);
 
   // Check authentication and authorization
   useEffect(() => {
@@ -80,9 +84,9 @@ export function EjerciciosPage() {
           descripcion: formData.descripcion || undefined,
         });
 
-        // Update in list
+        // Update in list (conserva el uso que ya traía la fila).
         setEjercicios(prev =>
-          prev.map(e => (e.id === formData.id ? savedEjercicio : e))
+          prev.map(e => (e.id === formData.id ? { ...savedEjercicio, enRutinas: e.enRutinas } : e))
         );
         notify("success", "Ejercicio actualizado");
       } else {
@@ -93,8 +97,8 @@ export function EjerciciosPage() {
           descripcion: formData.descripcion || undefined,
         });
 
-        // Add to list
-        setEjercicios(prev => [...prev, savedEjercicio]);
+        // Add to list (un alta nueva todavía no está en ninguna rutina).
+        setEjercicios(prev => [...prev, { ...savedEjercicio, enRutinas: 0 }]);
         notify("success", "Ejercicio creado");
       }
 
@@ -120,15 +124,16 @@ export function EjerciciosPage() {
     if (ejercicio) setEditing(ejercicio);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!selectedId) return;
-    const ejercicio = ejercicios.find((e) => e.id === selectedId);
-    if (!ejercicio) return;
-    if (typeof window !== "undefined" && !window.confirm(`¿Está seguro que desea eliminar "${ejercicio.nombre}"?`)) {
-      return;
-    }
+    setConfirmandoBorrado(true);
+  };
+
+  const confirmarBorrado = async () => {
+    if (!selectedId) return;
 
     try {
+      setBorrando(true);
       setError(null);
       await deleteEjercicio(selectedId);
       setEjercicios(prev => prev.filter(e => e.id !== selectedId));
@@ -145,6 +150,9 @@ export function EjerciciosPage() {
       } else {
         setError(handleApiError(err, "No se pudo eliminar el ejercicio."));
       }
+    } finally {
+      setBorrando(false);
+      setConfirmandoBorrado(false);
     }
   };
 
@@ -153,6 +161,9 @@ export function EjerciciosPage() {
     isAuthenticated &&
     user &&
     ["ADMINISTRADOR", "INSTRUCTOR"].includes(user.rol);
+
+  const ejercicioSeleccionado = ejercicios.find((e) => e.id === selectedId) ?? null;
+  const usoSeleccionado = ejercicioSeleccionado?.enRutinas ?? 0;
 
   if (!isAuthenticated) {
     return null; // Will redirect via useEffect
@@ -175,6 +186,24 @@ export function EjerciciosPage() {
     <>
       {/* Título accesible: el diseño no repite un h1 grande, la sección ya se ve en el TopNav/breadcrumb */}
       <h1 className="sr-only">Ejercicios</h1>
+
+      <ConfirmDialog
+        open={confirmandoBorrado}
+        title="Eliminar ejercicio"
+        message={
+          usoSeleccionado > 0
+            ? `Este ejercicio está en ${usoSeleccionado} ${
+                usoSeleccionado === 1 ? "rutina" : "rutinas"
+              }; no se puede eliminar.`
+            : `¿Está seguro que desea eliminar "${ejercicioSeleccionado?.nombre}"?`
+        }
+        confirmLabel="Eliminar"
+        danger
+        confirmando={borrando}
+        confirmDisabled={usoSeleccionado > 0}
+        onConfirm={confirmarBorrado}
+        onCancel={() => setConfirmandoBorrado(false)}
+      />
 
       <CrudPageLayout
         section="ejercicios"

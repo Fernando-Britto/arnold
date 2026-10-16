@@ -27,6 +27,14 @@ export interface EjercicioInput {
   descripcion?: string;
 }
 
+/**
+ * Ejercicio con su uso: cuántas rutinas lo referencian (`EjercicioEnRutina`). Campo aditivo
+ * del listado (`GET /api/ejercicios`); permite anticipar si el borrado está bloqueado (409).
+ */
+export interface EjercicioConUso extends Ejercicio {
+  enRutinas: number;
+}
+
 export interface ValidationResult {
   valid: boolean;
   errors: string[];

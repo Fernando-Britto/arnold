@@ -19,6 +19,7 @@ import {
   type RutinaDetalle,
 } from "@/api/rutinas";
 import { fetchEjercicios } from "@/api/ejercicios";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
 import { CrudActions } from "@/components/layout/crud-actions";
 
@@ -36,6 +37,8 @@ export function RutinasPage() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [borrando, setBorrando] = useState(false);
 
   // Check authentication and authorization
   useEffect(() => {
@@ -178,15 +181,16 @@ export function RutinasPage() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!selectedId) return;
-    const rutina = rutinas.find((r) => r.id === selectedId);
-    if (!rutina) return;
-    if (typeof window !== "undefined" && !window.confirm(`¿Está seguro que desea eliminar "${rutina.nombre}"?`)) {
-      return;
-    }
+    setConfirmandoBorrado(true);
+  };
+
+  const confirmarBorrado = async () => {
+    if (!selectedId) return;
 
     try {
+      setBorrando(true);
       setError(null);
       await deleteRutina(selectedId);
       setRutinas((prev) => prev.filter((r) => r.id !== selectedId));
@@ -197,6 +201,9 @@ export function RutinasPage() {
       notify("success", "Rutina eliminada");
     } catch (err) {
       setError(handleApiError(err, "No se pudo eliminar la rutina."));
+    } finally {
+      setBorrando(false);
+      setConfirmandoBorrado(false);
     }
   };
 
@@ -226,6 +233,19 @@ export function RutinasPage() {
   return (
     <>
       <h1 className="sr-only">Rutinas</h1>
+
+      <ConfirmDialog
+        open={confirmandoBorrado}
+        title="Eliminar rutina"
+        message={`¿Está seguro que desea eliminar "${
+          rutinas.find((r) => r.id === selectedId)?.nombre
+        }"?`}
+        confirmLabel="Eliminar"
+        danger
+        confirmando={borrando}
+        onConfirm={confirmarBorrado}
+        onCancel={() => setConfirmandoBorrado(false)}
+      />
 
       <CrudPageLayout
         section="rutinas"

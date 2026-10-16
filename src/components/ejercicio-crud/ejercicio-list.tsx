@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Ejercicio } from "@prisma/client";
+import type { EjercicioConUso } from "@/domains/ejercicio/ejercicio";
 import {
   Table,
   TableHeader,
@@ -19,11 +19,18 @@ export const EJERCICIO_COLUMNS: TableColumn[] = [
   { key: "id", label: "ID", width: 100 },
   { key: "nombre", label: "Nombre", sortable: true },
   { key: "grupo", label: "Grupo", width: 118, sortable: true },
+  { key: "rutinas", label: "Rutinas", width: 130 },
   { key: "estado", label: "Estado", width: 102 },
 ];
 
+/** "En 3 rutinas" / "En 1 rutina"; "—" cuando ninguna la usa (se puede borrar). */
+function usoEnRutinas(enRutinas: number): string {
+  if (enRutinas <= 0) return "—";
+  return `En ${enRutinas} ${enRutinas === 1 ? "rutina" : "rutinas"}`;
+}
+
 /** Sortable value per column, normalized for a case/accent-insensitive compare (H-7). */
-function ejercicioSortValue(ejercicio: Ejercicio, key: string): string | number {
+function ejercicioSortValue(ejercicio: EjercicioConUso, key: string): string | number {
   switch (key) {
     case "grupo":
       return normalizeSortText(ejercicio.grupoMuscular);
@@ -34,9 +41,9 @@ function ejercicioSortValue(ejercicio: Ejercicio, key: string): string | number 
 }
 
 export interface EjercicioListPanelProps {
-  ejercicios: Ejercicio[];
+  ejercicios: EjercicioConUso[];
   selectedId?: string | null;
-  onSelect?: (ejercicio: Ejercicio) => void;
+  onSelect?: (ejercicio: EjercicioConUso) => void;
   searchTerm?: string;
 }
 
@@ -92,6 +99,9 @@ export function EjercicioListPanel({
               <TableCell>{ejercicio.nombre}</TableCell>
               <TableCell width={118} variant="secondary">
                 {ejercicio.grupoMuscular}
+              </TableCell>
+              <TableCell width={130} variant="secondary">
+                {usoEnRutinas(ejercicio.enRutinas)}
               </TableCell>
               <TableCell width={102} variant="secondary">
                 {/* El modelo no tiene estado: se deja vacío, no se inventa dato. */}

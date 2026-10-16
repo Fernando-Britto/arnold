@@ -248,29 +248,32 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       mockClientesApi.fetchClientes.mockResolvedValue([ana]);
       mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
       mockClientesApi.deleteCliente.mockResolvedValue(undefined);
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<ClientesPage />);
       await waitForLoadingComplete();
 
       await user.click(await screen.findByText("Ana García"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
 
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
       await waitFor(() => expect(mockClientesApi.deleteCliente).toHaveBeenCalledWith("cliente-1"));
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Cliente eliminado"));
-      confirmSpy.mockRestore();
     });
 
     it("no borra si se cancela la confirmación", async () => {
       const user = userEvent.setup();
       mockClientesApi.fetchClientes.mockResolvedValue([ana]);
       mockMembresasApi.fetchMembresias.mockResolvedValue(gold);
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(false);
       render(<ClientesPage />);
       await waitForLoadingComplete();
       await user.click(await screen.findByText("Ana García"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
       expect(mockClientesApi.deleteCliente).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
     });
   });
 
@@ -421,14 +424,14 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
       mockClientesApi.deleteCliente.mockRejectedValue(
         new ApiError(400, "El cliente tiene pagos asociados"),
       );
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<ClientesPage />);
       await waitForLoadingComplete();
       await user.click(await screen.findByText("Ana García"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
       expect(await screen.findByText("El cliente tiene pagos asociados")).toBeInTheDocument();
       expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
-      confirmSpy.mockRestore();
     });
 
     it("si la sesión venció (401) al guardar muestra el aviso de sesión", async () => {

@@ -7,6 +7,7 @@ import { useNotifications } from "@/contexts/notifications";
 import { ApiError, handleApiError } from "@/utils/api-error";
 import { Membresia } from "@/domains/membresia/membresia";
 import { MembresiaFormPanel } from "@/components/membresia-crud/membresia-form-panel";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   MembresiaListPanel,
   type MembresiaListItem,
@@ -26,6 +27,8 @@ export function MembresiasPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [borrando, setBorrando] = useState(false);
 
   // Check authentication and authorization
   useEffect(() => {
@@ -96,18 +99,16 @@ export function MembresiasPage() {
     if (membresia) setEditing(membresia);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!selectedId) return;
-    const membresia = membresias.find((m) => m.id === selectedId);
-    if (!membresia) return;
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm(`¿Está seguro que desea eliminar "${membresia.nombre}"?`)
-    ) {
-      return;
-    }
+    setConfirmandoBorrado(true);
+  };
+
+  const confirmarBorrado = async () => {
+    if (!selectedId) return;
 
     try {
+      setBorrando(true);
       setError(null);
       await deleteMembresia(selectedId);
       setMembresias((prev) => prev.filter((m) => m.id !== selectedId));
@@ -123,6 +124,9 @@ export function MembresiasPage() {
       } else {
         setError(handleApiError(err, "No se pudo eliminar la membresía."));
       }
+    } finally {
+      setBorrando(false);
+      setConfirmandoBorrado(false);
     }
   };
 
@@ -152,6 +156,19 @@ export function MembresiasPage() {
   return (
     <>
       <h1 className="sr-only">Membresías</h1>
+
+      <ConfirmDialog
+        open={confirmandoBorrado}
+        title="Eliminar membresía"
+        message={`¿Está seguro que desea eliminar "${
+          membresias.find((m) => m.id === selectedId)?.nombre
+        }"?`}
+        confirmLabel="Eliminar"
+        danger
+        confirmando={borrando}
+        onConfirm={confirmarBorrado}
+        onCancel={() => setConfirmandoBorrado(false)}
+      />
 
       <CrudPageLayout
         section="membresias"

@@ -295,14 +295,14 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
       const user = userEvent.setup();
       mockRutinasApi.fetchRutinas.mockResolvedValue([mockRutina]);
       mockRutinasApi.deleteRutina.mockResolvedValue();
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<RutinasPage />);
       await waitForLoadingComplete();
       await user.click(await screen.findByText("Fuerza Full Body"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
       await waitFor(() => expect(mockRutinasApi.deleteRutina).toHaveBeenCalledWith("rutina-001"));
       expect(mockNotify).toHaveBeenCalledWith("success", "Rutina eliminada");
-      confirmSpy.mockRestore();
     });
 
     it("bloquea el borrado cuando la rutina está asignada a un socio activo", async () => {
@@ -311,14 +311,14 @@ describe("RutinasPage — Rutina CRUD Screen", () => {
       mockRutinasApi.deleteRutina.mockRejectedValue(
         new ApiError(409, "Rutina asignada activamente a 2 socio(s)"),
       );
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<RutinasPage />);
       await waitForLoadingComplete();
       await user.click(await screen.findByText("Fuerza Full Body"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
       expect(await screen.findByText(/Rutina asignada activamente/i)).toBeInTheDocument();
       expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
-      confirmSpy.mockRestore();
     });
   });
 

@@ -1,5 +1,5 @@
 import type { Ejercicio, Prisma } from "@prisma/client";
-import { validateEjercicio, type EjercicioInput } from "./ejercicio";
+import { validateEjercicio, type EjercicioConUso, type EjercicioInput } from "./ejercicio";
 
 /**
  * Acceso a datos de Ejercicio. Separado del dominio puro (`./ejercicio`) para que la lógica
@@ -20,6 +20,7 @@ export interface EjercicioReader {
     findMany(args?: {
       where?: { grupoMuscular?: string };
       orderBy?: { nombre: "asc" | "desc" };
+      include?: { _count: { select: { rutinas: true } } };
     }): Promise<Ejercicio[]>;
     update(args: {
       where: { id: string };
@@ -105,16 +106,17 @@ export class EjercicioRepository {
   }
 
   /**
-   * Get all ejercicios with optional filtering
+   * Get all ejercicios with optional filtering. Cada fila lleva `enRutinas`: cuántas rutinas
+   * la referencian (`_count`), para que la UI anticipe el 409 al borrar.
    * Supports combined filters: search + muscleGroup simultaneously
    * @param options Optional filter options { muscleGroup?: string; search?: string }
    * @param db Cliente inyectado (opcional).
-   * @returns Array of ejercicios matching filters
+   * @returns Array of ejercicios (con su uso) matching filters
    */
   async getAll(
     options?: { muscleGroup?: string; search?: string },
     db?: EjercicioReader
-  ): Promise<Ejercicio[]> {
+  ): Promise<EjercicioConUso[]> {
     const cliente = db ?? (await getPrisma());
 
     if (options?.search) {
@@ -131,24 +133,34 @@ export class EjercicioRepository {
         ? Prisma.sql`AND "grupoMuscular" = ${options.muscleGroup}`
         : Prisma.empty;
 
-      return cliente.$queryRaw<Ejercicio[]>(Prisma.sql`
-        SELECT * FROM "Ejercicio"
+      return cliente.$queryRaw<EjercicioConUso[]>(Prisma.sql`
+        SELECT *, (
+          SELECT COUNT(*)::int FROM "EjercicioEnRutina"
+          WHERE "EjercicioEnRutina"."ejercicioId" = "Ejercicio"."id"
+        ) AS "enRutinas"
+        FROM "Ejercicio"
         WHERE unaccent("nombre") ILIKE unaccent(${patron})
         ${filtroGrupo}
         ORDER BY "nombre" ASC
       `);
     }
 
-    // Sin `search`, Prisma alcanza: filtra por grupo (si lo hay) y ordena por nombre.
+    // Sin `search`, Prisma alcanza: filtra por grupo (si lo hay), ordena por nombre y trae
+    // el `_count` de rutinas para exponerlo como `enRutinas`.
     const where: { grupoMuscular?: string } = {};
     if (options?.muscleGroup) {
       where.grupoMuscular = options.muscleGroup;
     }
 
-    return cliente.ejercicio.findMany({
+    const filas = (await cliente.ejercicio.findMany({
       where,
       orderBy: { nombre: "asc" },
-    });
+      include: { _count: { select: { rutinas: true } } },
+    })) as (Ejercicio & { _count: { rutinas: number } })[];
+    return filas.map(({ _count, ...ejercicio }) => ({
+      ...ejercicio,
+      enRutinas: _count.rutinas,
+    }));
   }
 
   /**

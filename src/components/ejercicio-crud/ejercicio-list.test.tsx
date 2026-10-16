@@ -2,14 +2,15 @@ import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EjercicioListPanel } from "./ejercicio-list";
-import { Ejercicio } from "@prisma/client";
+import type { EjercicioConUso } from "@/domains/ejercicio/ejercicio";
 
-const mockEjercicios: Ejercicio[] = [
+const mockEjercicios: EjercicioConUso[] = [
   {
     id: "1",
     nombre: "Press Militar",
     grupoMuscular: "Hombros",
     descripcion: "Empuje vertical",
+    enRutinas: 2,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -18,6 +19,7 @@ const mockEjercicios: Ejercicio[] = [
     nombre: "Sentadilla",
     grupoMuscular: "Piernas",
     descripcion: "Ejercicio de piernas",
+    enRutinas: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -26,6 +28,7 @@ const mockEjercicios: Ejercicio[] = [
     nombre: "Press Banca",
     grupoMuscular: "Pecho",
     descripcion: null,
+    enRutinas: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -37,6 +40,7 @@ describe("EjercicioListPanel", () => {
     expect(screen.getByText("ID")).toBeInTheDocument();
     expect(screen.getByText("Nombre")).toBeInTheDocument();
     expect(screen.getByText("Grupo")).toBeInTheDocument();
+    expect(screen.getByText("Rutinas")).toBeInTheDocument();
     expect(screen.getByText("Estado")).toBeInTheDocument();
   });
 
@@ -45,7 +49,13 @@ describe("EjercicioListPanel", () => {
     expect(screen.getByText("Press Militar")).toBeInTheDocument();
     expect(screen.getByText("Sentadilla")).toBeInTheDocument();
     expect(screen.getByText("Press Banca")).toBeInTheDocument();
-    expect(screen.getAllByText("—")).toHaveLength(3);
+    // 3 "—" de la columna Estado + 2 "—" de Rutinas (solo Press Militar está en uso).
+    expect(screen.getAllByText("—")).toHaveLength(5);
+  });
+
+  it("muestra el uso en rutinas: 'En N rutinas' cuando está en uso y '—' cuando no", () => {
+    render(<EjercicioListPanel ejercicios={mockEjercicios} />);
+    expect(screen.getByText("En 2 rutinas")).toBeInTheDocument();
   });
 
   it("no renderiza botones por fila (Modificar/Eliminar viven en la ActionBar)", () => {
@@ -89,12 +99,13 @@ describe("EjercicioListPanel", () => {
 
   // H12: la búsqueda pliega tildes. "triceps" (sin tilde) encuentra "Tríceps".
   it("encuentra el ejercicio buscando sin tildes", () => {
-    const conTilde: Ejercicio[] = [
+    const conTilde: EjercicioConUso[] = [
       {
         id: "9",
         nombre: "Tríceps en polea",
         grupoMuscular: "Brazos",
         descripcion: null,
+        enRutinas: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -104,12 +115,13 @@ describe("EjercicioListPanel", () => {
   });
 
   it("encuentra el ejercicio con tilde en el término aunque el dato no la tenga", () => {
-    const sinTilde: Ejercicio[] = [
+    const sinTilde: EjercicioConUso[] = [
       {
         id: "9",
         nombre: "Triceps en polea",
         grupoMuscular: "Brazos",
         descripcion: null,
+        enRutinas: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       },

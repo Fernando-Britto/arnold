@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Ejercicio } from "@prisma/client";
-import { handleEjercicioCreate, handleEjercicioList, type EjercicioInput } from "@/api/ejercicios";
+import {
+  handleEjercicioCreate,
+  handleEjercicioList,
+  type EjercicioConUso,
+  type EjercicioInput,
+} from "@/api/ejercicios";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
 import { registrarOperacion } from "@/lib/audit";
@@ -11,7 +16,7 @@ import { readJsonBody } from "@/lib/request-body";
  */
 export type CreateSuccess = Ejercicio & { status: 201 };
 export type CreateError = { code: string; message: string; status: number };
-export type ListSuccess = Ejercicio[];
+export type ListSuccess = EjercicioConUso[];
 export type ListError = { code: string; message: string; status: number };
 
 /**

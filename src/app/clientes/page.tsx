@@ -16,6 +16,7 @@ import {
 } from "@/api/clientes";
 import { fetchMembresias, type MembresiaDropdown } from "@/api/membresias";
 import { Cliente } from "@/domains/cliente/cliente";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CrudPageLayout, FormPanelShell, ListPanelShell } from "@/components/layout/crud-page-layout";
 import { CrudActions } from "@/components/layout/crud-actions";
 import { useModalA11y } from "@/hooks/use-modal-a11y";
@@ -34,6 +35,8 @@ export function ClientesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [borrando, setBorrando] = useState(false);
   const [tempPasswordModal, setTempPasswordModal] = useState<{
     visible: boolean;
     password: string;
@@ -196,15 +199,16 @@ export function ClientesPage() {
     if (cliente) setEditing(cliente);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!selectedId) return;
-    const cliente = clientes.find((c) => c.id === selectedId);
-    if (!cliente) return;
-    if (typeof window !== "undefined" && !window.confirm("¿Estás seguro de que querés eliminar este cliente?")) {
-      return;
-    }
+    setConfirmandoBorrado(true);
+  };
+
+  const confirmarBorrado = async () => {
+    if (!selectedId) return;
 
     try {
+      setBorrando(true);
       setError(null);
       await deleteCliente(selectedId);
       setClientes((prev) => prev.filter((c) => c.id !== selectedId));
@@ -215,6 +219,9 @@ export function ClientesPage() {
       notify("success", "Cliente eliminado");
     } catch (err) {
       setError(handleApiError(err, "No se pudo eliminar el cliente."));
+    } finally {
+      setBorrando(false);
+      setConfirmandoBorrado(false);
     }
   };
 
@@ -244,6 +251,17 @@ export function ClientesPage() {
   return (
     <>
       <h1 className="sr-only">Clientes</h1>
+
+      <ConfirmDialog
+        open={confirmandoBorrado}
+        title="Eliminar cliente"
+        message="¿Estás seguro de que querés eliminar este cliente?"
+        confirmLabel="Eliminar"
+        danger
+        confirmando={borrando}
+        onConfirm={confirmarBorrado}
+        onCancel={() => setConfirmandoBorrado(false)}
+      />
 
       {membresiasError && (
         <div role="alert" className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">

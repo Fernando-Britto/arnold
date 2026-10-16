@@ -1,12 +1,12 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EjerciciosPage } from "./page";
 import { useAuth } from "@/contexts/auth";
 import { useNotifications } from "@/contexts/notifications";
 import { ApiError } from "@/utils/api-error";
 import * as ejercicioApi from "@/api/ejercicios";
-import { Ejercicio } from "@prisma/client";
+import type { EjercicioConUso } from "@/domains/ejercicio/ejercicio";
 
 // Mock dependencies
 const mockPush = jest.fn();
@@ -35,7 +35,7 @@ jest.mock("@/components/ejercicio-crud/ejercicio-form", () => ({
       grupoMuscular: string;
       descripcion: string;
     }) => void;
-    initialData: Ejercicio | null;
+    initialData: EjercicioConUso | null;
   }) => (
     <div data-testid="ejercicio-form">
       <span data-testid="form-nombre">{initialData?.nombre ?? ""}</span>
@@ -55,31 +55,45 @@ jest.mock("@/components/ejercicio-crud/ejercicio-form", () => ({
   ),
 }));
 
-const mockEjercicio: Ejercicio = {
+const mockEjercicio: EjercicioConUso = {
   id: "1",
   nombre: "Press Militar",
   grupoMuscular: "Hombros",
   descripcion: "Empuje vertical",
+  enRutinas: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 
-const mockEjercicio2: Ejercicio = {
+const mockEjercicio2: EjercicioConUso = {
   id: "2",
   nombre: "Sentadilla",
   grupoMuscular: "Piernas",
   descripcion: "Flexión de rodillas",
+  enRutinas: 0,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+// Ejercicio en uso: la UI debe anticipar el 409 y bloquear el borrado.
+const mockEjercicioEnUso: EjercicioConUso = {
+  id: "4",
+  nombre: "Dominadas",
+  grupoMuscular: "Espalda",
+  descripcion: "Tirón vertical",
+  enRutinas: 3,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 
 // El alta devuelve un ejercicio NUEVO con un id propio. Reusar mockEjercicio2 (id "2"),
 // que ya está en la lista, duplicaba la key de React en la tabla.
-const mockEjercicioCreado: Ejercicio = {
+const mockEjercicioCreado: EjercicioConUso = {
   id: "3",
   nombre: "Remo con barra",
   grupoMuscular: "Espalda",
   descripcion: "Tirón horizontal",
+  enRutinas: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -147,7 +161,8 @@ describe("Ejercicios CRUD Screen (Page)", () => {
     it("muestra el badge de estado en cada fila", async () => {
       render(<EjerciciosPage />);
       await screen.findByText("Press Militar");
-      expect(screen.getAllByText("—")).toHaveLength(2);
+      // 2 "—" de Estado + 2 "—" de Rutinas (ninguno está en uso).
+      expect(screen.getAllByText("—")).toHaveLength(4);
     });
 
     it("no renderiza botones por fila (Modificar/Eliminar están en la ActionBar)", async () => {
@@ -237,26 +252,48 @@ describe("Ejercicios CRUD Screen (Page)", () => {
       expect(screen.getByRole("button", { name: "Eliminar" })).toBeDisabled();
     });
 
+    it("muestra el uso en la lista y bloquea el borrado si está en una rutina", async () => {
+      const user = userEvent.setup();
+      (ejercicioApi.fetchEjercicios as jest.Mock).mockResolvedValue([mockEjercicioEnUso]);
+      render(<EjerciciosPage />);
+      await screen.findByText("Dominadas");
+
+      expect(screen.getByText("En 3 rutinas")).toBeInTheDocument();
+
+      await user.click(screen.getByText("Dominadas"));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+      const dialog = await screen.findByRole("dialog");
+      expect(within(dialog).getByText(/no se puede eliminar/i)).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Eliminar" })).toBeDisabled();
+      expect(ejercicioApi.deleteEjercicio).not.toHaveBeenCalled();
+    });
+
     it("confirma y elimina la fila seleccionada", async () => {
       const user = userEvent.setup();
       (ejercicioApi.deleteEjercicio as jest.Mock).mockResolvedValue(undefined);
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<EjerciciosPage />);
       await user.click(await screen.findByText("Press Militar"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
       await waitFor(() => expect(ejercicioApi.deleteEjercicio).toHaveBeenCalledWith("1"));
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicio eliminado"));
-      confirmSpy.mockRestore();
     });
 
     it("no elimina si se cancela la confirmación", async () => {
       const user = userEvent.setup();
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(false);
       render(<EjerciciosPage />);
       await user.click(await screen.findByText("Press Militar"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
       expect(ejercicioApi.deleteEjercicio).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("muestra el aviso de integridad referencial si el borrado está bloqueado", async () => {
@@ -264,15 +301,17 @@ describe("Ejercicios CRUD Screen (Page)", () => {
       (ejercicioApi.deleteEjercicio as jest.Mock).mockRejectedValue(
         new ApiError(409, "mensaje del servidor", "DELETE_BLOCKED_ASSIGNED"),
       );
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<EjerciciosPage />);
       await user.click(await screen.findByText("Press Militar"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
+
       // H11: el aviso usa el mensaje específico que manda el servidor (rutinas o historial),
       // no un texto fijo de rutinas.
       expect(await screen.findByText("mensaje del servidor")).toBeInTheDocument();
       expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
-      confirmSpy.mockRestore();
     });
   });
 

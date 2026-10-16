@@ -9,6 +9,7 @@ import { ConfiguracionPage } from "./page";
 import { useAuth } from "@/contexts/auth";
 import { useNotifications } from "@/contexts/notifications";
 import { fetchConfiguracion, guardarConfiguracion } from "@/api/configuracion";
+import { fetchDispositivos } from "@/api/dispositivos";
 import type { Configuracion } from "@/lib/configuracion";
 
 const mockPush = jest.fn();
@@ -22,11 +23,17 @@ jest.mock("@/api/configuracion", () => ({
   fetchConfiguracion: jest.fn(),
   guardarConfiguracion: jest.fn(),
 }));
+jest.mock("@/api/dispositivos", () => ({
+  fetchDispositivos: jest.fn(),
+  crearDispositivo: jest.fn(),
+  cambiarEstadoDispositivo: jest.fn(),
+}));
 
 const mockAuth = useAuth as jest.Mock;
 const mockNotify = jest.fn();
 const mockFetch = fetchConfiguracion as jest.MockedFunction<typeof fetchConfiguracion>;
 const mockGuardar = guardarConfiguracion as jest.MockedFunction<typeof guardarConfiguracion>;
+const mockFetchDispositivos = fetchDispositivos as jest.MockedFunction<typeof fetchDispositivos>;
 
 const configBase: Configuracion = {
   capacidadMaxima: 100,
@@ -57,6 +64,7 @@ describe("ConfiguracionPage", () => {
     mockAuth.mockReturnValue(asRol("ADMINISTRADOR"));
     (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
     mockFetch.mockResolvedValue(configBase);
+    mockFetchDispositivos.mockResolvedValue([]);
   });
 
   it("renderiza los 11 campos una vez cargada", async () => {
@@ -154,5 +162,39 @@ describe("ConfiguracionPage", () => {
     await guardar();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo guardar la configuración.");
+  });
+
+  describe("Pestañas", () => {
+    it("arranca en Parámetros con su formulario", async () => {
+      render(<ConfiguracionPage />);
+      await waitFor(() => expect(screen.getAllByTestId(/^campo-/)).toHaveLength(11));
+      expect(screen.getByRole("tab", { name: "Parámetros" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "tab-parametros");
+    });
+
+    it("monta el panel de Dispositivos en su pestaña", async () => {
+      const user = userEvent.setup();
+      mockFetchDispositivos.mockResolvedValueOnce([
+        {
+          id: "dev-1",
+          nombre: "Puerta principal",
+          tipo: "PUERTA",
+          estado: "ACTIVO",
+          ultimoContacto: null,
+          createdAt: new Date(),
+        },
+      ]);
+      render(<ConfiguracionPage />);
+      await screen.findByTestId("campo-periodoGracia");
+
+      await user.click(screen.getByRole("tab", { name: "Dispositivos" }));
+
+      expect(await screen.findByText("Puerta principal")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Dispositivos" })).toHaveAttribute(
+        "aria-selected",
+        "true"
+      );
+      expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "tab-dispositivos");
+    });
   });
 });

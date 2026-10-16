@@ -136,15 +136,15 @@ describe("Membresias CRUD Screen", () => {
     it("click en fila + Eliminar confirma y borra", async () => {
       const user = userEvent.setup();
       mockMembresiasApi.deleteMembresia.mockResolvedValue(undefined);
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<MembresiasPage />);
       await user.click(await screen.findByText("Gold"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
       await waitFor(() =>
         expect(mockMembresiasApi.deleteMembresia).toHaveBeenCalledWith("11111111gold"),
       );
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith("success", "Membresía eliminada"));
-      confirmSpy.mockRestore();
     });
 
     it("muestra el aviso cuando el borrado está bloqueado por socios asignados", async () => {
@@ -152,13 +152,13 @@ describe("Membresias CRUD Screen", () => {
       mockMembresiasApi.deleteMembresia.mockRejectedValue(
         new ApiError(409, "2 socios asignados", "DELETE_BLOCKED_ASSIGNED"),
       );
-      const confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
       render(<MembresiasPage />);
       await user.click(await screen.findByText("Gold"));
       await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
       expect(await screen.findByText(/No se puede eliminar: 2 socios asignados/i)).toBeInTheDocument();
       expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
-      confirmSpy.mockRestore();
     });
   });
 

@@ -24,7 +24,8 @@ jest.mock("@/lib/db", () => {
       [...filas.values()]
         .filter((f) => !where.grupoMuscular || f.grupoMuscular === where.grupoMuscular)
         .filter((f) => !where.nombre || f.nombre.toLowerCase().includes(where.nombre.contains.toLowerCase()))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre)),
+        .sort((a, b) => a.nombre.localeCompare(b.nombre))
+        .map((f) => ({ ...f, _count: { rutinas: 0 } })),
     update: async ({ where, data }: { where: { id: string }; data: Partial<Fila> }) => {
       const actual = filas.get(where.id);
       if (!actual) throw noExiste();
@@ -434,7 +435,11 @@ describe("Ejercicio Domain Model", () => {
 
       await repository.getAll(undefined, db);
 
-      expect(findMany).toHaveBeenCalledWith({ where: {}, orderBy: { nombre: "asc" } });
+      expect(findMany).toHaveBeenCalledWith({
+        where: {},
+        orderBy: { nombre: "asc" },
+        include: { _count: { select: { rutinas: true } } },
+      });
       expect($queryRaw).not.toHaveBeenCalled();
     });
 
@@ -446,7 +451,30 @@ describe("Ejercicio Domain Model", () => {
       expect(findMany).toHaveBeenCalledWith({
         where: { grupoMuscular: "Brazos" },
         orderBy: { nombre: "asc" },
+        include: { _count: { select: { rutinas: true } } },
       });
+    });
+
+    // El listado expone el uso en rutinas (`enRutinas`) a partir del `_count` de Prisma.
+    it("getAll mapea _count.rutinas a enRutinas", async () => {
+      const { db, findMany } = dbFalsa();
+      findMany.mockResolvedValue([
+        {
+          id: "ej-1",
+          nombre: "Press",
+          grupoMuscular: "Hombros",
+          descripcion: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          _count: { rutinas: 3 },
+        },
+      ]);
+
+      const list = await repository.getAll(undefined, db);
+
+      expect(list).toEqual([
+        expect.objectContaining({ id: "ej-1", enRutinas: 3 }),
+      ]);
     });
 
     it("H12: el filtro por grupo muscular aplica en el SQL crudo (con search)", async () => {
