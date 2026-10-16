@@ -50,9 +50,8 @@ partió en 7 PRs está en `decisions.md` (D-01).
 ## Qué se verificó y qué no
 
 **Verificado con evidencia**
-- **Máquina de Fernando (2026-10-16)**: `npm test -- --maxWorkers=4` → `Test Suites: 191 passed` · `Tests: 2410 passed, 2410 total`.
-  Con los workers por defecto (Jest usa `cores-1`) tres suites del kiosco (`kiosco-acceso`, `kiosco-acceso-override`, `kiosco-puerta`) fallan
-  **de forma intermitente por contención**; pasan aisladas y no dependen del código nuevo (FX-18).
+- **Máquina de Fernando (2026-10-16)**: `npm test` con los workers por defecto → `Test Suites: 191 passed` · `Tests: 2410 passed, 2410 total`,
+  **5 corridas seguidas sin fallos** (antes de la corrección de FX-22, tres suites del kiosco fallaban de forma intermitente por contención).
   `npm run build` → exit 0 · `Compiled successfully in 9.4s` · `Finished TypeScript in 18.2s` · 45 páginas generadas · sin errores ni warnings
   (Next.js 16.2.12, Turbopack). `npx tsc --noEmit` → exit 0 (ver el gotcha de `.next/dev/types` en *Calidad*).
 - **Refresh token contra la base (2026-10-16, `curl` a `npm run dev`, usuario `admin@arnold.test`)**: `POST /api/auth/login` → `200` con
@@ -282,10 +281,13 @@ límite 10, corte de altas 20, pago tardío sin recargo (D-40, supuestos 13–15
 - **`npx eslint .` limpio (2026-10-16)**: 0 errores y 0 avisos en 398 archivos. La deuda preexistente (L-14) se saldó en el commit
   `7f15382` (`chore(lint): limpiar la deuda de lint y hacer que CI la exija`); el checklist TDD ya se cumple a nivel repositorio.
 - Tamaño de PR: todos ≤400 LOC (el mayor, 389).
-- **`npm test` es flaky por contención (no es una regresión, 2026-10-16)**: con los workers por defecto (Jest usa `cores-1`) fallan de forma
-  intermitente los suites del kiosco (`kiosco-acceso`, `kiosco-acceso-override`, `kiosco-puerta`). Pasan aislados, no dependen del código nuevo y el
-  repo ya lo documenta (FX-18). Con `npm test -- --maxWorkers=4` la suite da **191 suites / 2410 tests en verde**. En CI los runners tienen 2–4 cores,
-  así que el paralelismo es menor.
+- **Flakiness del kiosco corregida (FX-22, 2026-10-16)**: con los workers por defecto (Jest usa `cores-1`) los suites del kiosco
+  (`kiosco-acceso`, `kiosco-acceso-override`, `kiosco-puerta`) fallaban de forma intermitente con `Exceeded timeout of 5000 ms for a test`: el
+  timeout **por test** de Jest seguía en el default, y esos tests (muchos `userEvent` secuenciales) lo superan bajo carga paralela. La causa se
+  agravaba porque **cinco suites activan los fake timers dentro del cuerpo del test**, así que si el test fallaba antes de su `jest.useRealTimers()`
+  los timers falsos quedaban puestos y colgaban los siguientes (cascada). Corregido en `jest.config.ts` (`testTimeout: 20000`) y `tests/setup.ts`
+  (un `afterEach` que siempre restaura los timers reales). Resultado: **5 corridas seguidas con los workers por defecto, 191 suites / 2410 tests en
+  verde**. FX-18 sólo había subido `asyncUtilTimeout` (que cubre `waitFor`/`findBy*`, no el timeout del test).
 - **Gotcha de `tsc` (2026-10-16)**: `npx tsc --noEmit` puede fallar con `error TS1128` dentro de `.next/dev/types/validator.ts`, un archivo
   **generado por `next dev`** que `tsconfig.json` incluye (`.next/dev/types/**/*.ts`). Ese archivo queda corrupto si un `next dev` se corta a medias
   (aparecía una línea espuria que apuntaba a `./../src/app/api/dispositivos/route.ts`). **Workaround**: `rm -rf .next` y reconstruir; `next build`

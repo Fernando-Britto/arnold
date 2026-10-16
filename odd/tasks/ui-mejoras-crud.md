@@ -51,9 +51,15 @@ Tres cambios pedidos después de la verificación manual de los 4 CRUD:
 
 ### Nota sobre `npm test` (no es una regresión de este cambio)
 
-Con los workers por defecto (Jest usa `cores-1` = 11 acá) fallan de forma **intermitente** los suites
-del kiosco (`kiosco-acceso`, `kiosco-acceso-override`, `kiosco-puerta`): son los más lentos, dejan
-timers abiertos (`MS_AUTO_CLEAR`) y superan el `waitFor` de 5 s bajo carga. **Pasan aislados**, no
-importan nada de este cambio, y el repo ya lo documenta (FX-18, `tests/setup.ts`). Con
-`npm test -- --maxWorkers=4` la suite da **191/191 en verde**. En CI (2–4 cores) el paralelismo es
-mucho menor, así que el riesgo ahí es más bajo. Queda como deuda de higiene de tests, aparte.
+### `npm test` era flaky por contención — **corregido (FX-22)**
+
+Con los workers por defecto (Jest usa `cores-1` = 11 acá) fallaban de forma **intermitente** los suites
+del kiosco (`kiosco-acceso`, `kiosco-acceso-override`, `kiosco-puerta`) con `Exceeded timeout of 5000 ms
+for a test`. No era una regresión (pasaban aislados y no importaban nada de este cambio), pero **sí era
+un defecto real del harness**: el timeout **por test** de Jest seguía en el default de 5 s —FX-18 sólo
+había subido `asyncUtilTimeout`, que cubre `waitFor`/`findBy*`— y cinco suites activan los fake timers
+**dentro del cuerpo del test**, así que un fallo dejaba los timers falsos puestos y colgaba los
+siguientes (cascada).
+
+Corregido en `jest.config.ts` (`testTimeout: 20000`) y `tests/setup.ts` (`afterEach` que siempre restaura
+los timers reales). Verificado con **5 corridas seguidas con los workers por defecto: 191/191, 2410 tests**.

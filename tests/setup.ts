@@ -57,4 +57,10 @@ beforeAll(() => {
 afterEach(() => {
   // Clean up after each test
   jest.clearAllMocks();
+  // Red de seguridad de timers: varios suites activan los fake timers DENTRO del cuerpo del test
+  // (kiosco-acceso, kiosco-puerta, kiosco-acceso-override, ejecucion-rutina, panel-huella), así que si
+  // el test falla antes de su `jest.useRealTimers()`, los timers falsos quedaban puestos y colgaban
+  // los tests siguientes del archivo (cascada de timeouts). Restaurarlos siempre acá. Los suites que
+  // los quieren los vuelven a activar en su propio `beforeEach` (p. ej. notifications.test.tsx).
+  jest.useRealTimers();
 });
