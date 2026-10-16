@@ -149,10 +149,10 @@ Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`).
 5. **Sesión de entrenamiento** (T-037, T-038, D-48) — ✅ `EN_CURSO`, registrar serie con peso/reps/**RIR**, cronómetro por hora guardada, `ultimaCarga` para precargar. **Migración pendiente de generar**.
 6. **Secciones del socio** (T-039, D-45) — ✅ Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias (ownership server-side).
 7. **Cierre de caja** (T-040) — ✅ `/cierres` + totales por método.
-8. **Molinete y huella** (T-041, D-49; fase final, depende del hardware). ⏳
+8. **Molinete y huella** (T-041, D-49/D-56) — ✅ software: dominio, servicio, endpoints de dispositivo (`/api/dispositivo/...`), ruta de administración, panel en `/clientes` y firmware `.ino` actualizado a las rutas nuevas. **Pendiente y sin verificar**: aplicar la migración `20261016120000_add_huella_socio` (**generada, NO aplicada**) y probar con el hardware real (sensor óptico, relé); nada se probó contra una base con la migración ni contra el sensor.
 9. **Panel de parámetros y oferta de reactivación** (T-043a–c, T-045a–d, D-54) — ✅ completa: lector único de configuración, `GET`/`PUT /api/configuracion` solo para el Administrador con auditoría, pantalla `/configuracion`, migración aplicada, cobro con descuento y vista previa, y avisos en pagos, Home_Interno y Home_Socio. La pantalla de la puerta no la muestra (D-47). **La oferta viene apagada por defecto**: el sistema cobra igual hasta que se active desde el panel.
 
-Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-040). Falta que Fernando genere y aplique **una** migración (`sesion_en_curso_y_dispositivo`) y pruebe en dev.
+Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-041). Falta que Fernando genere y aplique las migraciones pendientes (`sesion_en_curso_y_dispositivo` y `add_huella_socio`) y pruebe en dev (la huella, además, con el hardware real).
 
 Sugeridos y sin confirmar: usuarios internos y cambio de contraseña (T-042, T-044). La configuración (T-043) quedó confirmada en D-54, sin la parte de máquinas. Despliegue y refresh token (P-20/P-28) **después** de terminar la ampliación (D-49).
 
@@ -179,7 +179,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-27 | ~~Errores de `eslint` en paneles de Membresías y `any`~~ → resuelto (2026-10-13, `a9adb51`) | — |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) | Media |
 | P-29 | ~~Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`~~ → aplicada por Fernando (2026-10-12); SQL coincide con `schema.prisma` | — |
-| P-30 | Elegir hardware de molinete y huella y confirmar lo legal de datos biométricos → diferido a la fase final (D-49) | Baja |
+| P-30 | Elegir hardware de molinete y huella y confirmar lo legal de datos biométricos → **el software de la huella está implementado (T-041, D-56)**, pero falta elegir/probar el hardware real (sensor óptico, relé) y confirmar lo legal; la migración `add_huella_socio` está generada sin aplicar (D-49) | Baja |
 | P-31 | ~~Qué hace el registro de pagos con `Socio.estadoCuota`~~ → resuelto (D-46): la columna es estado de cuenta; el pago se calcula | — |
 | P-32 | Confirmar con el negocio la política de cobro (pago tardío, reingreso, día de corte) | Baja |
 | P-33 | Parámetros del control de acceso (anti-passback, PIN olvidado) → decidido DNI + PIN en D-47; quedan valores por defecto (anti-passback 60 min) | Baja |

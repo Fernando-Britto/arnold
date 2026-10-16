@@ -35,10 +35,19 @@ jest.mock("@/api/membresias", () => ({
   fetchMembresias: jest.fn(),
 }));
 
+// El panel de huella se monta al seleccionar una fila; jsdom no trae `fetch`.
+jest.mock("@/api/huellas-client", () => ({
+  fetchEstadoHuella: jest.fn(),
+  registrarHuella: jest.fn(),
+  eliminarHuella: jest.fn(),
+}));
+
 import * as actual from "@/api/membresias";
+import * as huellasApi from "@/api/huellas-client";
 
 const mockClientesApi = clientesApi as jest.Mocked<typeof clientesApi>;
 const mockMembresasApi = membresasApi as jest.Mocked<typeof actual>;
+const mockHuellasApi = huellasApi as jest.Mocked<typeof huellasApi>;
 
 // El console.error del form en el camino de fallo es comportamiento de la app: se captura con
 // spy por test y se afirma. `restoreAllMocks` evita que el spy filtre a otros tests (el afterEach
@@ -77,6 +86,11 @@ describe("ClientesPage — Cliente CRUD Screen + Membresía Integration", () => 
     });
     mockClientesApi.fetchClientes.mockResolvedValue([]);
     mockMembresasApi.fetchMembresias.mockResolvedValue([]);
+    mockHuellasApi.fetchEstadoHuella.mockResolvedValue({
+      huellaId: null,
+      consentimientoEn: null,
+      solicitud: null,
+    });
   });
 
   describe("AC-008: Role-based access control (RN-06)", () => {

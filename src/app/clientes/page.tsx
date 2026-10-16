@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ClienteForm } from "@/components/cliente-crud/cliente-form";
 import { ClienteList } from "@/components/cliente-crud/cliente-list";
+import { PanelHuella } from "@/components/cliente-crud/panel-huella";
 import { useAuth } from "@/contexts/auth";
 import { useNotifications } from "@/contexts/notifications";
 import { handleApiError } from "@/utils/api-error";
@@ -322,6 +323,13 @@ export function ClientesPage() {
               isLoading={isSaving}
               membresiasLoading={membresiasLoading}
             />
+            {selectedId && (
+              <PanelHuella
+                key={selectedId}
+                socioId={selectedId}
+                socioNombre={clientes.find((c) => c.id === selectedId)?.nombre}
+              />
+            )}
           </FormPanelShell>
         }
         listPanel={

@@ -814,6 +814,41 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 
 ---
 
+### D-56 · Acceso y enrolamiento por huella (T-041): backend implementado, migración generada sin aplicar
+- **Origen**: T-041 (cierre de la ampliación, D-43 propuesta 5 y D-47 decisión 5). El lector compara la huella por su
+  cuenta y manda sólo el ID de la plantilla; **Arnold no guarda plantillas biométricas** (Ley 25.326, P-30): guarda
+  únicamente la relación `socio ↔ huellaId` y una fecha de consentimiento informado.
+- **Modelo**: `Socio.huellaId Int? @unique` + `Socio.huellaConsentimientoEn DateTime?`; `SolicitudDeHuella` como cola
+  de enrolamientos/bajas (`enum AccionHuella { ENROLAR, BORRAR }`, `enum EstadoSolicitudHuella { PENDIENTE, CONFIRMADA,
+  FALLIDA }`, con `motivo`, `duplicadoDe` y `resueltaEn`). El `huellaId` libre lo elige la función pura
+  `elegirHuellaIdLibre` (`src/domains/acceso/huella.ts`, rango 1–1000) reservando tanto las huellas ya asignadas como
+  las solicitudes PENDIENTES.
+- **Endpoints de dispositivo bajo `/api/dispositivo/...`**: `GET /api/dispositivo/huellas/pendiente`,
+  `POST /api/dispositivo/huellas/confirmar` y `POST /api/dispositivo/acceso/verificar`. **Motivo del prefijo**: el
+  carve-out de `src/lib/access-decision.ts` exime de sesión de usuario sólo `DEVICE_PATHS = ["/puerta",
+  "/api/dispositivo"]`; las rutas `/api/huellas/*` y `/api/acceso/verificar` del `.ino` habrían dado 401. El `.ino` se
+  actualizó a las rutas nuevas (A8).
+- **Auth reutilizada**: los tres endpoints usan `autenticarDispositivo` (`src/lib/dispositivo-auth.ts`), que acepta
+  `Authorization: Bearer <token>` con el token de la tabla `Dispositivo` (tipo `PUERTA`). No se agregó auth nueva ni
+  variables de entorno.
+- **Auditoría y acceso reutilizados**: el acceso por huella reutiliza `evaluarYRegistrarAcceso` (extraído de
+  `handleCheckIn`) con `metodo: "HUELLA"` y registra con `AccionAcceso.CHECK_IN`; el método queda en `Asistencia.metodo`
+  (`MetodoIdentificacion.HUELLA` ya existía, sin migración de enums). Un intento no reconocido o con confianza menor a
+  `HUELLA_CONFIANZA_MINIMA` se audita como DENY sin evaluar la cuota.
+- **Ruta de administración**: `GET`/`POST /api/socios/[id]/huella` (ADMINISTRADOR + RECEPCIONISTA, como `/pin`); la baja
+  va por `POST` con `accion: "borrar"` porque la matriz de roles no da `DELETE` para el Recepcionista. La operación se
+  audita con `registrarOperacion` (`MODIFICACION`, `detalles: { socioId, campo: "huella" }`), nunca el ID.
+- **UI**: `src/components/cliente-crud/panel-huella.tsx` (panel del socio seleccionado en `/clientes`) encola el
+  enrolamiento o la baja y sigue la solicitud por polling de `GET` cada 2 s (tope 60 s). Los fetches del navegador
+  viven en `src/api/huellas-client.ts`, separados de `@/api/huellas` para no arrastrar `@/lib/auth` al bundle cliente.
+- **Estado de la migración**: `20261016120000_add_huella_socio` **está generada pero NO aplicada** (D-41: la aplica
+  Fernando). Hasta aplicarla, las columnas `Socio.huellaId`/`huellaConsentimientoEn` y la tabla `SolicitudDeHuella` no
+  existen en la base.
+- **Verificado**: `npm test` y `tsc` en verde (Prisma simulado en los tests de servicio); el panel con Testing Library.
+  **No verificado**: nada contra el hardware real (sensor, relé) ni contra una base con la migración aplicada.
+
+---
+
 ## 2. Registro de defectos corregidos
 
 | ID | Síntoma | Causa raíz | Corrección | Commit | Cómo se detectó |
