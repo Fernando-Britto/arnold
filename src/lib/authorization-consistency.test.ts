@@ -37,6 +37,10 @@ const EXCEPCIONES: Record<string, string> = {
     "Defensa en profundidad: el handler solo acepta Socio.",
   "GET /api/home-socio/secciones":
     "Defensa en profundidad: el handler solo acepta Socio.",
+  // El estado de la huella es un dato sensible del socio: la matriz deja pasar el GET de INSTRUCTOR
+  // por el prefijo `/api/socios`, pero el handler exige Administrador o Recepcionista a propósito.
+  "GET /api/socios/[id]/huella":
+    "Dato sensible: solo Administrador y Recepcionista ven/registran la huella (T-041).",
 };
 
 /** Rutas cuyo handler no fija roles: delega por completo en el proxy y se saltean (se listan abajo). */

@@ -67,6 +67,10 @@ model Socio {
   estadoCuota   EstadoCuota @default(AL_DIA)
   /// PIN de 4 dígitos del check-in (DNI + PIN), guardado con bcrypt. Nunca en claro (D-47).
   pinHash       String?
+  /// ID de la plantilla en el sensor (1..1000). La plantilla vive en el sensor, no en Arnold (D-43/D-47).
+  huellaId      Int?     @unique
+  /// Fecha del consentimiento informado para el tratamiento de la huella (Ley 25.326, P-30).
+  huellaConsentimientoEn DateTime?
   updatedAt     DateTime @updatedAt
 
   // Relaciones
@@ -80,10 +84,45 @@ model Socio {
   cuotas        Cuota[]
   pagos         Pago[]  @relation("PagosDeSocio")
   auditoriaAcceso AuditoriaAcceso[]
+  solicitudesHuella SolicitudDeHuella[]
 
   @@index([dni])
   @@index([estadoCuota])
   @@index([membresiaAsignadaId])
+}
+
+// ============================================================================
+// HUELLAS (acceso biométrico) — T-041, D-43/D-47
+// ============================================================================
+
+/// Cola de enrolamientos/bajas que el sensor consulta por polling. La plantilla biométrica NUNCA
+/// se persiste en Arnold (Ley 25.326): acá sólo vive la relación socio ↔ huellaId.
+model SolicitudDeHuella {
+  id          String   @id @default(cuid())
+  socio       Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  socioId     String
+  accion      AccionHuella
+  huellaId    Int
+  estado      EstadoSolicitudHuella @default(PENDIENTE)
+  motivo      String?
+  /// ID ya existente en el sensor cuando el enrolamiento encontró un duplicado.
+  duplicadoDe Int?
+  createdAt   DateTime @default(now())
+  resueltaEn  DateTime?
+
+  @@index([estado, createdAt])
+  @@index([socioId])
+}
+
+enum AccionHuella {
+  ENROLAR
+  BORRAR
+}
+
+enum EstadoSolicitudHuella {
+  PENDIENTE
+  CONFIRMADA
+  FALLIDA
 }
 
 enum EstadoCuota {

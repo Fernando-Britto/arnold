@@ -6,7 +6,7 @@
  * D-46: la cuenta (`Socio.estadoCuota`) se separa del pago calculado (`estadoCuotaSocio`, D-40).
  * Prisma se importa en forma diferida: este módulo también expone helpers de fetch para el cliente.
  */
-import type { EstadoCuota as PrismaEstadoCuota } from "@prisma/client";
+import type { EstadoCuota as PrismaEstadoCuota, MetodoIdentificacion } from "@prisma/client";
 import {
   estadoCuotaSocio,
   fechaLimitePago,
@@ -38,7 +38,7 @@ export const MENSAJE_RATE_LIMIT = "Demasiados intentos. Probá de nuevo en un mi
 /** PIN válido: exactamente 4 dígitos (se permiten ceros a la izquierda). Definido en el dominio. */
 export { validarPin };
 
-interface PrismaLike extends ConfiguracionReader {
+export interface PrismaLike extends ConfiguracionReader {
   socio: {
     findUnique(args: unknown): Promise<unknown>;
     update(args: unknown): Promise<unknown>;
@@ -138,6 +138,100 @@ function diaLimiteDelMes(ahora: Date, diaLimite: number, gracia: number): number
 }
 
 /**
+ * Socio mínimo que necesita la evaluación de acceso. Lo comparten el check-in por DNI+PIN y el
+ * acceso por huella: en ambos casos la identidad ya se resolvió antes de llegar acá.
+ */
+export interface SocioParaAcceso {
+  id: string;
+  estadoCuota: PrismaEstadoCuota;
+  usuario: { nombre: string } | null;
+  membresiaAsignada: { nombre: string } | null;
+}
+
+export interface EvaluarAccesoInput {
+  ip: string;
+  userAgent: string;
+  metodo: MetodoIdentificacion;
+  ahora: Date;
+}
+
+/**
+ * Parte común posterior a la identidad (D-47): calcula el estado de pago, aplica el anti-passback,
+ * decide con `decidirAcceso` y persiste `Asistencia` (con `metodo`) + `AuditoriaAcceso` (`CHECK_IN`)
+ * en UNA transacción. Lo usan el check-in por DNI+PIN (`metodo: DNI_PIN`) y el acceso por huella
+ * (`metodo: HUELLA`).
+ */
+export async function evaluarYRegistrarAcceso(
+  prisma: PrismaLike,
+  socio: SocioParaAcceso,
+  { ip, userAgent, metodo, ahora }: EvaluarAccesoInput
+): Promise<CheckInResultado> {
+  const [ultimaCuota, config] = await Promise.all([
+    prisma.cuota.findFirst({ where: { socioId: socio.id }, orderBy: { fechaVencimiento: "desc" } }),
+    getConfiguracion(prisma),
+  ]);
+
+  const { diaLimitePago: diaLimite, periodoGracia: gracia } = config;
+  const ultimoPeriodoCubierto = ultimaCuota ? periodoDe(ultimaCuota.fechaVencimiento) : null;
+  const estadoCuota = estadoCuotaSocio({ ultimoPeriodoCubierto, hoy: ahora, diaLimite, gracia });
+
+  const desde = new Date(
+    ahora.getTime() - ventanaAntiPassbackMinutos(config) * 60 * 1000
+  );
+  const ingresoReciente = await prisma.asistencia.findFirst({
+    where: { socioId: socio.id, estado: "PERMITIDO", fechaHora: { gte: desde } },
+    orderBy: { fechaHora: "desc" },
+  });
+
+  const decision = decidirAcceso({
+    estadoCuota,
+    estadoCuenta: estadoCuentaDe(socio.estadoCuota),
+    antiPassback: ingresoReciente !== null,
+    mensajePendiente: `Cuota a pagar hasta el día ${diaLimiteDelMes(ahora, diaLimite, gracia)}`,
+  });
+
+  const permitido = decision.resultado !== "DENEGADO";
+
+  // AC-2: el ingreso (`Asistencia`) y su auditoría son un único estado acoplado.
+  // Van en UNA transacción: nunca queda un ingreso sin su rastro obligatorio
+  // (ni una auditoría de un ingreso que no se persistió).
+  await prisma.$transaction(async (tx) => {
+    await tx.asistencia.create({
+      data: {
+        socioId: socio.id,
+        fechaHora: ahora,
+        estado: permitido ? "PERMITIDO" : "DENEGADO",
+        razon: permitido ? null : decision.motivo ?? null,
+        metodo,
+      },
+    });
+
+    await tx.auditoriaAcceso.create({
+      data: {
+        socioId: socio.id,
+        accion: "CHECK_IN",
+        resultado: permitido ? "ALLOW" : "DENY",
+        motivo: decision.motivo ?? null,
+        ipAddress: ip,
+        userAgent,
+        timestamp: ahora,
+      },
+    });
+  });
+
+  return {
+    resultado: decision.resultado,
+    ...(decision.motivo ? { motivo: decision.motivo } : {}),
+    socio: {
+      id: socio.id,
+      nombre: socio.usuario?.nombre ?? "",
+      membresia: socio.membresiaAsignada?.nombre ?? null,
+    },
+    estadoCuota,
+  };
+}
+
+/**
  * Check-in por DNI + PIN. Falla genérica si el DNI no existe, el socio no tiene PIN o el PIN
  * no coincide (nunca se revela cuál de los dos falló). Con identidad válida aplica `decidirAcceso`
  * y registra `Asistencia` (`metodo: DNI_PIN`) + `AuditoriaAcceso` (`CHECK_IN`).
@@ -190,69 +284,12 @@ export async function handleCheckIn(input: CheckInInput): Promise<CheckInResulta
     return { resultado: "DENEGADO", motivo: MENSAJE_IDENTIDAD_INVALIDA };
   }
 
-  const [ultimaCuota, config] = await Promise.all([
-    prisma.cuota.findFirst({ where: { socioId: socio.id }, orderBy: { fechaVencimiento: "desc" } }),
-    getConfiguracion(prisma),
-  ]);
-
-  const { diaLimitePago: diaLimite, periodoGracia: gracia } = config;
-  const ultimoPeriodoCubierto = ultimaCuota ? periodoDe(ultimaCuota.fechaVencimiento) : null;
-  const estadoCuota = estadoCuotaSocio({ ultimoPeriodoCubierto, hoy: ahora, diaLimite, gracia });
-
-  const desde = new Date(
-    ahora.getTime() - ventanaAntiPassbackMinutos(config) * 60 * 1000
-  );
-  const ingresoReciente = await prisma.asistencia.findFirst({
-    where: { socioId: socio.id, estado: "PERMITIDO", fechaHora: { gte: desde } },
-    orderBy: { fechaHora: "desc" },
+  return evaluarYRegistrarAcceso(prisma, socio, {
+    ip,
+    userAgent,
+    metodo: "DNI_PIN",
+    ahora,
   });
-
-  const decision = decidirAcceso({
-    estadoCuota,
-    estadoCuenta: estadoCuentaDe(socio.estadoCuota),
-    antiPassback: ingresoReciente !== null,
-    mensajePendiente: `Cuota a pagar hasta el día ${diaLimiteDelMes(ahora, diaLimite, gracia)}`,
-  });
-
-  const permitido = decision.resultado !== "DENEGADO";
-
-  // AC-2: el ingreso (`Asistencia`) y su auditoría son un único estado acoplado.
-  // Van en UNA transacción: nunca queda un ingreso sin su rastro obligatorio
-  // (ni una auditoría de un ingreso que no se persistió).
-  await prisma.$transaction(async (tx) => {
-    await tx.asistencia.create({
-      data: {
-        socioId: socio.id,
-        fechaHora: ahora,
-        estado: permitido ? "PERMITIDO" : "DENEGADO",
-        razon: permitido ? null : decision.motivo ?? null,
-        metodo: "DNI_PIN",
-      },
-    });
-
-    await tx.auditoriaAcceso.create({
-      data: {
-        socioId: socio.id,
-        accion: "CHECK_IN",
-        resultado: permitido ? "ALLOW" : "DENY",
-        motivo: decision.motivo ?? null,
-        ipAddress: ip,
-        userAgent,
-        timestamp: ahora,
-      },
-    });
-  });
-
-  return {
-    resultado: decision.resultado,
-    ...(decision.motivo ? { motivo: decision.motivo } : {}),
-    socio: {
-      id: socio.id,
-      nombre: socio.usuario?.nombre ?? "",
-      membresia: socio.membresiaAsignada?.nombre ?? null,
-    },
-    estadoCuota,
-  };
 }
 
 /**
