@@ -473,6 +473,14 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   `connection_limit=1`). **Falta verificar** que esta aplicación lo tolera: usa transacciones interactivas (`ClienteRepository`) y las migraciones
   necesitan una conexión directa (`directUrl` en `schema.prisma`, que hoy no está configurada). Ver `.env.example`.
 - **Confirmación opcional**: `npm run build` y `npm run start`, y repetir el `curl` a `/api/home-interno`: el proxy debería quedar cerca de 0,2 s.
+- **Actualización 2026-10-16 (pooler probado)**: se apuntó `DATABASE_URL` a la URL *pooled* (modo transaction, puerto 6543,
+  `?pgbouncer=true&connection_limit=1`) tomada de la variable `DATABASE_URL_POOLER` del `.env`, se probó y se restauró el `.env`. **Prisma directo**:
+  query simple OK, **transacción interactiva de 2 sentencias OK** y transacción con lectura de modelo OK → el landmine esperado de pgbouncer
+  (`$transaction(async tx => …)`) **no se dispara**. **App de producción (`npm run start`) contra el pooler**: `POST /api/auth/login` → `200`;
+  `GET /api/home-interno` → `200` en 6,01 s (1.ª) y 2,40 s (2.ª), sin errores. Con la **conexión directa**, la misma medición dio 3,21 s la 1.ª y
+  1,33–1,71 s las siguientes: **el pooler es más lento en local** porque `connection_limit=1` serializa las consultas; su beneficio es la
+  **concurrencia en serverless**, no la latencia desde un cliente único. **Sigue sin probarse en Vercel** y la latencia local no representa al
+  despliegue. Las migraciones siguen necesitando una conexión directa (`directUrl` hoy no configurada).
 
 ### D-36 · Spec `authentication-login` reescrito según la implementación (P-22)
 - **Origen**: Claude; Fernando pidió hacer los specs "como veníamos trabajando" (en inglés, como `rbac-middleware`).
@@ -702,7 +710,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **P-30 (huella/molinete)**: pasa a la **fase final** (T-041), después de que el resto de la ampliación esté andando. No bloquea nada más.
 - **P-20 (refresh token) y P-28 (despliegue)**: **primero se termina la ampliación y se manda a producción**; el refresh con rotación se hace "cuando sobre tiempo". El despliegue se evalúa con el pooler de Supabase (D-35) antes de conectar hardware real.
 - **Consecuencia**: T-032 … T-040 son la prioridad; T-041 (hardware) queda para el final y P-20 no bloquea el cierre.
-- **Actualización 2026-10-16**: el refresh (P-20) ya está implementado y verificado (D-57); queda P-28 (el pooler de Supabase sigue sin probar).
+- **Actualización 2026-10-16**: el refresh (P-20) ya está implementado y verificado (D-57); P-28 quedó **casi cerrado**: `npm run build` y `npm run start` ✅ (exit 0) y el **pooler de Supabase probado y funcionando** en local (incluidas las transacciones interactivas; más lento por `connection_limit=1`), **pendiente de verificar en Vercel**.
 
 ### D-50 · P-24: semántica final de `EstadoCuota` (la cuenta, nunca el pago)
 - **Origen**: Fernando (2026-10-13/14), criterio explícito: "`Socio.estadoCuota` = estado de la CUENTA solamente".
@@ -926,7 +934,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ | — | **Resuelto** en D-31 |
 | P-05 | ~~`/api/home-socio` no existe~~ | — | **Resuelto** en T-028 / D-29. Falta probarlo con un socio real: con el seed cargado (P-08) alcanza con iniciar sesión como `socio1@arnold.test` y abrir `/home-socio` |
 | P-06 | ~~Sin revocación de tokens~~ (D-08, D-23) | — | **Resuelto y verificado** en D-34 (T-027): el logout revoca el `jti`. El refresh se agregó después (P-20, D-57) |
-| P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ | — | **Cerrado** (D-35): el código ya hace una sola ronda de consultas (~0,4 s fuera de Next, sesión ~0,2 s). Lo que queda en `npm run dev` (1,2–4,2 s) es del servidor de desarrollo. Pendiente aparte: evaluar el pooler de Supabase para el despliegue |
+| P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ | — | **Cerrado** (D-35): el código ya hace una sola ronda de consultas (~0,4 s fuera de Next, sesión ~0,2 s). Lo que queda en `npm run dev` (1,2–4,2 s) es del servidor de desarrollo. Pendiente aparte: el pooler de Supabase para el despliegue (ya probado en local: funciona; falta Vercel) |
 | P-08 | ~~No hay script de seed de usuarios~~ | — | **Resuelto y verificado** en D-30 (`npm run seed`): Fernando lo corrió contra la base y Home_Interno coincide con el seed (D-35) |
 | P-09 | ~~El login ignora `?from=`~~ | — | **Resuelto**: `src/lib/login-redirect.ts` (`postLoginRoute`, `safeRedirectTarget`) resuelve el destino y **rechaza** `//host`, backslashes y caracteres de control (anti open redirect); lo usa `src/app/login/page.tsx` |
 | P-10 | `/api/auth/register` figura como pública pero la ruta no existe | Baja | Si se crea, nacería sin autenticación |
@@ -951,7 +959,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-41 | ~~`hasRouteAccess` elegía el prefijo por orden de inserción, así que un prefijo corto podía tapar uno más específico~~ | — | **Resuelto** (barrido del 2026-10-13, hallazgo `I`): `matchBasePath` elige el prefijo **más largo**, sin depender del orden de las claves; con test de regresión en `src/lib/authorization.test.ts` |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
-| P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | **Parcial**: `npm run build` verificado (2026-10-16, exit 0, 45 páginas). El **pooler sigue bloqueado**: no hay URL *pooled* (puerto 6543, `?pgbouncer=true&connection_limit=1`) en el repo y la conexión directa del `.env` no sirve para esa prueba; `.env.example` advierte que la app usa **transacciones interactivas** y que las migraciones necesitan conexión directa, así que la prueba debe cubrir ambos caminos. Falta `npm run start` y el `curl` a `/api/home-interno` (proxy ~0,2 s, `datos` ~0,4 s) |
+| P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | **Casi cerrado (2026-10-16)**: `npm run build` ✅ y `npm run start` ✅ (exit 0, 45 páginas). El **pooler se probó y funciona**: Prisma directo tolera las transacciones interactivas (el landmine de pgbouncer no se dispara) y `npm run start` con `DATABASE_URL` *pooled* responde login `200` y `/api/home-interno` `200` (6,01 s / 2,40 s, contra 3,21 s / 1,33–1,71 s de la conexión directa: **más lento en local por `connection_limit=1`**, que serializa las consultas; su beneficio es la concurrencia en serverless). **Falta probarlo en Vercel**; las migraciones siguen necesitando conexión directa (sin `directUrl`) |
 | P-24 | ~~Completar los estados de `EstadoCuota` y confirmar el significado de Inactivo~~ | — | **Resuelto** en D-50: `EstadoCuota` = la **cuenta** (`AL_DIA`/`INACTIVA`/`BLOQUEADA`); se quitaron `VENCIDA`/`PENDIENTE`; el pago se calcula (D-40) y nunca se persiste. Un pago no reactiva una cuenta `INACTIVA` |
 | P-29 | ~~Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`~~ | — | **Resuelto** (Fernando la aplicó, 2026-10-12). El SQL se comparó con `schema.prisma` y coincide (`diaLimitePago`/`diaCorteAltaTardia` default 10/20, `Cuota.membresiaId` + FK `SetNull`); `npx prisma validate` pasa. No se pudo correr `migrate status` porque la base de Supabase no es alcanzable por la conexión directa desde el entorno del asistente |
 | P-30 | Elegir el hardware del molinete y del lector de huella, y confirmar los requisitos legales de datos biométricos (Ley 25.326) | Baja | **Diferido a la fase final** por D-49 (T-041), después de la ampliación y el despliegue. Propuesta vigente en D-43 (lector que compara por su cuenta, sin guardar plantillas en Arnold) |

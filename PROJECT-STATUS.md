@@ -12,7 +12,7 @@ Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19,
 - **Todas las tareas del plan original están hechas.** Desde el 2026-10-11 hay una etapa de ampliación (pagos → asistencia → registro de rutina), ver *Ampliación en curso*. T-023b (utilidades de UI) está conectada a las cuatro pantallas CRUD (D-39); T-024 dejó factories en `tests/factories/` que todavía no reemplazan a los mocks viejos (D-38).
 - Lo hecho hasta el 2026-10-10 está **verificado** (ver *Qué se verificó y qué no*). Lo del 2026-10-11 (T-023b conectada a las pantallas, T-024) se
   probó en el entorno de Claude; en la máquina de Fernando ya corrieron `npm test`, `npx tsc --noEmit` y `npm run build` (2026-10-16, ver verificación).
-- Quedan: el despliegue (P-28: el pooler de Supabase sigue sin probar; `npm run build` ya está verificado, D-35) y el proxy consultando
+- Quedan: el despliegue (P-28: `npm run build` y `npm run start` ya están verificados y el pooler de Supabase **se probó y funciona** —incluidas las transacciones interactivas—, D-35; **falta probarlo en Vercel**) y el proxy consultando
   la base en cada request (P-11, diferido por D-51). El refresh token (P-20) quedó implementado y verificado contra la base (D-57). P-24, P-25 y P-27 ya están cerrados (D-50, D-53 y `a9adb51`).
 
 ## Tareas
@@ -50,7 +50,9 @@ partió en 7 PRs está en `decisions.md` (D-01).
 ## Qué se verificó y qué no
 
 **Verificado con evidencia**
-- **Máquina de Fernando (2026-10-16)**: `npm test` → `Test Suites: 189 passed` · `Tests: 2394 passed, 2394 total`.
+- **Máquina de Fernando (2026-10-16)**: `npm test -- --maxWorkers=4` → `Test Suites: 191 passed` · `Tests: 2410 passed, 2410 total`.
+  Con los workers por defecto (Jest usa `cores-1`) tres suites del kiosco (`kiosco-acceso`, `kiosco-acceso-override`, `kiosco-puerta`) fallan
+  **de forma intermitente por contención**; pasan aisladas y no dependen del código nuevo (FX-18).
   `npm run build` → exit 0 · `Compiled successfully in 9.4s` · `Finished TypeScript in 18.2s` · 45 páginas generadas · sin errores ni warnings
   (Next.js 16.2.12, Turbopack). `npx tsc --noEmit` → exit 0 (ver el gotcha de `.next/dev/types` en *Calidad*).
 - **Refresh token contra la base (2026-10-16, `curl` a `npm run dev`, usuario `admin@arnold.test`)**: `POST /api/auth/login` → `200` con
@@ -58,6 +60,13 @@ partió en 7 PRs está en `decisions.md` (D-01).
   apuntando a la nueva); reusar el refresh viejo → `401` y, tras el reuso, **toda la cadena** del usuario queda revocada (4 filas, 4 revocadas,
   0 vigentes; volver a usar la nueva también da `401`). Constantes: `SESSION_TTL_SECONDS` 24 h (`src/api/auth.ts:8`), `REFRESH_TTL_SECONDS` 30 días
   (`src/lib/refresh-token.ts:19`); cookies `authToken`/`authRefresh`. Commit `94089ca`; migración `20261014120000_refresh_token` (aplicada).
+- **App de producción contra el pooler de Supabase (2026-10-16)**: se apuntó `DATABASE_URL` a la URL *pooled* (modo transaction, puerto 6543,
+  `?pgbouncer=true&connection_limit=1`) tomada de la variable `DATABASE_URL_POOLER` del `.env`, se probó y se restauró el `.env`. Resultados:
+  Prisma directo — query simple OK, **transacción interactiva de 2 sentencias OK** y transacción con lectura de modelo OK, así que el landmine
+  esperado de pgbouncer (`$transaction(async tx => …)`) **no se dispara**. App de producción (`npm run start`) contra el pooler: `POST /api/auth/login`
+  → `200`; `GET /api/home-interno` → `200` en **6,01 s** (1.ª) y **2,40 s** (2.ª), sin errores. Con la conexión directa, la misma medición dio 3,21 s
+  la 1.ª y 1,33–1,71 s las siguientes: **el pooler es más lento en local** porque `connection_limit=1` serializa las consultas; su beneficio es la
+  **concurrencia en serverless**, no la latencia desde un cliente único. Sigue **sin probarse en Vercel** y la latencia local no representa al despliegue.
 - **Migraciones (2026-10-16)**: `npx prisma migrate status` → 15 migraciones, "Database schema is up to date!". Verificado además contra la base:
   `Socio.huellaId` (integer, nullable, único) y `Socio.huellaConsentimientoEn` (timestamp, nullable), tabla `SolicitudDeHuella` (0 filas), enums
   `AccionHuella`/`EstadoSolicitudHuella` e índice único `Socio_huellaId_key` (migración `20261016120000_add_huella_socio`, aplicada).
@@ -93,8 +102,7 @@ partió en 7 PRs está en `decisions.md` (D-01).
 - Los supuestos de negocio de Home_Interno (turnos, franjas, "activo"; ver *Supuestos*) no están confirmados con el negocio, aunque los números
   se contrastaron con datos reales (P-02).
 - `/api/home-socio` y la pantalla del Socio con un socio real del seed (P-05), incluido el botón "Cerrar sesión" del Socio (FX-19).
-- El despliegue: el pooler de Supabase con esta aplicación (P-28). `npm run build` ya está verificado (2026-10-16); falta probar la URL *pooled*
-  (puerto 6543, `?pgbouncer=true&connection_limit=1`), que no existe en el repo, y `npm run start` (D-35).
+- El **despliegue en Vercel**: el pooler de Supabase se probó localmente y funciona (ver más arriba), pero falta verificar la aplicación desplegada (P-28, D-35).
 
 ## Roles y acceso
 
@@ -147,8 +155,8 @@ deshabilitados con el tooltip "Sin acceso con tu rol" (D-06).
 9. ~~**Medir fuera de Next**~~ → hecho el 2026-10-09 (`npm run bench:home-interno`): armado ≈ 405 ms, sesión ≈ 207 ms, primera corrida (en frío) ≈ 2,1 s.
 11. **Antes del merge de `dev` a `main`**: `npm test`, `npx tsc --noEmit` y `npm run build` **ya corrieron** en la máquina de Fernando (2026-10-16). Falta
     **abrir las cuatro pantallas CRUD en un navegador** para ver un aviso de éxito (crear, editar, eliminar) y un error de la API (D-37, D-38, D-39).
-10. *(opcional)* **Confirmar con el build de producción**: `npm run build` ya pasó (2026-10-16, exit 0, 45 páginas); falta `npm run start` y repetir el `curl` a
-    `/api/home-interno` (P-07, D-35): el proxy debería quedar cerca de 0,2 s y `datos` cerca de 0,4 s.
+10. *(opcional)* **Confirmar con el build de producción**: `npm run build` (2026-10-16, exit 0, 45 páginas) y `npm run start` ya se probaron, incluso
+    apuntando `DATABASE_URL` al pooler (P-28, D-35); falta confirmarlo **en Vercel**.
 
 ## Ampliación en curso
 
@@ -166,7 +174,7 @@ Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`).
 
 Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-041) y **las migraciones están aplicadas** (`sesion_en_curso_y_dispositivo` y `add_huella_socio`; `npx prisma migrate status`: 15 migraciones, esquema al día). Falta probar en dev y, la huella, con el hardware real.
 
-Sugeridos y sin confirmar: usuarios internos y cambio de contraseña (T-042, T-044). La configuración (T-043) quedó confirmada en D-54, sin la parte de máquinas. El refresh token (P-20) ya está hecho (D-57); queda el despliegue (P-28), que se evalúa con el pooler de Supabase (D-35).
+Sugeridos y sin confirmar: usuarios internos y cambio de contraseña (T-042, T-044). La configuración (T-043) quedó confirmada en D-54, sin la parte de máquinas. El refresh token (P-20) ya está hecho (D-57); el despliegue (P-28) avanzó: el pooler de Supabase **se probó y funciona en local** (incluidas las transacciones interactivas) y `npm run build`/`npm run start` están verificados; **falta probarlo en Vercel** (D-35).
 
 ## Pendientes principales
 
@@ -180,7 +188,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-04 | ~~`ClienteRepository.create()` no es atómico~~ → resuelto (D-31) | Baja |
 | P-05 | ~~`/api/home-socio` no existe~~ → resuelto (T-028); falta probarlo con un socio real del seed (`socio1@arnold.test`) | Baja |
 | P-06 | ~~Sin revocación de tokens~~ → resuelto y verificado (T-027, D-34) | Baja |
-| P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ → cerrado (D-35): fuera de Next el armado tarda ~0,4 s y la sesión ~0,2 s; el resto es del servidor de desarrollo. Pendiente aparte: evaluar el pooler de Supabase para el despliegue | Baja |
+| P-07 | ~~Home_Interno tarda 2–4 s en desarrollo~~ → cerrado (D-35): fuera de Next el armado tarda ~0,4 s y la sesión ~0,2 s; el resto es del servidor de desarrollo. Pendiente aparte: el pooler de Supabase para el despliegue (ya probado en local: funciona; falta Vercel) | Baja |
 | P-08 | ~~No hay script de seed de usuarios~~ → resuelto y verificado (`npm run seed`, D-30; Fernando lo corrió y Home_Interno coincide con el seed, D-35) | Baja |
 | P-09 | ~~El login ignora `?from=`~~ → resuelto: `postLoginRoute`/`safeRedirectTarget` en `src/lib/login-redirect.ts` (rechaza `//host`, backslashes y caracteres de control); lo usa `src/app/login/page.tsx` | — |
 | P-15 | ~~Accesos denegados sin registrar en `AuditoriaAcceso`~~ → resuelto y verificado (T-029, D-32) | Baja |
@@ -191,7 +199,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-22 | ~~Reescribir el spec `authentication-login`~~ → resuelto (D-36) | Baja |
 | P-26 | ~~`useMemo` después de `return` tempranos en Clientes~~ → resuelto (2026-10-13, `a9adb51`) | — |
 | P-27 | ~~Errores de `eslint` en paneles de Membresías y `any`~~ → resuelto (2026-10-13, `a9adb51`) | — |
-| P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) → **parcial**: `npm run build` verificado (2026-10-16, exit 0); el pooler sigue **bloqueado** por falta de la URL *pooled* (puerto 6543, `?pgbouncer=true&connection_limit=1`), que no existe en el repo, y falta `npm run start` | Media |
+| P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` (D-35) → **casi cerrado**: `npm run build` ✅ y `npm run start` ✅ (2026-10-16, exit 0) y el **pooler ✅ probado** (funciona, incluidas las transacciones interactivas; en local es **más lento** por `connection_limit=1`, que serializa las consultas). **Falta probarlo en Vercel**, donde el comportamiento puede diferir | Media |
 | P-29 | ~~Aplicar y verificar la migración `20261011120000_add_cuota_membresia_y_dias_de_pago`~~ → aplicada por Fernando (2026-10-12); SQL coincide con `schema.prisma` | — |
 | P-30 | Elegir hardware de molinete y huella y confirmar lo legal de datos biométricos → **el software de la huella está implementado (T-041, D-56) y la migración `add_huella_socio` está aplicada**; falta elegir/probar el hardware real (sensor óptico, relé) y confirmar lo legal | Baja |
 | P-31 | ~~Qué hace el registro de pagos con `Socio.estadoCuota`~~ → resuelto (D-46): la columna es estado de cuenta; el pago se calcula | — |
@@ -208,6 +216,14 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-40 | ~~Confirmar con el negocio los valores de la oferta de reactivación (D-54)~~ → **resuelto (2026-10-15)**: Fernando confirmó la propuesta básica — 30 días sin asistir, 180 de enfriamiento y tope del 50 %—; son configurables desde `/configuracion`, así que el negocio los ajusta sin tocar código | — |
 
 ## Cambios recientes (2026-10-07 al 2026-10-16)
+
+- **Mejoras de UI (commit `03fc721`)**: `ConfirmDialog` reutilizable (`src/components/ui/confirm-dialog.tsx`, reusa `useModalA11y`, con
+  variante destructiva y bloqueo durante la operación) reemplaza el `window.confirm` en Ejercicios, Rutinas, Clientes y Membresías;
+  Ejercicios expone `enRutinas` (aditivo, vía `_count`) y su tabla muestra "En N rutinas" / "—", y **el borrado se bloquea desde la UI** con
+  "Este ejercicio está en N rutina(s); no se puede eliminar." (el backend ya devolvía 409 `DELETE_BLOCKED_ASSIGNED`, AC-006); y `/configuracion`
+  pasa a tener pestañas (Parámetros / Dispositivos) reutilizando `DispositivosPanel` (`src/components/dispositivos/dispositivos-panel.tsx`) —
+  `/dispositivos` sigue existiendo y usa el mismo panel—, se quitó el ítem "Dispositivos" del `admin-top-nav` para no duplicar el link y se agregó
+  `src/components/ui/tabs.tsx`.
 
 - **Refresh token con rotación (P-20, D-57)**: `POST /api/auth/refresh` y `src/lib/refresh-token.ts`; el login emite `authRefresh` (30 días) junto con
   `authToken` (24 h), la rotación guarda `replacedByTokenId` y el reuso de un token rotado revoca toda la cadena del usuario. Verificado contra la base el 2026-10-16.
@@ -240,7 +256,8 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 - **Seguridad de la sesión**: auditoría de logins y accesos denegados (T-029, D-32), límite de intentos de login con IP confiable (D-33) y revocación
   del token en el logout (T-027, D-34), con el botón "Cerrar sesión" del Socio (FX-19). Se suma el refresh token con rotación y detección de reuso (P-20, D-57).
 - **Rendimiento de Home_Interno**: una sola ronda de consultas con `Server-Timing` (T-030) y scripts de diagnóstico `npm run db:latency` y
-  `npm run bench:home-interno` (D-35, FX-21). P-07 cerrado: fuera de Next tarda ~0,4 s; falta evaluar el pooler de Supabase para desplegar.
+  `npm run bench:home-interno` (D-35, FX-21). P-07 cerrado: fuera de Next tarda ~0,4 s; el pooler de Supabase ya se probó en local (funciona y tolera
+  las transacciones interactivas; en local es más lento por `connection_limit=1`), falta probarlo en Vercel.
 - **Datos de desarrollo**: `npm run seed` repetible con usuarios por rol (D-30).
 - **Spec de login** reescrito según la implementación, con trazabilidad a tests y a lo verificado contra la base (P-22, D-36).
 
@@ -265,6 +282,10 @@ límite 10, corte de altas 20, pago tardío sin recargo (D-40, supuestos 13–15
 - **`npx eslint .` limpio (2026-10-16)**: 0 errores y 0 avisos en 398 archivos. La deuda preexistente (L-14) se saldó en el commit
   `7f15382` (`chore(lint): limpiar la deuda de lint y hacer que CI la exija`); el checklist TDD ya se cumple a nivel repositorio.
 - Tamaño de PR: todos ≤400 LOC (el mayor, 389).
+- **`npm test` es flaky por contención (no es una regresión, 2026-10-16)**: con los workers por defecto (Jest usa `cores-1`) fallan de forma
+  intermitente los suites del kiosco (`kiosco-acceso`, `kiosco-acceso-override`, `kiosco-puerta`). Pasan aislados, no dependen del código nuevo y el
+  repo ya lo documenta (FX-18). Con `npm test -- --maxWorkers=4` la suite da **191 suites / 2410 tests en verde**. En CI los runners tienen 2–4 cores,
+  así que el paralelismo es menor.
 - **Gotcha de `tsc` (2026-10-16)**: `npx tsc --noEmit` puede fallar con `error TS1128` dentro de `.next/dev/types/validator.ts`, un archivo
   **generado por `next dev`** que `tsconfig.json` incluye (`.next/dev/types/**/*.ts`). Ese archivo queda corrupto si un `next dev` se corta a medias
   (aparecía una línea espuria que apuntaba a `./../src/app/api/dispositivos/route.ts`). **Workaround**: `rm -rf .next` y reconstruir; `next build`
