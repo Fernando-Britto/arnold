@@ -1,4 +1,4 @@
-import { roleGatingMiddleware, RoleGate, ROLE_GATE_MATRIX } from "./role-gating";
+import { roleGatingMiddleware, ROLE_GATE_MATRIX } from "./role-gating";
 import { RequestWithUser } from "@/lib/auth";
 import { Rol } from "@prisma/client";
 

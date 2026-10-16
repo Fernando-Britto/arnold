@@ -3,9 +3,7 @@ import {
   handleClienteCreateRequest,
   handleClienteListRequest,
   type CreateSuccess,
-  type CreateError,
   type ListSuccess,
-  type ListError,
 } from "@/app/api/clientes/route";
 
 // Auth is bypassed for the route-level malformed-body test: the handler is

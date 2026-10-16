@@ -73,7 +73,7 @@ const ALFABETO_TEMP_PASSWORD = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
  */
 /** `node:crypto` en forma diferida: este modulo llega al navegador y no puede arrastrarlo (ARQ-2). */
 function cryptoRandomBytes(n: number): Uint8Array {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- `require` es la unica forma de cargar `node:crypto` sin volver al import estatico que este modulo no puede tener (ARQ-2).
   return (require("node:crypto") as typeof import("node:crypto")).randomBytes(n);
 }
 
@@ -516,7 +516,9 @@ export class ClienteRepository {
   /**
    * Helper: map Socio to Cliente domain model
    */
-  private mapSocioToCliente(socio: any): Cliente {
+  private mapSocioToCliente(
+    socio: Prisma.SocioGetPayload<{ include: { usuario: true } }>
+  ): Cliente {
     return {
       id: socio.id,
       nombre: socio.usuario?.nombre || "",

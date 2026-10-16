@@ -3,11 +3,8 @@ import {
   handleRutinaGetRequest,
   handleRutinaUpdateRequest,
   handleRutinaDeleteRequest,
-  type GetSuccess,
   type GetError,
-  type UpdateSuccess,
   type UpdateError,
-  type DeleteSuccess,
   type DeleteError,
 } from "@/app/api/rutinas/route";
 import { extractUserFromRequest } from "@/lib/auth";

@@ -77,6 +77,7 @@ export function RutinaForm({
   // Sync form when initialData changes (or resets to null)
   useEffect(() => {
     if (initialData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- el reset del formulario de edición se sincroniza desde props; reescribirlo durante el render cambiaría el momento del update de estado.
       setFormData({
         id: initialData.id,
         nombre: initialData.nombre,

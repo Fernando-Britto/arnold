@@ -29,7 +29,7 @@ function isListSuccess(result: ListSuccess | ListError): result is ListSuccess {
 }
 
 function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateSuccess {
-  return "id" in result && (result as any).status === 201;
+  return "id" in result && result.status === 201;
 }
 
 /**
@@ -61,10 +61,10 @@ export async function handleMembresiaListRequest(activeOnly?: boolean): Promise<
  * @returns Membresia with status 201, or error response
  */
 export async function handleMembresiaCreateRequest(
-  body: any
+  body: unknown
 ): Promise<CreateSuccess | CreateError> {
   try {
-    const membresia = await handleMembresiaCreate(body);
+    const membresia = await handleMembresiaCreate(body as MembresiaInput);
     return { ...membresia, status: 201 } as CreateSuccess;
   } catch (error) {
     const mapped = mapErrorToResponse(error, {

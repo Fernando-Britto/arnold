@@ -79,7 +79,6 @@ describe("MembresiaFormPanel", () => {
 
   describe("Edit mode (PUT)", () => {
     it("should submit to PUT /api/membresias/[id] when editing", async () => {
-      const user = userEvent.setup();
       const mockFetch = global.fetch as jest.Mock;
 
       mockFetch.mockResolvedValueOnce({

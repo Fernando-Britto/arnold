@@ -207,20 +207,21 @@ export class EjercicioRepository {
         where: { id },
       });
       return true;
-    } catch (error: any) {
+    } catch (error) {
       // P2003: falla de clave foránea. Al ejercicio lo referencian DOS relaciones con
       // onDelete: Restrict: `EjercicioEnRutina.ejercicio` (asignado a rutinas) y
       // `RegistroDeProgreso.ejercicio` (historial de entrenamiento). Prisma informa cuál
       // en `error.meta` (nombre del constraint/campo), así que el mensaje se elige según
       // la relación (H11); sin meta reconocible, cae a un mensaje que cubre las dos.
-      if (error?.code === "P2003" || error?.message?.includes("foreign key")) {
+      const err = error as { code?: string; message?: string; meta?: unknown };
+      if (err.code === "P2003" || err.message?.includes("foreign key")) {
         throw Object.assign(
-          new Error(`DELETE_BLOCKED_ASSIGNED: ${mensajeBloqueoPorRelacion(error)}`),
+          new Error(`DELETE_BLOCKED_ASSIGNED: ${mensajeBloqueoPorRelacion(err)}`),
           { code: "DELETE_BLOCKED_ASSIGNED" }
         );
       }
       // P2025: record not found → false (404 handled by the caller).
-      if (error?.code === "P2025") {
+      if (err.code === "P2025") {
         return false;
       }
       // H-3: cualquier otro fallo es de infraestructura y debe propagarse (→ 500),

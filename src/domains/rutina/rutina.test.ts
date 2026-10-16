@@ -1,8 +1,9 @@
 import { createRutina, validateRutina } from "./rutina";
 import { RutinaRepository } from "./rutina-repositorio";
 import * as RutinaDomain from "./rutina";
+import type { Rutina as PrismaRutina } from "@prisma/client";
 
-let memoryRutinas: any[] = [];
+let memoryRutinas: PrismaRutina[] = [];
 
 jest.mock("@/lib/db", () => ({
   prisma: {
@@ -368,7 +369,7 @@ describe("Rutina Domain Model", () => {
         duracionEstimada: 60,
         nivelDeDificultad: "Básico",
       };
-      await expect(repository.create(invalidData as any)).rejects.toThrow();
+      await expect(repository.create(invalidData)).rejects.toThrow();
     });
 
     // NF-13: un valor válido de objetivoPrincipal se actualiza.

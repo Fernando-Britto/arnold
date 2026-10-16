@@ -53,15 +53,16 @@ export async function handleClienteGetRequest(id: string): Promise<GetSuccessTyp
  */
 export async function handleClienteUpdateRequest(
   id: string,
-  body: any
+  body: unknown
 ): Promise<UpdateSuccessType | UpdateErrorType> {
+  const data = body as Partial<ClienteInput> & { id?: unknown; fechaAlta?: unknown };
   try {
     // B3 fix: AC-007: Reject attempts to edit id or fechaAlta (check !== undefined with optional chaining)
-    if (body?.id !== undefined || body?.fechaAlta !== undefined) {
+    if (data?.id !== undefined || data?.fechaAlta !== undefined) {
       throw new Error("VALIDATION_ERROR: id y fechaAlta son campos de solo lectura");
     }
 
-    const cliente = await handleClienteUpdate(id, body);
+    const cliente = await handleClienteUpdate(id, data);
     if (!cliente) {
       throw new Error("NOT_FOUND");
     }

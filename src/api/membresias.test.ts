@@ -15,7 +15,7 @@ import {
   handleMembresiasActivas,
   fetchMembresias,
 } from "./membresias";
-import { MembresiaRepository } from "@/domains/membresia/membresia";
+import { MembresiaRepository, type Membresia } from "@/domains/membresia/membresia";
 
 // Mock the entire domain module to control both repository and validation
 jest.mock("@/domains/membresia/membresia", () => {
@@ -31,7 +31,7 @@ const MockedRepository = MembresiaRepository as jest.MockedClass<
 >;
 
 describe("Membresia Business Logic", () => {
-  const mockMembresia: any = {
+  const mockMembresia: Membresia = {
     id: "1",
     nombre: "Gold",
     precio: 15000,
@@ -167,7 +167,7 @@ describe("Membresia Business Logic", () => {
         await handleMembresiaGetById("nonexistent");
         fail("Expected NOT_FOUND error");
       } catch (error) {
-        expect((error as any).code).toBe("NOT_FOUND");
+        expect((error as { code?: string }).code).toBe("NOT_FOUND");
         expect((error as Error).message).toContain("NOT_FOUND");
       }
     });
@@ -191,7 +191,7 @@ describe("Membresia Business Logic", () => {
           });
           fail("Expected DEACTIVATION_WARNING");
         } catch (error) {
-          expect((error as any).code).toBe("DEACTIVATION_WARNING");
+          expect((error as { code?: string }).code).toBe("DEACTIVATION_WARNING");
           expect((error as Error).message).toContain("DEACTIVATION_WARNING");
           expect((error as Error).message).toContain("5 socios");
           // Should NOT call update
@@ -358,7 +358,7 @@ describe("Membresia Business Logic", () => {
         });
         fail("Expected NOT_FOUND error");
       } catch (error) {
-        expect((error as any).code).toBe("NOT_FOUND");
+        expect((error as { code?: string }).code).toBe("NOT_FOUND");
       }
     });
   });
@@ -378,7 +378,7 @@ describe("Membresia Business Logic", () => {
           await handleMembresiaDelete("1");
           fail("Expected DELETE_BLOCKED_ASSIGNED");
         } catch (error) {
-          expect((error as any).code).toBe("DELETE_BLOCKED_ASSIGNED");
+          expect((error as { code?: string }).code).toBe("DELETE_BLOCKED_ASSIGNED");
           expect((error as Error).message).toContain("DELETE_BLOCKED_ASSIGNED");
           expect((error as Error).message).toContain("3 socios");
           // Should NOT call delete
@@ -425,7 +425,7 @@ describe("Membresia Business Logic", () => {
         await handleMembresiaDelete("nonexistent");
         fail("Expected NOT_FOUND error");
       } catch (error) {
-        expect((error as any).code).toBe("NOT_FOUND");
+        expect((error as { code?: string }).code).toBe("NOT_FOUND");
       }
     });
   });

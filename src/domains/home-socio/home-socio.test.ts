@@ -5,7 +5,6 @@ import {
   compute28DiasAsistencia,
   buildSemanaCalendario,
   computeRachaSemanas,
-  selectRutinaActiva,
 } from "./home-socio";
 
 describe("computeAforoPercentage (spec: home-socio-portal §AforoCard, AC-005)", () => {

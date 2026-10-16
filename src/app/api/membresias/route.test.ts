@@ -7,6 +7,7 @@ import {
   POST as postMembresia,
   handleMembresiaListRequest,
   handleMembresiaCreateRequest,
+  type CreateSuccess,
 } from "./route";
 import {
   handleMembresiaList,
@@ -152,10 +153,10 @@ describe("Membresia API Routes", () => {
         estado: "ACTIVA",
       });
 
-      expect((result as any).status).toBe(201);
-      expect((result as any).id).toBe("new-id");
-      expect((result as any).nombre).toBe("Platinum");
-      expect((result as any).assignedSocioCount).toBe(0);
+      expect((result as CreateSuccess).status).toBe(201);
+      expect((result as CreateSuccess).id).toBe("new-id");
+      expect((result as CreateSuccess).nombre).toBe("Platinum");
+      expect((result as CreateSuccess).assignedSocioCount).toBe(0);
     });
 
     it("should reject nombre < 3 chars with validation error", async () => {
@@ -264,9 +265,9 @@ describe("Membresia API Routes", () => {
         estado: "ACTIVA",
       });
 
-      expect((result as any).status).toBe(201);
-      expect((result as any).id).toBe("gold-id");
-      expect((result as any).nombre).toBe("Gold");
+      expect((result as CreateSuccess).status).toBe(201);
+      expect((result as CreateSuccess).id).toBe("gold-id");
+      expect((result as CreateSuccess).nombre).toBe("Gold");
     });
   });
 

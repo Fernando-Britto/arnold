@@ -9,6 +9,9 @@ import {
   handleEjercicioGetRequest,
   handleEjercicioUpdateRequest,
   handleEjercicioDeleteRequest,
+  type GetSuccess,
+  type UpdateSuccess,
+  type DeleteSuccess,
 } from "./route";
 import {
   handleEjercicioGet,
@@ -59,9 +62,9 @@ describe("Ejercicio [id] API Routes", () => {
 
       const result = await handleEjercicioGetRequest("1");
 
-      expect((result as any).status).toBe(200);
-      expect((result as any).id).toBe("1");
-      expect((result as any).nombre).toBe("Press Militar");
+      expect((result as GetSuccess).status).toBe(200);
+      expect((result as GetSuccess).id).toBe("1");
+      expect((result as GetSuccess).nombre).toBe("Press Militar");
     });
 
     it("should return 404 if ejercicio not found", async () => {
@@ -116,9 +119,9 @@ describe("Ejercicio [id] API Routes", () => {
         grupoMuscular: "Pecho",
       });
 
-      expect((result as any).status).toBe(200);
-      expect((result as any).nombre).toBe("Press Inclinado");
-      expect((result as any).grupoMuscular).toBe("Pecho");
+      expect((result as UpdateSuccess).status).toBe(200);
+      expect((result as UpdateSuccess).nombre).toBe("Press Inclinado");
+      expect((result as UpdateSuccess).grupoMuscular).toBe("Pecho");
     });
 
     it("should reject if nombre is empty", async () => {
@@ -198,8 +201,8 @@ describe("Ejercicio [id] API Routes", () => {
 
        const result = await handleEjercicioDeleteRequest("1");
 
-       expect((result as any).status).toBe(200);
-       expect((result as any).message).toBe("Ejercicio eliminado");
+       expect((result as DeleteSuccess).status).toBe(200);
+       expect((result as DeleteSuccess).message).toBe("Ejercicio eliminado");
      });
 
     it("should return 404 if ejercicio not found", async () => {

@@ -2,6 +2,7 @@ import { comparePassword, hashPassword } from "@/lib/auth";
 import {
   generateTemporaryPassword,
   mapEstadoCuotaToEstadoCuenta,
+  validateCliente,
 } from "./cliente";
 
 describe("GAP 1: Temporary password generation for new usuarios", () => {
@@ -87,14 +88,13 @@ describe("GAP 2: Stale membership cache - INACTIVA membership accepted", () => {
       dni: "30.123.456",
       email: "test@example.com",
       membresiaAsignada: "gold-1", // Could be ACTIVA or INACTIVA, we don't know yet
-      estadoCuenta: "Activa",
+      estadoCuenta: "Activa" as const,
     };
     
     // validateCliente is intentionally NOT responsible for this
     // Membership status validation MUST happen in ClienteRepository.create/update()
     // which has access to the database
     
-    const { validateCliente } = require("./cliente");
     const result = validateCliente(dataWithMembresiaId);
     
     // validateCliente just checks field presence, not actual membership status.

@@ -465,7 +465,7 @@ describe("Ejercicio Domain Model", () => {
          grupoMuscular: "Pecho",
        };
 
-       await expect(repository.create(invalidData as any)).rejects.toThrow();
+       await expect(repository.create(invalidData)).rejects.toThrow();
      });
 
      it("should return null when updating non-existent ejercicio with only descripcion change", async () => {

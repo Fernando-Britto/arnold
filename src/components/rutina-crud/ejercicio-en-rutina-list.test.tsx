@@ -256,7 +256,6 @@ describe("EjercicioEnRutinaList Component", () => {
   describe("Inline editing", () => {
     it("should update series when input changes", async () => {
       const onRowsChange = jest.fn();
-      const user = userEvent.setup();
       const rows: EjercicioEnRutinaRow[] = [
         {
           ejercicioId: "1",

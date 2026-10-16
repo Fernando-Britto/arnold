@@ -3,7 +3,6 @@ import {
   handleRutinaCreateRequest,
   handleRutinaListRequest,
   handleRutinaGetRequest,
-  handleRutinaUpdateRequest,
   handleRutinaDeleteRequest,
   type CreateSuccess,
   type CreateError,
@@ -11,8 +10,6 @@ import {
   type ListError,
   type GetSuccess,
   type GetError,
-  type UpdateSuccess,
-  type UpdateError,
   type DeleteSuccess,
   type DeleteError,
 } from "@/app/api/rutinas/route";
@@ -20,9 +17,9 @@ import {
   handleRutinaCreate,
   handleRutinaList,
   handleRutinaGet,
-  handleRutinaUpdate,
   handleRutinaDelete,
   type RutinaInput,
+  type EjercicioEnRutinaInput,
 } from "@/api/rutinas";
 
 jest.mock("@/api/rutinas");
@@ -39,43 +36,35 @@ afterEach(() => {
  * Type guards for discriminated union responses
  * These MUST match the exported type guards from route.ts
  */
-function isCreateSuccess(result: any): result is CreateSuccess {
+function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateSuccess {
   return "id" in result && result.status === 201;
 }
 
-function isCreateError(result: any): result is CreateError {
+function isCreateError(result: CreateSuccess | CreateError): result is CreateError {
   return "code" in result && "status" in result;
 }
 
-function isListSuccess(result: any): result is ListSuccess {
+function isListSuccess(result: ListSuccess | ListError): result is ListSuccess {
   return Array.isArray(result);
 }
 
-function isListError(result: any): result is ListError {
+function isListError(result: ListSuccess | ListError): result is ListError {
   return "code" in result && "status" in result;
 }
 
-function isGetSuccess(result: any): result is GetSuccess {
+function isGetSuccess(result: GetSuccess | GetError): result is GetSuccess {
   return "id" in result && !("status" in result) && !("code" in result);
 }
 
-function isGetError(result: any): result is GetError {
+function isGetError(result: GetSuccess | GetError): result is GetError {
   return "code" in result && "status" in result;
 }
 
-function isUpdateSuccess(result: any): result is UpdateSuccess {
-  return "id" in result && result.status === 200;
-}
-
-function isUpdateError(result: any): result is UpdateError {
-  return "code" in result && "status" in result;
-}
-
-function isDeleteSuccess(result: any): result is DeleteSuccess {
+function isDeleteSuccess(result: DeleteSuccess | DeleteError): result is DeleteSuccess {
   return "message" in result && result.status === 204;
 }
 
-function isDeleteError(result: any): result is DeleteError {
+function isDeleteError(result: DeleteSuccess | DeleteError): result is DeleteError {
   return "code" in result && "status" in result;
 }
 
@@ -357,7 +346,7 @@ describe("POST /api/rutinas with EjercicioEnRutina rows", () => {
   });
 
   it("should create rutina with ejercicios array", async () => {
-    const input: RutinaInput & { ejercicios?: any[] } = {
+    const input: RutinaInput & { ejercicios?: EjercicioEnRutinaInput[] } = {
       nombre: "Rutina con Ejercicios",
       objetivoPrincipal: "Entrenamiento completo",
       frecuenciaSemanal: 3,
@@ -555,7 +544,7 @@ describe("Error mapping and response structure", () => {
     // Success: has status 201 and id
     expect("status" in result).toBe(true);
     expect("id" in result).toBe(true);
-    expect((result as any).status).toBe(201);
+    expect((result as CreateSuccess).status).toBe(201);
   });
 
   it("should distinguish between success and error in list response", async () => {

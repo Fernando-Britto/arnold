@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Ejercicio } from "@prisma/client";
-import { handleEjercicioCreate, handleEjercicioList } from "@/api/ejercicios";
+import { handleEjercicioCreate, handleEjercicioList, type EjercicioInput } from "@/api/ejercicios";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
 import { registrarOperacion } from "@/lib/audit";
@@ -15,26 +15,15 @@ export type ListSuccess = Ejercicio[];
 export type ListError = { code: string; message: string; status: number };
 
 /**
- * Type guard to check if result is a success response
- */
-function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateSuccess {
-  return "id" in result && (result as any).status === 201;
-}
-
-function isListSuccess(result: ListSuccess | ListError): result is ListSuccess {
-  return Array.isArray(result);
-}
-
-/**
  * Core handler logic for POST /api/ejercicios
  * Exported for testing without NextRequest/NextResponse mocking
  * @returns Ejercicio with status 201, or error response
  */
 export async function handleEjercicioCreateRequest(
-  body: any
+  body: unknown
 ): Promise<CreateSuccess | CreateError> {
   try {
-    const ejercicio = await handleEjercicioCreate(body);
+    const ejercicio = await handleEjercicioCreate(body as EjercicioInput);
     return { ...ejercicio, status: 201 } as CreateSuccess;
   } catch (error) {
     const mapped = mapErrorToResponse(error, {

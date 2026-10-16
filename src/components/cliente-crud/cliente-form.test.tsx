@@ -448,10 +448,9 @@ describe("ClienteForm", () => {
     });
 
     it("should disable submit button while submitting", async () => {
-      const onSave = jest.fn(
-        () =>
-          new Promise((resolve) => setTimeout(resolve, 100))
-      ) as any;
+      const onSave = jest.fn(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
       const user = userEvent.setup();
 
       render(

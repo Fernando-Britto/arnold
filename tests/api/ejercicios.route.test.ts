@@ -26,19 +26,15 @@ afterEach(() => {
 /**
  * Type guards for discriminated union responses
  */
-function isCreateSuccess(result: any): result is CreateSuccess {
+function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateSuccess {
   return "id" in result && result.status === 201;
 }
 
-function isCreateError(result: any): result is CreateError {
+function isCreateError(result: CreateSuccess | CreateError): result is CreateError {
   return "code" in result && "status" in result;
 }
 
-function isListSuccess(result: any): result is ListSuccess {
-  return Array.isArray(result);
-}
-
-function isListError(result: any): result is ListError {
+function isListError(result: ListSuccess | ListError): result is ListError {
   return "code" in result && "status" in result;
 }
 
@@ -320,8 +316,8 @@ describe("GET /api/ejercicios — List Handler", () => {
     const result = await handleEjercicioListRequest();
 
     expect(Array.isArray(result)).toBe(true);
-    expect((result as any)[0].descripcion).toBe("Ejercicio compuesto");
-    expect((result as any)[0].nombre).toBe("Press Banco");
+    expect((result as ListSuccess)[0].descripcion).toBe("Ejercicio compuesto");
+    expect((result as ListSuccess)[0].nombre).toBe("Press Banco");
   });
 });
 

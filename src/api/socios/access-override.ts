@@ -20,7 +20,7 @@ export interface ValidationResult {
 /**
  * Validate access override request
  */
-export function validateAccessOverride(data: any): ValidationResult {
+export function validateAccessOverride(data: { motivo?: unknown }): ValidationResult {
   const errors: string[] = [];
 
   // Validate motivo exists and is string

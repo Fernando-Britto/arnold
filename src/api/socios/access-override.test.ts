@@ -157,7 +157,7 @@ describe("Access Override Authorization (T-025)", () => {
         body: { motivo: "Payment confirmed" },
         ip: "192.168.1.1",
         headers: { "user-agent": "Mozilla/5.0" },
-      } as any;
+      } as unknown as Parameters<typeof handleAccessOverride>[0];
 
       await expect(
         handleAccessOverride(mockReq, "socio1")
@@ -174,7 +174,7 @@ describe("Access Override Authorization (T-025)", () => {
         body: { motivo: "short" },
         ip: "192.168.1.1",
         headers: { "user-agent": "Mozilla/5.0" },
-      } as any;
+      } as unknown as Parameters<typeof handleAccessOverride>[0];
 
       await expect(
         handleAccessOverride(mockReq, "socio1")

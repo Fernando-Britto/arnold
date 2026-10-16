@@ -11,6 +11,9 @@ import {
   handleMembresiaGetByIdRequest,
   handleMembresiaUpdateRequest,
   handleMembresiaDeleteRequest,
+  type GetSuccess,
+  type UpdateSuccess,
+  type DeleteSuccess,
 } from "./route";
 import {
   handleMembresiaGetById,
@@ -60,10 +63,10 @@ describe("Membresia [id] API Routes", () => {
 
       const result = await handleMembresiaGetByIdRequest("1");
 
-      expect((result as any).status).toBe(200);
-      expect((result as any).id).toBe("1");
-      expect((result as any).nombre).toBe("Gold");
-      expect((result as any).assignedSocioCount).toBe(5);
+      expect((result as GetSuccess).status).toBe(200);
+      expect((result as GetSuccess).id).toBe("1");
+      expect((result as GetSuccess).nombre).toBe("Gold");
+      expect((result as GetSuccess).assignedSocioCount).toBe(5);
     });
 
     it("should return 404 if membresia not found", async () => {
@@ -133,9 +136,9 @@ describe("Membresia [id] API Routes", () => {
           confirmarDesactivacion: true,
         });
 
-        expect((result as any).status).toBe(200);
-        expect((result as any).estado).toBe("INACTIVA");
-        expect((result as any).assignedSocioCount).toBe(5);
+        expect((result as UpdateSuccess).status).toBe(200);
+        expect((result as UpdateSuccess).estado).toBe("INACTIVA");
+        expect((result as UpdateSuccess).assignedSocioCount).toBe(5);
       });
 
       it("should complete full AC-005 flow: warn → reject → confirm → succeed", async () => {
@@ -177,8 +180,8 @@ describe("Membresia [id] API Routes", () => {
           confirmarDesactivacion: true,
         });
 
-        expect((result2 as any).status).toBe(200);
-        expect((result2 as any).estado).toBe("INACTIVA");
+        expect((result2 as UpdateSuccess).status).toBe(200);
+        expect((result2 as UpdateSuccess).estado).toBe("INACTIVA");
       });
     });
 
@@ -199,9 +202,9 @@ describe("Membresia [id] API Routes", () => {
         precio: 25000,
       });
 
-      expect((result as any).status).toBe(200);
-      expect((result as any).nombre).toBe("Platinum");
-      expect((result as any).precio).toBe(25000);
+      expect((result as UpdateSuccess).status).toBe(200);
+      expect((result as UpdateSuccess).nombre).toBe("Platinum");
+      expect((result as UpdateSuccess).precio).toBe(25000);
     });
 
     it("should return 404 if membresia not found", async () => {
@@ -262,8 +265,8 @@ describe("Membresia [id] API Routes", () => {
 
         const result = await handleMembresiaDeleteRequest("2");
 
-        expect((result as any).status).toBe(204);
-        expect((result as any).message).toBeDefined();
+        expect((result as DeleteSuccess).status).toBe(204);
+        expect((result as DeleteSuccess).message).toBeDefined();
       });
 
       it("should show DELETE_BLOCKED_ASSIGNED error with assigned count", async () => {

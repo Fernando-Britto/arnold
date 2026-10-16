@@ -3,6 +3,7 @@
  * Handles creation, validation, and state transitions for memberships
  * AC-001 to AC-007: See openspec/specs/membresias-crud/spec.md
  */
+import type { Prisma } from "@prisma/client";
 
 export type EstadoMembresia = "ACTIVA" | "INACTIVA";
 
@@ -29,7 +30,7 @@ export interface MembresiaWithAssignedCount extends Membresia {
 interface PrismaMembresiaRecord {
   id: string;
   nombre: string;
-  precio: any; // Prisma Decimal type
+  precio: Prisma.Decimal | number; // Prisma Decimal type
   periodicidad: number;
   descripcion: string | null;
   estado: EstadoMembresia;
@@ -291,7 +292,7 @@ export class MembresiaRepository {
     }
 
     const prisma = await this.getPrisma();
-    const updateData: any = {};
+    const updateData: Prisma.MembresiaUncheckedUpdateInput = {};
     if (data.nombre !== undefined) updateData.nombre = data.nombre.trim();
     if (data.precio !== undefined)
       updateData.precio = normalizePrecio(data.precio);

@@ -1,12 +1,4 @@
 import * as roueteHandlers from "@/app/api/rutinas/[id]/route";
-import {
-  type GetSuccess,
-  type GetError,
-  type UpdateSuccess,
-  type UpdateError,
-  type DeleteSuccess,
-  type DeleteError,
-} from "@/app/api/rutinas/route";
 import * as rutinasApi from "@/api/rutinas";
 import { NivelDeDificultad } from "@prisma/client";
 
@@ -57,7 +49,7 @@ describe("GET /api/rutinas/[id] — Get single Rutina by ID", () => {
     mockRutinasApi.handleRutinaGet.mockResolvedValue(mockRutina);
 
     const result = await roueteHandlers.GET(
-      {} as any,
+      {} as unknown as Parameters<typeof roueteHandlers.GET>[0],
       { params: Promise.resolve({ id: "rutina-1" }) }
     );
 
@@ -71,7 +63,7 @@ describe("GET /api/rutinas/[id] — Get single Rutina by ID", () => {
     mockRutinasApi.handleRutinaGet.mockResolvedValue(null);
 
     const result = await roueteHandlers.GET(
-      {} as any,
+      {} as unknown as Parameters<typeof roueteHandlers.GET>[0],
       { params: Promise.resolve({ id: "nonexistent" }) }
     );
 
@@ -104,7 +96,7 @@ describe("PUT /api/rutinas/[id] — Update specific Rutina", () => {
         nombre: "Full Body Plus",
         frecuenciaSemanal: 4,
       }),
-    } as any;
+    } as unknown as Parameters<typeof roueteHandlers.PUT>[0];
 
     const result = await roueteHandlers.PUT(
       mockRequest,
@@ -124,7 +116,7 @@ describe("PUT /api/rutinas/[id] — Update specific Rutina", () => {
       json: jest.fn().mockResolvedValue({
         nombre: "Updated",
       }),
-    } as any;
+    } as unknown as Parameters<typeof roueteHandlers.PUT>[0];
 
     const result = await roueteHandlers.PUT(
       mockRequest,
@@ -144,7 +136,7 @@ describe("DELETE /api/rutinas/[id] — Delete specific Rutina", () => {
     mockRutinasApi.handleRutinaDelete.mockResolvedValue(undefined);
 
     const result = await roueteHandlers.DELETE(
-      {} as any,
+      {} as unknown as Parameters<typeof roueteHandlers.GET>[0],
       { params: Promise.resolve({ id: "rutina-1" }) }
     );
 
@@ -158,7 +150,7 @@ describe("DELETE /api/rutinas/[id] — Delete specific Rutina", () => {
     );
 
     const result = await roueteHandlers.DELETE(
-      {} as any,
+      {} as unknown as Parameters<typeof roueteHandlers.GET>[0],
       { params: Promise.resolve({ id: "nonexistent" }) }
     );
 
@@ -174,7 +166,7 @@ describe("DELETE /api/rutinas/[id] — Delete specific Rutina", () => {
     );
 
     const result = await roueteHandlers.DELETE(
-      {} as any,
+      {} as unknown as Parameters<typeof roueteHandlers.GET>[0],
       { params: Promise.resolve({ id: "rutina-assigned" }) }
     );
 

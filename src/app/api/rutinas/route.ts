@@ -6,6 +6,8 @@ import {
   handleRutinaGet,
   handleRutinaUpdate,
   handleRutinaDelete,
+  type RutinaInput,
+  type EjercicioEnRutinaInput,
 } from "@/api/rutinas";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
@@ -36,9 +38,13 @@ export type DeleteError = { code: string; message: string; status: number };
  * Exported for testing without NextRequest/NextResponse mocking
  * @returns Rutina with status 201, or error response
  */
-export async function handleRutinaCreateRequest(body: any): Promise<CreateSuccess | CreateError> {
+export async function handleRutinaCreateRequest(
+  body: unknown
+): Promise<CreateSuccess | CreateError> {
   try {
-    const rutina = await handleRutinaCreate(body);
+    const rutina = await handleRutinaCreate(
+      body as RutinaInput & { ejercicios?: EjercicioEnRutinaInput[] }
+    );
     return { ...rutina, status: 201 } as CreateSuccess;
   } catch (error) {
     const mapped = mapErrorToResponse(error, {
@@ -107,10 +113,13 @@ export async function handleRutinaListRequest(): Promise<ListSuccess | ListError
  */
 export async function handleRutinaUpdateRequest(
   id: string,
-  body: any
+  body: unknown
 ): Promise<UpdateSuccess | UpdateError> {
   try {
-    const rutina = await handleRutinaUpdate(id, body);
+    const rutina = await handleRutinaUpdate(
+      id,
+      body as Partial<RutinaInput> & { ejercicios?: EjercicioEnRutinaInput[] }
+    );
     if (!rutina) {
       throw new Error("NOT_FOUND");
     }
@@ -202,7 +211,7 @@ export async function POST(request: NextRequest) {
 /**
  * GET /api/rutinas - List all rutinas
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   const result = await handleRutinaListRequest();
 
   // If error response (has status and code properties)

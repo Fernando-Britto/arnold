@@ -56,7 +56,7 @@ export function createEjercicio(
  * @param data Ejercicio input to validate
  * @returns Validation result with errors if any
  */
-export function validateEjercicio(data: any): ValidationResult {
+export function validateEjercicio(data: unknown): ValidationResult {
   const errors: string[] = [];
 
   // H-5: un body no-objeto (null/undefined/primitivo) no debe lanzar TypeError
@@ -65,8 +65,10 @@ export function validateEjercicio(data: any): ValidationResult {
     return { valid: false, errors: ["Los datos del ejercicio son inválidos"] };
   }
 
+  const input = data as Partial<EjercicioInput>;
+
   // Validate nombre
-  const nombre = typeof data.nombre === "string" ? data.nombre.trim() : "";
+  const nombre = typeof input.nombre === "string" ? input.nombre.trim() : "";
   if (!nombre) {
     errors.push("El nombre es requerido");
   } else if (nombre.length < 3) {
@@ -76,15 +78,15 @@ export function validateEjercicio(data: any): ValidationResult {
   }
 
   // Validate grupoMuscular (AC-002: debe pertenecer a la lista predefinida)
-  if (!data.grupoMuscular || typeof data.grupoMuscular !== "string") {
+  if (!input.grupoMuscular || typeof input.grupoMuscular !== "string") {
     errors.push("El grupo muscular es requerido");
-  } else if (!GRUPOS_MUSCULARES.includes(data.grupoMuscular)) {
+  } else if (!GRUPOS_MUSCULARES.includes(input.grupoMuscular)) {
     errors.push(`El grupo muscular debe ser uno de: ${GRUPOS_MUSCULARES.join(", ")}`);
   }
 
   // Validate descripcion (optional)
-  if (data.descripcion && typeof data.descripcion === "string") {
-    if (data.descripcion.length > 500) {
+  if (input.descripcion && typeof input.descripcion === "string") {
+    if (input.descripcion.length > 500) {
       errors.push("La descripción no puede exceder 500 caracteres");
     }
   }

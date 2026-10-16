@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Ejercicio } from "@prisma/client";
 import type { EjercicioEnRutinaRow } from "@/api/rutinas";
 import { formatDescansoDisplay, parseDescansoInput } from "./descanso-utils";
@@ -131,7 +131,10 @@ export function EjercicioEnRutinaList({
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Track which ejercicio IDs are already in the table
-  const selectedEjercicioIds = new Set(rows.map(r => r.ejercicioId));
+  const selectedEjercicioIds = useMemo(
+    () => new Set(rows.map((r) => r.ejercicioId)),
+    [rows]
+  );
 
   /**
     * Add selected exercises from catalog to the table with default values

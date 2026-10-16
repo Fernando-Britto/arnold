@@ -32,5 +32,9 @@ jobs:
       - name: Chequeo de tipos
         run: npx tsc --noEmit
 
+      # Frena el retorno de la deuda de lint (any/no-unused-vars) que se limpió a mano.
+      - name: Lint
+        run: npm run lint
+
       - name: Tests
         run: npm test

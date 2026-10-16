@@ -108,7 +108,7 @@ describe("Membresia Domain", () => {
       it("should reject when precio is missing", () => {
         const result = validateMembresia({
           nombre: "Gold",
-          precio: undefined as any,
+          precio: undefined,
           periodicidad: 30,
           estado: "ACTIVA",
         });
@@ -154,7 +154,7 @@ describe("Membresia Domain", () => {
         const result = validateMembresia({
           nombre: "Gold",
           precio: 15000,
-          periodicidad: undefined as any,
+          periodicidad: undefined,
           estado: "ACTIVA",
         });
         expect(result.valid).toBe(false);
@@ -269,7 +269,7 @@ describe("Membresia Domain", () => {
           nombre: "Gold",
           precio: 15000,
           periodicidad: 30,
-          estado: undefined as any,
+          estado: undefined,
         });
         expect(result.valid).toBe(false);
         expect(result.errors.some((e) => e.includes("estado"))).toBe(true);
@@ -280,7 +280,7 @@ describe("Membresia Domain", () => {
           nombre: "Gold",
           precio: 15000,
           periodicidad: 30,
-          estado: "INVALIDO" as any,
+          estado: "INVALIDO" as unknown as EstadoMembresia,
         });
         expect(result.valid).toBe(false);
         expect(result.errors.some((e) => e.includes("estado"))).toBe(true);

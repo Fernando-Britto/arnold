@@ -8,7 +8,7 @@ import {
   ClienteRepository,
   mapEstadoCuentaToEstadoCuota,
   mapEstadoCuotaToEstadoCuenta,
-  type Cliente,
+  type EstadoCuenta,
 } from "./cliente";
 import { comparePassword } from "@/lib/auth";
 import type { EstadoCuota as PrismaEstadoCuota } from "@prisma/client";
@@ -507,7 +507,7 @@ describe("Cliente Domain Model", () => {
         dni: "30.123.456",
         email: "ana@example.com",
         membresiaAsignada: "gold-123",
-        estadoCuenta: "Pendiente" as any,
+        estadoCuenta: "Pendiente" as unknown as EstadoCuenta,
       });
 
       expect(validation.valid).toBe(false);
@@ -524,7 +524,7 @@ describe("Cliente Domain Model", () => {
         dni: "invalid",
         email: "not-email",
         membresiaAsignada: "",
-        estadoCuenta: "Inválido" as any,
+        estadoCuenta: "Inválido" as unknown as EstadoCuenta,
       });
 
       expect(validation.valid).toBe(false);
@@ -557,9 +557,22 @@ describe("Cliente Domain Model", () => {
   });
 });
 
+type MockModel = Record<string, jest.Mock>;
+interface MockPrisma {
+  socio: MockModel;
+  usuario: MockModel;
+  membresia: MockModel;
+  asistencia: MockModel;
+  sesionDeEntrenamiento: MockModel;
+  registroDeProgreso: MockModel;
+  pago: MockModel;
+  cuota: MockModel;
+  $transaction: jest.Mock;
+}
+
 describe("ClienteRepository", () => {
   let repository: ClienteRepository;
-  let mockPrisma: any;
+  let mockPrisma: MockPrisma;
 
   beforeEach(() => {
     // Mock Prisma
@@ -596,7 +609,7 @@ describe("ClienteRepository", () => {
 
     // Mock the getPrisma method
     repository = new ClienteRepository();
-    (repository as any).getPrisma = jest
+    (repository as unknown as { getPrisma: jest.Mock }).getPrisma = jest
       .fn()
       .mockResolvedValue(mockPrisma);
   });
@@ -778,7 +791,7 @@ describe("ClienteRepository", () => {
       estadoCuenta: "Activa" as const,
       telefono: "+54 9 1234 567890",
     };
-    let tx: any;
+    let tx: { usuario: { create: jest.Mock }; socio: { create: jest.Mock } };
 
     beforeEach(() => {
       tx = {
@@ -791,7 +804,7 @@ describe("ClienteRepository", () => {
           }),
         },
       };
-      mockPrisma.$transaction.mockImplementation((cb: any) => cb(tx));
+      mockPrisma.$transaction.mockImplementation((cb: (client: unknown) => unknown) => cb(tx));
       mockPrisma.socio.findUnique.mockResolvedValue(null);
       mockPrisma.membresia.findUnique.mockResolvedValue({ estado: "ACTIVA" });
     });
@@ -1209,7 +1222,7 @@ describe("ClienteRepository", () => {
       };
 
       mockPrisma.socio.findUnique.mockResolvedValue(mockSocio);
-      mockPrisma.$transaction.mockImplementation((ops: any[]) => {
+      mockPrisma.$transaction.mockImplementation((ops: unknown) => {
         if (Array.isArray(ops)) {
           return Promise.resolve([{}, {}]);
         }
@@ -1371,7 +1384,7 @@ describe("ClienteRepository", () => {
     });
 
     it("should default to AL_DIA for unknown values", () => {
-      expect(mapEstadoCuentaToEstadoCuota("Unknown" as any)).toBe("AL_DIA");
+      expect(mapEstadoCuentaToEstadoCuota("Unknown" as unknown as EstadoCuenta)).toBe("AL_DIA");
     });
   });
 

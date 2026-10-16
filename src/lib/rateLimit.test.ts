@@ -21,7 +21,11 @@ jest.mock("@/lib/db", () => {
 });
 
 // Cast prisma with proper mocking support
-const mockPrisma = prisma as any;
+type MockPrisma = {
+  rateLimitLog: { count: jest.Mock; create: jest.Mock; deleteMany: jest.Mock };
+  $transaction: jest.Mock;
+};
+const mockPrisma = prisma as unknown as MockPrisma;
 
 describe("Rate Limiting", () => {
   beforeEach(() => {
@@ -36,7 +40,7 @@ describe("Rate Limiting", () => {
         key: "user-1",
         route: "/api/socios",
         timestamp: new Date(),
-      } as any);
+      });
 
       const result = await checkRateLimit("user-1", "/api/socios", 100);
 
@@ -68,7 +72,7 @@ describe("Rate Limiting", () => {
         key: "ip-192.168.1.1",
         route: "/api/ejercicios",
         timestamp: new Date(),
-      } as any);
+      });
 
       const result = await checkRateLimit("ip-192.168.1.1", "/api/ejercicios");
 
@@ -84,7 +88,7 @@ describe("Rate Limiting", () => {
         key: "user-2",
         route: "/api/pagos",
         timestamp: new Date(),
-      } as any);
+      });
 
       const result = await checkRateLimit("user-2", "/api/pagos", 10);
 
@@ -98,7 +102,7 @@ describe("Rate Limiting", () => {
         key: "user-3",
         route: "/api/rutinas",
         timestamp: new Date(),
-      } as any);
+      });
 
       const beforeCall = Date.now();
       await checkRateLimit("user-3", "/api/rutinas");
@@ -122,7 +126,7 @@ describe("Rate Limiting", () => {
         key: "user-4",
         route: "/api/clientes",
         timestamp: new Date(),
-      } as any);
+      });
 
       await checkRateLimit("user-4", "/api/clientes");
 
@@ -144,7 +148,7 @@ describe("Rate Limiting", () => {
         key: "user-5",
         route: "/api/membresias",
         timestamp: now,
-      } as any);
+      });
 
       await checkRateLimit("user-5", "/api/membresias");
 

@@ -5,7 +5,7 @@ import { TextEncoder, TextDecoder } from 'util';
 // Polyfill TextEncoder/TextDecoder for jsdom environment
 // Fixes userEvent encoding issues in parallel test execution
 global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder as any;
+global.TextDecoder = TextDecoder as unknown as typeof global.TextDecoder;
 
 // `waitFor`/`findBy*` esperan 1 s por defecto; con ~85 suites en paralelo un render lento daba fallos
 // intermitentes (FX-18). Solo hace más lento fallar cuando el test realmente está mal.
@@ -17,7 +17,10 @@ configure({ asyncUtilTimeout: 5000 });
 // Mock next/server globally to avoid ReferenceError during test suite compilation
 jest.mock('next/server', () => {
   // NextResponse constructor: new NextResponse(body, options)
-  const NextResponseConstructor = function (body: any, options?: any) {
+  const NextResponseConstructor = function (
+    body: unknown,
+    options?: { status?: number; headers?: Record<string, unknown> }
+  ) {
     return {
       json: jest.fn(async () => body),
       status: options?.status || 200,
@@ -26,7 +29,10 @@ jest.mock('next/server', () => {
   };
 
   // Static method: NextResponse.json(data, options)
-  NextResponseConstructor.json = (data: any, options?: any) => ({
+  NextResponseConstructor.json = (
+    data: unknown,
+    options?: { status?: number; headers?: Record<string, unknown> }
+  ) => ({
     json: jest.fn(async () => data),
     status: options?.status || 200,
     headers: options?.headers || {},

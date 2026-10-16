@@ -32,28 +32,16 @@ export type DeleteSuccess = { message: string; status: 204 };
 export type DeleteError = { code: string; message: string; status: number };
 
 /**
- * Type guards for discriminated union responses
- * Internal use only
- */
-function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateSuccess {
-  return "id" in result && "tempPassword" in result && (result as any).status === 201;
-}
-
-function isListSuccess(result: ListSuccess | ListError): result is ListSuccess {
-  return Array.isArray(result);
-}
-
-/**
  * Core handler logic for POST /api/clientes
  * Exported for testing without NextRequest/NextResponse mocking
  * @returns Cliente + tempPassword with status 201, or error response
  * NOTE: tempPassword is ephemeral and MUST NEVER be exposed in GET/LIST responses
  */
 export async function handleClienteCreateRequest(
-  body: any
+  body: unknown
 ): Promise<CreateSuccess | CreateError> {
   try {
-    const result = await handleClienteCreate(body);
+    const result = await handleClienteCreate(body as ClienteInput);
     return { 
       ...result.cliente, 
       tempPassword: result.tempPassword,

@@ -1,4 +1,8 @@
-import type { NivelDeDificultad, Rutina as PrismaRutina } from "@prisma/client";
+import type {
+  NivelDeDificultad,
+  Prisma,
+  Rutina as PrismaRutina,
+} from "@prisma/client";
 import {
   DEFAULT_OBJETIVO_PRINCIPAL,
   mapNivelDeDificultad,
@@ -28,7 +32,10 @@ export interface RutinaReader {
       };
     }): Promise<PrismaRutina>;
     findUnique(args: { where: { id: string } }): Promise<PrismaRutina | null>;
-    update(args: { where: { id: string }; data: Record<string, any> }): Promise<PrismaRutina>;
+    update(args: {
+      where: { id: string };
+      data: Prisma.RutinaUncheckedUpdateInput;
+    }): Promise<PrismaRutina>;
     delete(args: { where: { id: string } }): Promise<PrismaRutina>;
   };
 }
@@ -133,13 +140,15 @@ export class RutinaRepository {
     // Map nivel de dificultad if provided and filter out undefined null values
     // NF-14: contrato de campos opcionales: `undefined` = no cambiar, `null` = vaciar.
     // `descripcion` es nullable, así que un `null` explícito limpia la columna.
-    const updateData: Record<string, any> = {};
+    const updateData: Prisma.RutinaUncheckedUpdateInput = {};
     if (data.nombre !== undefined) updateData.nombre = data.nombre;
     if (data.frecuenciaSemanal !== undefined) updateData.frecuenciaSemanal = data.frecuenciaSemanal;
     if (data.duracionEstimada !== undefined) updateData.duracionEstimada = data.duracionEstimada;
     if (data.nivelDeDificultad !== undefined) updateData.nivelDeDificultad = mapNivelDeDificultad(data.nivelDeDificultad);
     if (data.descripcion !== undefined) updateData.descripcion = data.descripcion;
-    if (data.objetivoPrincipal !== undefined) updateData.objetivoPrincipal = data.objetivoPrincipal;
+    // `objetivoPrincipal` es NOT NULL en la base: un `null` (o no-string) es dato inválido que
+    // `validateRutina` ya rechazó arriba, así que sólo se escribe un string real.
+    if (typeof data.objetivoPrincipal === "string") updateData.objetivoPrincipal = data.objetivoPrincipal;
 
     return db.rutina.update({
       where: { id },

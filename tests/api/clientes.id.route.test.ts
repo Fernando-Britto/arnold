@@ -3,8 +3,6 @@ import {
   handleClienteGetRequest,
   handleClienteUpdateRequest,
   type GetSuccess,
-  type GetError,
-  type UpdateSuccess,
   type UpdateError,
 } from "@/app/api/clientes/[id]/route";
 
