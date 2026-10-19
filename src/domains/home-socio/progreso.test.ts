@@ -10,9 +10,9 @@ const reg = (ejercicioId: string, nombre: string, carga: number, iso: string) =>
 
 describe("computeProgresoActual", () => {
   it("devuelve null sin registros en las últimas 4 semanas", () => {
-    expect(computeProgresoActual([], HOY, 2.5)).toBeNull();
+    expect(computeProgresoActual([], HOY)).toBeNull();
     expect(
-      computeProgresoActual([reg("e1", "Press banca", 60, "2026-08-01T15:00:00Z")], HOY, 2.5)
+      computeProgresoActual([reg("e1", "Press banca", 60, "2026-08-01T15:00:00Z")], HOY)
     ).toBeNull();
   });
 
@@ -25,11 +25,12 @@ describe("computeProgresoActual", () => {
         reg("e1", "Press banca", 57.5, "2026-09-22T16:00:00Z"), // mismo día: gana la mayor
         reg("e1", "Press banca", 65, "2026-10-05T15:00:00Z"),
       ],
-      HOY,
-      2.5
+      HOY
     );
 
+    // P-42 (D-60): ya no calcula la "próxima sesión sugerida": eso lo decide el motor de progresión.
     expect(res).toEqual({
+      ejercicioId: "e1",
       ejercicioNombre: "Press banca",
       marcaActual: 65,
       deltaEsteMes: 10,
@@ -38,19 +39,19 @@ describe("computeProgresoActual", () => {
         { fecha: "2026-09-22", carga: 60 },
         { fecha: "2026-10-05", carga: 65 },
       ],
-      proximaSesionSugerida: 67.5,
     });
+    expect(res).not.toHaveProperty("proximaSesionSugerida");
   });
 
   it("un solo punto: delta 0", () => {
-    const res = computeProgresoActual([reg("e1", "Remo", 40, "2026-10-01T15:00:00Z")], HOY, 2.5);
+    const res = computeProgresoActual([reg("e1", "Remo", 40, "2026-10-01T15:00:00Z")], HOY);
     expect(res?.deltaEsteMes).toBe(0);
     expect(res?.marcaActual).toBe(40);
   });
 
   it("agrupa el día según la hora del gimnasio (UTC-3), no UTC", () => {
     // 01:30Z del 6/10 = 22:30 del 5/10 en Argentina
-    const res = computeProgresoActual([reg("e1", "Remo", 40, "2026-10-06T01:30:00Z")], HOY, 2.5);
+    const res = computeProgresoActual([reg("e1", "Remo", 40, "2026-10-06T01:30:00Z")], HOY);
     expect(res?.progresionCarga[0].fecha).toBe("2026-10-05");
   });
 

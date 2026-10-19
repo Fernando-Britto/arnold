@@ -142,6 +142,57 @@ describe("POST /api/sesiones/[id]/series", () => {
     expect(mockRegistrar).not.toHaveBeenCalled();
   });
 
+  // D-64: tipo de serie.
+  it.each(["NORMAL", "CALENTAMIENTO", "HASTA_EL_FALLO", "DROP_SET"])(
+    "201: pasa el tipo de serie %s al dominio",
+    async (tipo) => {
+      mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
+      mockObtener.mockResolvedValueOnce({ id: "s1", socioId: "socio-1" } as never);
+      mockResolver.mockResolvedValueOnce("socio-1");
+      mockRegistrar.mockResolvedValueOnce({ registro: { id: "r1" }, sesion: { id: "s1" } } as never);
+
+      const res = await POST(
+        postReq({ ejercicioId: "ej-1", carga: 40, repeticiones: 10, rir: 2, tipo }),
+        ctx()
+      );
+
+      expect(res.status).toBe(201);
+      expect(mockRegistrar).toHaveBeenCalledWith(expect.objectContaining({ tipo }));
+    }
+  );
+
+  it("sin tipo no lo inventa: el dominio aplica el de por defecto", async () => {
+    mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
+    mockObtener.mockResolvedValueOnce({ id: "s1", socioId: "socio-1" } as never);
+    mockResolver.mockResolvedValueOnce("socio-1");
+    mockRegistrar.mockResolvedValueOnce({ registro: { id: "r1" }, sesion: { id: "s1" } } as never);
+
+    await POST(postReq({ ejercicioId: "ej-1", carga: 40, repeticiones: 10 }), ctx());
+
+    expect(mockRegistrar.mock.calls[0][0]).not.toHaveProperty("tipo", expect.anything());
+  });
+
+  it.each([
+    ["texto desconocido", "SUPERSET"],
+    ["minúsculas", "calentamiento"],
+    ["null", null],
+    ["número", 1],
+    ["objeto", { tipo: "DROP_SET" }],
+  ])("400 VALIDATION_ERROR si el tipo está presente y no es válido (%s)", async (_caso, tipo) => {
+    mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
+    mockObtener.mockResolvedValueOnce({ id: "s1", socioId: "socio-1" } as never);
+    mockResolver.mockResolvedValueOnce("socio-1");
+
+    const res = await POST(
+      postReq({ ejercicioId: "ej-1", carga: 40, repeticiones: 10, tipo }),
+      ctx()
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION_ERROR");
+    expect(mockRegistrar).not.toHaveBeenCalled();
+  });
+
   it("400 (guarda EN_CURSO) si el dominio rechaza registrar", async () => {
     mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
     mockObtener.mockResolvedValueOnce({ id: "s1", socioId: "socio-1" } as never);

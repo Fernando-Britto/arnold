@@ -2,12 +2,16 @@
 
 import React from "react";
 import { ArrowRight, Target, TrendingUp } from "lucide-react";
+import type { SugerenciaProgresoDTO } from "@/api/home-socio";
 
 /**
  * ProgresoSection — "Mi progreso" for Fila1 of Home_Socio.
  * Matches Home_Socio_1x design: progression of the CURRENT exercise (not a
  * multi-exercise summary), with a PR badge, current mark + monthly delta,
- * and a suggested next-session weight.
+ * and the suggested next-session weight.
+ *
+ * La sugerencia viene del motor de progresión (P-42, D-60): la misma que ve el socio en la
+ * pantalla de entrenamiento, así las dos pantallas nunca se contradicen.
  */
 export interface PuntoProgreso {
   fecha: string; // ISO date
@@ -20,7 +24,8 @@ export interface ProgresoSectionProps {
   deltaEsteMes: number;
   /** Sorted oldest-to-newest; the last point is treated as "today". */
   progresionCarga: PuntoProgreso[];
-  proximaSesionSugerida: number;
+  /** null = no hay un número que sugerir (ejercicio fuera de la rutina, primera vez, sin carga). */
+  sugerencia?: SugerenciaProgresoDTO | null;
   onVerTodosLosEjercicios?: () => void;
 }
 
@@ -44,12 +49,57 @@ export function esPersonalRecord(
   return anteriores.every((p) => marcaActual >= p.carga);
 }
 
+interface LineaSugerencia {
+  valor: string;
+  /** Diferencia con la marca actual; solo al subir. */
+  extra: string | null;
+  colorValor: string;
+  colorIcono: string;
+}
+
+/**
+ * Cómo se muestra la sugerencia según lo que dice el motor. Sin número no hay línea: no se
+ * inventa uno (primera vez, sin carga registrada, ejercicio fuera de la rutina).
+ */
+function lineaDeSugerencia(
+  sugerencia: SugerenciaProgresoDTO | null,
+  marcaActual: number
+): LineaSugerencia | null {
+  if (!sugerencia || sugerencia.carga === null || sugerencia.tipo === "primera") return null;
+
+  switch (sugerencia.tipo) {
+    case "subir": {
+      const diferencia = sugerencia.carga - marcaActual;
+      return {
+        valor: formatKg(sugerencia.carga),
+        extra: `(${diferencia >= 0 ? "+" : ""}${kgFormatter.format(diferencia)} kg)`,
+        colorValor: "text-[#FC4C02]",
+        colorIcono: "text-[#FC4C02]",
+      };
+    }
+    case "descargar":
+      return {
+        valor: `Bajá a ${formatKg(sugerencia.carga)}`,
+        extra: null,
+        colorValor: "text-amber-700",
+        colorIcono: "text-amber-700",
+      };
+    case "mantener":
+      return {
+        valor: `Mantené ${formatKg(sugerencia.carga)}`,
+        extra: null,
+        colorValor: "text-zinc-900",
+        colorIcono: "text-zinc-500",
+      };
+  }
+}
+
 export function ProgresoSection({
   ejercicioNombre,
   marcaActual,
   deltaEsteMes,
   progresionCarga,
-  proximaSesionSugerida,
+  sugerencia = null,
   onVerTodosLosEjercicios,
 }: ProgresoSectionProps) {
   const sinHistorial = progresionCarga.length === 0;
@@ -68,7 +118,7 @@ export function ProgresoSection({
     })
     .join(" ");
 
-  const incremento = proximaSesionSugerida - marcaActual;
+  const linea = lineaDeSugerencia(sugerencia, marcaActual);
 
   return (
     <div
@@ -151,17 +201,30 @@ export function ProgresoSection({
             </div>
           </div>
 
-          <div className="flex items-center gap-4 border-t border-zinc-200 pt-5">
-            <Target className="h-[18px] w-[18px] text-[#FC4C02]" />
-            <p className="text-sm text-zinc-500">
-              Próxima sesión sugerida:{" "}
-              <span className="font-bold text-[#FC4C02]">{formatKg(proximaSesionSugerida)}</span>{" "}
-              <span className="font-bold text-[#FC4C02]">
-                ({incremento >= 0 ? "+" : ""}
-                {kgFormatter.format(incremento)} kg)
-              </span>
-            </p>
-          </div>
+          {linea && sugerencia && (
+            <div
+              data-testid="sugerencia"
+              data-tipo={sugerencia.tipo}
+              className="flex items-start gap-4 border-t border-zinc-200 pt-5"
+            >
+              <Target className={`mt-0.5 h-[18px] w-[18px] shrink-0 ${linea.colorIcono}`} />
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-zinc-500">
+                  Próxima sesión sugerida:{" "}
+                  <span className={`font-bold ${linea.colorValor}`}>{linea.valor}</span>
+                  {linea.extra && (
+                    <>
+                      {" "}
+                      <span className={`font-bold ${linea.colorValor}`}>{linea.extra}</span>
+                    </>
+                  )}
+                </p>
+                <p data-testid="sugerencia-motivo" className="text-xs text-zinc-500">
+                  {sugerencia.motivo}
+                </p>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

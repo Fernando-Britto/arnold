@@ -11,6 +11,7 @@ jest.mock("@/lib/db", () => ({
     rutinaAsignada: { findMany: jest.fn() },
     sesionDeEntrenamiento: { findFirst: jest.fn() },
     pago: { findFirst: jest.fn() },
+    medicionDePeso: { findMany: jest.fn() },
   },
 }));
 
@@ -30,8 +31,26 @@ const SOCIO = {
   cuotas: [{ fechaVencimiento: at("2026-10-20T03:00:00Z") }],
 };
 
-function seed() {
+/** Fila de `RegistroDeProgreso` tal como la leen la ventana del Home y el motor (D-60). */
+interface FilaHistorial {
+  carga: number;
+  repeticiones: number;
+  fecha: string;
+  sesionId: string;
+  numeroSerie: number;
+}
+
+/** Press banca (e1) pide 3×10. Sesión vieja a 60 kg y sesión del 5/10 con las 3 series a 65 kg × 10. */
+const HISTORIAL_PRESS: FilaHistorial[] = [
+  { carga: 60, repeticiones: 10, fecha: "2026-09-22T15:00:00Z", sesionId: "s0", numeroSerie: 1 },
+  { carga: 65, repeticiones: 10, fecha: "2026-10-05T15:00:00Z", sesionId: "sA", numeroSerie: 1 },
+  { carga: 65, repeticiones: 10, fecha: "2026-10-05T15:05:00Z", sesionId: "sA", numeroSerie: 2 },
+  { carga: 65, repeticiones: 10, fecha: "2026-10-05T15:10:00Z", sesionId: "sA", numeroSerie: 3 },
+];
+
+function seed(historial: FilaHistorial[] = HISTORIAL_PRESS) {
   db.socio.findUnique.mockResolvedValue(SOCIO);
+  db.medicionDePeso.findMany.mockResolvedValue([]);
   db.configuracionDelSistema.findFirst.mockResolvedValue({ capacidadMaxima: 50, ventanaAforoMinutos: 90 });
   db.asistencia.findMany.mockImplementation(async (args: { where: { socioId?: string } }) =>
     args.where.socioId
@@ -50,10 +69,27 @@ function seed() {
           { fechaHora: at("2026-10-06T20:00:00Z") }, // ayer
         ]
   );
-  db.registroDeProgreso.findMany.mockResolvedValue([
-    { carga: dec(60), fecha: at("2026-09-22T15:00:00Z"), ejercicio: { id: "e1", nombre: "Press banca" } },
-    { carga: dec(65), fecha: at("2026-10-05T15:00:00Z"), ejercicio: { id: "e1", nombre: "Press banca" } },
-  ]);
+  // Dos consultas distintas al mismo modelo: la ventana de 28 días del Home (trae el ejercicio) y,
+  // por ejercicio, el historial que lee el motor de progresión (trae sesión y número de serie).
+  db.registroDeProgreso.findMany.mockImplementation(async (args: { where: { ejercicioId?: string } }) => {
+    if (args.where.ejercicioId) {
+      return args.where.ejercicioId === "e1"
+        ? [...historial].reverse().map((h) => ({
+            carga: dec(h.carga),
+            repeticiones: h.repeticiones,
+            rir: null,
+            numeroSerie: h.numeroSerie,
+            fecha: at(h.fecha),
+            sesionId: h.sesionId,
+          }))
+        : [];
+    }
+    return historial.map((h) => ({
+      carga: dec(h.carga),
+      fecha: at(h.fecha),
+      ejercicio: { id: "e1", nombre: "Press banca" },
+    }));
+  });
   db.reglaDeProgresion.findFirst.mockResolvedValue({ incrementoSugerido: dec(5) });
   db.rutinaAsignada.findMany.mockResolvedValue([
     {
@@ -63,8 +99,8 @@ function seed() {
       rutina: {
         nombre: "Fuerza A",
         ejercicios: [
-          { series: 3, repeticiones: 10, descanso: 120, ejercicio: { id: "e1", nombre: "Press banca", grupoMuscular: "Pecho", descripcion: "Con barra" } },
-          { series: 4, repeticiones: 8, descanso: 90, ejercicio: { id: "e2", nombre: "Remo", grupoMuscular: "Espalda", descripcion: null } },
+          { series: 3, repeticiones: 10, descanso: 120, updatedAt: at("2026-09-01T15:00:00Z"), ejercicio: { id: "e1", nombre: "Press banca", grupoMuscular: "Pecho", descripcion: "Con barra" } },
+          { series: 4, repeticiones: 8, descanso: 90, updatedAt: at("2026-09-01T15:00:00Z"), ejercicio: { id: "e2", nombre: "Remo", grupoMuscular: "Espalda", descripcion: null } },
         ],
       },
     },
@@ -117,14 +153,80 @@ describe("buildHomeSocioPayload", () => {
     expect(res?.membresia?.dias28.filter(Boolean)).toHaveLength(4);
   });
 
-  it("progreso usa la regla de progresión configurada", async () => {
-    seed();
-    const res = await buildHomeSocioPayload("u1", NOW);
-    expect(res?.progreso).toMatchObject({
-      ejercicioNombre: "Press banca",
-      marcaActual: 65,
-      deltaEsteMes: 5,
-      proximaSesionSugerida: 70,
+  describe("progreso: la sugerencia sale del motor de progresión (P-42, D-60)", () => {
+    it("completó todas las series: sube con el incremento de la regla configurada", async () => {
+      seed();
+      const res = await buildHomeSocioPayload("u1", NOW);
+
+      expect(res?.progreso).toMatchObject({
+        ejercicioNombre: "Press banca",
+        marcaActual: 65,
+        deltaEsteMes: 5,
+        sugerencia: { tipo: "subir", carga: 70 },
+      });
+      expect(res?.progreso).not.toHaveProperty("proximaSesionSugerida");
+      // El id interno del ejercicio no viaja al cliente.
+      expect(res?.progreso).not.toHaveProperty("ejercicioId");
+    });
+
+    it("una serie quedó corta: mantiene el peso (el Home ya NO dice 'marca + incremento')", async () => {
+      seed([
+        { carga: 65, repeticiones: 10, fecha: "2026-10-05T15:00:00Z", sesionId: "sA", numeroSerie: 1 },
+        { carga: 65, repeticiones: 10, fecha: "2026-10-05T15:05:00Z", sesionId: "sA", numeroSerie: 2 },
+        { carga: 65, repeticiones: 7, fecha: "2026-10-05T15:10:00Z", sesionId: "sA", numeroSerie: 3 },
+      ]);
+      const res = await buildHomeSocioPayload("u1", NOW);
+
+      expect(res?.progreso?.marcaActual).toBe(65);
+      expect(res?.progreso?.sugerencia).toMatchObject({ tipo: "mantener", carga: 65 });
+    });
+
+    it("tres sesiones seguidas sin llegar a las repeticiones: sugiere descargar", async () => {
+      const sesion = (id: string, dia: string) =>
+        [1, 2, 3].map((n) => ({
+          carga: 65,
+          repeticiones: n === 3 ? 6 : 10,
+          fecha: `2026-10-${dia}T15:0${n}:00Z`,
+          sesionId: id,
+          numeroSerie: n,
+        }));
+      seed([...sesion("sA", "01"), ...sesion("sB", "03"), ...sesion("sC", "05")]);
+      const res = await buildHomeSocioPayload("u1", NOW);
+
+      // 10 % menos de 65 son 58,5, redondeado a un múltiplo del incremento de la regla (5 kg) = 60.
+      expect(res?.progreso?.sugerencia).toMatchObject({ tipo: "descargar", carga: 60 });
+    });
+
+    it("el ejercicio ya no está en la rutina activa: sin sugerencia (no hay qué juzgar)", async () => {
+      seed();
+      db.rutinaAsignada.findMany.mockResolvedValue([
+        {
+          id: "ra1",
+          fechaAsignacion: at("2026-09-01T15:00:00Z"),
+          rutinaId: "r1",
+          rutina: {
+            nombre: "Fuerza A",
+            ejercicios: [
+              { series: 4, repeticiones: 8, descanso: 90, updatedAt: at("2026-09-01T15:00:00Z"), ejercicio: { id: "e2", nombre: "Remo", grupoMuscular: "Espalda", descripcion: null } },
+            ],
+          },
+        },
+      ]);
+      const res = await buildHomeSocioPayload("u1", NOW);
+
+      expect(res?.progreso?.ejercicioNombre).toBe("Press banca");
+      expect(res?.progreso?.sugerencia).toBeNull();
+    });
+
+    it("la sesión en curso no cuenta: una serie floja de hoy no cambia la sugerencia", async () => {
+      seed([
+        ...HISTORIAL_PRESS,
+        // Serie de la sesión EN_CURSO (id "s1" en el mock): no es historial.
+        { carga: 40, repeticiones: 3, fecha: "2026-10-07T14:00:00Z", sesionId: "s1", numeroSerie: 1 },
+      ]);
+      const res = await buildHomeSocioPayload("u1", NOW);
+
+      expect(res?.progreso?.sugerencia).toMatchObject({ tipo: "subir", carga: 70 });
     });
   });
 
@@ -176,6 +278,17 @@ describe("buildHomeSocioPayload", () => {
     expect(db.rutinaAsignada.findMany.mock.calls[0][0].where.activa).toBe(true);
     const socioCall = db.asistencia.findMany.mock.calls.find((c: [{ where: { socioId?: string } }]) => c[0].where.socioId);
     expect(socioCall[0].where).toMatchObject({ socioId: "socio-1", estado: "PERMITIDO" });
+  });
+
+  it("D-64: la ventana de progreso del Home excluye los calentamientos", async () => {
+    seed();
+    await buildHomeSocioPayload("u1", NOW);
+
+    // La consulta de la ventana es la que no filtra por ejercicio (la otra la hace el motor).
+    const ventana = db.registroDeProgreso.findMany.mock.calls
+      .map((c: [{ where: Record<string, unknown> }]) => c[0])
+      .find((arg: { where: Record<string, unknown> }) => arg.where.ejercicioId === undefined);
+    expect(ventana.where).toMatchObject({ tipo: { not: "CALENTAMIENTO" } });
   });
 
   it("estados vacíos: sin rutina, sin progreso, sin membresía ni cuota", async () => {
@@ -274,3 +387,76 @@ describe("buildHomeSocioPayload", () => {
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("ROUTINE_INTEGRITY_ERROR"), expect.anything());
   });
 });
+
+describe("buildHomeSocioPayload: peso corporal (T-048 parte 2, D-66)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("sin pesajes ni meta: puntos vacíos y meta nula", async () => {
+    seed();
+
+    const res = await buildHomeSocioPayload("u1", NOW);
+
+    expect(res?.peso).toEqual({ puntos: [], recientes: [], pesoObjetivo: null, pesoInicial: null });
+  });
+
+  it("lee los pesajes del propio socio, los más recientes primero y con un tope", async () => {
+    seed();
+
+    await buildHomeSocioPayload("u1", NOW);
+
+    expect(db.medicionDePeso.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { socioId: "socio-1" },
+        orderBy: { fecha: "desc" },
+        take: 400,
+        select: { id: true, peso: true, fecha: true },
+      })
+    );
+  });
+
+  it("arma un punto por día (el último), del más antiguo al más reciente, con el peso como número", async () => {
+    seed();
+    db.medicionDePeso.findMany.mockResolvedValue([
+      // La base los entrega del más nuevo al más viejo.
+      { peso: dec(78.4), fecha: at("2026-10-05T22:00:00Z") },
+      { peso: dec(79.1), fecha: at("2026-10-05T12:00:00Z") }, // mismo día, más temprano: se descarta
+      { peso: dec(80), fecha: at("2026-09-28T12:00:00Z") },
+    ]);
+
+    const res = await buildHomeSocioPayload("u1", NOW);
+
+    expect(res?.peso.puntos).toEqual([
+      { fecha: "2026-09-28T12:00:00.000Z", peso: 80 },
+      { fecha: "2026-10-05T22:00:00.000Z", peso: 78.4 },
+    ]);
+  });
+
+  it("cuenta el día en hora del gimnasio: las 01:00Z son del día anterior en Argentina", async () => {
+    seed();
+    db.medicionDePeso.findMany.mockResolvedValue([
+      { peso: dec(78), fecha: at("2026-10-06T01:00:00Z") }, // 22:00 del 5/10 en Argentina
+      { peso: dec(79), fecha: at("2026-10-05T13:00:00Z") }, // 10:00 del 5/10: mismo día
+    ]);
+
+    const res = await buildHomeSocioPayload("u1", NOW);
+
+    expect(res?.peso.puntos).toHaveLength(1);
+    expect(res?.peso.puntos[0].peso).toBe(78);
+  });
+
+  it("trae la meta y el peso desde el que se fijó, como números", async () => {
+    seed();
+    db.socio.findUnique.mockResolvedValue({ ...SOCIO, pesoObjetivo: dec(77), pesoInicialDeMeta: dec(78.4) });
+
+    const res = await buildHomeSocioPayload("u1", NOW);
+
+    expect(res?.peso.pesoObjetivo).toBe(77);
+    expect(res?.peso.pesoInicial).toBe(78.4);
+    expect(db.socio.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ pesoObjetivo: true, pesoInicialDeMeta: true }),
+      })
+    );
+  });
+});
+

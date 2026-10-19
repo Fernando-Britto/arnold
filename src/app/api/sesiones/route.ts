@@ -58,6 +58,9 @@ export async function handleSesionEnCursoRequest(socioId: string): Promise<Handl
       ejercicios: [],
       ultimaSerie: null,
       cargaActual: null,
+      ultimasVeces: {},
+      sugerencias: {},
+      records: {},
     };
     return { status: 200, body };
   } catch (error) {

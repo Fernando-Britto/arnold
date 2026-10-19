@@ -71,6 +71,9 @@ model Socio {
   huellaId      Int?     @unique
   /// Fecha del consentimiento informado para el tratamiento de la huella (Ley 25.326, P-30).
   huellaConsentimientoEn DateTime?
+  /// Meta de peso corporal (kg) y el peso desde el que se fijó, para saber si el objetivo era bajar o subir (D-65).
+  pesoObjetivo  Decimal? @db.Decimal(5, 2)
+  pesoInicialDeMeta Decimal? @db.Decimal(5, 2)
   updatedAt     DateTime @updatedAt
 
   // Relaciones
@@ -81,6 +84,7 @@ model Socio {
   rutinasAsignadas RutinaAsignada[]  // relación indirecta a Rutina
   sesiones      SesionDeEntrenamiento[]
   registrosProgreso RegistroDeProgreso[]
+  mediciones    MedicionDePeso[]
   cuotas        Cuota[]
   pagos         Pago[]  @relation("PagosDeSocio")
   auditoriaAcceso AuditoriaAcceso[]
@@ -326,6 +330,9 @@ model EjercicioEnRutina {
   descanso      Int      // segundos
   orden         Int      @default(0) // para reordenar
   createdAt     DateTime @default(now())
+  // Significa "último cambio de series o repeticiones": el motor de progresión (D-59) no juzga las
+  // sesiones anteriores. `sincronizarEjercicios` (src/api/rutinas.ts, D-61) lo conserva si solo
+  // cambian el descanso o el orden; no escribas filas de esta tabla sin pasar por ahí.
   updatedAt     DateTime @updatedAt
 
   @@unique([rutinaId, ejercicioId])
@@ -457,6 +464,18 @@ enum EstadoSesion {
 // REGISTROS DE PROGRESO
 // ============================================================================
 
+/// Tipo de serie (D-64). Las filas anteriores a D-64 son NORMAL.
+enum TipoSerie {
+  /// Serie de trabajo.
+  NORMAL
+  /// No es una de las series que pide la rutina y no cuenta para progresión, marcas ni volumen.
+  CALENTAMIENTO
+  /// Serie de trabajo llevada al límite: cuenta como cualquier otra.
+  HASTA_EL_FALLO
+  /// Serie con la carga reducida a propósito: ocupa una serie de la rutina pero no se juzga por repeticiones.
+  DROP_SET
+}
+
 model RegistroDeProgreso {
   id            String   @id @default(cuid())
   carga         Decimal  @db.Decimal(10, 2) // kg
@@ -467,6 +486,8 @@ model RegistroDeProgreso {
   rir           Int?
   /// Número de serie del ejercicio dentro de la sesión (1-based), al registrar por serie (D-48).
   numeroSerie   Int?
+  /// Tipo de serie (D-64). CALENTAMIENTO no avanza la sesión (no tiene `numeroSerie`) ni cuenta para métricas.
+  tipo          TipoSerie @default(NORMAL)
   fecha         DateTime @default(now())
   ejercicio     Ejercicio @relation(fields: [ejercicioId], references: [id], onDelete: Restrict)
   ejercicioId   String
@@ -480,6 +501,23 @@ model RegistroDeProgreso {
   @@index([socioId])
   @@index([fecha])
   @@index([sesionId])
+}
+
+// ============================================================================
+// PESO CORPORAL
+// ============================================================================
+
+/// Un pesaje del socio (D-65). La evolución y la meta se arman con todos ellos.
+model MedicionDePeso {
+  id        String   @id @default(cuid())
+  socio     Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  socioId   String
+  /// kg, hasta dos decimales.
+  peso      Decimal  @db.Decimal(5, 2)
+  fecha     DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([socioId, fecha])
 }
 
 // ============================================================================

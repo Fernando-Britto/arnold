@@ -1,4 +1,4 @@
-import { Ejercicio, EjercicioEnRutina, Rutina } from "@prisma/client";
+import type { Ejercicio, EjercicioEnRutina, Prisma, Rutina } from "@prisma/client";
 import { RutinaRepository } from "@/domains/rutina/rutina-repositorio";
 import { throwIfNotOk } from "@/utils/api-error";
 
@@ -76,6 +76,91 @@ function esErrorP2002(error: unknown): boolean {
   return (error as { code?: unknown } | null)?.code === "P2002";
 }
 
+/** Fila de ejercicio ya normalizada: lo que se compara y se escribe. */
+interface FilaEjercicio {
+  ejercicioId: string;
+  series: number;
+  repeticiones: number;
+  descanso: number;
+  orden: number;
+}
+
+function normalizarEjercicio(ej: EjercicioEnRutinaInput, index: number): FilaEjercicio {
+  return {
+    ejercicioId: ej.ejercicioId,
+    series: Number(ej.series) || 3,
+    repeticiones: Number(ej.repeticiones) || 10,
+    descanso: normalizarDescanso(ej.descanso),
+    orden: typeof ej.orden === "number" ? ej.orden : index,
+  };
+}
+
+/**
+ * Sincroniza los ejercicios de una rutina con la lista recibida, tocando SOLO lo que cambió
+ * (P-43, D-61): borra los que ya no están, crea los nuevos y actualiza los que cambiaron.
+ *
+ * Antes se borraba y recreaba todo, lo que renovaba `EjercicioEnRutina.updatedAt` de todas las
+ * filas con cualquier edición (incluso del nombre). El motor de progresión (D-59) usa ese campo
+ * como "cuándo cambió el plan" y no juzga las sesiones anteriores, así que editar una rutina
+ * hacía que un socio que lo cumplía todo viera "mantené" en vez de "subí".
+ *
+ * Por eso `updatedAt` significa acá "último cambio de series o repeticiones". Si solo cambió el
+ * descanso o el orden (por ejemplo, reordenar), el plan no cambió y se fija el valor anterior,
+ * porque Prisma renovaría `@updatedAt` con cualquier escritura.
+ */
+async function sincronizarEjercicios(
+  tx: Prisma.TransactionClient,
+  rutinaId: string,
+  entrada: EjercicioEnRutinaInput[]
+): Promise<void> {
+  const deseadas = entrada.map(normalizarEjercicio);
+  const idsDeseados = new Set(deseadas.map((d) => d.ejercicioId));
+  // NF-11: la unique [rutinaId, ejercicioId] no admite el mismo ejercicio dos veces.
+  if (idsDeseados.size !== deseadas.length) throwDuplicateExercise();
+
+  const existentes = await tx.ejercicioEnRutina.findMany({ where: { rutinaId } });
+  const porId = new Map(existentes.map((e) => [e.ejercicioId, e]));
+
+  const sobrantes = existentes.filter((e) => !idsDeseados.has(e.ejercicioId));
+  if (sobrantes.length > 0) {
+    await tx.ejercicioEnRutina.deleteMany({
+      where: { rutinaId, ejercicioId: { in: sobrantes.map((e) => e.ejercicioId) } },
+    });
+  }
+
+  for (const deseada of deseadas) {
+    const actual = porId.get(deseada.ejercicioId);
+    if (!actual) continue;
+    const cambioElPlan =
+      actual.series !== deseada.series || actual.repeticiones !== deseada.repeticiones;
+    const cambioOtraCosa = actual.descanso !== deseada.descanso || actual.orden !== deseada.orden;
+    if (!cambioElPlan && !cambioOtraCosa) continue;
+
+    await tx.ejercicioEnRutina.update({
+      where: { rutinaId_ejercicioId: { rutinaId, ejercicioId: deseada.ejercicioId } },
+      data: {
+        series: deseada.series,
+        repeticiones: deseada.repeticiones,
+        descanso: deseada.descanso,
+        orden: deseada.orden,
+        ...(cambioElPlan ? {} : { updatedAt: actual.updatedAt }),
+      },
+    });
+  }
+
+  const nuevas = deseadas.filter((d) => !porId.has(d.ejercicioId));
+  if (nuevas.length > 0) {
+    try {
+      await tx.ejercicioEnRutina.createMany({
+        data: nuevas.map((d) => ({ rutinaId, ...d })),
+      });
+    } catch (error) {
+      if (esErrorP2002(error)) throwDuplicateExercise();
+      throw error;
+    }
+  }
+}
+
 /**
  * Handle POST /api/rutinas
  * Creates a new rutina with optional EjercicioEnRutina rows
@@ -107,14 +192,7 @@ export async function handleRutinaCreate(
     if (data.ejercicios && data.ejercicios.length > 0) {
       try {
         await tx.ejercicioEnRutina.createMany({
-          data: data.ejercicios.map((ej, index) => ({
-            rutinaId: rutina.id,
-            ejercicioId: ej.ejercicioId,
-            series: Number(ej.series) || 3,
-            repeticiones: Number(ej.repeticiones) || 10,
-            descanso: normalizarDescanso(ej.descanso),
-            orden: typeof ej.orden === "number" ? ej.orden : index,
-          })),
+          data: data.ejercicios.map(normalizarEjercicio).map((f) => ({ rutinaId: rutina.id, ...f })),
         });
       } catch (error) {
         if (esErrorP2002(error)) throwDuplicateExercise();
@@ -173,8 +251,8 @@ export async function handleRutinaUpdate(
   const rutinaRepo = new RutinaRepository();
   const { prisma } = await import("@/lib/db");
 
-  // NF-2: el update de la rutina y la sincronización de ejercicios (delete + recreate)
-  // son un único estado acoplado: van en UNA transacción para que un fallo intermedio
+  // NF-2: el update de la rutina y la sincronización de ejercicios (borrar, crear y
+  // actualizar lo que cambió) son un único estado acoplado: van en UNA transacción para que un fallo intermedio
   // no deje la rutina actualizada sin sus ejercicios (ni al revés).
   return prisma.$transaction(async (tx) => {
     const rutina = await rutinaRepo.update(
@@ -201,29 +279,7 @@ export async function handleRutinaUpdate(
     // loaded array (see `fetchRutina` + RutinasPage.handleModify). Do not send
     // `[]` as a placeholder for "not loaded" — that would wipe the rows.
     if (data.ejercicios !== undefined) {
-      // Delete existing ejercicios for this rutina
-      await tx.ejercicioEnRutina.deleteMany({
-        where: { rutinaId: id },
-      });
-
-      // Create new ejercicios if provided
-      if (data.ejercicios.length > 0) {
-        try {
-          await tx.ejercicioEnRutina.createMany({
-            data: data.ejercicios.map((ej, index) => ({
-              rutinaId: id,
-              ejercicioId: ej.ejercicioId,
-              series: Number(ej.series) || 3,
-              repeticiones: Number(ej.repeticiones) || 10,
-              descanso: normalizarDescanso(ej.descanso),
-              orden: typeof ej.orden === "number" ? ej.orden : index,
-            })),
-          });
-        } catch (error) {
-          if (esErrorP2002(error)) throwDuplicateExercise();
-          throw error;
-        }
-      }
+      await sincronizarEjercicios(tx, id, data.ejercicios);
     }
 
     return rutina;

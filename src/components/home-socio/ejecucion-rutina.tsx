@@ -7,10 +7,25 @@ import {
   iniciarSesionDeEntrenamiento,
   registrarSerieDeEntrenamiento,
   finalizarSesionDeEntrenamiento,
+  fetchResumenDeSesion,
   type EjercicioDeSesionDTO,
   type SesionEnCursoDTO,
+  type ResumenSesionDTO,
+  type SerieMarcaDTO,
+  type SugerenciaDTO,
+  type UltimaVezDTO,
 } from "@/api/sesiones";
 import { calcularDescanso, formatearDescanso } from "@/domains/home-socio/descanso";
+import { cargaInicial } from "@/domains/sesion/progresion-ejercicio";
+import {
+  ETIQUETAS_TIPO_SERIE,
+  TIPOS_DE_SERIE,
+  TIPO_SERIE_POR_DEFECTO,
+  type TipoSerie,
+} from "@/domains/sesion/tipo-serie";
+import { RecordEnVivo } from "./record-en-vivo";
+import { ResumenDeSesion } from "./resumen-de-sesion";
+import { UltimaVez } from "./ultima-vez";
 import { handleApiError } from "@/utils/api-error";
 
 /** Discos de peso disponibles: el stepper suma/resta este incremento (D-48). */
@@ -32,6 +47,23 @@ function redondear(n: number): number {
 }
 
 /**
+ * Carga con la que arranca una serie: la sugerida si hay que subir o bajar (D-59), si no la de la
+ * serie equivalente de la última vez (D-58). Sin historial, 0.
+ */
+function precarga(
+  ejercicioId: string | null,
+  numeroSerie: number,
+  ultimasVeces: Record<string, UltimaVezDTO>,
+  sugerencias: Record<string, SugerenciaDTO>
+): number {
+  if (!ejercicioId) return 0;
+  return (
+    cargaInicial(ultimasVeces[ejercicioId] ?? null, sugerencias[ejercicioId] ?? null, numeroSerie) ??
+    0
+  );
+}
+
+/**
  * Pantalla de ejecución de rutina (T-038, D-48). Al montar retoma la sesión en curso del
  * socio o inicia una nueva contra `POST /api/sesiones`. Registra cada serie con peso, reps
  * y RIR, y muestra el cronómetro de descanso calculado con la hora guardada.
@@ -45,15 +77,24 @@ export function EjecucionRutina({
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [finalizada, setFinalizada] = useState(false);
+  const [resumen, setResumen] = useState<ResumenSesionDTO | null>(null);
 
   const [sesionId, setSesionId] = useState<string | null>(null);
   const [ejercicios, setEjercicios] = useState<EjercicioDeSesionDTO[]>([]);
   const [ejercicioActualId, setEjercicioActualId] = useState<string | null>(null);
   const [serieActual, setSerieActual] = useState<number | null>(null);
+  /** "Última vez" por ejercicio (D-58): series de la sesión anterior. */
+  const [ultimasVeces, setUltimasVeces] = useState<Record<string, UltimaVezDTO>>({});
+  const [sugerencias, setSugerencias] = useState<Record<string, SugerenciaDTO>>({});
+  const [records, setRecords] = useState<Record<string, SerieMarcaDTO[]>>({});
 
   const [carga, setCarga] = useState(0);
   const [repeticiones, setRepeticiones] = useState(0);
   const [rir, setRir] = useState(RIR_DEFAULT);
+  /** Tipo de la serie que se está por registrar (D-64); vuelve a Normal después de cada una. */
+  const [tipo, setTipo] = useState<TipoSerie>(TIPO_SERIE_POR_DEFECTO);
+  /** Calentamientos hechos en el ejercicio actual: no son series de la rutina (D-64). */
+  const [calentamientos, setCalentamientos] = useState(0);
 
   const [descansoInicio, setDescansoInicio] = useState<Date | null>(null);
   const [descansoSegundos, setDescansoSegundos] = useState(0);
@@ -75,9 +116,18 @@ export function EjecucionRutina({
     setEjercicios(detalle.ejercicios);
     setEjercicioActualId(sesion.ejercicioActualId);
     setSerieActual(sesion.serieActual);
+    const ultimas = detalle.ultimasVeces ?? {};
+    const sugeridas = detalle.sugerencias ?? {};
+    setUltimasVeces(ultimas);
+    setSugerencias(sugeridas);
+    setRecords(detalle.records ?? {});
 
     const actual = detalle.ejercicios.find((e) => e.id === sesion.ejercicioActualId);
-    setCarga(detalle.cargaActual?.carga ?? 0);
+    // Carga reciente del ejercicio; si no hay, la sugerida o la de la última vez (D-58, D-59).
+    setCarga(
+      detalle.cargaActual?.carga ??
+        precarga(sesion.ejercicioActualId, sesion.serieActual ?? 1, ultimas, sugeridas)
+    );
     setRepeticiones(detalle.cargaActual?.repeticiones ?? actual?.repeticiones ?? 0);
     setRir(detalle.cargaActual?.rir ?? RIR_DEFAULT);
 
@@ -110,10 +160,15 @@ export function EjecucionRutina({
           setEjercicios(iniciada.ejercicios);
           setEjercicioActualId(iniciada.sesion.ejercicioActualId);
           setSerieActual(iniciada.sesion.serieActual);
+          const ultimas = iniciada.ultimasVeces ?? {};
+          const sugeridas = iniciada.sugerencias ?? {};
+          setUltimasVeces(ultimas);
+          setSugerencias(sugeridas);
+          setRecords(iniciada.records ?? {});
           const actual = iniciada.ejercicios.find(
             (e) => e.id === iniciada.sesion.ejercicioActualId
           );
-          setCarga(0);
+          setCarga(precarga(iniciada.sesion.ejercicioActualId, 1, ultimas, sugeridas));
           setRepeticiones(actual?.repeticiones ?? 0);
           setRir(RIR_DEFAULT);
         } else {
@@ -146,6 +201,12 @@ export function EjecucionRutina({
     setDescansoSegundos(0);
   };
 
+  /** Elegir "Al fallo" implica RIR 0: el socio no tiene que marcar las dos cosas. */
+  const elegirTipo = (elegido: TipoSerie) => {
+    setTipo(elegido);
+    if (elegido === "HASTA_EL_FALLO") setRir(0);
+  };
+
   const handleSerieHecha = async () => {
     if (!sesionId || !ejercicioActualId || !ejercicioActual) return;
     setError(null);
@@ -156,30 +217,48 @@ export function EjecucionRutina({
         carga,
         repeticiones,
         rir,
+        // Sin `tipo` el servidor usa NORMAL: solo se manda cuando es otro (D-64).
+        ...(tipo !== TIPO_SERIE_POR_DEFECTO ? { tipo } : {}),
       });
+
+      // El tipo vale para UNA serie: la siguiente arranca en Normal. Si fue al fallo, el RIR 0
+      // lo puso el tipo y no tiene por qué quedar para la serie que sigue.
+      setTipo(TIPO_SERIE_POR_DEFECTO);
+      if (tipo === "HASTA_EL_FALLO") setRir(RIR_DEFAULT);
+      if (tipo === "CALENTAMIENTO") setCalentamientos((n) => n + 1);
 
       if (resultado.sesion.ejercicioActualId === null) {
         // Última serie: cierra la sesión y muestra el resumen (D-48).
         saltarDescanso();
         await finalizarSesionDeEntrenamiento(sesionId);
+        // El resumen es un extra (T-046b, D-62): si falla, igual se muestra que la rutina terminó.
+        try {
+          setResumen((await fetchResumenDeSesion(sesionId)) ?? null);
+        } catch {
+          setResumen(null);
+        }
         setEjercicioActualId(null);
         setSerieActual(null);
         setFinalizada(true);
         return;
       }
 
-      // Arranca el descanso con la hora guardada por el servidor.
-      setDescansoInicio(new Date(resultado.registro.fecha));
-      setDescansoSegundos(ejercicioActual.descanso);
-      setAhora(Date.now());
+      // Arranca el descanso con la hora guardada por el servidor. Un drop set cuelga de la
+      // serie anterior: no dispara el descanso largo (D-64).
+      if (tipo !== "DROP_SET") {
+        setDescansoInicio(new Date(resultado.registro.fecha));
+        setDescansoSegundos(ejercicioActual.descanso);
+        setAhora(Date.now());
+      }
 
       const siguienteId = resultado.sesion.ejercicioActualId;
       setEjercicioActualId(siguienteId);
       setSerieActual(resultado.sesion.serieActual);
       if (siguienteId !== ejercicioActualId) {
+        setCalentamientos(0);
         const siguiente = ejercicios.find((e) => e.id === siguienteId);
         setRepeticiones(siguiente?.repeticiones ?? 0);
-        setCarga(0);
+        setCarga(precarga(siguienteId, 1, ultimasVeces, sugerencias));
         setRir(RIR_DEFAULT);
       }
     } catch (err) {
@@ -206,9 +285,13 @@ export function EjecucionRutina({
       >
         <Check className="h-10 w-10 text-green-700" aria-hidden="true" />
         <p className="text-xl font-bold text-gray-900">¡Rutina completada!</p>
-        <p className="text-sm text-gray-500">
-          Registraste {ejercicios.reduce((total, e) => total + e.series, 0)} series.
-        </p>
+        {resumen && resumen.ejercicios.length > 0 ? (
+          <ResumenDeSesion resumen={resumen} />
+        ) : (
+          <p className="text-sm text-gray-500">
+            Registraste {ejercicios.reduce((total, e) => total + e.series, 0)} series.
+          </p>
+        )}
         {onCerrar && (
           <button
             type="button"
@@ -256,6 +339,18 @@ export function EjecucionRutina({
           <p className="text-sm font-medium text-gray-500">
             Serie {serieActual ?? 1} de {ejercicioActual.series}
           </p>
+          {calentamientos > 0 && (
+            <p data-testid="calentamientos" className="text-xs text-gray-500">
+              Calentamientos: {calentamientos}
+            </p>
+          )}
+
+          <UltimaVez
+            ultimaVez={ultimasVeces[ejercicioActual.id] ?? null}
+            serieActual={serieActual}
+            ahora={ahora}
+            sugerencia={sugerencias[ejercicioActual.id] ?? null}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             {/* Repeticiones */}
@@ -311,6 +406,11 @@ export function EjecucionRutina({
             </div>
           </div>
 
+          {/* Un calentamiento no cuenta para las marcas (D-64): no tiene sentido avisar un récord. */}
+          {tipo !== "CALENTAMIENTO" && (
+            <RecordEnVivo frontera={records[ejercicioActual.id] ?? []} carga={carga} />
+          )}
+
           {/* RIR */}
           <div className="flex flex-col gap-2">
             <span className="text-xs font-bold text-gray-500">RIR (repeticiones en reserva)</span>
@@ -334,6 +434,33 @@ export function EjecucionRutina({
             </div>
           </div>
 
+          {/* Tipo de serie (T-047, D-64) */}
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-bold text-gray-500">TIPO DE SERIE</span>
+            <div role="group" aria-label="Tipo de serie" className="flex flex-wrap gap-2">
+              {TIPOS_DE_SERIE.map((opcion) => (
+                <button
+                  key={opcion}
+                  type="button"
+                  onClick={() => elegirTipo(opcion)}
+                  aria-pressed={tipo === opcion}
+                  className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                    tipo === opcion
+                      ? "border-[#FC4C02] bg-orange-50 text-gray-900"
+                      : "border-gray-300 bg-white text-gray-700"
+                  }`}
+                >
+                  {ETIQUETAS_TIPO_SERIE[opcion]}
+                </button>
+              ))}
+            </div>
+            {tipo === "CALENTAMIENTO" && (
+              <p className="text-xs text-gray-500">
+                No cuenta como una de las series de la rutina ni para tu progreso.
+              </p>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={handleSerieHecha}
@@ -341,7 +468,11 @@ export function EjecucionRutina({
             className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#FC4C02] text-[15px] font-bold text-white disabled:bg-gray-400"
           >
             <Check className="h-[18px] w-[18px]" aria-hidden="true" />
-            {enviando ? "Guardando..." : "Serie hecha"}
+            {enviando
+              ? "Guardando..."
+              : tipo === "CALENTAMIENTO"
+                ? "Calentamiento hecho"
+                : "Serie hecha"}
           </button>
 
           {descanso && (

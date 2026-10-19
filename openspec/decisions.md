@@ -1,6 +1,6 @@
 # Registro de decisiones — ARNOLD MVP Core
 
-**Actualizado**: 2026-10-16 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
+**Actualizado**: 2026-10-19 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
 
 Este documento registra **por qué** el proyecto se desvió del plan original durante `sdd-apply`, qué
 alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace; acá queda el *porqué*.
@@ -890,6 +890,273 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   **toda la cadena quedó revocada** (4 filas, 4 revocadas, 0 vigentes; volver a usar la nueva también da `401`).
 - **Cierra P-20.**
 
+> **Nota de numeración.** Este bloque se generó como D-56…D-63. Al aplicarlo sobre `dev`, D-56 (huella) y D-57 (refresh token) ya existían;
+> para no duplicar IDs se renumeró como **D-58…D-65**. Los comentarios del código y del schema usan esta numeración.
+
+### D-58 · Tracking del socio: "última vez" por ejercicio (T-046a, inspirado en openGym)
+- **Origen**: Fernando (2026-10-16). Pidió ampliar la sección de trackeo tomando ideas de openGym como **referencia**: se toman las
+  ideas, no el código (openGym es AGPL-3.0; copiarlo obligaría a publicar Arnold con esa licencia). Secuencia elegida: (1) "última vez"
+  por ejercicio, (2) resumen al terminar la sesión, (3) marca personal en vivo + 1RM estimado, (4) progresión automática derivada del
+  historial. El rediseño de pantallas (Stats con heatmap y pestañas) queda para después.
+- **Decisión (T-046a)**: al iniciar o retomar una sesión, la API devuelve también `ultimasVeces`: por cada ejercicio de la rutina, las
+  series de la **sesión anterior** en la que el socio lo hizo (`carga`, `repeticiones`, `rir`, en orden). La pantalla de ejecución
+  las muestra bajo el título del ejercicio, con la serie equivalente a la que se está por hacer resaltada, y **precarga la carga**
+  de esa serie (si en la última vez hizo menos series, la última que hizo). Las repeticiones siguen siendo las de la prescripción.
+- **Se deriva, no se guarda**: no hay columnas ni contadores nuevos (**sin migración**). Todo sale de `RegistroDeProgreso`, así corregir
+  un dato corrige también lo que se muestra. La lógica vive en `src/domains/sesion/historial-ejercicio.ts` (funciones puras).
+- **Detalles que conviene saber**: (1) la sesión en curso nunca cuenta como "última vez"; (2) los registros anteriores a D-48 no
+  tienen `sesionId`: se agrupan por **día del gimnasio** (UTC-3), lo más cercano a "una sesión" que se puede inferir; (3) se consulta
+  **por ejercicio** (50 registros cada uno, en paralelo) y no con un único límite global, para que un ejercicio que no se hace hace meses
+  no quede fuera por los registros de los demás; (4) si el ejercicio ya tiene una carga reciente (`cargaActual`) al retomar, esa
+  sigue mandando sobre la de la última vez.
+- **Alternativas descartadas**: guardar un resumen por sesión en una tabla nueva (duplica datos y puede desincronizarse); mostrar
+  solo la última serie (`ultimaCarga` ya existía y no alcanza para ver la progresión dentro de la sesión).
+- **Verificado**: tests del dominio puro (agrupado, UTC-3, formato, "hace N días"), del dominio con Prisma mockeado, de la ruta y de
+  la pantalla. **No** se probó contra una base real ni en el navegador: queda para Fernando.
+
+### D-59 · Tracking del socio: motor de progresión por ejercicio (T-046d, inspirado en openGym)
+- **Origen**: Fernando (2026-10-16), idea 4 de la lista de tracking: progresión automática derivada del historial, que completa la
+  `ReglaDeProgresion` que Arnold tenía a medias. Se toma la idea de openGym como referencia; **no se copió código** (AGPL-3.0).
+- **Orden**: se **adelanta T-046d a T-046b y T-046c** (los IDs no cambian). El resumen al terminar la sesión (T-046b) muestra un
+  "próximo" y ese número tiene que salir de la misma función que después precarga la sesión siguiente; si el resumen se hacía antes,
+  prometía una cifra (`marca + 2,5`) que el motor podía contradecir.
+- **Decisión**: motor de funciones puras en `src/domains/sesion/progresion-ejercicio.ts`. No se guarda ningún contador: cada vez se lee
+  el historial. Una serie **acierta** si tiene las repeticiones objetivo o más; si tiene menos, o no se hizo, **falla**. Si todas las
+  series que pide la rutina aciertan → **sube** el incremento. Si hay algún fallo → **mantiene** la carga y dice cuántos intentos
+  quedan. Tres sesiones seguidas con fallos a la misma carga → **descarga 10 %**, ajustada a la grilla del incremento y siempre
+  menor que la actual. Cada sugerencia trae su **motivo** en texto, para poder mostrar por qué propone ese número.
+- **Supuestos** (la spec no los fija): (1) solo cuentan las series que la rutina pide: una serie extra no sube ni arruina la sesión;
+  (2) la carga de una sesión es la mayor de las series que cuentan y no se exige la misma carga en cada serie; (3) la racha de fallos se
+  corta con un acierto o con un cambio de carga (los fallos de antes de una descarga eran de otra carga); (4) si no hay carga
+  registrada (peso corporal) no se inventa un peso: la sugerencia queda sin carga.
+- **Cambios de plan sin migración**: las sesiones se juzgan contra la rutina **actual**. Si el profesor sube las repeticiones de 8 a 10,
+  los fallos "contra 10" de sesiones hechas con 8 no son fallos. Por eso se ignoran las sesiones anteriores a
+  `EjercicioEnRutina.updatedAt` y se retoma la progresión desde la última carga (`planDesde`). Ver D-61: desde entonces solo reinicia el
+  juicio un cambio de series o repeticiones del ejercicio afectado.
+- **Incremento**: el de `ReglaDeProgresion` de tipo `LINEAL` o `DEFAULT_INCREMENTO_KG` (2,5). `ONDULANTE` sigue sin lógica.
+- **Alternativas descartadas**: guardar el plan con cada sesión, como hace openGym (necesita migración); contadores guardados
+  (pueden desincronizarse); rangos de repeticiones y doble progresión (`repeticiones` es un entero fijo); progresiones tipo Greyskull
+  o triple (fuera del alcance del trabajo final).
+- **Conexión (parte 2)**: `GET /api/sesiones?enCurso=1` y `POST /api/sesiones` devuelven `sugerencias` (por `Ejercicio.id`, solo de
+  ejercicios con historial) junto a `ultimasVeces`. De **una sola lectura** del historial por ejercicio salen las dos cosas
+  (`seguimientoDeEjercicios`), y la sesión en curso no cuenta: una serie floja de hoy no cambia la sugerencia de hoy. La pantalla de
+  ejecución muestra bajo la última vez una línea con la carga y el motivo (verde al subir, gris al mantener, ámbar al descargar). La
+  precarga usa la carga sugerida si hay que subir o descargar (todas las series) y la de cada serie de la última vez si hay que
+  mantener; una carga reciente al retomar la sesión sigue mandando (D-58).
+- **Pendiente → resuelto (P-42, D-60)**: la tarjeta Progreso de Home calculaba su propio "próxima sesión sugerida" como marca + incremento y podía
+  mostrar un número distinto al del motor. Se alineó en D-60. (Se había anotado como P-41, un ID que ya existía: se renumeró a P-42.)
+- **Pendiente → resuelto (P-43, D-61)**: editar una rutina reiniciaba el juicio de todos sus ejercicios; se corrigió en D-61.
+- **Verificado**: tests de dominio puro (lectura de sesión, racha, subir, mantener, descargar, cambio de plan, precarga), del servidor con
+  Prisma mockeado, de la ruta y de la pantalla. **No** se probó contra una base real ni en el navegador: queda para Fernando.
+
+### D-60 · P-42: la tarjeta Progreso del Home usa la sugerencia del motor de progresión
+- **Origen**: Fernando (2026-10-17), a partir del pendiente que dejó D-59. Confirmó el diseño de abajo.
+- **Problema**: la tarjeta "Mi progreso" del Home mostraba "próxima sesión sugerida = marca + incremento", una regla más vieja que el motor de D-59.
+  Cuando el motor dice "mantené" o "bajá", el socio veía un número en el Home y otro en la pantalla de entrenamiento.
+- **Decisión**: una sola fuente. `buildHomeSocioPayload` le pide la sugerencia a `seguimientoDeEjercicios` (la misma función que alimenta la
+  pantalla de entrenamiento) para el ejercicio que muestra la tarjeta, con la prescripción de la rutina activa y excluyendo la sesión en curso.
+  `computeProgresoActual` ya no calcula nada de sugerencias (deja de recibir el incremento).
+- **Cómo se ve**: **subir** → "Próxima sesión sugerida: 42,5 kg (+2,5 kg)" en naranja, como antes; **mantener** → "Mantené 40 kg", sin incremento y en
+  neutro; **descargar** → "Bajá a 36 kg" en ámbar; en los tres, el motivo corto debajo. **Primera vez, sin carga registrada o ejercicio que ya no
+  está en la rutina activa** → no se muestra la línea: no se inventa un número.
+- **Contrato**: `GET /api/home-socio` reemplaza `progreso.proximaSesionSugerida: number` por `progreso.sugerencia: { tipo, carga, motivo } | null`.
+  Es un cambio de contrato; el único consumidor es la página del Home.
+- **Costo**: una lectura más por carga del Home (el historial de UN ejercicio y la regla LINEAL); antes la regla se leía en la consulta en paralelo.
+- **Hallazgo al revisar (P-43, resuelto en D-61)**: `src/api/rutinas.ts` borraba y recreaba todas las filas de `EjercicioEnRutina` al guardar una rutina
+  (el formulario manda siempre la lista completa, contrato NF-1). Como el motor usa `EjercicioEnRutina.updatedAt` para ignorar sesiones de planes
+  viejos (D-59), **cualquier** edición de la rutina, incluso del nombre, reiniciaba el juicio de todos sus ejercicios: un socio que completó todo veía
+  "mantené" en vez de "subí". Se corrigió guardando solo lo que cambió.
+- **Verificado**: tests del dominio, de los datos del Home (subir, mantener, descargar, ejercicio fuera de la rutina, sesión en curso excluida), de
+  la tarjeta (los tres tipos y los casos sin número) y de la página. Suite completa con tipos de Prisma generados sin motor: `tsc` y `eslint` limpios.
+  **No** se probó contra una base real ni en el navegador: queda para Fernando.
+
+### D-61 · P-43: guardar una rutina toca solo los ejercicios que cambiaron
+- **Origen**: hallazgo de D-60 (P-43). Fernando pidió resolverlo antes del resumen de fin de sesión (T-046b).
+- **Problema**: `handleRutinaUpdate` borraba y recreaba todas las filas de `EjercicioEnRutina` con cualquier edición, incluso del nombre. El motor de
+  progresión (D-59) usa `EjercicioEnRutina.updatedAt` como "cuándo cambió el plan" y no juzga las sesiones anteriores, así que un socio que lo
+  cumplía todo veía "mantené" en vez de "subí" apenas se tocaba la rutina.
+- **Decisión**: `sincronizarEjercicios` (`src/api/rutinas.ts`) compara por `ejercicioId` (hay una unique `[rutinaId, ejercicioId]`): **borra** los que ya no
+  están, **crea** los nuevos y **actualiza** solo los que cambiaron. Si la lista es igual a lo guardado no escribe nada. Todo sigue en UNA
+  transacción con la rutina (NF-2).
+- **Qué significa ahora `updatedAt`**: "último cambio de **series o repeticiones**". Si solo cambió el descanso o el orden (por ejemplo, al reordenar), el plan
+  no cambió y se **fija el valor anterior**, porque Prisma renovaría `@updatedAt` con cualquier escritura. Quedó comentado en el schema, sin migración.
+- **Efecto sobre D-59**: la advertencia de D-59 ("cualquier edición de esa fila, orden y descanso incluidos, reinicia el juicio") ya no vale: solo cambiar series
+  o repeticiones reinicia el juicio, y solo del ejercicio afectado.
+- **Se mantiene**: `ejercicios === undefined` deja la subsección intacta y una lista vacía borra todos los ejercicios (contrato NF-1); un ejercicio repetido
+  en la lista se rechaza **antes de escribir** como `DUPLICATE_EXERCISE` (409), con el `P2002` de `createMany` como respaldo; crear y actualizar usan la
+  misma normalización (`normalizarEjercicio`), así los valores numéricos que llegan como texto no cuentan como cambio.
+- **Límites**: (1) las rutinas editadas **antes** de este cambio ya tienen el `updatedAt` de su última edición: los socios de esas rutinas ven una sesión de
+  "mantené" que no se corrige hacia atrás; (2) cambiar un ejercicio por otro es quitar uno y agregar otro: el nuevo arranca con un plan nuevo, así que si el
+  socio ya lo había hecho en otra rutina ve una sesión de "mantené" explicada por el motivo "Cambió el plan"; (3) depende de que Prisma respete un `updatedAt`
+  fijado a mano (documentado por Prisma), probado solo con un mock.
+- **Alternativas descartadas**: una columna nueva (`planActualizadoAt`), más explícita pero con migración, y la mejor opción si `updatedAt` llegara a tener otro
+  uso; guardar el plan en cada sesión, como hace openGym (migración); que el motor ignore `updatedAt` y compare contra un historial de cambios (más tablas).
+- **Verificado**: tests del handler con un mock que respeta la semántica de `@updatedAt` (misma lista, cambio de series y de repeticiones, solo descanso u orden,
+  texto como número, agregar, quitar, lista vacía, duplicado, rollback). **No** se probó contra una base real: queda para Fernando, que puede comprobar que
+  reordenar una rutina deja igual el `updatedAt` de sus filas.
+
+### D-62 · Tracking del socio: resumen al terminar la sesión (T-046b, inspirado en openGym)
+- **Origen**: Fernando (2026-10-16), idea 2 de la lista de tracking: al terminar la sesión, una línea por ejercicio con lo de hoy contra la última
+  vez (↑ ↓ =) y qué carga se sugiere para la próxima. Se toma la idea de openGym como referencia; **no se copió código** (AGPL-3.0).
+- **Decisión**: `GET /api/sesiones/[id]/resumen` devuelve, por ejercicio en el que se hizo al menos una serie: las series de hoy, la última vez,
+  la **tendencia** y la **próxima carga**. Es un endpoint aparte y el cierre (`PUT /api/sesiones/[id]`) no cambia: si el resumen falla, la sesión
+  igual quedó finalizada. Lo pueden leer el SOCIO dueño de la sesión y el staff (ADMINISTRADOR e INSTRUCTOR), como el resto de las lecturas de sesión (D-44).
+- **El "próximo" es el mismo que se precarga**: sale de `sugerirProximaCarga` (D-59) contando la sesión de hoy como historial, que es exactamente
+  lo que verá la sesión siguiente. Por eso si hoy fue el tercer fallo seguido, el resumen ya anticipa la descarga en vez de prometer una subida.
+  También respeta el incremento de la `ReglaDeProgresion` y el cambio de plan de la rutina (`planDesde`, D-59/D-61).
+- **Tendencia** (`compararConUltimaVez`): manda la **carga de trabajo** (la mayor de las series); si es igual, el **total de repeticiones**; sin
+  carga (peso corporal) cuentan solo las repeticiones. Sin sesión anterior es "primera vez". No se compara serie por serie porque la cantidad de
+  series puede variar.
+- **Fuera de alcance, a propósito**: las **marcas nuevas** (récords de carga y 1RM estimado) quedan para T-046c. La lectura del historial está
+  acotada a 50 registros por ejercicio (D-58) y con ese tope afirmar "récord" puede ser falso para un levantamiento viejo; T-046c lo resuelve con
+  una consulta exacta y con 1RM estimado (Epley, tope de 12 repeticiones).
+- **Detalles**: (1) los ejercicios se toman de la rutina actual: si el profesor quitó uno después de la sesión, no aparece; (2) el resumen de una
+  sesión todavía en curso es parcial, no da error; (3) la duración es `horaFin - horaInicio` en minutos (mínimo 1) y es `null` sin hora de fin;
+  (4) se lee el historial una vez por ejercicio, igual que en `seguimientoDeEjercicios`.
+- **Alternativas descartadas**: agregar el resumen a la respuesta del `PUT` (acopla el cierre a un cálculo que puede fallar); guardar el resumen en
+  una tabla (se desincroniza si se corrige un dato); incluir ya las marcas con el tope de 50 registros (puede afirmar algo falso).
+- **Pantalla (parte 2)**: al registrar la última serie, la pantalla de ejecución cierra la sesión (`PUT`) y **después** pide el resumen. Si el pedido
+  falla, igual muestra "¡Rutina completada!" con el conteo de siempre, sin error. Cada ejercicio es una tarjeta con su nombre, la tendencia (ícono y
+  texto: "Mejor / Menos / Igual que la última vez" o "Primera vez", sin depender solo del color), "Hoy: 2 × 10 a 42,5 kg · Antes: 2 × 10 a 40 kg" y
+  "Próxima vez: 45 kg" con su motivo. La línea de sugerencia se extrajo a un componente compartido con la pantalla de la serie (D-59).
+  Si el resumen no trae ejercicios, se muestra el mensaje de siempre.
+- **Verificado**: tests del dominio puro (tendencia, anticipo de descarga, cambio de plan), del servidor con Prisma mockeado, de la ruta (permisos,
+  errores), del cliente y de la pantalla. **No** se probó contra una base real ni en el navegador, y el aspecto de las tarjetas no se vio en pantalla:
+  queda para Fernando.
+
+### D-63 · Tracking del socio: 1RM estimado y marcas personales (T-046c, inspirado en openGym)
+- **Origen**: Fernando (2026-10-16), idea 3 de la lista de tracking, y su elección de seguir el ejemplo de openGym: una línea de récord mientras se hace la
+  serie (parte 2) y las marcas nuevas al cerrar la sesión (esta parte). Se toma la idea como referencia; **no se copió código** (AGPL-3.0).
+- **1RM estimado**: Epley, `peso × (1 + repeticiones / 30)`, solo hasta **12 repeticiones**: más allá la fórmula deja de ser fiable y la serie no entra al
+  estimado (sí cuenta para la marca de carga). Se muestra redondeado al **0,5 kg** más cercano, porque una estimación no tiene más precisión que esa.
+- **Desvío de la fórmula escrita en la lista**: con **una repetición el 1RM es la propia carga**. Epley aplicado tal cual la inflaría un 3 % (100 kg × 1 daría
+  103,3). Si se prefiere la fórmula literal para ese caso, es un cambio de una línea en `estimar1RM`.
+- **Marcas nuevas** (`detectarMarcasNuevas`): hay marca de **carga** si hoy se levantó más que nunca antes, y marca de **1RM** si el mejor estimado de hoy supera
+  al mejor anterior. Se comparan los valores **ya redondeados**, así nunca se anuncia "116,5 kg (antes 116,5 kg)". Sin historial anterior con carga no hay
+  marca: la primera vez es el punto de partida, no un récord. Las series sin carga (peso corporal) no cuentan.
+- **Exactitud**: el resumen compara contra **todo** el historial del ejercicio, no contra la ventana de 50 registros de la última vez (D-58), porque con la
+  ventana un "récord" puede ser falso para un levantamiento viejo. Es una consulta aparte que trae solo carga, repeticiones y sesión. La sesión actual se
+  descarta en el código y no en la consulta: `sesionId <> x` en SQL también descarta los registros viejos con `sesionId` NULL, que también son historia.
+- **Pantalla**: en la tarjeta de cada ejercicio del resumen, una línea con trofeo y texto ("Nueva marca de carga: 45 kg (antes 42,5 kg)" y "Nuevo 1RM
+  estimado: 58 kg (antes 55 kg)"), no solo color. Si el servidor no manda `marcas` (despliegue a medias), se muestra el resto de la tarjeta.
+- **Límites conocidos**: (1) Arnold no distingue los **ejercicios asistidos** (por ejemplo dominadas con máquina de asistencia): ahí la carga es la ayuda y
+  una "marca" subiría al debilitarse; openGym los excluye y acá el modelo no tiene cómo saberlo (P-44); (2) cada resumen **y cada inicio o retomada de sesión** leen todas las series
+  con carga de cada ejercicio de la rutina: son pocas columnas y alcanza para años de entrenamiento, pero crece con el historial y se paga en cada inicio (P-44).
+- **Alternativas descartadas**: `MAX(carga * (1 + repeticiones / 30))` con SQL crudo (no se puede probar contra una base real desde acá y deja la fórmula fuera del
+  dominio); guardar el mejor de cada ejercicio en una tabla (migración y se desincroniza si se corrige un dato); usar la ventana de 50 registros (puede afirmar un
+  récord falso); las siete fórmulas de 1RM de openGym (fuera del alcance del trabajo final).
+- **Línea de récord en vivo (parte 2)**: debajo de los selectores de repeticiones y peso, la pantalla muestra el mayor número de repeticiones hecho antes con la
+  carga elegida **o más** ("Récord a 40 kg: 12 reps" o "Récord con 45 kg o más: 6 reps a 50 kg"), y se mueve cuando cambia el peso. Si la carga es más pesada que
+  todo lo levantado, avisa "Con esta carga superás tu mejor marca (60 kg)". Sin historial o sin carga elegida no dibuja nada. Es lo que hace openGym con su línea
+  "Record: 8 reps at 75 kg", salvo que allí aparece solo en las series "Max" de una pirámide y acá en todas, porque Arnold no tiene ese tipo de serie.
+- **Cómo viaja el récord**: el servidor manda por ejercicio la **frontera de récords** (`fronteraDeRecords`): las series que ninguna otra supera a la vez en carga y en
+  repeticiones, ordenadas por carga. Es lo mínimo que hace falta para el récord a cualquier carga (una serie fuera de la frontera nunca es el récord de nada) y pesa
+  unas pocas filas en vez de todo el historial. Se calcula con lo de **antes** de la sesión en curso, igual que openGym ("from before this session"), y se devuelve en
+  `GET /api/sesiones?enCurso=1` y `POST /api/sesiones` junto a `ultimasVeces` y `sugerencias`. Si el servidor no manda `records`, la pantalla no muestra la línea.
+- **Un defecto que encontraron los tests**: `fronteraDeRecords` devolvía los mismos objetos que recibía y el `sesionId` de la consulta se filtraba a la respuesta
+  hacia el navegador. Ahora copia solo `carga` y `repeticiones`.
+- **Verificado**: tests del dominio puro (Epley, tope, redondeo, marcas, frontera, récord por carga, aviso), del resumen, del servidor con Prisma mockeado (incluido el
+  registro sin sesión y la exclusión de la sesión en curso), de la tarjeta, de la línea en vivo y de la pantalla. **No** se probó contra una base real ni en el
+  navegador, y el aspecto de las líneas con el trofeo no se vio en pantalla.
+
+### D-64 · Tracking del socio: tipos de serie, y el calentamiento no cuenta (T-047, inspirado en openGym)
+- **Origen**: Fernando (2026-10-16), idea 6 de la lista de tracking: tipos de serie (calentamiento, hasta el fallo, drop set), con el calentamiento fuera del
+  volumen y de las marcas. Se toma la idea de openGym como referencia; **no se copió código** (AGPL-3.0). Es la primera de las ideas que piden migración.
+- **Migración** `20261018120000_tipo_de_serie`: el enum `TipoSerie` (NORMAL, CALENTAMIENTO, HASTA_EL_FALLO, DROP_SET) y la columna
+  `RegistroDeProgreso.tipo` `NOT NULL DEFAULT 'NORMAL'`. Las filas existentes quedan NORMAL, que es lo que eran. Sin índice: las consultas ya filtran por
+  socio y ejercicio. **Está escrita a mano y se aplicó el 2026-10-19** (P-45 resuelto).
+- **Calentamiento** (`CALENTAMIENTO`): no es una de las series que pide la rutina. Se guarda **sin `numeroSerie` y sin mover la sesión**, ni siquiera en la
+  última serie del ejercicio: el socio sigue parado donde estaba. Pasa las mismas validaciones que cualquier serie (sesión en curso, ejercicio actual).
+- **Dónde NO cuenta** (`SOLO_SERIES_DE_TRABAJO`, un único filtro `tipo <> CALENTAMIENTO` que cada consulta esparce en su `where`): la última vez y la progresión
+  (`registrosDeEjercicio`), las marcas y récords (`seriesHistoricas`), la carga que se precarga (`ultimaCarga`), la ventana de progreso de Home y la mejor
+  marca de la sección Progreso. Cuando exista el volumen semanal por músculo (idea 7) tiene que usar el mismo filtro.
+- **Dónde SÍ cuenta, a propósito**: (1) la "última serie" de la sesión en curso (`ultimaSerie` en `detalleSesionEnCurso`), que solo sirve para retomar el cronómetro de
+  descanso y un calentamiento también es descanso; hay un test que lo fija; (2) el conteo de registros de `cliente.ts`, que decide si se puede borrar un
+  socio y debe contar todo.
+- **Otros tipos**: `HASTA_EL_FALLO` ocupa una serie y avanza como una normal. **`DROP_SET` no**: cuelga de la serie anterior, se guarda sin `numeroSerie`, no avanza la sesión y no dispara el descanso largo.
+- **Validación**: un `tipo` presente pero inválido es un 400 (`VALIDATION_ERROR`), igual que el RIR (SE-5), y no se ignora: guardar un calentamiento como serie
+  normal ensuciaría la progresión. Sin `tipo` se usa NORMAL, así que un cliente anterior sigue funcionando.
+- **Límite**: los calentamientos que el socio ya registró como series normales **antes** de este cambio siguen contando; no hay forma de distinguirlos.
+- **Alternativas descartadas**: banderas booleanas (`esCalentamiento`, `esAlFallo`), que permiten combinaciones sin sentido; guardar los calentamientos en otra tabla
+  (duplica el modelo y complica la sesión); darles un `numeroSerie` (rompe que "serie N" sea la N-ésima de la rutina); filtrar en el código y no en la consulta
+  (la regla quedaría repartida y un lector nuevo podría olvidarla).
+- **Parte 2 · selector de tipo**: en la pantalla de ejecución, cuatro botones ("Normal", "Calentamiento", "Al fallo", "Drop set") en un grupo con nombre, con el
+  elegido marcado (`aria-pressed`). El tipo vale para **una** serie y después vuelve a Normal. Solo se manda `tipo` si no es Normal: la petición de una serie
+  normal es idéntica a la de antes. Elegir "Al fallo" pone el RIR en 0 (son lo mismo) y después el RIR vuelve a su valor por defecto, porque ese 0 lo puso el tipo.
+- **Parte 2 · calentamiento en pantalla**: tiene su propio botón ("Calentamiento hecho") y un aviso ("No cuenta como una de las series de la rutina ni para tu
+  progreso"). No avanza el contador ("Serie 2 de 4" sigue igual), se cuenta aparte ("Calentamientos: N", que vuelve a cero al cambiar de ejercicio) y oculta la
+  línea de récord en vivo, porque un calentamiento no cuenta para las marcas.
+- **Parte 2 · el drop set en el motor** (`leerSesion`): se **ignora por completo**. No ocupa una serie de la rutina, no aporta carga de trabajo y no se juzga
+  contra las repeticiones objetivo: cuelga de la serie anterior como una fila extra, igual que en openGym. Las series de trabajo que hacen falta son las `series`
+  de la rutina, sin descuentos. Con 3 × 8: tres series de trabajo + un drop 30×4 = cumplida, sube; dos series de trabajo + un drop = no cumple (falta una de
+  trabajo); una sesión de puros drop sets no cumple y no tiene carga. Las series **hasta el fallo** cuentan como cualquier otra y se juzgan igual: si llegó a
+  menos repeticiones que el objetivo es un fallo, el peso era demasiado. **Regla confirmada** con openGym y por Fernando (P-46 resuelto).
+- **Parte 2 · resumen y etiquetas**: la comparación contra la última vez **ignora los drop sets** (sus repeticiones de más no son una mejora; sin esto un drop de 15
+  repeticiones marcaba "Mejor"). Los **récords** (D-63) sí los cuentan como cualquier serie de trabajo: D-64 solo deja afuera el calentamiento. La última vez y el
+  resumen muestran "· al fallo" y "· drop set", y `describirSeries` ya no esconde un drop set bajo el "3 × 10 a 40 kg" de las demás.
+- **Parte 2 · datos**: `registrosDeEjercicio` lee el `tipo`; al historial solo viaja el de las series que no son normales, así lo anterior queda igual. **Sin migración
+  nueva**: la de la parte 1 quedó aplicada el 2026-10-19. No se puede cambiar el tipo de una serie ya registrada (como el resto de los datos de la serie).
+- **Parte 2 · alternativas descartadas**: que el drop set ocupe una serie (obliga a planificar un hueco y no es lo que hace openGym); juzgarlo como una serie normal
+  (daría un falso fallo y descargas injustas); que "Al fallo" no toque el RIR (dos controles que dicen lo mismo y pueden contradecirse).
+- **Verificado**: tests del módulo de tipos, de `registrarSerie` (calentamiento sin avanzar, en la última serie, validaciones, tipo inválido), de la ruta (400 y
+  paso del tipo) y de cada consulta que excluye el calentamiento. Parte 2: tests del motor (drop set que ocupa su serie, serie corta, serie faltante, puros drops, al fallo),
+  del historial y las etiquetas, del resumen, de la lectura del `tipo` y de la pantalla (selector, tipo por serie, RIR 0, calentamiento sin avanzar ni mostrar el récord,
+  contador por ejercicio). Pruebas de mutación: con el drop set juzgado como normal, contado en el resumen, sin mandar el `tipo` o resumido bajo el "3 × 10", algún test falla.
+  **No** se aplicó la migración ni se probó en el navegador.
+
+### D-65 · Tracking del socio: peso corporal con meta (T-048, inspirado en openGym)
+- **Origen**: Fernando (2026-10-16), idea 5 de la lista de tracking: gráfico de peso con la meta como línea punteada y "te faltan 1,4 kg". Pidió un modelo nuevo. Se toma la
+  idea de openGym como referencia; **no se copió código** (AGPL-3.0).
+- **Modelo** (migración `20261018180000_peso_corporal_con_meta`): `MedicionDePeso` (un pesaje por fila: `socioId`, `peso` `DECIMAL(5,2)`, `fecha`; índice por `socioId` y
+  `fecha`; `ON DELETE CASCADE` desde `Socio`, igual que `Cuota`) y, en `Socio`, `pesoObjetivo` y `pesoInicialDeMeta`, ambos opcionales. `RegistroDeProgreso.pesoCorporal`, que
+  ya existía y no se usa en ningún lado, **sigue sin usarse**: es por serie y no sirve para armar una evolución. **Migración escrita a mano**, aplicada el 2026-10-19 (P-45 resuelto).
+- **La meta recuerda desde dónde se fijó** (`pesoInicialDeMeta`): sin ese dato no se sabe si el objetivo era bajar o subir. Con él, `progresoHaciaMeta` decide la dirección
+  (`bajar`, `subir`, `mantener`) y llegar a la meta **o pasarse por el lado correcto** es alcanzarla: quien quería bajar a 77 y llegó a 76,5 ve la meta cumplida, no "te faltan 0,5 kg
+  para subir". Si la meta es igual al peso de partida (`mantener`) está cumplida a menos de 0,5 kg. Fijar o cambiar la meta toma el **último pesaje** como nuevo peso de partida, y
+  no se puede fijar una meta sin haberse pesado nunca (400).
+- **Validación** (`validarPeso`): un número entre **20 y 400 kg**, con dos decimales como máximo; el rango ataja el error de tipeo típico (784 en vez de 78,4). Un texto como "78,4"
+  se rechaza: la pantalla tiene que convertirlo a número antes de mandarlo.
+- **API**: `POST /api/peso` (201) registra un pesaje, `DELETE /api/peso/[id]` (204) borra uno propio y `PUT /api/peso/meta` (200) fija la meta. Para borrarla hay que mandar `pesoObjetivo: null` **a propósito**: si el campo falta es un 400,
+  porque un cuerpo vacío no debería borrar la meta de nadie. **Solo el SOCIO**, y el socio sale **siempre del token** (un `socioId` en el cuerpo se ignora): el peso es un dato personal y el
+  que se pesa es quien lo registra. ADMINISTRADOR, INSTRUCTOR y RECEPCIONISTA reciben 403 (P-48 pregunta si el negocio quiere otra cosa).
+- **Para el gráfico** (`puntosDelGrafico`, `variacionDelPeso`): un solo pesaje por día —el último de ese día, contado en **hora del gimnasio** y no en UTC— de más antiguo a más reciente, con
+  un tope de 120 puntos; la variación es la diferencia entre el último pesaje y el anterior.
+- **Límites conocidos**: (1) un pesaje se puede borrar (P-47, implementado), no se corrige; si hay varios el mismo día cuenta el último para el gráfico y todos aparecen en la lista de recientes; (2) la fecha del pesaje es
+  siempre "ahora": no se puede cargar uno de otro día; (3) al borrar un socio se borran sus pesajes.
+- **Alternativas descartadas**: reutilizar `RegistroDeProgreso.pesoCorporal`; un enum "bajar/subir" que elige el socio (más pantalla para un dato que se infiere del peso de partida); calcular la
+  dirección con el peso actual, que daría vuelta el mensaje apenas el socio se pasa de la meta; una librería de gráficos (no hay ninguna instalada: el gráfico es SVG propio, en la parte 2).
+- **Estado**: esta parte cubrió la base, el dominio, el servidor, las dos rutas y el cliente de API. La **parte 2** (D-66) trae los datos al Home, dibuja la tarjeta y el gráfico, agrega los formularios
+  y el borrado de un pesaje propio.
+- **Verificado**: tests del dominio puro (rango, dirección, alcanzada, mantener, puntos por día en hora del gimnasio, variación), del servidor con Prisma mockeado, de las dos rutas (permisos, socio del
+  token, cuerpo vacío) y del cliente. **No** se aplicó la migración ni se probó contra una base real.
+
+### D-66 · Tracking del socio: peso corporal en el Home, tarjeta con gráfico, formularios y borrado (T-048 parte 2, inspirado en openGym)
+- **Origen**: Fernando (2026-10-18), parte 2 de D-65. Idea tomada de openGym como referencia (su tarjeta "Body weight" con la meta como línea punteada); **no se copió código** (AGPL-3.0).
+- **Contrato**: `GET /api/home-socio` suma `peso` = `{ puntos, recientes, pesoObjetivo, pesoInicial }`. Los pesajes de `puntos` llegan **ya reducidos a uno por día** (el último, en hora del gimnasio)
+  con `puntosDelGrafico`; `recientes` trae los últimos **10** con su `id`, del más nuevo al más viejo, para la lista y el borrado. Se leen los últimos **400** del propio socio (de sobra para los
+  120 puntos que se dibujan). La variación y el progreso hacia la meta los calcula la tarjeta con las mismas funciones puras del servidor (`variacionDelPeso`, `progresoHaciaMeta`), así no hay dos
+  reglas. Es un campo nuevo: **sin migración**. La página tolera un servidor que todavía no mande `peso`.
+- **Tarjeta "Peso corporal"** en una **cuarta fila** del Home (no estaba en el diseño original; P-49): el **peso actual**, el **último pesaje**, cuánto cambió desde el anterior **dicho con palabras**
+  ("bajó 1,6 kg", "subió…", "igual que el pesaje anterior": el sentido no depende de un signo ni de un color), la meta ("Meta 77 kg · te faltan 1,4 kg", "¡alcanzada!" también si se pasó por el lado
+  correcto, y "mantener" con su margen de 0,5 kg) y el gráfico. Sin pesajes invita a registrar el peso y no muestra gráfico.
+- **Gráfico**: SVG propio (no hay librería de gráficos). La **geometría** (`geometriaDelGrafico`) es pura y está probada; el componente solo dibuja. Eje de tiempo **proporcional** a las fechas, escala
+  con margen y **al menos 1 kg de alto** (pesajes casi iguales no quedan aplastados), la **meta siempre entra en la escala**, marcas del eje "redondas" (múltiplos de 0,5 kg) y rótulos del primer y
+  último día. La meta es una línea **punteada con su rótulo escrito** y el gráfico tiene una **descripción en palabras** para lectores de pantalla. Un solo pesaje se dibuja como un punto, sin línea.
+- **Dos formularios**, cada uno con su nombre: **Registrar peso** y **Meta de peso** (fijar, cambiar y **quitar**; quitar manda `null` a propósito, como exige D-65). Aceptan **coma o punto** decimal
+  ("78,4" o "78.4") y Enter envía. Lo que no es un número se corrige en la pantalla; el **rango de 20 a 400 kg** también (`validarPeso`, la misma regla que el servidor), así el error de tipeo típico
+  (784) no llega al servidor. Si el servidor igual rechaza, se muestra su mensaje (`handleApiError`). Mientras guarda no se puede enviar dos veces. Sin pesajes **no se puede fijar una meta**.
+- **Pesajes recientes y borrado (P-47)**: la tarjeta lista los últimos 10 pesajes con fecha y peso. Cada uno tiene un tacho que abre un `ConfirmDialog`; al confirmar, `DELETE /api/peso/[id]` borra
+  **solo un pesaje propio** (el `socioId` sale del token; un id ajeno o inexistente da 404) y la tarjeta se actualiza sola: quita la fila, recalcula el peso actual, la variación y el punto del día
+  (si era el último de ese día, usa el anterior; si no queda ninguno, quita el punto). **No se puede corregir** un pesaje ni cargar uno de otra fecha: la fecha es siempre "ahora".
+- **Después de guardar la tarjeta se actualiza sola**, sin volver a pedir el Home, con la misma regla del servidor: dos pesajes el mismo día cuentan uno para el gráfico, el último. Si el socio
+  cambia la meta, la dirección (bajar o subir) sale del peso desde el que la fijó, que devuelve el servidor.
+- **Alternativas descartadas**: que el servidor mande también la variación y el progreso ya calculados (obliga a repetir la cuenta al actualizar la tarjeta o a volver a pedir todo el Home); una
+  librería de gráficos; un campo `type="number"` (no acepta la coma que escribe el socio en español); validar solo en el servidor; borrar recargando todo el Home (la tarjeta ya tiene los datos).
+- **Verificado**: tests de la presentación pura (lectura de lo escrito, textos de la meta y la variación, fechas en hora del gimnasio, geometría), del payload con Prisma mockeado (un punto por día,
+  hora del gimnasio, meta como número, lectura acotada del propio socio, `recientes` con id), del gráfico, de la tarjeta (estados, registro, validación, errores, doble envío, meta fijar y quitar,
+  lista de recientes, confirmación, borrado y cancelación) y de la página. **No** se probó en el navegador: queda para Fernando, en especial el aspecto de la cuarta fila y del gráfico.
+
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -958,6 +1225,14 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-39 | ~~No existe un flujo para anular un pago~~ | — | **Resuelto (2026-10-15)**: `POST /api/pagos/{id}/anular`, solo Administrador y Recepcionista, con motivo obligatorio y auditoría `ANULACION`. Las tres preguntas abiertas se resolvieron: anular **borra la `Cuota`** (el socio vuelve a deber el período, y la puerta deja de dejarlo entrar por ese mes), el `Pago` queda `ANULADO` como evidencia, y **la oferta usada no vuelve**: un pago con descuento cuenta como usado aunque se anule |
 | P-40 | ~~Confirmar con el negocio los valores de la oferta de reactivación (30 días sin asistir, enfriamiento de 180, tope de 50 %) y que el descuento se acumule sobre el cobro de un reingreso (D-40)~~ | — | **Resuelto (2026-10-15)**: Fernando confirmó la propuesta básica (ver D-54, línea del cierre); son configurables desde el panel de parámetros |
 | P-41 | ~~`hasRouteAccess` elegía el prefijo por orden de inserción, así que un prefijo corto podía tapar uno más específico~~ | — | **Resuelto** (barrido del 2026-10-13, hallazgo `I`): `matchBasePath` elige el prefijo **más largo**, sin depender del orden de las claves; con test de regresión en `src/lib/authorization.test.ts` |
+| P-42 | ~~La tarjeta Progreso de Home calculaba su propia "próxima sesión sugerida" y podía contradecir al motor de progresión (D-59)~~ | — | **Resuelto (D-60)**: la tarjeta muestra la sugerencia de `seguimientoDeEjercicios`, la misma de la pantalla de entrenamiento. Se había registrado como P-41, un ID ya usado: se renumeró |
+| P-43 | ~~Editar una rutina borraba y recreaba todas sus filas de `EjercicioEnRutina` y reiniciaba el motor de progresión (D-59)~~ | — | **Resuelto (D-61)**: `sincronizarEjercicios` guarda solo lo que cambió (diff por `ejercicioId`); `updatedAt` pasa a significar "último cambio de series o repeticiones" |
+| P-44 | Marcas personales (D-63): Arnold no distingue los ejercicios asistidos y cada resumen y cada inicio de sesión leen todo el historial con carga de cada ejercicio | Baja | Si el historial crece mucho, guardar los mejores por ejercicio |
+| P-45 | ~~Aplicar a la base real las migraciones escritas a mano `20261018120000_tipo_de_serie` (D-64) y `20261018180000_peso_corporal_con_meta` (D-65)~~ | — | **Resuelto (2026-10-19)**: `npx prisma migrate deploy` aplicó las dos; `migrate status` da **17/17 al día** y `migrate diff` contra el schema, **0 diferencias**. Antes se verificaron desde cero en un Postgres 17 efímero |
+| P-46 | ~~Confirmar la regla del drop set en el motor (D-64)~~ | — | **Resuelto (2026-10-19)**: el drop set **no ocupa una serie**, no avanza la sesión, no dispara el descanso largo y la progresión lo ignora por completo, como openGym. `leerSesion` ya no descuenta drops |
+| P-47 | ~~Peso corporal (D-65): un pesaje no se puede corregir ni borrar, y su fecha es siempre "ahora"~~ | — | **Resuelto (2026-10-19)**: `DELETE /api/peso/[id]` borra un pesaje propio y la tarjeta tiene "Pesajes recientes" con confirmación. **No** se carga una fecha distinta: la fecha es siempre "ahora" (decisión) |
+| P-48 | ~~Peso corporal (D-65): confirmar si el instructor debe poder verlo o cargarlo~~ | — | **Resuelto (2026-10-19)**: se mantiene **privado**. Solo el SOCIO lo registra y lo ve; el staff recibe 403. Si cambia, será con un permiso explícito del socio |
+| P-49 | La cuarta fila del Home (peso corporal, D-66) no estaba en el diseño original: confirmar con el diseño de Home_Socio dónde va y cómo se ve (hoy, una tarjeta de ancho completo debajo de Racha y Membresía) | Baja | — |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | **Casi cerrado (2026-10-16)**: `npm run build` ✅ y `npm run start` ✅ (exit 0, 45 páginas). El **pooler se probó y funciona**: Prisma directo tolera las transacciones interactivas (el landmine de pgbouncer no se dispara) y `npm run start` con `DATABASE_URL` *pooled* responde login `200` y `/api/home-interno` `200` (6,01 s / 2,40 s, contra 3,21 s / 1,33–1,71 s de la conexión directa: **más lento en local por `connection_limit=1`**, que serializa las consultas; su beneficio es la concurrencia en serverless). **Falta probarlo en Vercel**; las migraciones siguen necesitando conexión directa (sin `directUrl`) |

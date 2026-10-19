@@ -4,6 +4,7 @@ import {
   handleRegistrarSerie,
   resolveSocioIdDeUsuario,
 } from "@/api/sesiones";
+import { esTipoSerie, type TipoSerie } from "@/domains/sesion/tipo-serie";
 import { extractUserFromRequest } from "@/lib/auth";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 
@@ -51,7 +52,13 @@ export async function POST(
       }
     }
 
-    let body: { ejercicioId?: unknown; carga?: unknown; repeticiones?: unknown; rir?: unknown };
+    let body: {
+      ejercicioId?: unknown;
+      carga?: unknown;
+      repeticiones?: unknown;
+      rir?: unknown;
+      tipo?: unknown;
+    };
     try {
       body = (await request.json()) as typeof body;
     } catch {
@@ -77,12 +84,23 @@ export async function POST(
       rir = body.rir;
     }
 
+    // D-64: igual que el RIR, un `tipo` presente pero inválido es un error (400): no se ignora
+    // en silencio, porque guardar un calentamiento como serie normal ensuciaría la progresión.
+    let tipo: TipoSerie | undefined;
+    if (body.tipo !== undefined) {
+      if (!esTipoSerie(body.tipo)) {
+        return errorResponse(400, "VALIDATION_ERROR", "El tipo de serie no es válido");
+      }
+      tipo = body.tipo;
+    }
+
     const resultado = await handleRegistrarSerie({
       sesionId,
       ejercicioId,
       carga: body.carga,
       repeticiones: body.repeticiones,
       rir,
+      ...(tipo ? { tipo } : {}),
     });
     return NextResponse.json(resultado, { status: 201 });
   } catch (error) {

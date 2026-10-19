@@ -181,8 +181,18 @@ describe("buildHomeSocioSeccionesPayload", () => {
     // El agregado de mejores marcas NO filtra por fecha: considera todo el historial.
     expect(db.registroDeProgreso.groupBy).toHaveBeenCalledWith({
       by: ["ejercicioId"],
-      where: { socioId: "socio-1" },
+      // D-64: la mejor marca no incluye los calentamientos.
+      where: { socioId: "socio-1", tipo: { not: "CALENTAMIENTO" } },
       _max: { carga: true },
+    });
+  });
+
+  it("D-64: la ventana de progreso excluye los calentamientos", async () => {
+    seed();
+    await buildHomeSocioSeccionesPayload("u1", NOW);
+
+    expect(db.registroDeProgreso.findMany.mock.calls[0][0].where).toMatchObject({
+      tipo: { not: "CALENTAMIENTO" },
     });
   });
 

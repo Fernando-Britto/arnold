@@ -6,8 +6,10 @@ import type { HomeSocioViewModel } from "@/api/home-socio";
 import { estadoCuotaSocio, periodoDe } from "@/domains/pago/cuota";
 import { evaluarOfertaDeSocio } from "@/domains/pago/oferta-reactivacion-consulta";
 import type { ConfigOferta } from "@/domains/pago/oferta-reactivacion";
+import { puntosDelGrafico } from "@/domains/peso/peso-corporal";
+import { seguimientoDeEjercicios } from "@/domains/sesion/sesion-de-entrenamiento";
+import { SOLO_SERIES_DE_TRABAJO } from "@/domains/sesion/tipo-serie";
 import {
-  DEFAULT_INCREMENTO_KG,
   buildSemanaCalendario,
   compute28DiasAsistencia,
   computeProgresoActual,
@@ -35,6 +37,8 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const VENTANA_PROGRESO_DIAS = 28;
 const MAX_SEMANAS_RACHA = 53;
+/** Pesajes que se leen para el gráfico: de sobra para los 120 puntos (uno por día) que se dibujan. */
+const MAX_PESAJES = 400;
 
 export async function buildHomeSocioPayload(
   usuarioId: string,
@@ -46,6 +50,8 @@ export async function buildHomeSocioPayload(
       id: true,
       estadoCuota: true,
       fechaAlta: true,
+      pesoObjetivo: true,
+      pesoInicialDeMeta: true,
       membresiaAsignada: { select: { nombre: true, periodicidad: true } },
       cuotas: { orderBy: { fechaVencimiento: "desc" }, take: 1, select: { fechaVencimiento: true } },
     },
@@ -74,7 +80,7 @@ export async function buildHomeSocioPayload(
     enfriamientoOfertaDias: config.enfriamientoOfertaDias,
   };
 
-  const [asistenciasGym, asistenciasSocio, registros, regla, asignaciones, sesion, evaluacionOferta] = await Promise.all([
+  const [asistenciasGym, asistenciasSocio, registros, asignaciones, sesion, evaluacionOferta, pesajes] = await Promise.all([
     prisma.asistencia.findMany({
       where: { estado: "PERMITIDO", fechaHora: { gte: new Date(Math.min(inicioDia.getTime(), desdeVentana.getTime())) } },
       select: { fechaHora: true },
@@ -89,11 +95,15 @@ export async function buildHomeSocioPayload(
       select: { fechaHora: true },
     }),
     prisma.registroDeProgreso.findMany({
-      where: { socioId: socio.id, fecha: { gte: new Date(now.getTime() - VENTANA_PROGRESO_DIAS * DAY_MS) } },
+      // D-64: el progreso se mide con series de trabajo; el calentamiento no cuenta.
+      where: {
+        socioId: socio.id,
+        fecha: { gte: new Date(now.getTime() - VENTANA_PROGRESO_DIAS * DAY_MS) },
+        ...SOLO_SERIES_DE_TRABAJO,
+      },
       orderBy: { fecha: "desc" },
       select: { carga: true, fecha: true, ejercicio: { select: { id: true, nombre: true } } },
     }),
-    prisma.reglaDeProgresion.findFirst({ where: { tipo: "LINEAL" }, select: { incrementoSugerido: true } }),
     prisma.rutinaAsignada.findMany({
       where: { socioId: socio.id, activa: true },
       orderBy: { fechaAsignacion: "asc" },
@@ -110,6 +120,8 @@ export async function buildHomeSocioPayload(
                 series: true,
                 repeticiones: true,
                 descanso: true,
+                // D-59: el motor ignora las sesiones anteriores al último cambio del ejercicio en la rutina.
+                updatedAt: true,
                 ejercicio: { select: { id: true, nombre: true, grupoMuscular: true, descripcion: true } },
               },
             },
@@ -134,6 +146,13 @@ export async function buildHomeSocioPayload(
       },
       now,
     ),
+    // T-048: los pesajes del propio socio, los más recientes primero (se reduce a uno por día abajo).
+    prisma.medicionDePeso.findMany({
+      where: { socioId: socio.id },
+      orderBy: { fecha: "desc" },
+      take: MAX_PESAJES,
+      select: { id: true, peso: true, fecha: true },
+    }),
   ]);
 
   // Aforo (AC-005): mismo cálculo que Home_Interno.
@@ -163,17 +182,33 @@ export async function buildHomeSocioPayload(
     : -1;
   const indiceActual = idxSesion >= 0 ? idxSesion : 0;
 
+  // P-42 (D-60): la tarjeta de progreso muestra la sugerencia del motor, no "marca + incremento".
+  const progresoActual = computeProgresoActual(
+    registros.map((r) => ({
+      ejercicioId: r.ejercicio.id,
+      ejercicioNombre: r.ejercicio.nombre,
+      carga: Number(r.carga),
+      fecha: r.fecha,
+    })),
+    now
+  );
+  const progreso = progresoActual
+    ? {
+        ejercicioNombre: progresoActual.ejercicioNombre,
+        marcaActual: progresoActual.marcaActual,
+        deltaEsteMes: progresoActual.deltaEsteMes,
+        progresionCarga: progresoActual.progresionCarga,
+        sugerencia: await sugerenciaDelMotor({
+          socioId: socio.id,
+          ejercicioId: progresoActual.ejercicioId,
+          ejerciciosDeRutina,
+          sesionActualId: sesion?.id ?? null,
+        }),
+      }
+    : null;
+
   return {
-    progreso: computeProgresoActual(
-      registros.map((r) => ({
-        ejercicioId: r.ejercicio.id,
-        ejercicioNombre: r.ejercicio.nombre,
-        carga: Number(r.carga),
-        fecha: r.fecha,
-      })),
-      now,
-      regla ? Number(regla.incrementoSugerido) : DEFAULT_INCREMENTO_KG
-    ),
+    progreso,
     aforo: {
       ocupacionActual: asistenciasGym.filter((a) => a.fechaHora >= desdeVentana).length,
       capacidadMaxima: config.capacidadMaxima,
@@ -212,5 +247,59 @@ export async function buildHomeSocioPayload(
           }
         : null,
     oferta: evaluacionOferta.elegible ? { descuentoPct: evaluacionOferta.descuentoPct } : null,
+    peso: {
+      puntos: puntosDelGrafico(pesajes.map((m) => ({ fecha: m.fecha, peso: Number(m.peso) }))).map((p) => ({
+        fecha: p.fecha.toISOString(),
+        peso: p.peso,
+      })),
+      // P-47: los últimos pesajes con su id para poder borrarlos desde la tarjeta. Van del más
+      // reciente al más antiguo; es la lista de "Pesajes recientes", no la serie del gráfico.
+      recientes: pesajes.slice(0, 10).map((m) => ({
+        id: m.id,
+        peso: Number(m.peso),
+        fecha: m.fecha.toISOString(),
+      })),
+      pesoObjetivo: socio.pesoObjetivo === null || socio.pesoObjetivo === undefined ? null : Number(socio.pesoObjetivo),
+      pesoInicial:
+        socio.pesoInicialDeMeta === null || socio.pesoInicialDeMeta === undefined ? null : Number(socio.pesoInicialDeMeta),
+    },
   };
+}
+
+/**
+ * Sugerencia del motor de progresión para el ejercicio que muestra la tarjeta de progreso del
+ * Home (P-42, D-60). Usa `seguimientoDeEjercicios`, la misma función que alimenta la pantalla de
+ * entrenamiento, así los dos lugares siempre dicen lo mismo.
+ *
+ * Devuelve `null` si el ejercicio ya no está en la rutina activa: el motor juzga las sesiones
+ * contra lo que la rutina pide (series y repeticiones) y sin rutina no hay contra qué.
+ * La sesión en curso no cuenta como historial: una serie floja de hoy no cambia la sugerencia.
+ */
+async function sugerenciaDelMotor(input: {
+  socioId: string;
+  ejercicioId: string;
+  ejerciciosDeRutina: Array<{
+    series: number;
+    repeticiones: number;
+    updatedAt: Date;
+    ejercicio: { id: string };
+  }>;
+  sesionActualId: string | null;
+}) {
+  const enRutina = input.ejerciciosDeRutina.find((e) => e.ejercicio.id === input.ejercicioId);
+  if (!enRutina) return null;
+
+  const { sugerencias } = await seguimientoDeEjercicios({
+    socioId: input.socioId,
+    ejercicios: [
+      {
+        ejercicioId: input.ejercicioId,
+        series: enRutina.series,
+        repeticiones: enRutina.repeticiones,
+        updatedAt: enRutina.updatedAt,
+      },
+    ],
+    sesionActualId: input.sesionActualId,
+  });
+  return sugerencias[input.ejercicioId] ?? null;
 }

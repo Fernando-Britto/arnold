@@ -12,6 +12,7 @@ import {
   detalleSesionEnCurso,
   registrarSerie,
   finalizarSesion,
+  resumenDeSesion,
   type DetalleSesionEnCurso,
   type FinalizarSesionInput,
   type IniciarSesionInput,
@@ -37,6 +38,11 @@ export async function handleIniciarSesion(input: IniciarSesionInput) {
 /** Handle POST /api/sesiones/[id]/series — registra una serie. */
 export async function handleRegistrarSerie(input: RegistrarSerieInput) {
   return registrarSerie(input);
+}
+
+/** Handle GET /api/sesiones/[id]/resumen — resumen de la sesión (T-046b, D-62). */
+export async function handleResumenSesion(sesionId: string) {
+  return resumenDeSesion(sesionId);
 }
 
 /** Handle PUT /api/sesiones/[id] — finaliza la sesión. */
@@ -78,6 +84,79 @@ export async function resolveSocioIdDeUsuario(usuarioId: string): Promise<string
  * ============================================
  */
 
+/** Serie de la sesión anterior, tal como llega del servidor (D-58). */
+export interface SerieUltimaVezDTO {
+  carga: number;
+  repeticiones: number;
+  rir: number | null;
+  /** Solo si no es una serie normal (D-64): drop set o hasta el fallo. */
+  tipo?: TipoSerieDTO;
+}
+
+/** "Última vez" de un ejercicio: las series de la sesión anterior (D-58). */
+export interface UltimaVezDTO {
+  fecha: string;
+  series: SerieUltimaVezDTO[];
+}
+
+/** Tipo de serie tal como viaja entre el servidor y la pantalla (D-64). */
+export type TipoSerieDTO = "NORMAL" | "CALENTAMIENTO" | "HASTA_EL_FALLO" | "DROP_SET";
+
+/** Una serie de la frontera de récords: repeticiones hechas con esa carga (T-046c, D-63). */
+export interface SerieMarcaDTO {
+  carga: number;
+  repeticiones: number;
+}
+
+/** Carga sugerida para hoy y el porqué, tal como llega del servidor (D-59). */
+export interface SugerenciaDTO {
+  tipo: "primera" | "subir" | "mantener" | "descargar";
+  /** kg; null si no hay un número honesto que sugerir. */
+  carga: number | null;
+  motivo: string;
+}
+
+/** Cómo le fue hoy comparado con la última vez en un ejercicio (T-046b, D-62). */
+export type TendenciaDTO = "subio" | "bajo" | "igual" | "primera";
+
+/** Una marca personal batida hoy: el valor nuevo y el que había (T-046c, D-63). */
+export interface MarcaNuevaDTO {
+  valor: number;
+  anterior: number;
+}
+
+/** Marcas personales que hoy se superaron; null si no se superó ninguna de ese tipo. */
+export interface MarcasNuevasDTO {
+  /** Mayor carga levantada en el ejercicio. */
+  carga: MarcaNuevaDTO | null;
+  /** Mejor 1RM estimado (Epley, hasta 12 repeticiones), redondeado a 0,5 kg. */
+  e1rm: MarcaNuevaDTO | null;
+}
+
+/** Resumen de un ejercicio al terminar la sesión (T-046b, D-62). */
+export interface ResumenEjercicioDTO {
+  ejercicioId: string;
+  nombre: string;
+  /** Series de hoy, en el orden en que se hicieron. */
+  hoy: SerieUltimaVezDTO[];
+  /** La sesión anterior con este ejercicio; null si es la primera vez. */
+  ultimaVez: UltimaVezDTO | null;
+  tendencia: TendenciaDTO;
+  /** Marcas personales que hoy se superaron (T-046c, D-63). */
+  marcas: MarcasNuevasDTO;
+  /** Carga para la próxima sesión, contando la de hoy: la misma que se va a precargar. */
+  proxima: SugerenciaDTO;
+}
+
+/** Resumen de la sesión que llega de `GET /api/sesiones/[id]/resumen` (T-046b, D-62). */
+export interface ResumenSesionDTO {
+  sesionId: string;
+  seriesHechas: number;
+  /** Minutos entre el inicio y el fin; null si no hay hora de fin. */
+  duracionMinutos: number | null;
+  ejercicios: ResumenEjercicioDTO[];
+}
+
 /** Ejercicio de la rutina con la prescripción (target) tal como llega del servidor. */
 export interface EjercicioDeSesionDTO {
   id: string;
@@ -106,6 +185,12 @@ export interface SesionEnCursoDTO {
   ultimaSerie: { ejercicioId: string; fecha: string } | null;
   /** Última carga histórica del ejercicio actual, para precargar. */
   cargaActual: { carga: number; repeticiones: number; rir: number | null; fecha: string } | null;
+  /** "Última vez" por `Ejercicio.id`; los ejercicios que nunca hizo no aparecen (D-58). */
+  ultimasVeces: Record<string, UltimaVezDTO>;
+  /** Carga sugerida por `Ejercicio.id`; sin historial no hay sugerencia (D-59). */
+  sugerencias: Record<string, SugerenciaDTO>;
+  /** Frontera de récords por `Ejercicio.id` para la línea en vivo; sin historial no hay (D-63). */
+  records: Record<string, SerieMarcaDTO[]>;
 }
 
 /** Respuesta de registrar una serie (T-037/T-038). */
@@ -136,6 +221,12 @@ export interface SesionIniciadaDTO {
     serieActual: number | null;
   };
   ejercicios: EjercicioDeSesionDTO[];
+  /** "Última vez" por `Ejercicio.id`; los ejercicios que nunca hizo no aparecen (D-58). */
+  ultimasVeces: Record<string, UltimaVezDTO>;
+  /** Carga sugerida por `Ejercicio.id`; sin historial no hay sugerencia (D-59). */
+  sugerencias: Record<string, SugerenciaDTO>;
+  /** Frontera de récords por `Ejercicio.id` para la línea en vivo; sin historial no hay (D-63). */
+  records: Record<string, SerieMarcaDTO[]>;
 }
 
 /**
@@ -168,7 +259,14 @@ export async function iniciarSesionDeEntrenamiento(
 /** POST /api/sesiones/[id]/series — registra una serie de la sesión. */
 export async function registrarSerieDeEntrenamiento(
   sesionId: string,
-  input: { ejercicioId: string; carga: number; repeticiones: number; rir?: number | null }
+  input: {
+    ejercicioId: string;
+    carga: number;
+    repeticiones: number;
+    rir?: number | null;
+    /** Tipo de serie (D-64); sin él es NORMAL. */
+    tipo?: TipoSerieDTO;
+  }
 ): Promise<SerieRegistradaDTO> {
   const response = await fetch(`/api/sesiones/${sesionId}/series`, {
     method: "POST",
@@ -187,5 +285,12 @@ export async function finalizarSesionDeEntrenamiento(sesionId: string) {
     method: "PUT",
   });
   await throwIfNotOk(response, "No se pudo finalizar la sesión");
+  return response.json();
+}
+
+/** GET /api/sesiones/[id]/resumen — resumen de la sesión terminada (T-046b, D-62). */
+export async function fetchResumenDeSesion(sesionId: string): Promise<ResumenSesionDTO> {
+  const response = await fetch(`/api/sesiones/${sesionId}/resumen`);
+  await throwIfNotOk(response, "No pudimos cargar el resumen de la sesión");
   return response.json();
 }

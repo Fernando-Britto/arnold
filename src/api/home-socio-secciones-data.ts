@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { toGymWallClock } from "@/lib/gym-time";
 import { getConfiguracion } from "@/lib/configuracion";
 import { selectRutinaActiva } from "@/domains/home-socio/home-socio";
+import { SOLO_SERIES_DE_TRABAJO } from "@/domains/sesion/tipo-serie";
 import {
   buildCalendarioAsistencias,
   computeProgresoPorEjercicio,
@@ -93,6 +94,8 @@ export async function buildHomeSocioSeccionesPayload(
         where: {
           socioId: socio.id,
           fecha: { gte: new Date(now.getTime() - VENTANA_PROGRESO_DIAS * DAY_MS) },
+          // D-64: el progreso se mide con series de trabajo; el calentamiento no cuenta.
+          ...SOLO_SERIES_DE_TRABAJO,
         },
         orderBy: { fecha: "asc" },
         select: {
@@ -106,7 +109,7 @@ export async function buildHomeSocioSeccionesPayload(
       // una fila por ejercicio en vez de todo el historial.
       prisma.registroDeProgreso.groupBy({
         by: ["ejercicioId"],
-        where: { socioId: socio.id },
+        where: { socioId: socio.id, ...SOLO_SERIES_DE_TRABAJO },
         _max: { carga: true },
       }),
       prisma.pago.findMany({

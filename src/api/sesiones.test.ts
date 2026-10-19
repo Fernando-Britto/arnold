@@ -8,8 +8,10 @@ import {
   handleFinalizarSesion,
   handleSesionEnCurso,
   handleObtenerSesion,
+  handleResumenSesion,
   resolveSocioIdDeUsuario,
   fetchSesionEnCurso,
+  fetchResumenDeSesion,
   iniciarSesionDeEntrenamiento,
   registrarSerieDeEntrenamiento,
   finalizarSesionDeEntrenamiento,
@@ -20,6 +22,7 @@ import {
   finalizarSesion,
   detalleSesionEnCurso,
   obtenerSesion,
+  resumenDeSesion,
 } from "@/domains/sesion/sesion-de-entrenamiento";
 
 jest.mock("@/domains/sesion/sesion-de-entrenamiento");
@@ -30,6 +33,7 @@ const mockRegistrar = registrarSerie as jest.MockedFunction<typeof registrarSeri
 const mockFinalizar = finalizarSesion as jest.MockedFunction<typeof finalizarSesion>;
 const mockDetalle = detalleSesionEnCurso as jest.MockedFunction<typeof detalleSesionEnCurso>;
 const mockObtener = obtenerSesion as jest.MockedFunction<typeof obtenerSesion>;
+const mockResumen = resumenDeSesion as jest.MockedFunction<typeof resumenDeSesion>;
 
 async function mocks() {
   const { prisma } = await import("@/lib/db");
@@ -88,6 +92,18 @@ describe("handlers de sesiones", () => {
 
     expect(r).toEqual({ id: "s1", socioId: "socio-1" });
     expect(mockObtener).toHaveBeenCalledWith("s1");
+  });
+});
+
+describe("handleResumenSesion (T-046b, D-62)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("delega en resumenDeSesion", async () => {
+    const resumen = { sesionId: "s1", seriesHechas: 4, duracionMinutos: 45, ejercicios: [] };
+    mockResumen.mockResolvedValueOnce(resumen);
+
+    expect(await handleResumenSesion("s1")).toEqual(resumen);
+    expect(mockResumen).toHaveBeenCalledWith("s1");
   });
 });
 
@@ -176,5 +192,25 @@ describe("fetchers del cliente de sesiones", () => {
       "/api/sesiones/s1",
       expect.objectContaining({ method: "PUT" })
     );
+  });
+
+  it("fetchResumenDeSesion hace GET a /api/sesiones/[id]/resumen", async () => {
+    const resumen = { sesionId: "s1", seriesHechas: 4, duracionMinutos: 45, ejercicios: [] };
+    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => resumen });
+
+    const r = await fetchResumenDeSesion("s1");
+
+    expect(r).toEqual(resumen);
+    expect(global.fetch).toHaveBeenCalledWith("/api/sesiones/s1/resumen");
+  });
+
+  it("fetchResumenDeSesion lanza si el servidor responde con error", async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => ({ code: "NOT_FOUND", message: "Sesión no encontrada" }),
+    });
+
+    await expect(fetchResumenDeSesion("s1")).rejects.toThrow();
   });
 });

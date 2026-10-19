@@ -220,11 +220,12 @@ export interface RegistroProgresoRef {
 }
 
 export interface ProgresoActualResult {
+  /** `Ejercicio.id` del ejercicio mostrado: la capa de datos lo usa para pedirle la sugerencia al motor. */
+  ejercicioId: string;
   ejercicioNombre: string;
   marcaActual: number;
   deltaEsteMes: number;
   progresionCarga: { fecha: string; carga: number }[];
-  proximaSesionSugerida: number;
 }
 
 /**
@@ -233,13 +234,13 @@ export interface ProgresoActualResult {
  * - ejercicio = el del registro más reciente de la ventana;
  * - un punto por día (hora del gimnasio) con la mayor carga de ese día;
  * - marcaActual = carga del último punto; deltaEsteMes = último − primero de la ventana;
- * - próxima sesión sugerida = marcaActual + incremento (ReglaDeProgresion o DEFAULT_INCREMENTO_KG).
+ * - la "próxima sesión sugerida" NO se calcula acá (P-42, D-60): la decide el motor de progresión
+ *   (`sugerirProximaCarga`), para que Home y la pantalla de entrenamiento no se contradigan.
  * Sin registros en la ventana → null (estado vacío, la spec lo pide).
  */
 export function computeProgresoActual(
   registros: RegistroProgresoRef[],
-  hoy: Date,
-  incrementoSugerido: number
+  hoy: Date
 ): ProgresoActualResult | null {
   const desde = hoy.getTime() - VENTANA_PROGRESO_DIAS * MS_PER_DAY;
   const enVentana = registros.filter((r) => r.fecha.getTime() >= desde);
@@ -259,10 +260,10 @@ export function computeProgresoActual(
   const marcaActual = progresionCarga[progresionCarga.length - 1].carga;
 
   return {
+    ejercicioId: ultimo.ejercicioId,
     ejercicioNombre: ultimo.ejercicioNombre,
     marcaActual,
     deltaEsteMes: marcaActual - progresionCarga[0].carga,
     progresionCarga,
-    proximaSesionSugerida: marcaActual + incrementoSugerido,
   };
 }

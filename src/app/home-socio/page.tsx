@@ -13,12 +13,13 @@ import { RachaSemanal } from "@/components/home-socio/racha-semanal";
 import { MembresiaCard } from "@/components/home-socio/membresia-card";
 import { AvisoOfertaReactivacion } from "@/components/home-socio/aviso-oferta";
 import { EjecucionRutina } from "@/components/home-socio/ejecucion-rutina";
+import { PesoCorporalCard } from "@/components/home-socio/peso-corporal-card";
 
 /**
  * Home_Socio — T-019 Page Layout, rebuilt to match the real design
  * (Home_Socio_1x, OpenPencil export). Layout: TopNav, then Fila1
  * (Progreso + Aforo), Fila2 (Tarjeta_Rutina + Tarjeta_Detalle), Fila3
- * (Racha Semanal + Membresía).
+ * (Racha Semanal + Membresía). Fila4 (Peso corporal, T-048) se agregó después del diseño.
  *
  * SCOPE BOUNDARY (documented, not hidden):
  * - Data comes from `GET /api/home-socio` (T-028); the page tests mock
@@ -131,7 +132,7 @@ export function HomeSocioPage() {
             marcaActual={data.progreso?.marcaActual ?? 0}
             deltaEsteMes={data.progreso?.deltaEsteMes ?? 0}
             progresionCarga={data.progreso?.progresionCarga ?? []}
-            proximaSesionSugerida={data.progreso?.proximaSesionSugerida ?? 0}
+            sugerencia={data.progreso?.sugerencia ?? null}
             onVerTodosLosEjercicios={() => router.push("/home-socio/mis-ejercicios")}
           />
           <AforoCard
@@ -188,6 +189,16 @@ export function HomeSocioPage() {
             totalAsistencias={data.membresia?.totalAsistencias28Dias ?? 0}
             onVerMembresia={() => router.push("/home-socio/mi-membresia")}
             onRenovar={() => router.push("/home-socio/mi-membresia")}
+          />
+        </div>
+
+        {/* Fila4 — Peso corporal con meta (T-048, D-66): no estaba en el diseño original. */}
+        <div data-testid="fila-4">
+          <PesoCorporalCard
+            puntos={data.peso?.puntos ?? []}
+            recientes={data.peso?.recientes ?? []}
+            pesoObjetivo={data.peso?.pesoObjetivo ?? null}
+            pesoInicial={data.peso?.pesoInicial ?? null}
           />
         </div>
       </main>

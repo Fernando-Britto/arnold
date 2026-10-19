@@ -213,6 +213,15 @@ describe("GET /api/sesiones?enCurso=1", () => {
       ejercicios: [],
       ultimaSerie: null,
       cargaActual: null,
+      ultimasVeces: {
+        "ej-1": {
+          fecha: "2026-10-10T13:00:00.000Z",
+          series: [{ carga: 40, repeticiones: 10, rir: 2 }],
+        },
+      },
+      sugerencias: {
+        "ej-1": { tipo: "subir", carga: 42.5, motivo: "Hiciste todas las repeticiones la última vez: +2,5 kg." },
+      },
     };
     mockEnCurso.mockResolvedValueOnce(detalle as never);
 
@@ -245,6 +254,9 @@ describe("GET /api/sesiones?enCurso=1", () => {
       ejercicios: [],
       ultimaSerie: null,
       cargaActual: null,
+      ultimasVeces: {},
+      sugerencias: {},
+      records: {},
     });
     expect(mockEnCurso).toHaveBeenCalledWith("socio-9");
   });

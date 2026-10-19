@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HomeSocioPage } from "./page";
 import { useAuth } from "@/contexts/auth";
@@ -36,7 +36,11 @@ const baseViewModel: HomeSocioViewModel = {
       { fecha: "2026-05-12", carga: 60 },
       { fecha: "2026-09-26", carga: 80 },
     ],
-    proximaSesionSugerida: 82.5,
+    sugerencia: {
+      tipo: "subir",
+      carga: 82.5,
+      motivo: "Hiciste todas las repeticiones la última vez: +2,5 kg.",
+    },
   },
   aforo: {
     ocupacionActual: 47,
@@ -90,6 +94,18 @@ const baseViewModel: HomeSocioViewModel = {
     totalAsistencias28Dias: 12,
   },
   oferta: null,
+  peso: {
+    puntos: [
+      { fecha: "2026-09-28T15:00:00.000Z", peso: 80 },
+      { fecha: "2026-10-05T15:00:00.000Z", peso: 78.4 },
+    ],
+    recientes: [
+      { id: "m2", fecha: "2026-10-05T15:00:00.000Z", peso: 78.4 },
+      { id: "m1", fecha: "2026-09-28T15:00:00.000Z", peso: 80 },
+    ],
+    pesoObjetivo: 77,
+    pesoInicial: 80,
+  },
 };
 
 const waitForLoadingComplete = () =>
@@ -128,6 +144,28 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
     // Fila3
     expect(screen.getByTestId("racha-count")).toHaveTextContent("3");
     expect(screen.getByText("Plan Musculación")).toBeInTheDocument();
+  });
+
+  it("muestra el peso corporal en una cuarta fila, con el peso actual y la meta (T-048)", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    const fila = screen.getByTestId("fila-4");
+    expect(within(fila).getByTestId("peso-corporal")).toBeInTheDocument();
+    expect(within(fila).getByTestId("peso-actual")).toHaveTextContent("78,4 kg");
+    expect(within(fila).getByTestId("peso-meta")).toHaveTextContent("Meta 77 kg · te faltan 1,4 kg");
+  });
+
+  it("un servidor que todavía no manda `peso` no rompe el Home: la tarjeta invita a registrar el peso", async () => {
+    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+    const { peso: _omitido, ...sinPeso } = baseViewModel;
+    void _omitido;
+    mockFetch.mockResolvedValue(sinPeso as HomeSocioViewModel);
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.getByText(/todavía no registraste tu peso/i)).toBeInTheDocument();
   });
 
   it("renders the three rows (Fila1/2/3) with the six cards of the mockup", async () => {
@@ -265,6 +303,9 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
       ejercicios: [],
       ultimaSerie: null,
       cargaActual: null,
+      ultimasVeces: {},
+      sugerencias: {},
+      records: {},
     });
     mockIniciar.mockResolvedValueOnce({
       sesion: {
@@ -278,6 +319,9 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
       ejercicios: [
         { id: "e1", nombre: "Press de Banca", series: 4, repeticiones: 8, descanso: 120, orden: 0 },
       ],
+      ultimasVeces: {},
+      sugerencias: {},
+      records: {},
     });
     const user = userEvent.setup();
     render(<HomeSocioPage />);

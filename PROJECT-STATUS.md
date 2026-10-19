@@ -171,7 +171,9 @@ Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`).
 8. **Molinete y huella** (T-041, D-49/D-56) — ✅ software: dominio, servicio, endpoints de dispositivo (`/api/dispositivo/...`), ruta de administración, panel en `/clientes` y firmware `.ino` actualizado a las rutas nuevas. La migración `20261016120000_add_huella_socio` quedó **aplicada** (verificado contra la base el 2026-10-16). **Pendiente y sin verificar**: probar con el hardware real (sensor óptico, relé); nada se probó contra el sensor.
 9. **Panel de parámetros y oferta de reactivación** (T-043a–c, T-045a–d, D-54) — ✅ completa: lector único de configuración, `GET`/`PUT /api/configuracion` solo para el Administrador con auditoría, pantalla `/configuracion`, migración aplicada, cobro con descuento y vista previa, y avisos en pagos, Home_Interno y Home_Socio. La pantalla de la puerta no la muestra (D-47). **La oferta viene apagada por defecto**: el sistema cobra igual hasta que se active desde el panel.
 
-Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-041) y **las migraciones están aplicadas** (`sesion_en_curso_y_dispositivo` y `add_huella_socio`; `npx prisma migrate status`: 15 migraciones, esquema al día). Falta probar en dev y, la huella, con el hardware real.
+10. **Tracking del socio** (T-046/T-047/T-048, D-58 a D-66; ideas de openGym, sin copiar código) — ✅ T-046a "última vez" por ejercicio y precarga de carga. ✅ T-046d progresión automática (D-59): motor de dominio conectado a la API y a la pantalla, con la línea del motivo y la carga sugerida. ✅ T-046b resumen al terminar la sesión (D-62): por ejercicio, lo de hoy contra la última vez (↑ ↓ =) y la próxima carga. ✅ T-046c 1RM estimado y marcas personales (D-63): línea de récord en vivo y marcas nuevas (carga y 1RM, Epley hasta 12 repeticiones) en el resumen. ✅ T-047 tipos de serie (D-64): backend y pantalla con selector (Normal, Calentamiento, Al fallo, Drop set). El calentamiento no cuenta para métricas; el drop set **no ocupa serie**, no avanza la sesión, no dispara descanso y la progresión lo ignora (P-46 resuelto). ✅ T-048 peso corporal con meta (D-65/D-66): backend (`MedicionDePeso`, meta en `Socio`, `POST /api/peso`, `DELETE /api/peso/[id]` y `PUT /api/peso/meta`) y tarjeta en una cuarta fila del Home con peso actual, variación, meta, gráfico SVG propio, formularios y lista de pesajes recientes con borrado (P-49: confirmar la cuarta fila con el diseño). **Migraciones `tipo_de_serie` y `peso_corporal_con_meta` aplicadas el 2026-10-19 (17/17).** ✅ La tarjeta Progreso del Home usa la sugerencia del motor (P-42, D-60).
+
+Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-048) y **las 17 migraciones están aplicadas** (incluidas `sesion_en_curso_y_dispositivo`, `add_huella_socio`, `tipo_de_serie` y `peso_corporal_con_meta`; `npx prisma migrate status`: esquema al día). Falta probar el tracking en dev y, la huella, con el hardware real.
 
 Sugeridos y sin confirmar: usuarios internos y cambio de contraseña (T-042, T-044). La configuración (T-043) quedó confirmada en D-54, sin la parte de máquinas. El refresh token (P-20) ya está hecho (D-57); el despliegue (P-28) avanzó: el pooler de Supabase **se probó y funciona en local** (incluidas las transacciones interactivas) y `npm run build`/`npm run start` están verificados; **falta probarlo en Vercel** (D-35).
 
@@ -213,8 +215,59 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-38 | ~~`npm run test:integration --keep` reusa cualquier container con el nombre esperado, sin validarlo~~ → **resuelto**: valida imagen/base/puerto y recrea si no coincide | — |
 | P-39 | ~~No existe un flujo para anular un pago~~ → **resuelto (2026-10-15)**: `POST /api/pagos/{id}/anular`, con motivo obligatorio, auditado y disponible para Administrador y Recepcionista. Anular deja el `Pago` en `ANULADO`, **borra la `Cuota`** (el sistema vuelve a pedir ese período) y **no devuelve la oferta**. | — |
 | P-40 | ~~Confirmar con el negocio los valores de la oferta de reactivación (D-54)~~ → **resuelto (2026-10-15)**: Fernando confirmó la propuesta básica — 30 días sin asistir, 180 de enfriamiento y tope del 50 %—; son configurables desde `/configuracion`, así que el negocio los ajusta sin tocar código | — |
+| P-42 | ~~La tarjeta Progreso de Home calculaba su propia "próxima sesión sugerida" (marca + incremento) y podía contradecir al motor de progresión (D-59)~~ → **resuelto (D-60)**: la tarjeta muestra la sugerencia del motor (`seguimientoDeEjercicios`), la misma de la pantalla de entrenamiento. (Se había registrado como P-41, ID que ya existía en `decisions.md`: se renumeró.) | — |
+| P-43 | ~~Editar una rutina borraba y recreaba TODAS sus filas de `EjercicioEnRutina` y reiniciaba el motor de progresión (D-59) en todos sus ejercicios~~ → **resuelto (D-61)**: se guarda solo lo que cambió (diff por `ejercicioId`) y `updatedAt` pasa a significar "último cambio de series o repeticiones". Las rutinas editadas antes siguen con el `updatedAt` viejo | — |
+| P-44 | Marcas personales (D-63): Arnold no distingue los ejercicios asistidos (la carga es la ayuda) y cada resumen y cada inicio de sesión leen todas las series con carga de cada ejercicio; si el historial crece mucho, guardar los mejores | Baja |
+| P-45 | ~~Aplicar a la base real las migraciones `20261018120000_tipo_de_serie` (D-64) y `20261018180000_peso_corporal_con_meta` (D-65), escritas a mano~~ → **resuelto (2026-10-19)**: `npx prisma migrate deploy` aplicó las dos; `migrate status` da **17/17 al día** y `migrate diff` contra el schema, **0 diferencias**. Antes se habían verificado desde cero en un Postgres 17 efímero | — |
+| P-46 | ~~Confirmar la regla del drop set en el motor (D-64)~~ → **resuelto (2026-10-19)**: el drop set **no ocupa una serie**, no avanza la sesión, no dispara el descanso largo y la progresión lo ignora por completo, como openGym | — |
+| P-47 | ~~Peso corporal (D-65): un pesaje no se puede corregir ni borrar, y su fecha es siempre "ahora"~~ → **resuelto (2026-10-19)**: `DELETE /api/peso/[id]` borra un pesaje propio y la tarjeta tiene "Pesajes recientes" con confirmación. **No** se carga una fecha distinta | — |
+| P-48 | ~~Peso corporal (D-65): confirmar si el instructor debe poder verlo o cargarlo~~ → **resuelto (2026-10-19)**: se mantiene **privado**; solo el SOCIO lo registra y lo ve. Si cambia, será con un permiso explícito del socio | — |
+| P-49 | La cuarta fila del Home (peso corporal, D-66) no estaba en el diseño original: confirmar con el diseño de Home_Socio dónde va y cómo se ve (hoy, una tarjeta de ancho completo debajo de Racha y Membresía) | Baja |
 
-## Cambios recientes (2026-10-07 al 2026-10-16)
+## Cambios recientes (2026-10-07 al 2026-10-19)
+
+- **Tracking: peso corporal en el Home (T-048 parte 2, D-66)**: tarjeta "Peso corporal" en una cuarta fila del Home con el peso actual, cuánto cambió desde el pesaje anterior, la meta
+  ("te faltan 1,4 kg" o "¡alcanzada!"), un gráfico de línea en SVG propio con la meta punteada y dos formularios (registrar peso y fijar, cambiar o quitar la meta). Acepta coma o punto y ataja
+  el error de tipeo (20–400 kg). Suma "Pesajes recientes" con borrado de un pesaje propio y confirmación (`DELETE /api/peso/[id]`). `GET /api/home-socio` suma `peso` con `puntos` y `recientes`.
+  Sin migración nueva. P-49: la cuarta fila no estaba en el diseño original.
+
+- **Tracking: el drop set no ocupa serie (P-46 resuelto, D-64)**: el drop set ahora cuelga de la serie anterior, se guarda sin `numeroSerie`, no avanza la sesión, no dispara el descanso
+  largo y la progresión lo ignora por completo. `leerSesion` ya no descuenta drops de las series de trabajo. Cambian el servidor, el motor (con sus tests) y la pantalla.
+
+
+- **Tracking: peso corporal con meta, backend (T-048 parte 1, D-65)**: `MedicionDePeso` (un pesaje por fila) y, en `Socio`, la meta de peso junto con el peso desde el que se fijó, para saber si el
+  objetivo era bajar o subir. `POST /api/peso` y `PUT /api/peso/meta`, solo para el socio y siempre sobre sus propios datos. Rango de 20 a 400 kg. **Migración aplicada el 2026-10-19** (P-45). Todavía sin
+  tarjeta en Home (parte 2).
+
+- **Tracking: tipos de serie, pantalla (T-047 parte 2, D-64)**: la pantalla de ejecución tiene un selector de tipo (Normal, Calentamiento, Al fallo, Drop set) que vale para una serie. El calentamiento
+  no avanza la serie y se cuenta aparte; "Al fallo" pone el RIR en 0. El motor no juzga el drop set contra las repeticiones objetivo (ocupa una serie), el resumen no lo cuenta como mejora y la última
+  vez y el resumen muestran "al fallo" y "drop set". Sin migración nueva (la de la parte 1 quedó aplicada el 2026-10-19).
+
+- **Tracking: tipos de serie, backend (T-047 parte 1, D-64)**: `RegistroDeProgreso.tipo` (NORMAL, CALENTAMIENTO, HASTA_EL_FALLO, DROP_SET) con migración. Un calentamiento se
+  guarda sin número de serie y sin mover la sesión, y no cuenta para la última vez, la progresión, las marcas, la carga que se precarga ni el progreso de Home. La ruta
+  de series acepta `tipo` (inválido = 400). **Migración aplicada el 2026-10-19** (P-45).
+
+- **Tracking: 1RM estimado y marcas personales (T-046c, D-63)**: mientras se elige el peso de la serie, una línea muestra el récord de repeticiones a superar con esa
+  carga o más (o avisa si esa carga supera la mejor marca); al terminar la rutina, cada ejercicio anuncia si hoy se batió la marca de carga o la de 1RM estimado
+  (Epley, hasta 12 repeticiones, redondeado a 0,5 kg), contra todo el historial anterior. `GET /api/sesiones?enCurso=1` y `POST /api/sesiones` suman `records`. Sin migración.
+
+- **Tracking: resumen al terminar la sesión (T-046b, D-62)**: al terminar la rutina, la pantalla muestra una tarjeta por ejercicio con lo de hoy, la
+  tendencia contra la última vez (↑ ↓ =) y la próxima carga, que sale del mismo motor que arma la sesión siguiente (anticipa incluso una descarga).
+  Si el resumen falla, igual se muestra que la rutina terminó. `GET /api/sesiones/[id]/resumen`; sin migración.
+
+- **Rutinas: guardar toca solo lo que cambió (P-43, D-61)**: editar una rutina ya no reinicia la progresión de todos sus ejercicios; solo la de los
+  que cambiaron de series o repeticiones. Reordenar o cambiar descansos conserva el `updatedAt`. Sin migración (solo un comentario en el schema).
+
+- **Tracking: el Home usa la sugerencia del motor (P-42, D-60)**: la tarjeta "Mi progreso" ya no calcula "marca + incremento": muestra lo que dice el motor para ese ejercicio (sube, mantené o bajá, con el motivo), la misma que la pantalla de entrenamiento. `GET /api/home-socio` cambia `progreso.proximaSesionSugerida` por `progreso.sugerencia`. Sin migración.
+
+- **Tracking: progresión automática (T-046d, D-59)**: la pantalla de ejecución sugiere la carga de hoy y dice por qué (sube si la última
+  vez hizo todas las repeticiones, mantiene si falló, descarga 10 % tras 3 sesiones seguidas con fallos) y la precarga. Ignora las
+  sesiones anteriores a un cambio de plan de la rutina. Sin migración: se deriva de `RegistroDeProgreso`. Las respuestas de
+  `GET /api/sesiones?enCurso=1` y `POST /api/sesiones` suman `sugerencias`.
+
+- **Tracking: "última vez" por ejercicio (T-046a, D-58)**: la pantalla de ejecución muestra las series de la sesión anterior del
+  ejercicio actual y precarga la carga de la serie equivalente. Sin migración: se deriva de `RegistroDeProgreso`. La API de
+  `GET /api/sesiones?enCurso=1` y `POST /api/sesiones` suma el campo `ultimasVeces`.
 
 - **Mejoras de UI (commit `03fc721`)**: `ConfirmDialog` reutilizable (`src/components/ui/confirm-dialog.tsx`, reusa `useModalA11y`, con
   variante destructiva y bloqueo durante la operación) reemplaza el `window.confirm` en Ejercicios, Rutinas, Clientes y Membresías;

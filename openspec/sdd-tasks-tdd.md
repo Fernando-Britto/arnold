@@ -3,7 +3,7 @@
 > **Plan original**: este documento conserva el plan, las estimaciones y el orden de ejecución originales. El **estado vivo** (tareas, pendientes y verificaciones) está en [`PROJECT-STATUS.md`](../PROJECT-STATUS.md).
 
 **Status**: IN EXECUTION — all planned tasks done (T-001 … T-030); only deferred items remain (see PROJECT-STATUS.md)  
-**Date**: 2026-09-12 (approved) · Updated 2026-10-11  
+**Date**: 2026-09-12 (approved) · Updated 2026-10-19  
 **Mode**: Strict TDD (strict_tdd: true)  
 **Delivery**: Chained PRs (≤400 LOC each) — 28 planned + additions (see [Scope changes during apply](#scope-changes-during-apply))  
 **Total LOC**: 7,885 planned baseline · actuals are tracked per task below  
@@ -74,6 +74,15 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-045b ➕ Migración de la oferta | ✅ | — (direct to `dev`) | — | `ConfiguracionDelSistema` offer fields + `Pago.montoLista` / `descuentoPct`; hand-written and applied against Supabase with `prisma migrate deploy` (D-41, D-54) |
 | T-045c ➕ Cobro con oferta y vista previa | ✅ | — (direct to `dev`) | — | Applied inside the `Serializable` transaction of `registrarPago`; `montoEsperado` → 409 `AMOUNT_CHANGED`; preview in `GET /api/socios?dni=` (D-54) |
 | T-045d ➕ Avisos de la oferta | ✅ | — (direct to `dev`) | — | Pagos card + `montoEsperado`, Home_Socio notice and the inactive-socios card footer (one extra bulk query); not the door screen (D-47, D-54) |
+| T-046a ➕ Tracking: "última vez" por ejercicio | ✅ | — (direct to `dev`) | — | Series de la sesión anterior + precarga; `ultimasVeces` en `GET`/`POST /api/sesiones`; sin migración (D-58) |
+| T-046d ➕ Tracking: motor de progresión | ✅ | — (direct to `dev`) | — | `sugerirProximaCarga` (sube/mantiene/descarga 10 % + motivo), `sugerencias` en la API y línea en la pantalla; adelanta a T-046b/c (D-59) |
+| T-046b ➕ Tracking: resumen al terminar la sesión | ✅ | — (direct to `dev`) | — | `GET /api/sesiones/[id]/resumen` + tarjetas por ejercicio (tendencia y próxima carga); sin migración (D-62) |
+| T-046c ➕ Tracking: 1RM y marcas personales | ✅ | — (direct to `dev`) | — | Epley ≤12 reps, marcas de carga/1RM, línea de récord en vivo con la frontera de récords; `records` en la API (D-63) |
+| T-047 ➕ Tracking: tipos de serie | ✅ | — (direct to `dev`) | — | `TipoSerie` + `RegistroDeProgreso.tipo`, selector en pantalla, calentamiento fuera de métricas y drop set que **no ocupa serie** (P-46 resuelto); migración **aplicada el 2026-10-19** (P-45 resuelto, D-64) |
+| T-048 ➕ Tracking: peso corporal con meta (parte 1) | ✅ | — (direct to `dev`) | — | `MedicionDePeso` + meta en `Socio`, `POST /api/peso`, `DELETE /api/peso/[id]` y `PUT /api/peso/meta`; migración **aplicada el 2026-10-19** (P-45 resuelto, D-65) |
+| T-048 ➕ Tracking: tarjeta de peso en el Home (parte 2) | ✅ | — (direct to `dev`) | — | Tarjeta en una cuarta fila (P-49), gráfico SVG, formularios, meta y "Pesajes recientes" con borrado; `peso` en `GET /api/home-socio` (D-66) |
+| P-42/P-43 ➕ Home y rutinas alineados al motor | ✅ | — (direct to `dev`) | — | Home usa `progreso.sugerencia` (D-60); `sincronizarEjercicios` guarda solo lo que cambió (D-61) |
+| P-46/P-47/P-48 ➕ Reglas del tracking | ✅ | — (direct to `dev`) | — | Drop set sin ocupar serie (D-64); borrado de un pesaje propio (D-66); peso privado del socio (P-48). P-49 (cuarta fila) queda abierto |
 
 ## Scope changes during apply
 
