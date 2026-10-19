@@ -1,5 +1,7 @@
 # SDD Tasks: ARNOLD MVP Core (TDD Mode)
 
+> **Plan original**: este documento conserva el plan, las estimaciones y el orden de ejecución originales. El **estado vivo** (tareas, pendientes y verificaciones) está en [`PROJECT-STATUS.md`](../PROJECT-STATUS.md).
+
 **Status**: IN EXECUTION — all planned tasks done (T-001 … T-030); only deferred items remain (see PROJECT-STATUS.md)  
 **Date**: 2026-09-12 (approved) · Updated 2026-10-11  
 **Mode**: Strict TDD (strict_tdd: true)  
@@ -53,17 +55,17 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-026c Proxy + RBAC + cookie-first | ✅ ➕ | PR-011-C | 381 | By Fernando, see D-07 |
 | T-023b UI utilities | ✅ | PR-009-D (was PR-009-C) | 434 (2 commits: 263 + 171) | Renumbered, see D-15 · built but not yet wired into screens, see D-37 |
 | T-024 Test fixtures | ✅ | PR-010-A | 280 | Factories in `tests/factories/`; existing mocks not migrated, see D-38 |
-| T-031 ➕ Cuotas: reglas de cálculo | ✅ | — (direct to `dev`) | — | `src/domains/pago/cuota.ts` + migration; spec `pagos-cuotas`; D-40. Not wired to API/UI yet |
-| T-032 ➕ `POST /api/pagos` (registrar pago) | ⏳ | — | — | Transactional `Pago` + `Cuota`; decide fate of `Socio.estadoCuota` (D-40, P-24) |
-| T-033 ➕ Registrar Pago (UI) + Mis pagos | ⏳ | — | — | Home_Interno quick action; Socio payment history |
-| T-034 ➕ Asignar rutina (modal + `/api/rutinas-asignadas`) | ⏳ | — | — | Flowspec exists; prerequisite for everything in the Socio area (D-42) |
-| T-035 ➕ Check-in por DNI (API + pantalla de recepción) | ⏳ | — | — | `member-access-check` + `estadoCuotaSocio`; blocked by P-33 (D-43) |
-| T-036 ➕ Pantalla de puerta + `Dispositivo` con token | ⏳ | — | — | Device auth, anti-passback; blocked by P-33 (D-43) |
-| T-037 ➕ Sesión de entrenamiento (migración + API) | ⏳ | — | — | `EN_CURSO`, serie actual, `RegistroDeProgreso.sesionId`/`numeroSerie`; blocked by P-34 (D-44) |
-| T-038 ➕ Ejecución de rutina con cronómetro (UI) | ⏳ | — | — | Replaces the in-memory `handleSeguirRutina` (D-44) |
-| T-039 ➕ Secciones del socio | ⏳ | — | — | Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias (D-45) |
-| T-040 ➕ Cierre de caja | ⏳ | — | — | Group the shift's `Pago` rows by method |
-| T-041 ➕ Molinete y huella | ⏳ | — | — | Hardware not chosen; blocked by P-30 (D-43) |
+| T-031 ➕ Cuotas: reglas de cálculo | ✅ | — (direct to `dev`) | — | `src/domains/pago/cuota.ts` + migration; spec `pagos-cuotas`; D-40. API y pantalla: ver T-032/T-033 |
+| T-032 ➕ `POST /api/pagos` (registrar pago) | ✅ | — (direct to `dev`) | — | `Pago` + `Cuota` en una transacción; `Socio.estadoCuota` es estado de cuenta (D-40/D-46) |
+| T-033 ➕ Registrar Pago (UI) + Mis pagos | ✅ | — (direct to `dev`) | — | `/pagos` + búsqueda por DNI; historial de pagos del socio (T-039) |
+| T-034 ➕ Asignar rutina (modal + `/api/rutinas-asignadas`) | ✅ | — | — | D-42; modal + `/api/rutinas-asignadas` (una activa, RN-04) |
+| T-035 ➕ Check-in por DNI (API + pantalla de recepción) | ✅ | — | — | D-47; kiosco `/acceso` |
+| T-036 ➕ Pantalla de puerta + `Dispositivo` con token | ✅ | — | — | D-43; `/puerta` + `Dispositivo` |
+| T-037 ➕ Sesión de entrenamiento (migración + API) | ✅ | — | — | D-44; `EN_CURSO` + API, migración aplicada |
+| T-038 ➕ Ejecución de rutina con cronómetro (UI) | ✅ | — | — | D-44; ejecución por serie con cronómetro |
+| T-039 ➕ Secciones del socio | ✅ | — | — | D-45; Mi rutina, Mis ejercicios, Progreso, Mis pagos, Mis asistencias |
+| T-040 ➕ Cierre de caja | ✅ | — | — | `/cierres`; totales por método |
+| T-041 ➕ Molinete y huella | ✅ | — | — | Software listo (D-56); el molinete físico sigue pendiente (P-30) |
 | T-042, T-044 ➕ Usuarios internos y cambio de contraseña | ⏳ | — | — | Suggested by Claude, not yet confirmed (D-42) |
 | T-043a ➕ Lector único `getConfiguracion()` | ✅ | — (direct to `dev`) | — | `src/lib/configuracion.ts` replaces the 6 loose reads; guard test forbids new ones; one payload change in home-interno (D-54) |
 | T-043b ➕ `GET/PUT /api/configuracion` | ✅ | — (direct to `dev`) | — | Admin only; ranges live pure in `src/domains/configuracion/`; writes + audit in one transaction inside `src/lib/configuracion.ts` so the guard test stays green (D-54) |

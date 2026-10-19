@@ -103,7 +103,7 @@ la forma de los cuerpos/respuestas.
 
 ## Tareas
 
-- [x] **A1** — Schema + migración (SQL generado, **no aplicada**) + `prisma generate`. → `0d623d6`
+- [x] **A1** — Schema + migración + `prisma generate`. → `0d623d6` · **migración aplicada el 2026-10-16**
 - [x] **A2** — `src/domains/acceso/huella.ts` + tests (elección de ID libre, lleno). → `0d623d6`
 - [x] **A3** — Refactor `src/api/acceso.ts` (`evaluarYRegistrarAcceso`) sin romper los tests de DNI+PIN. → `0d623d6`
 - [x] **A4** — `src/api/huellas.ts` + tests (enrolar/baja/confirmar/acceso, con Prisma simulado). → `0d623d6`
@@ -138,7 +138,7 @@ la forma de los cuerpos/respuestas.
 ## Progreso
 
 - 2026-10-16 — Documento creado. Explorado el repo; diseño alineado a D-43/D-47.
-- 2026-10-16 — Backend commiteado (`0d623d6`): schema, migración generada (no aplicada),
+- 2026-10-16 — Backend commiteado (`0d623d6`): schema, migración **aplicada** el 2026-10-16 y verificada contra la base,
   dominio, servicio, rutas de dispositivo y de administración. 86 tests de huella/acceso en verde.
 - 2026-10-16 — UI, firmware y docs commiteados (`4dcf471`). Suite completa: 189 suites / 2394 tests.
   `tsc --noEmit` y `eslint` sobre lo tocado, sin errores.

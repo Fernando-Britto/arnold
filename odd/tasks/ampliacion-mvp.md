@@ -23,6 +23,8 @@ Los modelos `Pago`, `Cuota`, `Asistencia`, `SesionDeEntrenamiento`, `RegistroDeP
 
 **Dentro**: T-032 … T-040. **Fuera** (fase final / no pedido): T-041 (huella + molinete), T-042…T-044 (usuarios internos, configuración/máquinas, cambio de contraseña), reportes de recaudación/asistencia, visor de auditoría.
 
+> **Cierre (2026-10-16)**: la huella de **T-041** quedó **hecha** (D-56; migración `20261016120000_add_huella_socio` aplicada y verificada). El **molinete físico** sigue pendiente (hardware sin elegir, P-30). T-042 (usuarios internos) y T-044 (cambio de contraseña) **siguen fuera**.
+
 ## Restricciones del entorno
 
 - **La base de Supabase no es alcanzable** desde el entorno del asistente (conexión directa `P1001`). Por eso:
@@ -30,6 +32,8 @@ Los modelos `Pago`, `Cuota`, `Asistencia`, `SesionDeEntrenamiento`, `RegistroDeP
   - Los tests corren con **Prisma simulado** (`jest.mock("@/lib/db")`); los de dominio puro corren siempre.
   - `npx prisma validate` y `npx prisma generate` sí funcionan (no tocan la DB).
 - **≤400 LOC por patch/PR** (heurística de trabajo, no criterio de aceptación), Conventional Commits con `(T-xxx, D-xx)`, autor `Fernando Britto <fernando@example.com>`.
+
+> **Actualización (2026-10-16)**: la restricción anterior ya no rige. La base de Supabase **es alcanzable** desde el entorno del asistente: se aplicó la migración `20261016120000_add_huella_socio` y se verificó el esquema contra la base (`npx prisma migrate status`: 15 migraciones, al día). El registro histórico se conserva.
 
 ## Tareas
 

@@ -101,6 +101,9 @@ verified** (valid DNI + PIN), regardless of the business decision:
   the attempt history. Consumers of the attendance history MUST filter `estado = PERMITIDO`.
 - **Identity failure** (unknown DNI, missing/incorrect PIN) → **no** Asistencia; only AuditoriaAcceso.
 
+`metodo` records how the identity was verified: `DNI_PIN` (reception or door keypad), `HUELLA`
+(fingerprint sensor), or `MANUAL` (legacy records).
+
 #### Scenario: Asistencia created on successful check-in
 
 - GIVEN check-in allowed (membership + quota valid)
@@ -121,6 +124,57 @@ verified** (valid DNI + PIN), regardless of the business decision:
 - WHEN the check-in is attempted
 - THEN the system does NOT create an Asistencia record (no verified identity)
 - AND only AuditoriaAcceso is logged (with `resultado = DENY` and a generic reason)
+
+### Requirement: Fingerprint Access
+
+The system **MUST** resolve the Socio from the `huellaId` returned by the fingerprint sensor and apply
+the **same business decision** as DNI + PIN: account state, calculated payment status, and anti-passback.
+Only the identity step differs; the business rules do not.
+
+The sensor compares the fingerprint locally and sends only the template ID. The system **MUST NOT**
+store biometric templates (Ley 25.326): it keeps only the `Socio ↔ huellaId` relation and the informed
+consent timestamp.
+
+The fingerprint endpoint is `POST /api/dispositivo/acceso/verificar` with `{ huellaId, confianza }`,
+authenticated with a `Dispositivo` token (no user session).
+
+A `confianza` below `HUELLA_CONFIANZA_MINIMA` (50) **MUST** deny access without evaluating the quota.
+An unknown `huellaId` **MUST** deny access and record an `AuditoriaAcceso` (`CHECK_IN`/`DENY`)
+**without** creating an `Asistencia`.
+
+A verified identity **MUST** create an `Asistencia` with `metodo = HUELLA` and its `AuditoriaAcceso`.
+
+#### Scenario: Enrolled member with valid quota is allowed
+
+- GIVEN a Socio with an enrolled `huellaId`, an active account, and the current quota paid
+- WHEN `POST /api/dispositivo/acceso/verificar` receives `{ huellaId, confianza: 80 }` with a valid device token
+- THEN the system returns `{ autorizado: true }`
+- AND creates an `Asistencia` with `estado = PERMITIDO` and `metodo = HUELLA`
+- AND creates `AuditoriaAcceso: { accion: CHECK_IN, resultado: ALLOW }`
+
+#### Scenario: Business denial applies to fingerprint access
+
+- GIVEN a Socio identified by `huellaId` whose account is inactive/blocked, whose quota is expired or missing, or who is inside the anti-passback window
+- WHEN `POST /api/dispositivo/acceso/verificar` receives `{ huellaId, confianza: 80 }`
+- THEN the system returns `{ autorizado: false, motivo: <the denial reason> }`
+- AND creates an `Asistencia` with `estado = DENEGADO` and `motivo = <the denial reason>`
+- AND creates `AuditoriaAcceso: { accion: CHECK_IN, resultado: DENY, motivo: <the denial reason> }`
+
+#### Scenario: Unknown fingerprint denies without Asistencia
+
+- GIVEN a `huellaId` that does not belong to any Socio
+- WHEN `POST /api/dispositivo/acceso/verificar` receives `{ huellaId, confianza: 80 }`
+- THEN the system returns `{ autorizado: false, motivo: "Huella no reconocida" }`
+- AND creates only `AuditoriaAcceso` (`CHECK_IN`/`DENY`)
+- AND does NOT create an `Asistencia`
+
+#### Scenario: Low confidence denies without evaluating the quota
+
+- GIVEN an enrolled `huellaId`
+- WHEN `POST /api/dispositivo/acceso/verificar` receives `{ huellaId, confianza: 49 }`
+- THEN the system returns `{ autorizado: false, motivo: "Confianza insuficiente" }`
+- AND creates only `AuditoriaAcceso` (`CHECK_IN`/`DENY`)
+- AND does NOT query the quota or create an `Asistencia`
 
 ## Error Handling
 
@@ -179,3 +233,18 @@ created_at: timestamp
 - ✅ Timestamps use server time (cannot be spoofed client-side)
 - ✅ No payment sensitive data exposed in responses
 - ✅ Denial reasons generic (do not leak member financial status to unauthorized users)
+
+## Known drift
+
+This spec still describes endpoints and DTOs that **do not exist** in the implementation:
+`GET /api/socios/{socio_id}/check-in-status` and the response DTOs `{ allowed, reason, warning }`
+(with error codes such as `MEMBER_NOT_FOUND`, `MEMBERSHIP_EXPIRED`, `QUOTA_OVERDUE`).
+
+The real contract is:
+
+- `POST /api/acceso/check-in` — reception kiosk, user session.
+- `POST /api/dispositivo/acceso` — door, `Dispositivo` token.
+- `POST /api/dispositivo/acceso/verificar` — fingerprint, `Dispositivo` token.
+
+The requirements above remain the normative description of the business rules; endpoint and DTO
+details in the older scenarios are kept for history and should not be treated as the current API.
