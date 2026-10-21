@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EjercicioForm } from "./ejercicio-form";
 import { Ejercicio } from "@prisma/client";
+import { sinCatalogo } from "../../../tests/factories/ejercicio";
 
 const mockEjercicio: Ejercicio = {
   id: "1",
@@ -11,6 +12,7 @@ const mockEjercicio: Ejercicio = {
   descripcion: "Empuje vertical",
   createdAt: new Date(),
   updatedAt: new Date(),
+  ...sinCatalogo(),
 };
 
 describe("EjercicioForm Component", () => {
@@ -332,6 +334,7 @@ describe("EjercicioForm Component", () => {
         descripcion: "Levantamiento de hombros",
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...sinCatalogo(),
       };
 
       const { rerender } = render(
@@ -357,6 +360,7 @@ describe("EjercicioForm Component", () => {
       descripcion: null,
       createdAt: new Date(),
       updatedAt: new Date(),
+      ...sinCatalogo(),
     };
 
     it("muestra el ID creado como read-only tras un alta exitosa", async () => {

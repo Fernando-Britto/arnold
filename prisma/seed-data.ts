@@ -53,7 +53,7 @@ const MEMBRESIAS = [
   { nombre: "Promo verano", precio: 12000, periodicidad: 30, estado: "INACTIVA" as const },
 ];
 
-const EJERCICIOS = [
+export const EJERCICIOS = [
   { nombre: "Press banca", grupoMuscular: "Pecho", descripcion: "Empuje horizontal con barra." },
   { nombre: "Sentadilla", grupoMuscular: "Piernas", descripcion: "Sentadilla trasera con barra." },
   { nombre: "Peso muerto", grupoMuscular: "Espalda", descripcion: "Bisagra de cadera con barra." },

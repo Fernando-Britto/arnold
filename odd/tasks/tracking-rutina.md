@@ -1,4 +1,4 @@
-# Tracking del socio (T-046, T-047, T-048)
+# Tracking del socio (T-046, T-047, T-048, T-049)
 
 ## Objetivo
 
@@ -22,6 +22,7 @@ referencia (ideas, no código: openGym es AGPL-3.0).
 - T-046b: resumen al terminar la sesión, por ejercicio (D-62).
 - T-046c: 1RM estimado (Epley) y marcas nuevas; línea de récord en vivo (D-63).
 - T-047: tipos de serie (normal, calentamiento, al fallo, drop set) en backend y pantalla (D-64).
+- T-049: encabezado de la pantalla de entrenamiento (D-67).
 - T-048: peso corporal con meta en backend (`POST /api/peso`, `DELETE /api/peso/[id]`, `PUT /api/peso/meta`) (D-65) y tarjeta en el Home con gráfico, formularios y lista de recientes (D-66).
 
 **Fuera (por ahora)**
@@ -39,10 +40,10 @@ referencia (ideas, no código: openGym es AGPL-3.0).
    desde el historial. Corregir un dato corrige lo que se muestra.
 4. **Calentamiento fuera de las métricas.** `SOLO_SERIES_DE_TRABAJO` (`tipo <> CALENTAMIENTO`) se usa
    en última vez, progresión, marcas, `ultimaCarga`, progreso de Home y mejores marcas.
-5. **Drop set.** Cuelga de la serie anterior: **no ocupa una serie**, no avanza la sesión, no dispara el
-   descanso largo y la progresión lo ignora por completo (P-46 resuelto, alineado con openGym).
+5. **Drop set.** Cuelga de la serie: se manda **junto con la serie** (`drops`, hasta 5), no ocupa una serie,
+   no avanza la sesión, no tiene descanso propio y la progresión lo ignora (P-46, D-69).
 6. **Peso corporal.** Solo el SOCIO, siempre sobre su propio `socioId` (sale del token). Rango 20–400 kg.
-   Se puede borrar un pesaje propio; no se corrige ni se carga una fecha distinta (P-47 resuelto).
+   Se puede borrar un pesaje propio desde los 3 recientes (un toque); no se corrige ni se carga una fecha distinta (P-47, D-68).
 
 ## Contrato
 
@@ -80,13 +81,14 @@ referencia (ideas, no código: openGym es AGPL-3.0).
 - [x] T-047 · tipos de serie backend + pantalla (D-64).
 - [x] T-048 parte 1 · peso corporal con meta en backend (D-65).
 - [x] T-048 parte 2 · tarjeta con gráfico, formularios y borrado de pesajes en Home (D-66).
+- [x] T-049 · encabezado con ejercicio, series, tiempo y barra de progreso (D-67).
 - [x] Aplicar y verificar las migraciones en la base real (P-45, 2026-10-19: 17/17 y `migrate diff` en 0).
 
 ## Verificación
 
 - `npx tsc --noEmit`: 0 errores.
 - `npx eslint src prisma`: 0 errores y 0 avisos.
-- `npm test`: **209 suites / 2856 tests**, todos en verde.
+- `npm test`: **213 suites / 2944 tests**, todos en verde.
 - Migraciones: aplicadas desde cero en Postgres 17 efímero; `prisma migrate diff --exit-code` → 0.
 - **No** se probó contra la base real ni en el navegador (pendiente de Fernando).
 
@@ -94,4 +96,4 @@ referencia (ideas, no código: openGym es AGPL-3.0).
 
 Código completo y en verde, con las 17 migraciones aplicadas. Pendientes abiertos: P-44 (marcas con
 historial grande) y P-49 (confirmar la cuarta fila del Home con el diseño). P-46, P-47 y P-48 quedaron
-resueltos el 2026-10-19.
+resueltos (D-69, D-68 y peso privado).

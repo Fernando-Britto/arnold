@@ -2,7 +2,7 @@
  * Peso corporal del socio (T-048, D-65): registrar un pesaje y fijar o borrar la meta.
  * Prisma va mockeado: no hay base alcanzable desde los tests.
  */
-import { eliminarPeso, fijarMetaDePeso, registrarPeso } from "./peso-socio";
+import { borrarPeso, fijarMetaDePeso, registrarPeso } from "./peso-socio";
 
 jest.mock("@/lib/db", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,12 +121,12 @@ describe("fijarMetaDePeso", () => {
   });
 });
 
-describe("eliminarPeso", () => {
+describe("borrarPeso", () => {
   it("borra el pesaje filtrando por el socio del token", async () => {
     const prisma = await mocks();
     (prisma.medicionDePeso.deleteMany as jest.Mock).mockResolvedValue({ count: 1 });
 
-    await eliminarPeso({ socioId: "socio-1", id: "m1" });
+    await borrarPeso({ socioId: "socio-1", id: "m1" });
 
     expect(prisma.medicionDePeso.deleteMany).toHaveBeenCalledWith({
       where: { id: "m1", socioId: "socio-1" },
@@ -137,6 +137,6 @@ describe("eliminarPeso", () => {
     const prisma = await mocks();
     (prisma.medicionDePeso.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
 
-    await expect(eliminarPeso({ socioId: "socio-1", id: "m-ajeno" })).rejects.toThrow("NOT_FOUND");
+    await expect(borrarPeso({ socioId: "socio-1", id: "m-ajeno" })).rejects.toThrow("NOT_FOUND");
   });
 });

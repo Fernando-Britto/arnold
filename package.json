@@ -12,6 +12,9 @@
     "test:coverage": "jest --coverage",
     "test:integration": "node scripts/test-integration.mjs",
     "seed": "prisma db seed",
+    "catalogo:generar": "ts-node --project prisma/tsconfig.json prisma/generar-catalogo.ts",
+    "media:convertir": "ts-node --project prisma/tsconfig.json prisma/convertir-media.ts",
+    "catalogo:importar": "ts-node --project prisma/tsconfig.json prisma/importar-catalogo.ts",
     "db:latency": "ts-node --project prisma/tsconfig.json prisma/db-latency.ts",
     "bench:home-interno": "ts-node --project prisma/tsconfig.json prisma/bench-home-interno.ts"
   },

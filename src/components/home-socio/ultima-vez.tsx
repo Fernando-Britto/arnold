@@ -37,7 +37,10 @@ export function UltimaVez({ ultimaVez, serieActual, ahora, sugerencia = null }: 
       </p>
       <ul className="flex flex-wrap gap-2">
         {ultimaVez.series.map((serie, i) => {
-          const actual = serieActual === i + 1;
+          // "La serie N" es la N-ésima serie de trabajo: un drop set (P-46, D-69) cuelga de una
+          // serie y no cuenta, así que nunca se resalta.
+          const numero = ultimaVez.series.slice(0, i + 1).filter((s) => s.tipo !== "DROP_SET").length;
+          const actual = serie.tipo !== "DROP_SET" && serieActual === numero;
           return (
             <li
               key={i}

@@ -1,4 +1,4 @@
-import { fetchEjercicios, createEjercicio, updateEjercicio, deleteEjercicio } from "./ejercicios";
+import { fetchEjercicios, fetchEjercicio, createEjercicio, updateEjercicio, deleteEjercicio } from "./ejercicios";
 import { ApiError } from "@/utils/api-error";
 
 // Importar ./ejercicios trae el repositorio, que importa la base: acá no se toca.
@@ -36,5 +36,20 @@ describe("API de Ejercicios (lado cliente): los errores llegan como ApiError", (
   it("una respuesta ok sigue devolviendo los datos", async () => {
     respond(200, [{ id: "e1" }]);
     await expect(fetchEjercicios()).resolves.toEqual([{ id: "e1" }]);
+  });
+});
+
+describe("fetchEjercicio (detalle completo con instrucciones)", () => {
+  it("pide el ejercicio por id y devuelve los datos", async () => {
+    respond(200, { id: "e1", instrucciones: ["Paso 1"] });
+    await expect(fetchEjercicio("e1")).resolves.toEqual({ id: "e1", instrucciones: ["Paso 1"] });
+    expect(global.fetch).toHaveBeenCalledWith("/api/ejercicios/e1");
+  });
+
+  it("un error del servidor llega como ApiError con texto en español", async () => {
+    respond(404, {});
+    const error = await fetchEjercicio("nope").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as Error).message).toBe("No se pudo cargar el ejercicio");
   });
 });

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Ejercicio } from "@prisma/client";
+import type { EjercicioResumen } from "@/domains/ejercicio/ejercicio";
 import { type EjercicioConUso } from "@/domains/ejercicio/ejercicio";
 import { EjercicioForm } from "@/components/ejercicio-crud/ejercicio-form";
 import { EjercicioListPanel } from "@/components/ejercicio-crud/ejercicio-list";
@@ -21,7 +22,7 @@ export function EjerciciosPage() {
 
   const [ejercicios, setEjercicios] = useState<EjercicioConUso[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<Ejercicio | null>(null);
+  const [editing, setEditing] = useState<EjercicioResumen | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +116,7 @@ export function EjerciciosPage() {
   };
 
   // Segundo clic sobre la misma fila la cierra: el detalle vive sólo mientras está abierta.
-  const handleSelect = (ejercicio: Ejercicio) => {
+  const handleSelect = (ejercicio: EjercicioResumen) => {
     setSelectedId((prev) => (prev === ejercicio.id ? null : ejercicio.id));
   };
 

@@ -6,38 +6,27 @@ import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PesoCorporalCard } from "./peso-corporal-card";
-import { eliminarPesoCorporal, fijarMetaDePesoCorporal, registrarPesoCorporal } from "@/api/peso";
+import { borrarPesoCorporal, fijarMetaDePesoCorporal, registrarPesoCorporal } from "@/api/peso";
 import { ApiError } from "@/utils/api-error";
 
 jest.mock("@/api/peso", () => ({
   registrarPesoCorporal: jest.fn(),
   fijarMetaDePesoCorporal: jest.fn(),
-  eliminarPesoCorporal: jest.fn(),
+  borrarPesoCorporal: jest.fn(),
 }));
 
 const mockRegistrar = registrarPesoCorporal as jest.MockedFunction<typeof registrarPesoCorporal>;
 const mockMeta = fijarMetaDePesoCorporal as jest.MockedFunction<typeof fijarMetaDePesoCorporal>;
-const mockEliminar = eliminarPesoCorporal as jest.MockedFunction<typeof eliminarPesoCorporal>;
+const mockBorrar = borrarPesoCorporal as jest.MockedFunction<typeof borrarPesoCorporal>;
 
-const puntos = [
-  { fecha: "2026-09-28T15:00:00.000Z", peso: 80 },
-  { fecha: "2026-10-05T15:00:00.000Z", peso: 78.4 },
-];
-
-const recientes = [
-  { id: "m2", fecha: "2026-10-05T15:00:00.000Z", peso: 78.4 },
+const mediciones = [
   { id: "m1", fecha: "2026-09-28T15:00:00.000Z", peso: 80 },
+  { id: "m2", fecha: "2026-10-05T15:00:00.000Z", peso: 78.4 },
 ];
 
 function renderizar(over: Partial<React.ComponentProps<typeof PesoCorporalCard>> = {}) {
   return render(
-    <PesoCorporalCard
-      puntos={puntos}
-      recientes={recientes}
-      pesoObjetivo={null}
-      pesoInicial={null}
-      {...over}
-    />
+    <PesoCorporalCard mediciones={mediciones} pesoObjetivo={null} pesoInicial={null} {...over} />
   );
 }
 
@@ -81,14 +70,14 @@ describe("PesoCorporalCard: lo que muestra", () => {
   });
 
   it("con un solo pesaje no hay variación pero sí peso actual", () => {
-    renderizar({ puntos: [puntos[1]] });
+    renderizar({ mediciones: [mediciones[1]] });
 
     expect(screen.getByTestId("peso-actual")).toHaveTextContent("78,4 kg");
     expect(screen.queryByTestId("peso-variacion")).not.toBeInTheDocument();
   });
 
   it("sin pesajes invita a registrar el peso, sin gráfico, y no deja fijar una meta", () => {
-    renderizar({ puntos: [] });
+    renderizar({ mediciones: [] });
 
     expect(screen.getByText(/todavía no registraste tu peso/i)).toBeInTheDocument();
     expect(screen.queryByTestId("peso-actual")).not.toBeInTheDocument();
@@ -203,7 +192,7 @@ describe("PesoCorporalCard: registrar el peso", () => {
   it("el primer pesaje reemplaza el estado vacío por el peso y el gráfico", async () => {
     mockRegistrar.mockResolvedValueOnce(guardado);
     const user = userEvent.setup();
-    renderizar({ puntos: [] });
+    renderizar({ mediciones: [] });
 
     await user.type(campoPeso(), "77,8");
     await user.click(screen.getByRole("button", { name: /guardar peso/i }));
@@ -314,49 +303,34 @@ describe("PesoCorporalCard: la meta", () => {
   });
 });
 
-describe("PesoCorporalCard: borrar un pesaje (P-47)", () => {
+describe("PesoCorporalCard: borrar un pesaje (P-47, D-68)", () => {
   it("muestra los pesajes recientes con su fecha y su peso", () => {
     renderizar();
 
-    expect(screen.getByText("Pesajes recientes")).toBeInTheDocument();
+    expect(screen.getByText(/pesajes recientes/i)).toBeInTheDocument();
     expect(screen.getAllByText("5 oct").length).toBeGreaterThan(0);
     expect(screen.getAllByText("28 sep").length).toBeGreaterThan(0);
   });
 
-  it("pide confirmación y borra el pesaje elegido, actualizando el gráfico y el peso actual", async () => {
-    mockEliminar.mockResolvedValueOnce(undefined);
+  it("borra al toque, sin confirmación, y actualiza el gráfico y el peso actual", async () => {
+    mockBorrar.mockResolvedValueOnce(undefined);
     const user = userEvent.setup();
     renderizar();
 
-    await user.click(screen.getByRole("button", { name: /borrar pesaje del 5 oct/i }));
+    await user.click(screen.getByRole("button", { name: /borrar pesaje de 78,4 kg del 5 oct/i }));
 
-    expect(screen.getByRole("dialog")).toHaveTextContent(/borrar el pesaje de 78,4 kg del 5 oct/i);
-    await user.click(screen.getByRole("button", { name: /^borrar$/i }));
-
-    expect(mockEliminar).toHaveBeenCalledWith("m2");
-    expect(await screen.findByText("Pesaje eliminado")).toBeInTheDocument();
+    expect(mockBorrar).toHaveBeenCalledWith("m2");
+    expect(await screen.findByText("Pesaje borrado")).toBeInTheDocument();
     expect(screen.getByTestId("peso-actual")).toHaveTextContent("80 kg");
     expect(screen.queryByText("5 oct")).not.toBeInTheDocument();
   });
 
-  it("cancelar no borra nada", async () => {
-    const user = userEvent.setup();
-    renderizar();
-
-    await user.click(screen.getByRole("button", { name: /borrar pesaje del 28 sep/i }));
-    await user.click(screen.getByRole("button", { name: /cancelar/i }));
-
-    expect(mockEliminar).not.toHaveBeenCalled();
-    expect(screen.getAllByText("28 sep").length).toBeGreaterThan(0);
-  });
-
   it("si el servidor falla muestra el error y conserva el pesaje", async () => {
-    mockEliminar.mockRejectedValueOnce(new ApiError(404, "Pesaje no encontrado"));
+    mockBorrar.mockRejectedValueOnce(new ApiError(404, "Pesaje no encontrado"));
     const user = userEvent.setup();
     renderizar();
 
-    await user.click(screen.getByRole("button", { name: /borrar pesaje del 5 oct/i }));
-    await user.click(screen.getByRole("button", { name: /^borrar$/i }));
+    await user.click(screen.getByRole("button", { name: /borrar pesaje de 78,4 kg del 5 oct/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Pesaje no encontrado");
     expect(screen.getAllByText("5 oct").length).toBeGreaterThan(0);

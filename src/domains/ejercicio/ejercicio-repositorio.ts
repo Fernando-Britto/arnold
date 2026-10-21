@@ -21,6 +21,7 @@ export interface EjercicioReader {
       where?: { grupoMuscular?: string };
       orderBy?: { nombre: "asc" | "desc" };
       include?: { _count: { select: { rutinas: true } } };
+      omit?: { instrucciones: true };
     }): Promise<Ejercicio[]>;
     update(args: {
       where: { id: string };
@@ -40,6 +41,16 @@ export interface EjercicioReader {
 export interface EjercicioDb extends EjercicioReader {
   $transaction<T>(fn: (tx: EjercicioReader) => Promise<T>): Promise<T>;
 }
+
+/**
+ * Columnas del listado: todas menos `instrucciones` (D-70). Si se agrega una columna a `Ejercicio`
+ * que el listado necesite, hay que sumarla acá (la consulta con búsqueda es SQL crudo y no puede
+ * "omitir" una columna como `findMany`). Se arma con `Prisma.raw` en `getAll`.
+ */
+const COLUMNAS = [
+  "id", "nombre", "grupoMuscular", "descripcion", "createdAt", "updatedAt",
+  "datasetId", "equipamiento", "musculoObjetivo", "musculosSecundarios", "mediaId",
+] as const;
 
 /** Carga diferida del cliente real. Ver el comentario de `EjercicioReader`. */
 async function getPrisma(): Promise<EjercicioDb> {
@@ -129,12 +140,14 @@ export class EjercicioRepository {
       // escanea la tabla. Es aceptable para un catálogo de ejercicios de este tamaño.
       const { Prisma } = await import("@prisma/client");
       const patron = `%${options.search}%`;
+      // Constante del módulo (no viene del usuario): por eso es seguro armarla como SQL literal.
+      const columnas = Prisma.raw(COLUMNAS.map((c) => `"${c}"`).join(", "));
       const filtroGrupo = options.muscleGroup
         ? Prisma.sql`AND "grupoMuscular" = ${options.muscleGroup}`
         : Prisma.empty;
 
       return cliente.$queryRaw<EjercicioConUso[]>(Prisma.sql`
-        SELECT *, (
+        SELECT ${columnas}, (
           SELECT COUNT(*)::int FROM "EjercicioEnRutina"
           WHERE "EjercicioEnRutina"."ejercicioId" = "Ejercicio"."id"
         ) AS "enRutinas"
@@ -156,6 +169,7 @@ export class EjercicioRepository {
       where,
       orderBy: { nombre: "asc" },
       include: { _count: { select: { rutinas: true } } },
+      omit: { instrucciones: true },
     })) as (Ejercicio & { _count: { rutinas: number } })[];
     return filas.map(({ _count, ...ejercicio }) => ({
       ...ejercicio,

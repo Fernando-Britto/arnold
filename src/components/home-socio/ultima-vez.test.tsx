@@ -150,5 +150,26 @@ describe("UltimaVez", () => {
       "30 kg × 12 · RIR 0 · drop set",
     ]);
   });
-});
 
+  it("la serie en curso se resalta entre las series de trabajo: un drop set nunca es 'la serie 2' (P-46, D-69)", () => {
+    render(
+      <UltimaVez
+        ultimaVez={{
+          fecha: ultimaVez.fecha,
+          series: [
+            { carga: 40, repeticiones: 8, rir: 1 },
+            { carga: 30, repeticiones: 6, rir: null, tipo: "DROP_SET" },
+            { carga: 42.5, repeticiones: 8, rir: 1 },
+          ],
+        }}
+        serieActual={2}
+        ahora={AHORA}
+      />
+    );
+
+    const chips = screen.getAllByTestId("ultima-vez-serie");
+    expect(chips[0]).not.toHaveAttribute("aria-current");
+    expect(chips[1]).not.toHaveAttribute("aria-current");
+    expect(chips[2]).toHaveAttribute("aria-current", "true");
+  });
+});

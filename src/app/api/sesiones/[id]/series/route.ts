@@ -4,6 +4,7 @@ import {
   handleRegistrarSerie,
   resolveSocioIdDeUsuario,
 } from "@/api/sesiones";
+import type { DropDeSerie } from "@/domains/sesion/sesion-de-entrenamiento";
 import { esTipoSerie, type TipoSerie } from "@/domains/sesion/tipo-serie";
 import { extractUserFromRequest } from "@/lib/auth";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
@@ -58,6 +59,7 @@ export async function POST(
       repeticiones?: unknown;
       rir?: unknown;
       tipo?: unknown;
+      drops?: unknown;
     };
     try {
       body = (await request.json()) as typeof body;
@@ -101,6 +103,8 @@ export async function POST(
       repeticiones: body.repeticiones,
       rir,
       ...(tipo ? { tipo } : {}),
+      // P-46, D-69: los drop sets los valida el dominio (forma, cantidad, valores) antes de tocar la base.
+      ...(body.drops !== undefined ? { drops: body.drops as DropDeSerie[] } : {}),
     });
     return NextResponse.json(resultado, { status: 201 });
   } catch (error) {

@@ -17,13 +17,16 @@ import {
 } from "@/api/sesiones";
 import { calcularDescanso, formatearDescanso } from "@/domains/home-socio/descanso";
 import { cargaInicial } from "@/domains/sesion/progresion-ejercicio";
+import { contarProgreso } from "@/domains/sesion/progreso-sesion";
 import {
   ETIQUETAS_TIPO_SERIE,
-  TIPOS_DE_SERIE,
+  TIPOS_ELEGIBLES,
   TIPO_SERIE_POR_DEFECTO,
   type TipoSerie,
 } from "@/domains/sesion/tipo-serie";
 import { RecordEnVivo } from "./record-en-vivo";
+import { DropsDeSerie, type DropEnEdicion } from "./drops-de-serie";
+import { EncabezadoDeSesion } from "./encabezado-de-sesion";
 import { ResumenDeSesion } from "./resumen-de-sesion";
 import { UltimaVez } from "./ultima-vez";
 import { handleApiError } from "@/utils/api-error";
@@ -80,6 +83,8 @@ export function EjecucionRutina({
   const [resumen, setResumen] = useState<ResumenSesionDTO | null>(null);
 
   const [sesionId, setSesionId] = useState<string | null>(null);
+  /** Cuándo empezó la sesión (ISO): de ahí sale el tiempo transcurrido del encabezado (T-049). */
+  const [horaInicio, setHoraInicio] = useState<string | null>(null);
   const [ejercicios, setEjercicios] = useState<EjercicioDeSesionDTO[]>([]);
   const [ejercicioActualId, setEjercicioActualId] = useState<string | null>(null);
   const [serieActual, setSerieActual] = useState<number | null>(null);
@@ -93,6 +98,8 @@ export function EjecucionRutina({
   const [rir, setRir] = useState(RIR_DEFAULT);
   /** Tipo de la serie que se está por registrar (D-64); vuelve a Normal después de cada una. */
   const [tipo, setTipo] = useState<TipoSerie>(TIPO_SERIE_POR_DEFECTO);
+  /** Drop sets colgados de la serie que se está por registrar (P-46, D-69); se mandan con ella. */
+  const [drops, setDrops] = useState<DropEnEdicion[]>([]);
   /** Calentamientos hechos en el ejercicio actual: no son series de la rutina (D-64). */
   const [calentamientos, setCalentamientos] = useState(0);
 
@@ -109,10 +116,17 @@ export function EjecucionRutina({
     ? calcularDescanso(descansoInicio, descansoSegundos, new Date(ahora))
     : null;
 
+  /** Series hechas y ejercicio actual contra lo que pide la rutina (T-049, D-67). */
+  const progreso = useMemo(
+    () => contarProgreso(ejercicios, ejercicioActualId, serieActual),
+    [ejercicios, ejercicioActualId, serieActual]
+  );
+
   const aplicarDetalle = useCallback((detalle: SesionEnCursoDTO) => {
     const sesion = detalle.sesion;
     if (!sesion) return;
     setSesionId(sesion.id);
+    setHoraInicio(sesion.horaInicio);
     setEjercicios(detalle.ejercicios);
     setEjercicioActualId(sesion.ejercicioActualId);
     setSerieActual(sesion.serieActual);
@@ -157,6 +171,7 @@ export function EjecucionRutina({
           const iniciada = await iniciarSesionDeEntrenamiento(rutinaAsignadaId);
           if (cancelled) return;
           setSesionId(iniciada.sesion.id);
+          setHoraInicio(iniciada.sesion.horaInicio);
           setEjercicios(iniciada.ejercicios);
           setEjercicioActualId(iniciada.sesion.ejercicioActualId);
           setSerieActual(iniciada.sesion.serieActual);
@@ -186,11 +201,14 @@ export function EjecucionRutina({
     };
   }, [rutinaAsignadaId, aplicarDetalle]);
 
+  // El reloj corre mientras hay un descanso en curso o la sesión está abierta (el encabezado
+  // muestra el tiempo transcurrido). Un solo intervalo sirve para las dos cosas.
+  const hayReloj = descansoInicio !== null || (horaInicio !== null && !finalizada);
   useEffect(() => {
-    if (!descansoInicio) return;
+    if (!hayReloj) return;
     const id = setInterval(() => setAhora(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [descansoInicio]);
+  }, [hayReloj]);
 
   const sumarRepeticion = () => setRepeticiones((r) => r + 1);
   const restarRepeticion = () => setRepeticiones((r) => Math.max(1, r - 1));
@@ -205,6 +223,8 @@ export function EjecucionRutina({
   const elegirTipo = (elegido: TipoSerie) => {
     setTipo(elegido);
     if (elegido === "HASTA_EL_FALLO") setRir(0);
+    // Un calentamiento no lleva drop sets: se descartan para que no reaparezcan al volver a Normal.
+    if (elegido === "CALENTAMIENTO") setDrops([]);
   };
 
   const handleSerieHecha = async () => {
@@ -219,11 +239,14 @@ export function EjecucionRutina({
         rir,
         // Sin `tipo` el servidor usa NORMAL: solo se manda cuando es otro (D-64).
         ...(tipo !== TIPO_SERIE_POR_DEFECTO ? { tipo } : {}),
+        // P-46, D-69: los drop sets viajan con la serie, en la misma petición.
+        ...(drops.length > 0 ? { drops } : {}),
       });
 
       // El tipo vale para UNA serie: la siguiente arranca en Normal. Si fue al fallo, el RIR 0
       // lo puso el tipo y no tiene por qué quedar para la serie que sigue.
       setTipo(TIPO_SERIE_POR_DEFECTO);
+      setDrops([]);
       if (tipo === "HASTA_EL_FALLO") setRir(RIR_DEFAULT);
       if (tipo === "CALENTAMIENTO") setCalentamientos((n) => n + 1);
 
@@ -327,6 +350,16 @@ export function EjecucionRutina({
           </button>
         )}
       </div>
+
+      {horaInicio !== null && (
+        <EncabezadoDeSesion
+          hechas={progreso.hechas}
+          total={progreso.total}
+          ejercicioNumero={progreso.ejercicioNumero}
+          ejerciciosTotal={progreso.ejerciciosTotal}
+          transcurridoMs={ahora - new Date(horaInicio).getTime()}
+        />
+      )}
 
       {error && (
         <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700">
@@ -438,7 +471,7 @@ export function EjecucionRutina({
           <div className="flex flex-col gap-2">
             <span className="text-xs font-bold text-gray-500">TIPO DE SERIE</span>
             <div role="group" aria-label="Tipo de serie" className="flex flex-wrap gap-2">
-              {TIPOS_DE_SERIE.map((opcion) => (
+              {TIPOS_ELEGIBLES.map((opcion) => (
                 <button
                   key={opcion}
                   type="button"
@@ -460,6 +493,17 @@ export function EjecucionRutina({
               </p>
             )}
           </div>
+
+          {/* Drop sets (P-46, D-69): cuelgan de esta serie, no son series de la rutina. */}
+          {tipo !== "CALENTAMIENTO" && (
+            <DropsDeSerie
+              drops={drops}
+              onChange={setDrops}
+              cargaBase={carga}
+              repeticionesBase={repeticiones}
+              deshabilitado={enviando}
+            />
+          )}
 
           <button
             type="button"

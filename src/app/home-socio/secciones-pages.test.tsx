@@ -29,7 +29,7 @@ const VM: HomeSocioSeccionesViewModel = {
     nombre: "Fuerza A",
     rutinaAsignadaId: "ra1",
     ejercicios: [
-      { id: "e1", nombre: "Press de Banca", grupoMuscular: "Pecho", descripcion: "Baja la barra.", series: 4, repeticiones: 8, descanso: 120, mejorMarca: 80 },
+      { id: "e1", nombre: "Press de Banca", grupoMuscular: "Pecho", descripcion: "Baja la barra.", series: 4, repeticiones: 8, descanso: 120, mejorMarca: 80, mediaId: null, equipamiento: null, musculoObjetivo: null, instrucciones: [] },
     ],
   },
   sesiones: [
@@ -37,7 +37,7 @@ const VM: HomeSocioSeccionesViewModel = {
   ],
   sesionEnCurso: null,
   ejercicios: [
-    { id: "e1", nombre: "Press de Banca", grupoMuscular: "Pecho", descripcion: "Baja la barra.", series: 4, repeticiones: 8, descanso: 120, mejorMarca: 80 },
+    { id: "e1", nombre: "Press de Banca", grupoMuscular: "Pecho", descripcion: "Baja la barra.", series: 4, repeticiones: 8, descanso: 120, mejorMarca: 80, mediaId: null, equipamiento: null, musculoObjetivo: null, instrucciones: [] },
   ],
   progreso: [
     { ejercicioId: "e1", ejercicioNombre: "Press de Banca", serie: [{ fecha: "2026-10-05", carga: 80 }], mejorMarca: 80, delta: 0 },

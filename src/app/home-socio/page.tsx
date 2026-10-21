@@ -195,8 +195,7 @@ export function HomeSocioPage() {
         {/* Fila4 — Peso corporal con meta (T-048, D-66): no estaba en el diseño original. */}
         <div data-testid="fila-4">
           <PesoCorporalCard
-            puntos={data.peso?.puntos ?? []}
-            recientes={data.peso?.recientes ?? []}
+            mediciones={data.peso?.mediciones ?? []}
             pesoObjetivo={data.peso?.pesoObjetivo ?? null}
             pesoInicial={data.peso?.pesoInicial ?? null}
           />

@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useMemo } from "react";
-import { Ejercicio } from "@prisma/client";
+import type { EjercicioResumen } from "@/domains/ejercicio/ejercicio";
 import type { EjercicioEnRutinaRow } from "@/api/rutinas";
 import { formatDescansoDisplay, parseDescansoInput } from "./descanso-utils";
 
 export interface EjercicioEnRutinaListProps {
   rows: EjercicioEnRutinaRow[];
-  availableEjercicios: Ejercicio[];
+  availableEjercicios: EjercicioResumen[];
   onRowsChange: (rows: EjercicioEnRutinaRow[]) => void;
 }
 
@@ -20,7 +20,7 @@ function CatalogModal({
   onClose,
 }: {
   isOpen: boolean;
-  ejercicios: Ejercicio[];
+  ejercicios: EjercicioResumen[];
   selectedIds: Set<string>;
   onSelect: (ejercicioIds: string[]) => void;
   onClose: () => void;

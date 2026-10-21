@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RutinaForm } from "./rutina-form";
 import { Rutina, Ejercicio } from "@prisma/client";
+import { sinCatalogo } from "../../../tests/factories/ejercicio";
 
 const mockRutina: Rutina = {
   id: "1",
@@ -24,6 +25,7 @@ const mockEjercicios: Ejercicio[] = [
     descripcion: "Ejercicio de pecho",
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...sinCatalogo(),
   },
   {
     id: "2",
@@ -32,6 +34,7 @@ const mockEjercicios: Ejercicio[] = [
     descripcion: "Ejercicio de piernas",
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...sinCatalogo(),
   },
 ];
 

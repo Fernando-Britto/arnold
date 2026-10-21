@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EjercicioListPanel } from "./ejercicio-list";
 import type { EjercicioConUso } from "@/domains/ejercicio/ejercicio";
+import { sinCatalogo } from "../../../tests/factories/ejercicio";
 
 const mockEjercicios: EjercicioConUso[] = [
   {
@@ -13,6 +14,7 @@ const mockEjercicios: EjercicioConUso[] = [
     enRutinas: 2,
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...sinCatalogo(),
   },
   {
     id: "2",
@@ -22,6 +24,7 @@ const mockEjercicios: EjercicioConUso[] = [
     enRutinas: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...sinCatalogo(),
   },
   {
     id: "3",
@@ -31,6 +34,7 @@ const mockEjercicios: EjercicioConUso[] = [
     enRutinas: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...sinCatalogo(),
   },
 ];
 
@@ -108,6 +112,7 @@ describe("EjercicioListPanel", () => {
         enRutinas: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...sinCatalogo(),
       },
     ];
     render(<EjercicioListPanel ejercicios={conTilde} searchTerm="triceps" />);
@@ -124,6 +129,7 @@ describe("EjercicioListPanel", () => {
         enRutinas: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...sinCatalogo(),
       },
     ];
     render(<EjercicioListPanel ejercicios={sinTilde} searchTerm="Tríceps" />);

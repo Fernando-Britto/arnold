@@ -51,3 +51,8 @@ opencode.json.backup
 *.patch
 # Excepción: si algún día se usa yarn patch protocol, sus parches sí se versionan
 !.yarn/patches/*.patch
+
+# Media de ejercicios (D-70): solo se versionan los mp4/jpg optimizados; los GIF originales pesan ~126 MB
+# y lo que entra al historial de git no se puede sacar después.
+public/**/*.gif
+public/**/*.GIF

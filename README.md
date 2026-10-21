@@ -40,6 +40,9 @@ La contraseña por defecto es `Arnold2026!`; se cambia con `SEED_PASSWORD` en el
 | `npx prisma generate && npx tsc --noEmit` | Chequeo de tipos (hace falta generar antes el cliente de Prisma) |
 | `npx eslint <rutas>` | Lint. El repo arrastra deuda preexistente; ver `PROJECT-STATUS.md` |
 | `npm run build` | Build de producción |
+| `npm run catalogo:generar -- <dataset>` | Regenera `prisma/data/ejercicios-es.json` desde el dataset de ejercicios (D-70); solo lee y escribe un archivo |
+| `npm run media:convertir -- <dataset>` | Convierte los GIF de ejercicios a mp4 + miniatura en `public/ejercicios/` (D-70); requiere ffmpeg, repetible |
+| `npm run catalogo:importar [-- --dry-run]` | Importa los 1.324 ejercicios a la base (D-70); repetible, no toca ejercicios cargados a mano |
 | `npm run db:latency` | Diagnóstico (solo lee): latencia de la base, paralelismo del pool y costo de una conexión nueva (D-35) |
 | `npm run bench:home-interno` | Diagnóstico (solo lee): mide el armado de Home_Interno y la verificación de sesión fuera de Next (D-35) |
 

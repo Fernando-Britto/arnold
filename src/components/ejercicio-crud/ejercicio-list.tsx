@@ -13,6 +13,8 @@ import {
   type TableSort,
 } from "@/components/ui/table";
 import { shortId } from "@/utils/short-id";
+import { EjercicioDetalle } from "./ejercicio-detalle";
+import { EjercicioMiniatura } from "./ejercicio-media";
 
 /** Columns exactly as the OpenPencil mockup (relative widths from the spec). */
 export const EJERCICIO_COLUMNS: TableColumn[] = [
@@ -40,6 +42,18 @@ function ejercicioSortValue(ejercicio: EjercicioConUso, key: string): string | n
   }
 }
 
+/** Cuántos ejercicios se dibujan de una vez: el catálogo tiene más de 1.300 (D-70). */
+const POR_PAGINA = 50;
+
+const SELECT_CLASES = "rounded border border-[#E4E4E7] bg-white px-3 py-2 text-sm text-[#333333]";
+
+/** Valores distintos, sin vacíos y ordenados sin tildes (para las opciones de un filtro). */
+function opcionesDe(valores: (string | null | undefined)[]): string[] {
+  return [...new Set(valores.filter((v): v is string => Boolean(v)))].sort((a, b) =>
+    compareSortValues(normalizeSortText(a), normalizeSortText(b))
+  );
+}
+
 export interface EjercicioListPanelProps {
   ejercicios: EjercicioConUso[];
   selectedId?: string | null;
@@ -58,6 +72,13 @@ export function EjercicioListPanel({
   searchTerm = "",
 }: EjercicioListPanelProps) {
   const [sort, setSort] = useState<TableSort | null>(null);
+  const [grupo, setGrupo] = useState("");
+  const [equipamiento, setEquipamiento] = useState("");
+  const [paginacion, setPaginacion] = useState({ clave: "", limite: POR_PAGINA });
+
+  const grupos = useMemo(() => opcionesDe(ejercicios.map((e) => e.grupoMuscular)), [ejercicios]);
+  const equipamientos = useMemo(() => opcionesDe(ejercicios.map((e) => e.equipamiento)), [ejercicios]);
+  const hayMedia = useMemo(() => ejercicios.some((e) => e.mediaId), [ejercicios]);
 
   const filtered = useMemo(() => {
     // H12: se pliega mayúsculas y tildes con `normalizeSortText` (el mismo helper que
@@ -65,9 +86,13 @@ export function EjercicioListPanel({
     const term = normalizeSortText(searchTerm.trim());
     const rows = ejercicios.filter(
       (e) =>
-        !term ||
-        normalizeSortText(e.nombre).includes(term) ||
-        normalizeSortText(e.grupoMuscular).includes(term)
+        (!grupo || e.grupoMuscular === grupo) &&
+        (!equipamiento || e.equipamiento === equipamiento) &&
+        (!term ||
+          normalizeSortText(e.nombre).includes(term) ||
+          normalizeSortText(e.grupoMuscular).includes(term) ||
+          normalizeSortText(e.equipamiento ?? "").includes(term) ||
+          normalizeSortText(e.musculoObjetivo ?? "").includes(term))
     );
     // H-7: mismo orden por columna que las otras listas (helper compartido de table.tsx).
     // Sin orden explícito se conserva el orden por nombre ascendente.
@@ -77,53 +102,108 @@ export function EjercicioListPanel({
       const cmp = compareSortValues(ejercicioSortValue(a, key), ejercicioSortValue(b, key));
       return direction === "asc" ? cmp : -cmp;
     });
-  }, [ejercicios, searchTerm, sort]);
+  }, [ejercicios, searchTerm, sort, grupo, equipamiento]);
 
   const handleSort = (key: string) => setSort((current) => toggleSort(current, key));
+
+  // Paginación: al cambiar búsqueda, filtros u orden se vuelve a la primera página. Se deriva de una
+  // clave (en vez de un efecto) para no renderizar dos veces. El seleccionado nunca queda oculto.
+  const clave = `${searchTerm}|${grupo}|${equipamiento}|${sort?.key}|${sort?.direction}`;
+  const limite = paginacion.clave === clave ? paginacion.limite : POR_PAGINA;
+  const indiceSeleccionado = filtered.findIndex((e) => e.id === selectedId);
+  const visibles = filtered.slice(0, Math.max(limite, indiceSeleccionado + 1));
+  const hayFiltros = grupo !== "" || equipamiento !== "";
 
   if (ejercicios.length === 0) {
     return <div className="p-8 text-center text-sm text-[#71717A]">No hay ejercicios</div>;
   }
 
   return (
-    <Table label="Ejercicios">
-      <TableHeader columns={EJERCICIO_COLUMNS} sort={sort} onSort={handleSort} disclosure />
-      {filtered.map((ejercicio) => {
-        const isSelected = ejercicio.id === selectedId;
-        return (
-          <React.Fragment key={ejercicio.id}>
-            <TableRow selected={isSelected} onClick={() => onSelect?.(ejercicio)} disclosure>
-              <TableCell width={100} variant="secondary">
-                {shortId("EX", ejercicio.id)}
-              </TableCell>
-              <TableCell>{ejercicio.nombre}</TableCell>
-              <TableCell width={118} variant="secondary">
-                {ejercicio.grupoMuscular}
-              </TableCell>
-              <TableCell width={130} variant="secondary">
-                {usoEnRutinas(ejercicio.enRutinas)}
-              </TableCell>
-              <TableCell width={102} variant="secondary">
-                {/* El modelo no tiene estado: se deja vacío, no se inventa dato. */}
-                —
-              </TableCell>
-            </TableRow>
-            {isSelected && (
-              <TableDetailRow>
-                <div>
-                  <p className="text-[11px] font-bold uppercase text-[#C13D00]">Descripción</p>
-                  <p className="text-sm text-[#333333]">{ejercicio.descripcion || "-"}</p>
-                </div>
-              </TableDetailRow>
-            )}
-          </React.Fragment>
-        );
-      })}
-      {filtered.length === 0 && searchTerm.trim() !== "" && (
-        <p className="p-6 text-center text-sm text-[#71717A]">
-          {`No se encontraron ejercicios que coincidan con "${searchTerm}".`}
-        </p>
+    <>
+      {(grupos.length > 1 || equipamientos.length > 0) && (
+        <div className="flex flex-wrap items-center gap-4 border-b border-[#E4E4E7] bg-white px-6 py-3">
+          {grupos.length > 1 && (
+            <label className="flex items-center gap-2 text-sm text-[#52525B]">
+              Grupo muscular
+              <select value={grupo} onChange={(e) => setGrupo(e.target.value)} className={SELECT_CLASES}>
+                <option value="">Todos los grupos</option>
+                {grupos.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {equipamientos.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-[#52525B]">
+              Equipamiento
+              <select value={equipamiento} onChange={(e) => setEquipamiento(e.target.value)} className={SELECT_CLASES}>
+                <option value="">Todo el equipamiento</option>
+                {equipamientos.map((q) => (
+                  <option key={q} value={q}>{q}</option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
       )}
-    </Table>
+      <Table label="Ejercicios">
+        <TableHeader columns={EJERCICIO_COLUMNS} sort={sort} onSort={handleSort} disclosure />
+        {visibles.map((ejercicio) => {
+          const isSelected = ejercicio.id === selectedId;
+          return (
+            <React.Fragment key={ejercicio.id}>
+              <TableRow selected={isSelected} onClick={() => onSelect?.(ejercicio)} disclosure>
+                <TableCell width={100} variant="secondary">
+                  {shortId("EX", ejercicio.id)}
+                </TableCell>
+                <TableCell>
+                  <span className="flex items-center gap-3">
+                    {hayMedia && <EjercicioMiniatura mediaId={ejercicio.mediaId} />}
+                    {ejercicio.nombre}
+                  </span>
+                </TableCell>
+                <TableCell width={118} variant="secondary">
+                  {ejercicio.grupoMuscular}
+                </TableCell>
+                <TableCell width={130} variant="secondary">
+                  {usoEnRutinas(ejercicio.enRutinas)}
+                </TableCell>
+                <TableCell width={102} variant="secondary">
+                  {/* El modelo no tiene estado: se deja vacío, no se inventa dato. */}
+                  —
+                </TableCell>
+              </TableRow>
+              {isSelected && (
+                <TableDetailRow>
+                  <EjercicioDetalle ejercicio={ejercicio} />
+                </TableDetailRow>
+              )}
+            </React.Fragment>
+          );
+        })}
+        {filtered.length === 0 && searchTerm.trim() !== "" && (
+          <p className="p-6 text-center text-sm text-[#71717A]">
+            {`No se encontraron ejercicios que coincidan con "${searchTerm}".`}
+          </p>
+        )}
+        {filtered.length === 0 && searchTerm.trim() === "" && hayFiltros && (
+          <p className="p-6 text-center text-sm text-[#71717A]">No hay ejercicios con esos filtros.</p>
+        )}
+      </Table>
+      {filtered.length > POR_PAGINA && (
+        <div className="flex items-center justify-center gap-4 p-4 text-sm text-[#52525B]">
+          <span>{`Mostrando ${visibles.length} de ${filtered.length} ejercicios`}</span>
+          {visibles.length < filtered.length && (
+            <button
+              type="button"
+              onClick={() => setPaginacion({ clave, limite: limite + POR_PAGINA })}
+              className="rounded border border-[#E4E4E7] bg-white px-3 py-2 font-medium text-[#333333] hover:bg-[#F4F4F5]"
+            >
+              Ver más ejercicios
+            </button>
+          )}
+        </div>
+      )}
+    </>
   );
 }

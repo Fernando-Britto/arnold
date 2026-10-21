@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { EjercicioEnRutinaList } from "./ejercicio-en-rutina-list";
 import { type EjercicioEnRutinaRow } from "@/api/rutinas";
 import { Ejercicio } from "@prisma/client";
+import { sinCatalogo } from "../../../tests/factories/ejercicio";
 
 const mockEjercicios: Ejercicio[] = [
   {
@@ -13,6 +14,7 @@ const mockEjercicios: Ejercicio[] = [
     descripcion: "Ejercicio de pecho",
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...sinCatalogo(),
   },
   {
     id: "2",
@@ -21,6 +23,7 @@ const mockEjercicios: Ejercicio[] = [
     descripcion: "Ejercicio de piernas",
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...sinCatalogo(),
   },
   {
     id: "3",
@@ -29,6 +32,7 @@ const mockEjercicios: Ejercicio[] = [
     descripcion: "Ejercicio de espalda",
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...sinCatalogo(),
   },
 ];
 

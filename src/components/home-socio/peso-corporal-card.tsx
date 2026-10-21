@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Equal, Scale, Trash2 } from "lucide-react";
-import { eliminarPesoCorporal, fijarMetaDePesoCorporal, registrarPesoCorporal } from "@/api/peso";
+import { borrarPesoCorporal, fijarMetaDePesoCorporal, registrarPesoCorporal } from "@/api/peso";
 import {
   progresoHaciaMeta,
   puntosDelGrafico,
   validarPeso,
   variacionDelPeso,
-  type PuntoDePeso,
 } from "@/domains/peso/peso-corporal";
 import {
   describirMeta,
@@ -19,8 +18,6 @@ import {
 } from "@/domains/peso/presentacion-peso";
 import { handleApiError } from "@/utils/api-error";
 import { GraficoDePeso } from "./grafico-de-peso";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { startOfGymDay } from "@/lib/gym-time";
 
 /**
  * Peso corporal del socio en el Home (T-048 parte 2, D-66): peso actual, variación contra el
@@ -33,14 +30,21 @@ import { startOfGymDay } from "@/lib/gym-time";
  * Idea tomada de openGym como referencia; no se copió código (AGPL-3.0).
  */
 export interface PesoCorporalCardProps {
-  /** Un pesaje por día, del más antiguo al más reciente, como llegan del servidor. */
-  puntos: Array<{ fecha: string; peso: number }>;
-  /** Los últimos pesajes (del más reciente al más antiguo) con id, para borrarlos (P-47). */
-  recientes: Array<{ id: string; peso: number; fecha: string }>;
+  /** Los pesajes con su id, del más antiguo al más reciente, como llegan del servidor (P-47, D-68). */
+  mediciones: Array<{ id: string; fecha: string; peso: number }>;
   pesoObjetivo: number | null;
   /** Peso desde el que se fijó la meta: dice si el objetivo era bajar o subir. */
   pesoInicial: number | null;
 }
+
+interface Medicion {
+  id: string;
+  fecha: Date;
+  peso: number;
+}
+
+/** Cuántos pesajes se listan para poder borrarlos (como en openGym). */
+const RECIENTES = 3;
 
 interface Mensaje {
   tipo: "ok" | "error";
@@ -74,24 +78,29 @@ const BOTON_SECUNDARIO =
   "h-10 shrink-0 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 disabled:text-gray-400";
 
 export function PesoCorporalCard({
-  puntos,
-  recientes: recientesIniciales,
+  mediciones: inicial,
   pesoObjetivo,
   pesoInicial,
 }: PesoCorporalCardProps) {
-  const [pesajes, setPesajes] = useState<PuntoDePeso[]>(() =>
-    puntos.map((p) => ({ fecha: new Date(p.fecha), peso: p.peso }))
+  const [mediciones, setMediciones] = useState<Medicion[]>(() =>
+    inicial.map((m) => ({ id: m.id, fecha: new Date(m.fecha), peso: m.peso }))
   );
-  const [recientes, setRecientes] = useState(recientesIniciales);
-  const [aBorrar, setABorrar] = useState<{ id: string; peso: number; fecha: string } | null>(null);
-  const [borrando, setBorrando] = useState(false);
+  // Misma regla que el servidor: un solo punto por día (el último). Se recalcula con cada cambio.
+  const pesajes = useMemo(
+    () => puntosDelGrafico(mediciones.map(({ fecha, peso }) => ({ fecha, peso }))),
+    [mediciones]
+  );
+  const recientes = useMemo(
+    () => [...mediciones].sort((a, b) => b.fecha.getTime() - a.fecha.getTime()).slice(0, RECIENTES),
+    [mediciones]
+  );
   const [meta, setMeta] = useState({ objetivo: pesoObjetivo, inicial: pesoInicial });
 
   const [textoPeso, setTextoPeso] = useState("");
   const [textoMeta, setTextoMeta] = useState("");
   const [mensajePeso, setMensajePeso] = useState<Mensaje | null>(null);
   const [mensajeMeta, setMensajeMeta] = useState<Mensaje | null>(null);
-  const [enviando, setEnviando] = useState<"peso" | "meta" | null>(null);
+  const [enviando, setEnviando] = useState<"peso" | "meta" | "borrar" | null>(null);
 
   const actual = pesajes.length > 0 ? pesajes[pesajes.length - 1] : null;
   const variacion = describirVariacion(variacionDelPeso(pesajes));
@@ -136,16 +145,10 @@ export function PesoCorporalCard({
     setEnviando("peso");
     try {
       const guardado = await registrarPesoCorporal(peso);
-      // Misma regla que el servidor: un solo pesaje por día, el último.
-      setPesajes((previos) =>
-        puntosDelGrafico([...previos, { fecha: new Date(guardado.fecha), peso: guardado.peso }])
-      );
-      setRecientes((previos) =>
-        [
-          { id: guardado.id, peso: guardado.peso, fecha: guardado.fecha },
-          ...previos,
-        ].slice(0, 10)
-      );
+      setMediciones((previas) => [
+        ...previas,
+        { id: guardado.id, fecha: new Date(guardado.fecha), peso: guardado.peso },
+      ]);
       setTextoPeso("");
       setMensajePeso({ tipo: "ok", texto: "Peso guardado" });
     } catch (error) {
@@ -190,38 +193,18 @@ export function PesoCorporalCard({
     await cambiarMeta(null);
   };
 
-  const borrarPesaje = async () => {
-    if (!aBorrar || borrando) return;
-    setBorrando(true);
+  const borrarPeso = async (id: string) => {
+    if (enviando) return;
     setMensajePeso(null);
+    setEnviando("borrar");
     try {
-      await eliminarPesoCorporal(aBorrar.id);
-      const restantes = recientes.filter((r) => r.id !== aBorrar.id);
-      setRecientes(restantes);
-      // El gráfico usa un punto por día: si el borrado era el último de ese día, se reemplaza
-      // por el anterior del mismo día o se quita el punto.
-      const dia = startOfGymDay(new Date(aBorrar.fecha)).getTime();
-      const delMismoDia = restantes.filter(
-        (r) => startOfGymDay(new Date(r.fecha)).getTime() === dia
-      );
-      setPesajes((previos) => {
-        if (!previos.some((p) => startOfGymDay(p.fecha).getTime() === dia)) return previos;
-        if (delMismoDia.length === 0) {
-          return previos.filter((p) => startOfGymDay(p.fecha).getTime() !== dia);
-        }
-        const reemplazo = delMismoDia[0];
-        return previos.map((p) =>
-          startOfGymDay(p.fecha).getTime() === dia
-            ? { fecha: new Date(reemplazo.fecha), peso: reemplazo.peso }
-            : p
-        );
-      });
-      setMensajePeso({ tipo: "ok", texto: "Pesaje eliminado" });
-      setABorrar(null);
+      await borrarPesoCorporal(id);
+      setMediciones((previas) => previas.filter((m) => m.id !== id));
+      setMensajePeso({ tipo: "ok", texto: "Pesaje borrado" });
     } catch (error) {
       setMensajePeso({ tipo: "error", texto: handleApiError(error, "No se pudo borrar el pesaje.") });
     } finally {
-      setBorrando(false);
+      setEnviando(null);
     }
   };
 
@@ -276,27 +259,29 @@ export function PesoCorporalCard({
 
       {recientes.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-bold text-zinc-900">Pesajes recientes</h3>
-          <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200">
-            {recientes.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <span className="w-28 shrink-0 text-zinc-500">
-                  {etiquetaDeFecha(new Date(p.fecha))}
-                </span>
-                <span className="flex-1 font-semibold text-zinc-900">
-                  {formatearPesoKg(p.peso)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setABorrar(p)}
-                  disabled={borrando}
-                  aria-label={`Borrar pesaje del ${etiquetaDeFecha(new Date(p.fecha))}`}
-                  className="rounded-md p-2 text-zinc-500 hover:bg-red-50 hover:text-red-700 disabled:text-gray-300"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </li>
-            ))}
+          <h3 className="text-xs font-bold text-zinc-500">PESAJES RECIENTES</h3>
+          <ul aria-label="Pesajes recientes" className="flex flex-col divide-y divide-zinc-100">
+            {recientes.map((m) => {
+              const descripcion = `${formatearPesoKg(m.peso)} del ${etiquetaDeFecha(m.fecha)}`;
+              return (
+                <li key={m.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                  <span className="text-zinc-700">
+                    <span className="font-semibold text-zinc-900">{formatearPesoKg(m.peso)}</span>
+                    {" · "}
+                    {etiquetaDeFecha(m.fecha)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => borrarPeso(m.id)}
+                    disabled={enviando !== null}
+                    aria-label={`Borrar pesaje de ${descripcion}`}
+                    className="rounded-md p-2 text-zinc-500 hover:text-red-700 disabled:text-zinc-300"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -362,22 +347,6 @@ export function PesoCorporalCard({
         </form>
       </div>
 
-      <ConfirmDialog
-        open={aBorrar !== null}
-        title="Borrar pesaje"
-        message={
-          aBorrar
-            ? `¿Borrar el pesaje de ${formatearPesoKg(aBorrar.peso)} del ${etiquetaDeFecha(new Date(aBorrar.fecha))}?`
-            : ""
-        }
-        confirmLabel="Borrar"
-        danger
-        confirmando={borrando}
-        onConfirm={borrarPesaje}
-        onCancel={() => {
-          if (!borrando) setABorrar(null);
-        }}
-      />
     </section>
   );
 }

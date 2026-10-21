@@ -143,7 +143,7 @@ describe("POST /api/sesiones/[id]/series", () => {
   });
 
   // D-64: tipo de serie.
-  it.each(["NORMAL", "CALENTAMIENTO", "HASTA_EL_FALLO", "DROP_SET"])(
+  it.each(["NORMAL", "CALENTAMIENTO", "HASTA_EL_FALLO"])(
     "201: pasa el tipo de serie %s al dominio",
     async (tipo) => {
       mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
@@ -160,6 +160,69 @@ describe("POST /api/sesiones/[id]/series", () => {
       expect(mockRegistrar).toHaveBeenCalledWith(expect.objectContaining({ tipo }));
     }
   );
+
+  // P-46, D-69: el drop set no es un tipo de serie que se elija: se agrega a una serie con `drops`.
+  it("400 si se intenta registrar un drop set como tipo de serie: lo rechaza el dominio", async () => {
+    mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
+    mockObtener.mockResolvedValueOnce({ id: "s1", socioId: "socio-1" } as never);
+    mockResolver.mockResolvedValueOnce("socio-1");
+    mockRegistrar.mockRejectedValueOnce(
+      new Error("VALIDATION_ERROR: El drop set se agrega a una serie, no se registra solo")
+    );
+
+    const res = await POST(
+      postReq({ ejercicioId: "ej-1", carga: 40, repeticiones: 10, rir: 2, tipo: "DROP_SET" }),
+      ctx()
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).message).toMatch(/drop set se agrega a una serie/i);
+  });
+
+  it("201: pasa los drop sets de la serie al dominio, tal cual", async () => {
+    mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
+    mockObtener.mockResolvedValueOnce({ id: "s1", socioId: "socio-1" } as never);
+    mockResolver.mockResolvedValueOnce("socio-1");
+    mockRegistrar.mockResolvedValueOnce({ registro: { id: "r1" }, sesion: { id: "s1" }, drops: [] } as never);
+    const drops = [
+      { carga: 30, repeticiones: 6 },
+      { carga: 20, repeticiones: 8 },
+    ];
+
+    const res = await POST(
+      postReq({ ejercicioId: "ej-1", carga: 40, repeticiones: 8, rir: 0, tipo: "HASTA_EL_FALLO", drops }),
+      ctx()
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockRegistrar).toHaveBeenCalledWith(expect.objectContaining({ drops }));
+  });
+
+  it("sin drops no manda el campo: el dominio entiende que no hay", async () => {
+    mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
+    mockObtener.mockResolvedValueOnce({ id: "s1", socioId: "socio-1" } as never);
+    mockResolver.mockResolvedValueOnce("socio-1");
+    mockRegistrar.mockResolvedValueOnce({ registro: { id: "r1" }, sesion: { id: "s1" } } as never);
+
+    await POST(postReq({ ejercicioId: "ej-1", carga: 40, repeticiones: 10, rir: 2 }), ctx());
+
+    expect(mockRegistrar.mock.calls[0][0]).not.toHaveProperty("drops");
+  });
+
+  it("400 con el mensaje del dominio si los drops están mal formados", async () => {
+    mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
+    mockObtener.mockResolvedValueOnce({ id: "s1", socioId: "socio-1" } as never);
+    mockResolver.mockResolvedValueOnce("socio-1");
+    mockRegistrar.mockRejectedValueOnce(new Error("VALIDATION_ERROR: Una serie admite hasta 5 drop sets"));
+
+    const res = await POST(
+      postReq({ ejercicioId: "ej-1", carga: 40, repeticiones: 10, rir: 2, drops: [1, 2, 3, 4, 5, 6] }),
+      ctx()
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).message).toBe("Una serie admite hasta 5 drop sets");
+  });
 
   it("sin tipo no lo inventa: el dominio aplica el de por defecto", async () => {
     mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });

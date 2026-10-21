@@ -282,11 +282,21 @@ model Ejercicio {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Catálogo importado del dataset (D-70). Todos opcionales: los ejercicios cargados a mano
+  // y los del seed siguen siendo válidos sin ellos.
+  datasetId           String?  @unique       // id del dataset ("0001"); clave del importador idempotente
+  equipamiento        String?                // en español: "Mancuerna", "Peso corporal"...
+  musculoObjetivo     String?                // en español: "Pectorales"
+  musculosSecundarios String[] @default([])
+  instrucciones       String[] @default([])  // un paso por elemento
+  mediaId             String?                // nombre base de los archivos en public/ejercicios ("0001-2gPfomN")
+
   // Relaciones
   rutinas       EjercicioEnRutina[]
   registrosProgreso RegistroDeProgreso[]
 
   @@index([grupoMuscular])
+  @@index([equipamiento])
 }
 
 // ============================================================================

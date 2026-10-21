@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleEliminarPeso } from "@/api/peso";
+import { handleBorrarPeso } from "@/api/peso";
 import { resolveSocioIdDeUsuario } from "@/api/sesiones";
 import { extractUserFromRequest } from "@/lib/auth";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
@@ -32,7 +32,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await handleEliminarPeso({ socioId, id });
+    await handleBorrarPeso({ socioId, id });
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     const mapped = mapErrorToResponse(error, { resourceName: "Pesaje" });

@@ -7,6 +7,7 @@ import { useNotifications } from "@/contexts/notifications";
 import { ApiError } from "@/utils/api-error";
 import * as ejercicioApi from "@/api/ejercicios";
 import type { EjercicioConUso } from "@/domains/ejercicio/ejercicio";
+import { sinCatalogo } from "../../../tests/factories/ejercicio";
 
 // Mock dependencies
 const mockPush = jest.fn();
@@ -63,6 +64,7 @@ const mockEjercicio: EjercicioConUso = {
   enRutinas: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
+  ...sinCatalogo(),
 };
 
 const mockEjercicio2: EjercicioConUso = {
@@ -73,6 +75,7 @@ const mockEjercicio2: EjercicioConUso = {
   enRutinas: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
+  ...sinCatalogo(),
 };
 
 // Ejercicio en uso: la UI debe anticipar el 409 y bloquear el borrado.
@@ -84,6 +87,7 @@ const mockEjercicioEnUso: EjercicioConUso = {
   enRutinas: 3,
   createdAt: new Date(),
   updatedAt: new Date(),
+  ...sinCatalogo(),
 };
 
 // El alta devuelve un ejercicio NUEVO con un id propio. Reusar mockEjercicio2 (id "2"),
@@ -96,6 +100,7 @@ const mockEjercicioCreado: EjercicioConUso = {
   enRutinas: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
+  ...sinCatalogo(),
 };
 
 describe("Ejercicios CRUD Screen (Page)", () => {

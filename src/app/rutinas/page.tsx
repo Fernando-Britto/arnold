@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Ejercicio } from "@prisma/client";
+import type { EjercicioResumen } from "@/domains/ejercicio/ejercicio";
 import { RutinaForm } from "@/components/rutina-crud/rutina-form";
 import { type EjercicioEnRutinaRow } from "@/api/rutinas";
 import { RutinaListPanel } from "@/components/rutina-crud/rutina-list";
@@ -29,7 +29,7 @@ export function RutinasPage() {
   const { notify } = useNotifications();
 
   const [rutinas, setRutinas] = useState<RutinaWithCount[]>([]);
-  const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
+  const [ejercicios, setEjercicios] = useState<EjercicioResumen[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<RutinaDetalle | null>(null);
   const [searchTerm, setSearchTerm] = useState("");

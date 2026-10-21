@@ -439,6 +439,7 @@ describe("Ejercicio Domain Model", () => {
         where: {},
         orderBy: { nombre: "asc" },
         include: { _count: { select: { rutinas: true } } },
+        omit: { instrucciones: true }, // D-70: el listado no trae las instrucciones
       });
       expect($queryRaw).not.toHaveBeenCalled();
     });
@@ -452,6 +453,7 @@ describe("Ejercicio Domain Model", () => {
         where: { grupoMuscular: "Brazos" },
         orderBy: { nombre: "asc" },
         include: { _count: { select: { rutinas: true } } },
+        omit: { instrucciones: true }, // D-70: el listado no trae las instrucciones
       });
     });
 

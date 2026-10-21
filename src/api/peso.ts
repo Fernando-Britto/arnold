@@ -2,7 +2,7 @@
  * Peso corporal del socio (T-048, D-65): handlers del servidor y llamadas del navegador.
  * Las reglas viven en `@/domains/peso`; acá solo se conectan con las rutas y la pantalla.
  */
-import { eliminarPeso, fijarMetaDePeso, registrarPeso } from "@/domains/peso/peso-socio";
+import { borrarPeso, fijarMetaDePeso, registrarPeso } from "@/domains/peso/peso-socio";
 import { throwIfNotOk } from "@/utils/api-error";
 
 /** Handle POST /api/peso — registra un pesaje. El dominio valida el tipo y el rango. */
@@ -14,8 +14,8 @@ export async function handleRegistrarPeso(input: { socioId: string; peso: unknow
  * Handle DELETE /api/peso/[id] — borra un pesaje propio (P-47). El socio sale del token.
  * @throws Error("NOT_FOUND") si el pesaje no existe o no es del socio.
  */
-export async function handleEliminarPeso(input: { socioId: string; id: string }) {
-  await eliminarPeso(input);
+export async function handleBorrarPeso(input: { socioId: string; id: string }) {
+  await borrarPeso(input);
 }
 
 /** Handle PUT /api/peso/meta — fija la meta de peso, o la borra si es `null`. */
@@ -64,7 +64,7 @@ export async function fijarMetaDePesoCorporal(pesoObjetivo: number | null): Prom
 }
 
 /** DELETE /api/peso/[id] — borra un pesaje propio. */
-export async function eliminarPesoCorporal(id: string): Promise<void> {
+export async function borrarPesoCorporal(id: string): Promise<void> {
   const response = await fetch(`/api/peso/${encodeURIComponent(id)}`, { method: "DELETE" });
   await throwIfNotOk(response, "No se pudo borrar el pesaje");
 }

@@ -603,13 +603,13 @@ describe("EjecucionRutina: tipo de serie (T-047 parte 2, D-64)", () => {
   const tipoGrupo = () => screen.getByRole("group", { name: /tipo de serie/i });
   const opcion = (nombre: RegExp) => within(tipoGrupo()).getByRole("button", { name: nombre });
 
-  it("ofrece los cuatro tipos y arranca en Normal", async () => {
+  it("ofrece tres tipos y arranca en Normal: el drop set no es un tipo, se agrega a la serie (P-46, D-69)", async () => {
     await abrir();
 
     const botones = within(tipoGrupo()).getAllByRole("button");
-    expect(botones.map((b) => b.textContent)).toEqual(["Normal", "Calentamiento", "Al fallo", "Drop set"]);
+    expect(botones.map((b) => b.textContent)).toEqual(["Normal", "Calentamiento", "Al fallo"]);
     expect(opcion(/^normal$/i)).toHaveAttribute("aria-pressed", "true");
-    expect(opcion(/drop set/i)).toHaveAttribute("aria-pressed", "false");
+    expect(opcion(/^calentamiento$/i)).toHaveAttribute("aria-pressed", "false");
   });
 
   it("una serie normal se registra sin `tipo` (como siempre)", async () => {
@@ -623,24 +623,6 @@ describe("EjecucionRutina: tipo de serie (T-047 parte 2, D-64)", () => {
       "s1",
       expect.not.objectContaining({ tipo: expect.anything() })
     );
-  });
-
-  it("un drop set se registra con su tipo, no avanza la serie ni dispara descanso", async () => {
-    // El servidor no mueve la sesión: el drop cuelga de la serie 2.
-    mockRegistrar.mockResolvedValueOnce(
-      registrada({ sesion: { id: "s1", ejercicioActualId: "ej-1", serieActual: 2 } }) as never
-    );
-    const user = userEvent.setup();
-    await abrir();
-
-    await user.click(opcion(/drop set/i));
-    expect(opcion(/drop set/i)).toHaveAttribute("aria-pressed", "true");
-    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
-
-    expect(mockRegistrar).toHaveBeenCalledWith("s1", expect.objectContaining({ tipo: "DROP_SET" }));
-    expect(await screen.findByText(/serie 2 de 4/i)).toBeInTheDocument();
-    expect(screen.queryByText(/descanso/i)).not.toBeInTheDocument();
-    expect(opcion(/^normal$/i)).toHaveAttribute("aria-pressed", "true");
   });
 
   it("elegir 'Al fallo' pone el RIR en 0 y registra el tipo", async () => {
@@ -705,7 +687,7 @@ describe("EjecucionRutina: tipo de serie (T-047 parte 2, D-64)", () => {
     await user.click(opcion(/calentamiento/i));
     expect(screen.queryByTestId("record-en-vivo")).not.toBeInTheDocument();
 
-    await user.click(opcion(/drop set/i));
+    await user.click(opcion(/^normal$/i));
     expect(screen.getByTestId("record-en-vivo")).toBeInTheDocument();
   });
 
@@ -736,3 +718,333 @@ describe("EjecucionRutina: tipo de serie (T-047 parte 2, D-64)", () => {
   });
 });
 
+describe("EjecucionRutina: encabezado de la sesión (T-049, D-67)", () => {
+  const ahoraFijo = new Date("2026-10-12T13:12:34.000Z"); // 12 min 34 s después de ISO (13:00:00)
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(ahoraFijo);
+  });
+  afterEach(() => jest.useRealTimers());
+
+  const sentadilla = { id: "ej-2", nombre: "Sentadilla", series: 3, repeticiones: 8, descanso: 120, orden: 1 };
+
+  async function abrir(detalle: Record<string, unknown> = {}, ejercicioEnPantalla = "Press banca") {
+    mockEnCurso.mockResolvedValueOnce(detalleEnCurso(detalle) as never);
+    render(<EjecucionRutina rutinaAsignadaId="asig-1" />);
+    await screen.findByText(ejercicioEnPantalla);
+  }
+
+  it("al retomar muestra el ejercicio, las series hechas y el tiempo desde que empezó", async () => {
+    // Press banca 4 series, va por la 2: 1 hecha de 4.
+    await abrir();
+
+    expect(screen.getByTestId("sesion-ejercicio")).toHaveTextContent("Ejercicio 1 de 1");
+    expect(screen.getByTestId("sesion-series")).toHaveTextContent("1/4 series");
+    expect(screen.getByTestId("sesion-tiempo")).toHaveTextContent("12:34");
+  });
+
+  it("con varios ejercicios cuenta las series de los anteriores", async () => {
+    await abrir(
+      {
+        ejercicios: [ejercicio, sentadilla],
+        sesion: {
+          id: "s1",
+          socioId: "socio-1",
+          rutinaAsignadaId: "asig-1",
+          estadoDeFinalizacion: "EN_CURSO",
+          horaInicio: ISO,
+          ejercicioActualId: "ej-2",
+          serieActual: 2,
+        },
+      },
+      "Sentadilla"
+    );
+
+    expect(screen.getByTestId("sesion-ejercicio")).toHaveTextContent("Ejercicio 2 de 2");
+    expect(screen.getByTestId("sesion-series")).toHaveTextContent("5/7 series");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "5");
+  });
+
+  it("el reloj avanza solo, cada segundo, sin tocar nada", async () => {
+    await abrir();
+    expect(screen.getByTestId("sesion-tiempo")).toHaveTextContent("12:34");
+
+    act(() => {
+      jest.advanceTimersByTime(5_000);
+    });
+
+    expect(screen.getByTestId("sesion-tiempo")).toHaveTextContent("12:39");
+  });
+
+  it("al registrar una serie suben el contador y la barra", async () => {
+    mockRegistrar.mockResolvedValueOnce({
+      registro: { id: "r1", fecha: new Date().toISOString(), numeroSerie: 2, carga: 40, repeticiones: 10, rir: 2 },
+      sesion: { id: "s1", ejercicioActualId: "ej-1", serieActual: 3 },
+    } as never);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    await abrir();
+
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+
+    expect(await screen.findByText("2/4 series")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "2");
+  });
+
+  it("un calentamiento no hace avanzar el contador de series", async () => {
+    mockRegistrar.mockResolvedValueOnce({
+      registro: { id: "r1", fecha: new Date().toISOString(), numeroSerie: null, carga: 20, repeticiones: 10, rir: null },
+      sesion: { id: "s1", ejercicioActualId: "ej-1", serieActual: 2 },
+    } as never);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    await abrir();
+
+    await user.click(screen.getByRole("button", { name: /^calentamiento$/i }));
+    await user.click(screen.getByRole("button", { name: /calentamiento hecho/i }));
+
+    expect(await screen.findByTestId("calentamientos")).toBeInTheDocument();
+    expect(screen.getByTestId("sesion-series")).toHaveTextContent("1/4 series");
+  });
+
+  it("al pasar al ejercicio siguiente cambia el número de ejercicio", async () => {
+    mockRegistrar.mockResolvedValueOnce({
+      registro: { id: "r1", fecha: new Date().toISOString(), numeroSerie: 4, carga: 40, repeticiones: 10, rir: 2 },
+      sesion: { id: "s1", ejercicioActualId: "ej-2", serieActual: 1 },
+    } as never);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    await abrir({
+      ejercicios: [ejercicio, sentadilla],
+      sesion: {
+        id: "s1",
+        socioId: "socio-1",
+        rutinaAsignadaId: "asig-1",
+        estadoDeFinalizacion: "EN_CURSO",
+        horaInicio: ISO,
+        ejercicioActualId: "ej-1",
+        serieActual: 4,
+      },
+    });
+    expect(screen.getByTestId("sesion-ejercicio")).toHaveTextContent("Ejercicio 1 de 2");
+
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+
+    expect(await screen.findByText("Sentadilla")).toBeInTheDocument();
+    expect(screen.getByTestId("sesion-ejercicio")).toHaveTextContent("Ejercicio 2 de 2");
+    expect(screen.getByTestId("sesion-series")).toHaveTextContent("4/7 series");
+  });
+
+  it("en una sesión nueva arranca en 0 series y el reloj en 0:00", async () => {
+    mockEnCurso.mockResolvedValueOnce(sinSesion as never);
+    mockIniciar.mockResolvedValueOnce(
+      sesionIniciada({
+        sesion: {
+          id: "s9",
+          rutinaAsignadaId: "asig-1",
+          estadoDeFinalizacion: "EN_CURSO",
+          horaInicio: ahoraFijo.toISOString(),
+          ejercicioActualId: "ej-1",
+          serieActual: 1,
+        },
+      }) as never
+    );
+
+    render(<EjecucionRutina rutinaAsignadaId="asig-1" />);
+    await screen.findByText("Press banca");
+
+    expect(screen.getByTestId("sesion-series")).toHaveTextContent("0/4 series");
+    expect(screen.getByTestId("sesion-tiempo")).toHaveTextContent("0:00");
+  });
+
+  it("el reloj de la sesión no interfiere con el cronómetro de descanso", async () => {
+    mockRegistrar.mockResolvedValueOnce({
+      registro: { id: "r1", fecha: new Date().toISOString(), numeroSerie: 2, carga: 40, repeticiones: 10, rir: 2 },
+      sesion: { id: "s1", ejercicioActualId: "ej-1", serieActual: 3 },
+    } as never);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    await abrir();
+
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+    await screen.findByText("2/4 series");
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+
+    expect(screen.getByTestId("sesion-tiempo")).toHaveTextContent("12:44");
+    expect(screen.getByTestId("descanso-tiempo")).toBeInTheDocument();
+  });
+});
+
+describe("EjecucionRutina: drop sets colgados de la serie (P-46, D-69)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const registrada = (serieActual = 3) => ({
+    registro: { id: "r1", fecha: new Date().toISOString(), numeroSerie: 2, carga: 40, repeticiones: 10, rir: 2 },
+    sesion: { id: "s1", ejercicioActualId: "ej-1", serieActual },
+    drops: [],
+  });
+
+  async function abrir(detalle: Record<string, unknown> = {}) {
+    mockEnCurso.mockResolvedValueOnce(
+      detalleEnCurso({ cargaActual: { carga: 40, repeticiones: 10, rir: 2, fecha: ISO }, ...detalle }) as never
+    );
+    render(<EjecucionRutina rutinaAsignadaId="asig-1" />);
+    await screen.findByText("Press banca");
+  }
+
+  const agregar = () => screen.getByRole("button", { name: /agregar drop set/i });
+
+  it("ofrece agregar un drop set a la serie, sin filas al principio", async () => {
+    await abrir();
+
+    expect(agregar()).toBeEnabled();
+    expect(screen.queryByRole("group", { name: /drop 1/i })).not.toBeInTheDocument();
+  });
+
+  it("un drop nuevo parte de un 20 % menos que la carga de la serie y de sus mismas repeticiones", async () => {
+    const user = userEvent.setup();
+    await abrir();
+
+    await user.click(agregar());
+
+    expect(screen.getByTestId("valor-carga-drop-1")).toHaveTextContent("32.5");
+    expect(screen.getByTestId("valor-repeticiones-drop-1")).toHaveTextContent("10");
+  });
+
+  it("la serie se registra con sus drops en UNA sola petición", async () => {
+    mockRegistrar.mockResolvedValueOnce(registrada() as never);
+    const user = userEvent.setup();
+    await abrir();
+
+    await user.click(agregar());
+    await user.click(agregar());
+    await user.click(screen.getByRole("button", { name: /sumar repeticiones del drop 2/i }));
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+
+    expect(mockRegistrar).toHaveBeenCalledTimes(1);
+    expect(mockRegistrar).toHaveBeenCalledWith(
+      "s1",
+      expect.objectContaining({
+        carga: 40,
+        repeticiones: 10,
+        drops: [
+          { carga: 32.5, repeticiones: 10 },
+          { carga: 25, repeticiones: 11 },
+        ],
+      })
+    );
+  });
+
+  it("sin drops la petición no lleva el campo (igual que antes)", async () => {
+    mockRegistrar.mockResolvedValueOnce(registrada() as never);
+    const user = userEvent.setup();
+    await abrir();
+
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+
+    expect(mockRegistrar.mock.calls[0][1]).not.toHaveProperty("drops");
+  });
+
+  it("los drops no mueven la serie: avanza una sola, y las filas desaparecen al registrar", async () => {
+    mockRegistrar.mockResolvedValueOnce(registrada(3) as never);
+    const user = userEvent.setup();
+    await abrir();
+
+    await user.click(agregar());
+    await user.click(agregar());
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+
+    expect(await screen.findByText(/serie 3 de 4/i)).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /drop 1/i })).not.toBeInTheDocument();
+  });
+
+  it("registrar la serie con drops arranca UN solo descanso, no uno por drop", async () => {
+    mockRegistrar.mockResolvedValueOnce(registrada() as never);
+    const user = userEvent.setup();
+    await abrir();
+
+    await user.click(agregar());
+    await user.click(agregar());
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+
+    expect(await screen.findAllByTestId("descanso-tiempo")).toHaveLength(1);
+  });
+
+  it("también se agregan a una serie hasta el fallo", async () => {
+    mockRegistrar.mockResolvedValueOnce(registrada() as never);
+    const user = userEvent.setup();
+    await abrir();
+
+    await user.click(within(screen.getByRole("group", { name: /tipo de serie/i })).getByRole("button", { name: /al fallo/i }));
+    await user.click(agregar());
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+
+    expect(mockRegistrar).toHaveBeenCalledWith(
+      "s1",
+      expect.objectContaining({ tipo: "HASTA_EL_FALLO", drops: [{ carga: 32.5, repeticiones: 10 }] })
+    );
+  });
+
+  it("un calentamiento no lleva drops: se ocultan y se descartan, también si se vuelve a Normal", async () => {
+    const user = userEvent.setup();
+    await abrir();
+    await user.click(agregar());
+    expect(screen.getByRole("group", { name: /drop 1/i })).toBeInTheDocument();
+
+    await user.click(within(screen.getByRole("group", { name: /tipo de serie/i })).getByRole("button", { name: /^calentamiento$/i }));
+    expect(screen.queryByRole("button", { name: /agregar drop set/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /drop 1/i })).not.toBeInTheDocument();
+
+    await user.click(within(screen.getByRole("group", { name: /tipo de serie/i })).getByRole("button", { name: /^normal$/i }));
+    expect(screen.queryByRole("group", { name: /drop 1/i })).not.toBeInTheDocument();
+    expect(agregar()).toBeInTheDocument();
+  });
+
+  it("si el servidor rechaza la serie, los drops quedan para reintentar", async () => {
+    mockRegistrar.mockRejectedValueOnce(new Error("boom"));
+    const user = userEvent.setup();
+    await abrir();
+
+    await user.click(agregar());
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+
+    await screen.findByRole("alert");
+    expect(screen.getByRole("group", { name: /drop 1/i })).toBeInTheDocument();
+  });
+
+  it("el máximo de drops por serie se respeta en la pantalla", async () => {
+    const user = userEvent.setup();
+    await abrir();
+
+    for (let i = 0; i < 5; i++) await user.click(agregar());
+
+    expect(agregar()).toBeDisabled();
+  });
+
+  it("al pasar al ejercicio siguiente no quedan drops de la serie anterior", async () => {
+    const sentadilla = { id: "ej-2", nombre: "Sentadilla", series: 3, repeticiones: 8, descanso: 120, orden: 1 };
+    mockRegistrar.mockResolvedValueOnce({
+      ...registrada(),
+      sesion: { id: "s1", ejercicioActualId: "ej-2", serieActual: 1 },
+    } as never);
+    const user = userEvent.setup();
+    await abrir({
+      ejercicios: [ejercicio, sentadilla],
+      sesion: {
+        id: "s1",
+        socioId: "socio-1",
+        rutinaAsignadaId: "asig-1",
+        estadoDeFinalizacion: "EN_CURSO",
+        horaInicio: ISO,
+        ejercicioActualId: "ej-1",
+        serieActual: 4,
+      },
+    });
+
+    await user.click(agregar());
+    await user.click(screen.getByRole("button", { name: /serie hecha/i }));
+
+    expect(await screen.findByText("Sentadilla")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /drop 1/i })).not.toBeInTheDocument();
+  });
+});

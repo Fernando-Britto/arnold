@@ -21,6 +21,10 @@ const ejercicio = (over: Partial<EjercicioDeRutinaDTO> = {}): EjercicioDeRutinaD
   repeticiones: 8,
   descanso: 120,
   mejorMarca: 80,
+  mediaId: null,
+  equipamiento: null,
+  musculoObjetivo: null,
+  instrucciones: [],
   ...over,
 });
 

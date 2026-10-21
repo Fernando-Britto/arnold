@@ -18,6 +18,11 @@ export interface EjercicioDeRutinaDTO {
   descanso: number;
   /** Mejor marca histórica (max `carga`), o null si nunca lo registró. */
   mejorMarca: number | null;
+  /** Catálogo de ejercicios (D-70): vacíos en un ejercicio cargado a mano. */
+  mediaId: string | null;
+  equipamiento: string | null;
+  musculoObjetivo: string | null;
+  instrucciones: string[];
 }
 
 export interface RutinaSeccionDTO {

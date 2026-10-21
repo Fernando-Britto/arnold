@@ -3,6 +3,7 @@
 import React from "react";
 import { Clock, Dumbbell, Play } from "lucide-react";
 import type { RutinaSeccionDTO, SesionHistorialDTO, SesionEnCursoDTO } from "@/api/home-socio-secciones";
+import { AtribucionMedia, EjercicioMiniatura } from "@/components/ejercicio-crud/ejercicio-media";
 
 /**
  * MiRutinaSection (T-039, D-45): rutina asignada con su prescripción, historial de sesiones
@@ -34,6 +35,8 @@ export function MiRutinaSection({
   onSeguirRutina,
   onVerEjercicios,
 }: MiRutinaSectionProps) {
+  // Si algún ejercicio tiene animación, todas las filas reservan el lugar de la miniatura (alineadas).
+  const hayMedia = rutina?.ejercicios.some((e) => e.mediaId) ?? false;
   return (
     <section aria-labelledby="mi-rutina-titulo" className="flex flex-col gap-6">
       <div className="flex flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6">
@@ -79,9 +82,12 @@ export function MiRutinaSection({
             <ul className="flex flex-col divide-y divide-zinc-100">
               {rutina.ejercicios.map((e) => (
                 <li key={e.id} className="flex items-center justify-between py-3">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-zinc-900">{e.nombre}</span>
-                    <span className="text-xs text-zinc-500">{e.grupoMuscular}</span>
+                  <div className="flex items-center gap-3">
+                    {hayMedia && <EjercicioMiniatura mediaId={e.mediaId} />}
+                    <div className="flex flex-col">
+                      <span className="font-medium text-zinc-900">{e.nombre}</span>
+                      <span className="text-xs text-zinc-500">{e.grupoMuscular}</span>
+                    </div>
                   </div>
                   <span className="text-sm text-zinc-600">
                     {e.series} × {e.repeticiones}
@@ -93,6 +99,8 @@ export function MiRutinaSection({
                 </li>
               ))}
             </ul>
+
+            {hayMedia && <AtribucionMedia />}
 
             {onSeguirRutina && !sesionEnCurso && (
               <button

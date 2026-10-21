@@ -289,3 +289,34 @@ describe("tipos de serie en el historial (T-047, D-64)", () => {
   });
 });
 
+describe("cargaPrecargada con drop sets (P-46, D-69)", () => {
+  const ultimaVez = {
+    fecha: new Date("2026-10-10T13:00:00.000Z"),
+    series: [
+      { carga: 40, repeticiones: 10, rir: 2 },
+      { carga: 30, repeticiones: 6, rir: null, tipo: "DROP_SET" as const },
+      { carga: 42.5, repeticiones: 8, rir: 1 },
+    ],
+  };
+
+  it("la serie N es la N-ésima serie de trabajo: los drop sets no cuentan como una serie", () => {
+    expect(cargaPrecargada(ultimaVez, 1)).toBe(40);
+    // Antes devolvía 30 (el drop) porque lo contaba como segunda serie.
+    expect(cargaPrecargada(ultimaVez, 2)).toBe(42.5);
+  });
+
+  it("si ahora hace más series que entonces usa la última serie de trabajo, no un drop", () => {
+    const conDropAlFinal = {
+      ...ultimaVez,
+      series: [{ carga: 40, repeticiones: 10, rir: 2 }, { carga: 30, repeticiones: 6, rir: null, tipo: "DROP_SET" as const }],
+    };
+
+    expect(cargaPrecargada(conDropAlFinal, 4)).toBe(40);
+  });
+
+  it("si solo hubo drop sets no hay carga que precargar", () => {
+    expect(
+      cargaPrecargada({ series: [{ carga: 30, repeticiones: 6, rir: null, tipo: "DROP_SET" }] }, 1)
+    ).toBeNull();
+  });
+});

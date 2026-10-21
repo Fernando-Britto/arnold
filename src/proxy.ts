@@ -106,6 +106,6 @@ export async function proxy(request: NextRequest, event?: NextFetchEvent) {
 }
 
 export const config = {
-  // Todas las rutas salvo internas de Next y archivos estáticos
-  matcher: ["/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  // Todas las rutas salvo internas de Next y archivos estáticos (imágenes y los mp4 del catálogo de ejercicios, D-70)
+  matcher: ["/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|mp4)$).*)"],
 };

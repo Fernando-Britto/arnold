@@ -245,3 +245,48 @@ describe("buildHomeSocioSeccionesPayload", () => {
     expect(res?.membresia?.estado).toBe("PENDIENTE");
   });
 });
+
+describe("buildHomeSocioSeccionesPayload: media de los ejercicios del catálogo (T-050e5, D-70)", () => {
+  const delCatalogo = {
+    id: "e9",
+    nombre: "Curl de bíceps con mancuernas",
+    grupoMuscular: "Brazos",
+    descripcion: null,
+    mediaId: "0294-NbVPDMW",
+    equipamiento: "Mancuerna",
+    musculoObjetivo: "Bíceps",
+    instrucciones: ["Párate con una mancuerna.", "Flexiona los codos."],
+  };
+
+  it("el ejercicio llega con animación, equipamiento, músculo principal e instrucciones", async () => {
+    seed();
+    db.rutinaAsignada.findMany.mockResolvedValue([
+      {
+        id: "ra1", fechaAsignacion: at("2026-09-01T15:00:00Z"), rutinaId: "r1",
+        rutina: { nombre: "Fuerza A", ejercicios: [{ series: 3, repeticiones: 12, descanso: 60, ejercicio: delCatalogo }] },
+      },
+    ]);
+    const res = await buildHomeSocioSeccionesPayload("u1", NOW);
+    expect(res?.ejercicios[0]).toMatchObject({
+      mediaId: "0294-NbVPDMW",
+      equipamiento: "Mancuerna",
+      musculoObjetivo: "Bíceps",
+      instrucciones: ["Párate con una mancuerna.", "Flexiona los codos."],
+    });
+  });
+
+  it("un ejercicio cargado a mano llega con esos campos vacíos, nunca undefined", async () => {
+    seed(); // los ejercicios del seed no tienen campos de catálogo
+    const res = await buildHomeSocioSeccionesPayload("u1", NOW);
+    expect(res?.ejercicios[0]).toMatchObject({ mediaId: null, equipamiento: null, musculoObjetivo: null, instrucciones: [] });
+  });
+
+  it("la consulta le pide a la base esos cuatro campos del ejercicio", async () => {
+    seed();
+    await buildHomeSocioSeccionesPayload("u1", NOW);
+    const consulta = JSON.stringify(db.rutinaAsignada.findMany.mock.calls[0][0]);
+    for (const campo of ["mediaId", "equipamiento", "musculoObjetivo", "instrucciones"]) {
+      expect(consulta).toContain(`"${campo}":true`);
+    }
+  });
+});

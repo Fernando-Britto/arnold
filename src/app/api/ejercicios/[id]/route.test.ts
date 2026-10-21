@@ -20,6 +20,7 @@ import {
 } from "@/api/ejercicios";
 import { extractUserFromRequest } from "@/lib/auth";
 import { registrarOperacion } from "@/lib/audit";
+import { sinCatalogo } from "../../../../../tests/factories/ejercicio";
 
 // Mock the API layer
 jest.mock("@/api/ejercicios");
@@ -47,6 +48,7 @@ describe("Ejercicio [id] API Routes", () => {
     descripcion: "Empuje vertical con mancuernas",
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...sinCatalogo(),
   };
 
   beforeEach(() => {

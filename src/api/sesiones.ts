@@ -194,6 +194,12 @@ export interface SesionEnCursoDTO {
 }
 
 /** Respuesta de registrar una serie (T-037/T-038). */
+/** Un drop set: la carga reducida y las repeticiones que hizo con ella (P-46, D-69). */
+export interface DropDeSerieDTO {
+  carga: number;
+  repeticiones: number;
+}
+
 export interface SerieRegistradaDTO {
   registro: {
     id: string;
@@ -208,6 +214,8 @@ export interface SerieRegistradaDTO {
     ejercicioActualId: string | null;
     serieActual: number | null;
   };
+  /** Los drop sets guardados junto con la serie, en orden (P-46, D-69). Puede faltar en un servidor anterior. */
+  drops?: Array<{ id: string; carga: number; repeticiones: number }>;
 }
 
 /** Respuesta de iniciar una sesión (T-037/T-038). */
@@ -264,8 +272,10 @@ export async function registrarSerieDeEntrenamiento(
     carga: number;
     repeticiones: number;
     rir?: number | null;
-    /** Tipo de serie (D-64); sin él es NORMAL. */
+    /** Tipo de serie (D-64); sin él es NORMAL. El drop set no es un tipo: va en `drops`. */
     tipo?: TipoSerieDTO;
+    /** Drop sets colgados de esta serie (P-46, D-69): hasta 5, con menos carga. */
+    drops?: DropDeSerieDTO[];
   }
 ): Promise<SerieRegistradaDTO> {
   const response = await fetch(`/api/sesiones/${sesionId}/series`, {

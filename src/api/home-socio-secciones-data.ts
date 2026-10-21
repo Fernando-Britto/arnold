@@ -70,7 +70,11 @@ export async function buildHomeSocioSeccionesPayload(
                   repeticiones: true,
                   descanso: true,
                   ejercicio: {
-                    select: { id: true, nombre: true, grupoMuscular: true, descripcion: true },
+                    select: {
+                      id: true, nombre: true, grupoMuscular: true, descripcion: true,
+                      // Catálogo (D-70): son pocos ejercicios por rutina, así que las instrucciones viajan completas.
+                      mediaId: true, equipamiento: true, musculoObjetivo: true, instrucciones: true,
+                    },
                   },
                 },
               },
@@ -174,6 +178,10 @@ export async function buildHomeSocioSeccionesPayload(
     repeticiones: e.repeticiones,
     descanso: e.descanso,
     mejorMarca: mejores.get(e.ejercicio.id) ?? null,
+    mediaId: e.ejercicio.mediaId ?? null,
+    equipamiento: e.ejercicio.equipamiento ?? null,
+    musculoObjetivo: e.ejercicio.musculoObjetivo ?? null,
+    instrucciones: e.ejercicio.instrucciones ?? [],
   }));
 
   // Fechas en hora de pared del gimnasio para las funciones puras (usan getUTC*).

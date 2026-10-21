@@ -388,18 +388,18 @@ describe("buildHomeSocioPayload", () => {
   });
 });
 
-describe("buildHomeSocioPayload: peso corporal (T-048 parte 2, D-66)", () => {
+describe("buildHomeSocioPayload: peso corporal (T-048 parte 2, D-66; P-47, D-68)", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("sin pesajes ni meta: puntos vacíos y meta nula", async () => {
+  it("sin pesajes ni meta: mediciones vacías y meta nula", async () => {
     seed();
 
     const res = await buildHomeSocioPayload("u1", NOW);
 
-    expect(res?.peso).toEqual({ puntos: [], recientes: [], pesoObjetivo: null, pesoInicial: null });
+    expect(res?.peso).toEqual({ mediciones: [], pesoObjetivo: null, pesoInicial: null });
   });
 
-  it("lee los pesajes del propio socio, los más recientes primero y con un tope", async () => {
+  it("lee los pesajes del propio socio, con su id, los más recientes primero y con un tope", async () => {
     seed();
 
     await buildHomeSocioPayload("u1", NOW);
@@ -414,34 +414,24 @@ describe("buildHomeSocioPayload: peso corporal (T-048 parte 2, D-66)", () => {
     );
   });
 
-  it("arma un punto por día (el último), del más antiguo al más reciente, con el peso como número", async () => {
+  it("entrega las mediciones del más antiguo al más reciente, con su id y el peso como número", async () => {
     seed();
     db.medicionDePeso.findMany.mockResolvedValue([
       // La base los entrega del más nuevo al más viejo.
-      { peso: dec(78.4), fecha: at("2026-10-05T22:00:00Z") },
-      { peso: dec(79.1), fecha: at("2026-10-05T12:00:00Z") }, // mismo día, más temprano: se descarta
-      { peso: dec(80), fecha: at("2026-09-28T12:00:00Z") },
+      { id: "m3", peso: dec(78.4), fecha: at("2026-10-05T22:00:00Z") },
+      { id: "m2", peso: dec(79.1), fecha: at("2026-10-05T12:00:00Z") },
+      { id: "m1", peso: dec(80), fecha: at("2026-09-28T12:00:00Z") },
     ]);
 
     const res = await buildHomeSocioPayload("u1", NOW);
 
-    expect(res?.peso.puntos).toEqual([
-      { fecha: "2026-09-28T12:00:00.000Z", peso: 80 },
-      { fecha: "2026-10-05T22:00:00.000Z", peso: 78.4 },
+    // Van TODAS, también las del mismo día: la tarjeta necesita el id de cada una para poder borrarla y
+    // decide cuál dibujar (el último de cada día) con la misma regla del servidor.
+    expect(res?.peso.mediciones).toEqual([
+      { id: "m1", fecha: "2026-09-28T12:00:00.000Z", peso: 80 },
+      { id: "m2", fecha: "2026-10-05T12:00:00.000Z", peso: 79.1 },
+      { id: "m3", fecha: "2026-10-05T22:00:00.000Z", peso: 78.4 },
     ]);
-  });
-
-  it("cuenta el día en hora del gimnasio: las 01:00Z son del día anterior en Argentina", async () => {
-    seed();
-    db.medicionDePeso.findMany.mockResolvedValue([
-      { peso: dec(78), fecha: at("2026-10-06T01:00:00Z") }, // 22:00 del 5/10 en Argentina
-      { peso: dec(79), fecha: at("2026-10-05T13:00:00Z") }, // 10:00 del 5/10: mismo día
-    ]);
-
-    const res = await buildHomeSocioPayload("u1", NOW);
-
-    expect(res?.peso.puntos).toHaveLength(1);
-    expect(res?.peso.puntos[0].peso).toBe(78);
   });
 
   it("trae la meta y el peso desde el que se fijó, como números", async () => {

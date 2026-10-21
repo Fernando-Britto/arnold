@@ -92,15 +92,13 @@ export interface MembresiaDTO {
 }
 
 /**
- * Peso corporal del socio (T-048, D-65/D-66). Los pesajes llegan ya reducidos a uno por día (el
- * último, en hora del gimnasio); la tarjeta calcula con ellos la variación y el progreso hacia la
- * meta con las mismas funciones puras que usa el servidor (`@/domains/peso`).
+ * Peso corporal del socio (T-048, D-65/D-66; P-47, D-68). Llegan los pesajes tal como están en la
+ * base, con su `id` (hace falta para borrarlos), del más antiguo al más reciente. La tarjeta decide
+ * cuáles dibujar (uno por día, el último, en hora del gimnasio) y calcula la variación y el progreso
+ * hacia la meta con las mismas funciones puras que usa el servidor (`@/domains/peso`).
  */
 export interface PesoDTO {
-  /** Del más antiguo al más reciente. */
-  puntos: Array<{ fecha: string; peso: number }>;
-  /** Los últimos 10 pesajes, del más reciente al más antiguo, con id para poder borrarlos (P-47). */
-  recientes: Array<{ id: string; peso: number; fecha: string }>;
+  mediciones: Array<{ id: string; fecha: string; peso: number }>;
   /** kg; `null` si no fijó una meta. */
   pesoObjetivo: number | null;
   /** Peso desde el que fijó la meta: dice si el objetivo era bajar o subir. */

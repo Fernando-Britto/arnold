@@ -19,6 +19,8 @@ export const GRUPOS_MUSCULARES: string[] = [
   "Hombros",
   "Brazos",
   "Abdomen",
+  "Cuello",
+  "Cardio",
 ];
 
 export interface EjercicioInput {
@@ -31,8 +33,16 @@ export interface EjercicioInput {
  * Ejercicio con su uso: cuántas rutinas lo referencian (`EjercicioEnRutina`). Campo aditivo
  * del listado (`GET /api/ejercicios`); permite anticipar si el borrado está bloqueado (409).
  */
-export interface EjercicioConUso extends Ejercicio {
+/** Un ejercicio como lo muestran los listados y selectores: todo menos las instrucciones (D-70). */
+export type EjercicioResumen = Omit<Ejercicio, "instrucciones">;
+
+export interface EjercicioConUso extends EjercicioResumen {
   enRutinas: number;
+  /**
+   * El listado NO las trae (pesan el 66 % del catálogo, D-70): se piden al abrir el ejercicio con
+   * `GET /api/ejercicios/:id`. Opcional para que un `Ejercicio` completo también sea un `EjercicioConUso`.
+   */
+  instrucciones?: string[];
 }
 
 export interface ValidationResult {
@@ -51,7 +61,7 @@ export function createEjercicio(
   nombre: string,
   grupoMuscular: string,
   descripcion?: string
-): Omit<Ejercicio, "id" | "createdAt" | "updatedAt"> {
+): Pick<Ejercicio, "nombre" | "grupoMuscular" | "descripcion"> {
   return {
     nombre,
     grupoMuscular,

@@ -83,7 +83,7 @@ export async function fijarMetaDePeso(input: {
  *
  * @throws Error("NOT_FOUND") si el pesaje no existe o no es del socio.
  */
-export async function eliminarPeso(input: { socioId: string; id: string }): Promise<void> {
+export async function borrarPeso(input: { socioId: string; id: string }): Promise<void> {
   const { prisma } = await import("@/lib/db");
   const borrados = await prisma.medicionDePeso.deleteMany({
     where: { id: input.id, socioId: input.socioId },

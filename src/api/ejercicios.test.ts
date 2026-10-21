@@ -1,5 +1,6 @@
 import { handleEjercicioCreate, handleEjercicioUpdate, handleEjercicioDelete, handleEjercicioList } from "./ejercicios";
 import { ejercicioRepository } from "@/domains/ejercicio/ejercicio-repositorio";
+import { sinCatalogo } from "../../tests/factories/ejercicio";
 
 jest.mock("@/domains/ejercicio/ejercicio-repositorio");
 
@@ -23,6 +24,7 @@ describe("Ejercicio API Routes", () => {
         ...requestData,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...sinCatalogo(),
       };
 
       mockRepository.create.mockResolvedValue(mockCreated);
@@ -72,6 +74,7 @@ describe("Ejercicio API Routes", () => {
         descripcion: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...sinCatalogo(),
       };
 
       mockRepository.create.mockResolvedValue(mockCreated);
@@ -93,6 +96,7 @@ describe("Ejercicio API Routes", () => {
           enRutinas: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
+          ...sinCatalogo(),
         },
         {
           id: "2",
@@ -102,6 +106,7 @@ describe("Ejercicio API Routes", () => {
           enRutinas: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
+          ...sinCatalogo(),
         },
       ];
 
@@ -131,6 +136,7 @@ describe("Ejercicio API Routes", () => {
           enRutinas: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
+          ...sinCatalogo(),
         },
       ];
 
@@ -152,6 +158,7 @@ describe("Ejercicio API Routes", () => {
           enRutinas: 0,
            createdAt: new Date(),
            updatedAt: new Date(),
+           ...sinCatalogo(),
          },
        ];
 
@@ -173,6 +180,7 @@ describe("Ejercicio API Routes", () => {
           enRutinas: 0,
           createdAt: new Date(),
           updatedAt: new Date(),
+          ...sinCatalogo(),
         },
       ];
 
@@ -205,6 +213,7 @@ describe("Ejercicio API Routes", () => {
         descripcion: "Updated description",
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...sinCatalogo(),
       };
 
       mockRepository.update.mockResolvedValue(mockUpdated);
@@ -280,12 +289,14 @@ describe("Ejercicio API Routes", () => {
         descripcion: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...sinCatalogo(),
       }).mockResolvedValueOnce({
         id: "2",
         ...data2,
         descripcion: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...sinCatalogo(),
       });
 
       const [result1, result2] = await Promise.all([

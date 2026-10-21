@@ -68,6 +68,15 @@ export async function fetchEjercicios(): Promise<EjercicioConUso[]> {
 }
 
 /**
+ * Client-side API call: un ejercicio completo, con sus instrucciones (el listado no las trae, D-70).
+ */
+export async function fetchEjercicio(id: string): Promise<Ejercicio> {
+  const response = await fetch(`/api/ejercicios/${id}`);
+  await throwIfNotOk(response, "No se pudo cargar el ejercicio");
+  return response.json();
+}
+
+/**
  * Client-side API call: create a new ejercicio
  */
 export async function createEjercicio(data: EjercicioInput): Promise<Ejercicio> {

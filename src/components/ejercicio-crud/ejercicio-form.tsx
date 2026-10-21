@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Ejercicio } from "@prisma/client";
+import type { EjercicioResumen } from "@/domains/ejercicio/ejercicio";
 import { GRUPOS_MUSCULARES } from "@/domains/ejercicio/ejercicio";
 
 export interface EjercicioFormProps {
@@ -13,7 +14,7 @@ export interface EjercicioFormProps {
     grupoMuscular: string;
     descripcion: string;
   }) => Promise<Ejercicio | void> | Ejercicio | void;
-  initialData: Ejercicio | null;
+  initialData: EjercicioResumen | null;
   isLoading?: boolean;
 }
 

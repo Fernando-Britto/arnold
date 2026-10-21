@@ -1,6 +1,6 @@
 # Registro de decisiones — ARNOLD MVP Core
 
-**Actualizado**: 2026-10-19 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
+**Actualizado**: 2026-10-21 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
 
 Este documento registra **por qué** el proyecto se desvió del plan original durante `sdd-apply`, qué
 alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace; acá queda el *porqué*.
@@ -1090,7 +1090,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   contra las repeticiones objetivo: cuelga de la serie anterior como una fila extra, igual que en openGym. Las series de trabajo que hacen falta son las `series`
   de la rutina, sin descuentos. Con 3 × 8: tres series de trabajo + un drop 30×4 = cumplida, sube; dos series de trabajo + un drop = no cumple (falta una de
   trabajo); una sesión de puros drop sets no cumple y no tiene carga. Las series **hasta el fallo** cuentan como cualquier otra y se juzgan igual: si llegó a
-  menos repeticiones que el objetivo es un fallo, el peso era demasiado. **Regla confirmada** con openGym y por Fernando (P-46 resuelto).
+  menos repeticiones que el objetivo es un fallo, el peso era demasiado. **Regla confirmada** con openGym y por Fernando (P-46 resuelto). **Reemplazada por D-69**: el drop set ya no ocupa una serie de la rutina y el motor lo ignora.
 - **Parte 2 · resumen y etiquetas**: la comparación contra la última vez **ignora los drop sets** (sus repeticiones de más no son una mejora; sin esto un drop de 15
   repeticiones marcaba "Mejor"). Los **récords** (D-63) sí los cuentan como cualquier serie de trabajo: D-64 solo deja afuera el calentamiento. La última vez y el
   resumen muestran "· al fallo" y "· drop set", y `describirSeries` ya no esconde un drop set bajo el "3 × 10 a 40 kg" de las demás.
@@ -1135,7 +1135,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Contrato**: `GET /api/home-socio` suma `peso` = `{ puntos, recientes, pesoObjetivo, pesoInicial }`. Los pesajes de `puntos` llegan **ya reducidos a uno por día** (el último, en hora del gimnasio)
   con `puntosDelGrafico`; `recientes` trae los últimos **10** con su `id`, del más nuevo al más viejo, para la lista y el borrado. Se leen los últimos **400** del propio socio (de sobra para los
   120 puntos que se dibujan). La variación y el progreso hacia la meta los calcula la tarjeta con las mismas funciones puras del servidor (`variacionDelPeso`, `progresoHaciaMeta`), así no hay dos
-  reglas. Es un campo nuevo: **sin migración**. La página tolera un servidor que todavía no mande `peso`.
+  reglas. Es un campo nuevo: **sin migración**. La página tolera un servidor que todavía no mande `peso`. **Revisado en D-68**: `peso.puntos` pasó a `peso.mediciones` (los pesajes con su id).
 - **Tarjeta "Peso corporal"** en una **cuarta fila** del Home (no estaba en el diseño original; P-49): el **peso actual**, el **último pesaje**, cuánto cambió desde el anterior **dicho con palabras**
   ("bajó 1,6 kg", "subió…", "igual que el pesaje anterior": el sentido no depende de un signo ni de un color), la meta ("Meta 77 kg · te faltan 1,4 kg", "¡alcanzada!" también si se pasó por el lado
   correcto, y "mantener" con su margen de 0,5 kg) y el gráfico. Sin pesajes invita a registrar el peso y no muestra gráfico.
@@ -1145,9 +1145,9 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Dos formularios**, cada uno con su nombre: **Registrar peso** y **Meta de peso** (fijar, cambiar y **quitar**; quitar manda `null` a propósito, como exige D-65). Aceptan **coma o punto** decimal
   ("78,4" o "78.4") y Enter envía. Lo que no es un número se corrige en la pantalla; el **rango de 20 a 400 kg** también (`validarPeso`, la misma regla que el servidor), así el error de tipeo típico
   (784) no llega al servidor. Si el servidor igual rechaza, se muestra su mensaje (`handleApiError`). Mientras guarda no se puede enviar dos veces. Sin pesajes **no se puede fijar una meta**.
-- **Pesajes recientes y borrado (P-47)**: la tarjeta lista los últimos 10 pesajes con fecha y peso. Cada uno tiene un tacho que abre un `ConfirmDialog`; al confirmar, `DELETE /api/peso/[id]` borra
-  **solo un pesaje propio** (el `socioId` sale del token; un id ajeno o inexistente da 404) y la tarjeta se actualiza sola: quita la fila, recalcula el peso actual, la variación y el punto del día
-  (si era el último de ese día, usa el anterior; si no queda ninguno, quita el punto). **No se puede corregir** un pesaje ni cargar uno de otra fecha: la fecha es siempre "ahora".
+- **Pesajes recientes y borrado (P-47)**: **revisado por D-68**. La tarjeta lista los **3** pesajes más recientes (no 10) y borra **con un toque, sin confirmación**; el contrato pasó de `peso.puntos` a
+  `peso.mediciones`. Se mantiene lo esencial: `DELETE /api/peso/[id]` borra **solo un pesaje propio** (el `socioId` sale del token; un id ajeno o inexistente da 404) y la tarjeta recalcula el peso actual,
+  la variación y el punto del día. **No se puede corregir** un pesaje ni cargar uno de otra fecha: la fecha es siempre "ahora".
 - **Después de guardar la tarjeta se actualiza sola**, sin volver a pedir el Home, con la misma regla del servidor: dos pesajes el mismo día cuentan uno para el gráfico, el último. Si el socio
   cambia la meta, la dirección (bajar o subir) sale del peso desde el que la fijó, que devuelve el servidor.
 - **Alternativas descartadas**: que el servidor mande también la variación y el progreso ya calculados (obliga a repetir la cuenta al actualizar la tarjeta o a volver a pedir todo el Home); una
@@ -1155,6 +1155,109 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Verificado**: tests de la presentación pura (lectura de lo escrito, textos de la meta y la variación, fechas en hora del gimnasio, geometría), del payload con Prisma mockeado (un punto por día,
   hora del gimnasio, meta como número, lectura acotada del propio socio, `recientes` con id), del gráfico, de la tarjeta (estados, registro, validación, errores, doble envío, meta fijar y quitar,
   lista de recientes, confirmación, borrado y cancelación) y de la página. **No** se probó en el navegador: queda para Fernando, en especial el aspecto de la cuarta fila y del gráfico.
+
+
+### D-67 · Pantalla de entrenamiento: encabezado con ejercicio, series, tiempo y barra de progreso (T-049, inspirado en openGym)
+- **Origen**: Fernando (2026-10-19). Entre las ideas de openGym que faltaban estaba su encabezado de la pantalla de entrenamiento ("0:02 · 0/19 sets", "Exercise 1 / 6" y una barra). Idea tomada como
+  referencia; **no se copió código** (AGPL-3.0). Hasta acá la pantalla no decía cuánto faltaba ni cuánto llevaba el socio.
+- **Qué muestra**: arriba, "Ejercicio 2 de 6", "12:34 · 7/19 series" y una barra de progreso. Todo se **deriva** de la posición de la sesión (ejercicio y serie actuales) y de lo que pide la rutina:
+  las series hechas son las de los ejercicios anteriores más las anteriores a la actual, sobre el total de la rutina. **No hay contadores guardados ni migración, y la API no cambia.**
+- **Los calentamientos no cuentan**: no mueven la sesión (D-64) y por eso tampoco el contador; la barra es "series de la rutina hechas", no "registros cargados". El drop set tampoco (D-64/P-46).
+- **Tiempo transcurrido**: desde `horaInicio` de la sesión. El reloj de la pantalla (`ahora`) **antes corría solo durante el descanso** y ahora corre mientras la sesión está abierta, con **un solo
+  intervalo** para las dos cosas. Se detiene al finalizar. El reloj **no se anuncia cada segundo** a los lectores de pantalla (sin `aria-live` ni `role="timer"`).
+- **Accesibilidad**: la barra es un `progressbar` con nombre ("Progreso de la sesión"), valores mínimo, máximo y actual, y el texto en palabras ("7 de 19 series"). El número de ejercicio y las series se
+  leen como texto; nada depende del color.
+- **Casos de borde** (todos con test): sesión recién creada (0 series, 0:00); serie fuera de rango (se limita al total del ejercicio); ejercicio actual que no está en la lista (no se inventa "Ejercicio
+  null de N"); rutina sin series (la barra no divide por cero); reloj desfasado o valor inválido (se lee "0:00", nunca tiempo negativo); lista de ejercicios desordenada (se respeta el orden de la rutina);
+  rutina completada (todas hechas).
+- **Dónde vive**: la lógica es pura y está probada (`src/domains/sesion/progreso-sesion.ts`: conteo, porcentaje y formato "m:ss" o "h:mm:ss"); el componente `EncabezadoDeSesion` solo dibuja.
+- **Alternativas descartadas**: guardar un contador de series en la sesión (se desincroniza si se corrige un dato); contar los registros cargados (un calentamiento o un drop set harían avanzar la barra sin
+  ser una serie de la rutina); un `aria-live` en el reloj (anunciaría cada segundo).
+- **Verificado**: tests del conteo, del porcentaje y del formato de tiempo, del componente (texto, barra accesible, casos de borde) y de la pantalla (al retomar, con varios ejercicios, reloj que avanza solo,
+  contador y barra que suben al registrar, calentamiento que no avanza, cambio de ejercicio, sesión nueva, convivencia con el cronómetro de descanso). Pruebas de mutación: sin sumar los ejercicios
+  anteriores, con el reloj solo durante el descanso, con la barra de ancho fijo y sin limitar la serie, algún test falla. **No** se probó en el navegador: queda para Fernando, en especial el espaciado
+  del encabezado junto al título del ejercicio.
+
+
+### D-68 · Peso corporal: borrar el propio pesaje (P-47, inspirado en openGym)
+- **Origen**: Fernando (2026-10-20), pendiente P-47, con el criterio de seguir a openGym. Lo que hace openGym (`sheets.jsx`): un tacho por pesaje (un toque en los 3 más recientes, "deshacer un error de tipeo en un
+  toque es el punto"; con confirmación en la lista completa), la fecha **siempre es hoy** (no hay selector) y volver a pesarse el mismo día **reemplaza** el valor. Idea tomada como referencia; **no se copió código** (AGPL-3.0).
+- **Decisión**: **borrar sí; cargar un pesaje de otra fecha no; corregir el valor no** (se borra y se vuelve a pesar). Con el borrado un error de tipeo queda cubierto sin abrir la puerta a pesajes con fecha inventada.
+- **Backend**: `DELETE /api/peso/[id]` (204 sin cuerpo), solo el SOCIO sobre sus propios pesajes; el staff recibe 403, como al registrar (P-48). La condición del borrado lleva el id del pesaje **y** el del socio
+  (`deleteMany`): el pesaje de otro socio da el mismo 404 que uno inexistente, así no se revela que existe. Borrar **no toca la meta**: aunque se borre el último pesaje, la meta sigue y reaparece con el próximo.
+- **Contrato del Home**: `peso.puntos` (uno por día) pasa a `peso.mediciones`, **los pesajes con su id**, del más antiguo al más reciente (los últimos 400). Hace falta el id para borrar, y entregar todos los pesajes
+  (no solo uno por día) permite que, al borrar el último de un día, **vuelva el anterior de ese mismo día**: la tarjeta decide qué dibujar con la misma regla del servidor (`puntosDelGrafico`).
+- **Tarjeta**: lista "Pesajes recientes" (los 3 últimos) con un botón de borrar de nombre completo ("Borrar pesaje de 78,4 kg del 12 oct"). **Un toque, sin confirmación**, como en los recientes de openGym: es
+  irreversible, y el costo de un borrado por error es volver a pesarse. Mientras borra se bloquea todo (no hay doble borrado) y si el servidor rechaza se muestra su mensaje. Borrar el único pesaje vuelve al estado
+  vacío (la meta guardada se conserva).
+- **Lo que no hace**: no hay una lista completa del historial de peso (donde openGym pide confirmación) porque Arnold todavía no tiene esa pantalla; si se agrega, ahí conviene confirmar.
+- **Alternativas descartadas**: editar el valor o la fecha de un pesaje (no es lo que hace openGym y habilita historiales falsos); un diálogo de confirmación en cada borrado (openGym lo evita justo en los recientes);
+  seguir entregando solo los puntos reducidos (no permite borrar el pesaje correcto).
+- **Verificado**: tests del dominio (condición con socio, no encontrado, pesaje ajeno, meta intacta), de la API y la ruta (401, 403 para el staff, 404, 204, 500) y de la tarjeta (lista, borrar y recalcular, mismo día,
+  único pesaje, error, doble envío, reactivar la meta). Pruebas de mutación: sin la condición del socio, dejando borrar al staff, sin sacar el pesaje del estado, sin el tope de 3 y con el orden invertido del payload,
+  algún test falla. **No** se probó en el navegador ni contra una base real.
+
+### D-69 · Tracking: el drop set cuelga de la serie y no ocupa una serie de la rutina (P-46, inspirado en openGym)
+- **Origen**: Fernando (2026-10-20), pendiente P-46, con el criterio de seguir a openGym. Al revisar su código el modelo es otro que el de D-64: el drop **no es una serie nueva** sino una fila que cuelga de la serie
+  (`Workout.jsx`: "mutan la fila, misma tarjeta, no una serie nueva con su propio descanso largo"); al armar la próxima sesión descarta los drops porque "inventarían trabajo extra que la fila nunca hizo"; y el
+  historial los muestra pegados a la serie (`75×8 ↘ 60×6`). **Esto reemplaza lo que D-64 decidió** (el drop ocupaba una serie y el motor exigía `series − drops`). Idea tomada como referencia; **no se copió código**.
+- **Decisión**: el drop set **no ocupa una serie de la rutina, no mueve la sesión, no tiene descanso propio y la progresión lo ignora por completo**. Se guarda como una fila `DROP_SET` más del historial, para poder
+  mostrarlo, pero sin número de serie ni RIR.
+- **Cómo se registra**: **junto con la serie, en la misma petición y transacción** (campo `drops`: hasta 5, con carga ≥ 0 y repeticiones enteras ≥ 1), y no después. Registrarlo aparte tras la última serie de un ejercicio
+  no funcionaría: la sesión ya habría avanzado y no habría serie a la que colgarlo. Así además es atómico: o se guarda la serie con sus drops o nada. Cada drop queda 1 ms después del anterior para que el historial los
+  muestre en el orden en que se hicieron. `DROP_SET` **ya no se acepta como tipo de serie**, y un calentamiento no lleva drops. Todo se valida antes de tocar la base.
+- **Motor** (`leerSesion`): los drops se ignoran: no se juzgan contra las repeticiones objetivo, no cuentan para la carga de trabajo y **tampoco reemplazan a una serie de trabajo que faltó**. Desaparece la cuenta
+  `series − drops`. Con 3 × 8: 40×8, 40×8, 40×8 y un drop 30×4 = cumplida; 40×8, 40×8 y un drop = **no** cumple (falta una serie de trabajo). Las series hasta el fallo siguen contando como cualquier otra.
+- **Alrededor**: el resumen no cuenta los drops como series hechas (los muestra y los etiqueta); la comparación contra la última vez ya los ignoraba (D-64); la precarga de carga usa la N-ésima **serie de trabajo**
+  (antes habría tomado un drop como "la serie 2"); la última vez nunca resalta un drop como "la serie en curso"; el encabezado de la sesión (D-67) cuenta por posición, así que no cambia. Los **récords** (D-63) siguen
+  contando las filas de drop como cualquier serie con carga: lo que ya decidía D-64 es que solo el calentamiento queda afuera.
+- **Pantalla**: el selector vuelve a **tres tipos** (Normal, Calentamiento, Al fallo) y debajo aparece **"Agregar drop set"**. Cada fila parte de un **20 % menos de carga** que la anterior (redondeado al disco de
+  2,5 kg, encadenado: 40 → 32,5 → 25) y de las repeticiones de la serie, y se ajusta, se quita y viaja con ella. **Un solo descanso** al registrar. Los drops se descartan al elegir calentamiento y al registrar; si el
+  servidor rechaza la serie quedan para reintentar.
+- **Lo ya guardado**: como la migración de D-64 quedó aplicada el 2026-10-19, no hay filas `DROP_SET` anteriores que ocupen una serie. Si las hubiera, se siguen mostrando con su etiqueta y el motor las ignora.
+- **Alternativas descartadas**: registrar el drop como una petición aparte después de la serie (la sesión ya avanzó); guardar los drops en una columna de la serie (obligaría a una migración y a romper el historial:
+  las filas aparte reutilizan el modelo); mantener la regla de D-64 (obliga a planificar un hueco en la rutina y no es lo que hace openGym).
+- **Verificado**: tests de la validación (forma, máximo, valores, calentamiento, tipo no válido), de la creación (filas, orden, una sola avance de sesión, respuesta), del motor, del resumen, de la precarga, de la ruta y
+  de la pantalla (filas, carga sugerida, una petición, un descanso, calentamiento, error, máximo, cambio de ejercicio). Pruebas de mutación: con el motor contando los drops, aceptando `DROP_SET` como tipo, contándolos
+  en el resumen, sin el máximo, sin saltearlos en la precarga, sin limpiar las filas al registrar y resaltándolos en la última vez, algún test falla. **No** se probó en el navegador (el aspecto de las filas de drop
+  debajo del RIR queda para Fernando).
+
+
+### D-70 · Catálogo de ejercicios del dataset `exercises-dataset` (T-050, schema, traducción, importación, media y UI)
+> **Nota de numeración.** Este bloque llegó como **D-67/T-049**, IDs que ya eran el encabezado de la pantalla de entrenamiento (D-67)
+> y su tarea (T-049). Se renumeró a **D-70/T-050**; el resto de las referencias (D-60, D-61, D-64, D-65, D-66) no cambian.
+
+- **Origen**: Fernando (2026-10-19). Cargar **todos** los ejercicios de `hasaneyldrm/exercises-dataset` (1.324, con GIF y datos), **solo en español**.
+  Claude analizó el dataset y Fernando aprobó el mapeo de categorías. Idea y datos del dataset; el código de Arnold es propio.
+- **Grupos musculares**: las 10 categorías del dataset se mapean con `grupoDesdeCategoria` (`src/domains/ejercicio/catalogo.ts`): `chest`→Pecho,
+  `back`→Espalda, `shoulders`→Hombros, `upper arms`/`lower arms`→Brazos, `upper legs`/`lower legs`→Piernas, `waist`→Abdomen. **`neck` y `cardio` no se
+  fuerzan**: se agregan **Cuello** y **Cardio** a `GRUPOS_MUSCULARES` (de 6 a 8). Una categoría desconocida **lanza**, no cae en un grupo inventado.
+- **Schema** (migración `20261019120000_catalogo_ejercicios`, escrita a mano y **aplicada el 2026-10-21**): `Ejercicio` suma `datasetId` (único),
+  `equipamiento`, `musculoObjetivo`, `musculosSecundarios[]`, `instrucciones[]` (un paso por elemento) y `mediaId`. Todo opcional o con default: los
+  ejercicios del seed y los cargados a mano siguen válidos. Índice en `equipamiento`. `prisma migrate status` da **18/18** y `migrate diff`, 0 diferencias.
+- **Traducción y catálogo**: los 1.324 nombres se tradujeron a mano (implementos al final: "Press banca con barra", "Curl de bíceps con mancuernas");
+  equipamiento (28) y músculos (59) viven en `prisma/data/glosario-ejercicios.json` y los nombres en `nombres-ejercicios.json`. El generador
+  `npm run catalogo:generar -- <dataset>` produce `prisma/data/ejercicios-es.json`; `tests/catalogo/catalogo-datos.test.ts` verifica 1.324 ids/nombres únicos,
+  los 8 grupos y que no queden términos sin traducir. Resultado por grupo: Brazos 329, Piernas 286, Espalda 203, Abdomen 169, Pecho 163, Hombros 143,
+  Cardio 29, Cuello 2. **P-51**: las instrucciones vienen en español de España y se usan tal cual.
+- **Importador** (`npm run catalogo:importar [-- --dry-run]`): la decisión de qué hacer con cada ejercicio es pura (`planificarImportacion`); la ejecución
+  usa lotes (200 `createMany`, 100 `update` por transacción). **Idempotente** por `datasetId`, no pisa nombre/grupo editados por el admin (salvo
+  `--sobrescribir-nombres`), no toca ejercicios sin `datasetId` y reporta conflictos de nombre en vez de duplicar. Se corrió el 2026-10-21:
+  **1.324 creados**, 0 actualizados; la base quedó con **1.330** ejercicios (los 6 del seed intactos).
+- **Media** (`npm run media:convertir -- <dataset>`): GIF → **mp4 H.264** (CRF 26, `yuv420p`, `+faststart`, sin audio) + **jpg** del primer cuadro, en
+  `public/ejercicios/<mediaId>.{mp4,jpg}`. Medido: **122,8 MB de GIF → 16,5 MB**. Repetible y a prueba de cortes (escribe `.tmp` y renombra; omite lo ya
+  convertido). Solo se versionan mp4/jpg; los GIF están en `.gitignore`. **1.324 pares** presentes. Los mp4 se agregaron al matcher de `src/proxy.ts`
+  (antes cada video hacía 2 consultas a la base); como las imágenes, son públicos por URL (relacionado con P-50).
+- **UI del admin**: `EjercicioMiniatura` (jpg con `loading="lazy"`), video solo en el detalle, panel `EjercicioDetalle` que pide el ejercicio completo al
+  abrirlo (`GET /api/ejercicios/:id`), filtros por grupo y equipamiento, búsqueda por equipamiento/músculo sin tildes, paginación en el cliente de a 50 y
+  atribución "© Gym visual — https://gymvisual.com/". El listado ya no trae instrucciones (`omit`), así que baja de ~1.050 KB a ~360 KB.
+- **UI del socio**: `GET /api/home-socio/secciones` incluye `mediaId`, equipamiento, músculo e instrucciones; "Mis ejercicios" muestra la animación y
+  "Cómo se hace"; "Mi rutina" muestra miniaturas; la atribución aparece una vez por pantalla. Toleran un ejercicio sin media o un archivo que no carga.
+- **Licencia (P-50)**: el código/textos del dataset son MIT, pero los GIF/imágenes son **© Gym visual** y no los cubre la MIT: exigen la atribución y no
+  pasar de 180×180. Es un pendiente de negocio/compliance, no de código.
+- **Verificado**: tests del mapeo, traducción y catálogo; del planificador/importador con base en memoria; del conversor (ffprobe: duración y archivos
+  íntegros); de las rutas y de la UI. `tsc` y `eslint` limpios; **224 suites / 3.052 tests**; `npm run build` OK. Migración aplicada y catálogo importado
+  contra Supabase (2026-10-21). **No** se revisó el aspecto en el navegador: queda para Fernando.
 
 
 ---
@@ -1229,10 +1332,12 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-43 | ~~Editar una rutina borraba y recreaba todas sus filas de `EjercicioEnRutina` y reiniciaba el motor de progresión (D-59)~~ | — | **Resuelto (D-61)**: `sincronizarEjercicios` guarda solo lo que cambió (diff por `ejercicioId`); `updatedAt` pasa a significar "último cambio de series o repeticiones" |
 | P-44 | Marcas personales (D-63): Arnold no distingue los ejercicios asistidos y cada resumen y cada inicio de sesión leen todo el historial con carga de cada ejercicio | Baja | Si el historial crece mucho, guardar los mejores por ejercicio |
 | P-45 | ~~Aplicar a la base real las migraciones escritas a mano `20261018120000_tipo_de_serie` (D-64) y `20261018180000_peso_corporal_con_meta` (D-65)~~ | — | **Resuelto (2026-10-19)**: `npx prisma migrate deploy` aplicó las dos; `migrate status` da **17/17 al día** y `migrate diff` contra el schema, **0 diferencias**. Antes se verificaron desde cero en un Postgres 17 efímero |
-| P-46 | ~~Confirmar la regla del drop set en el motor (D-64)~~ | — | **Resuelto (2026-10-19)**: el drop set **no ocupa una serie**, no avanza la sesión, no dispara el descanso largo y la progresión lo ignora por completo, como openGym. `leerSesion` ya no descuenta drops |
-| P-47 | ~~Peso corporal (D-65): un pesaje no se puede corregir ni borrar, y su fecha es siempre "ahora"~~ | — | **Resuelto (2026-10-19)**: `DELETE /api/peso/[id]` borra un pesaje propio y la tarjeta tiene "Pesajes recientes" con confirmación. **No** se carga una fecha distinta: la fecha es siempre "ahora" (decisión) |
-| P-48 | ~~Peso corporal (D-65): confirmar si el instructor debe poder verlo o cargarlo~~ | — | **Resuelto (2026-10-19)**: se mantiene **privado**. Solo el SOCIO lo registra y lo ve; el staff recibe 403. Si cambia, será con un permiso explícito del socio |
+| P-46 | ~~Confirmar la regla del drop set en el motor (D-64)~~ | — | **Resuelto (D-69, 2026-10-20)**: siguiendo a openGym, el drop set cuelga de la serie, no ocupa una serie de la rutina, no mueve la sesión ni tiene descanso propio y el motor lo ignora |
+| P-47 | ~~Peso corporal (D-65): un pesaje no se puede corregir ni borrar~~ | — | **Resuelto (D-68, 2026-10-20)**: `DELETE /api/peso/[id]` borra un pesaje propio; la tarjeta lista los 3 más recientes con un toque. La fecha sigue siendo "ahora" y el valor no se corrige: se borra y se vuelve a pesar |
+| P-48 | ~~Peso corporal (D-65): confirmar si el instructor debe poder verlo o cargarlo~~ | — | **Resuelto (2026-10-20)**: se mantiene **privado**, como openGym (el peso nunca se comparte con nombre). Si el negocio quiere que lo vea el instructor, que lo decida el socio con un permiso explícito |
 | P-49 | La cuarta fila del Home (peso corporal, D-66) no estaba en el diseño original: confirmar con el diseño de Home_Socio dónde va y cómo se ve (hoy, una tarjeta de ancho completo debajo de Racha y Membresía) | Baja | — |
+| P-50 | Catálogo de ejercicios (T-050, D-70): la media es © Gym visual (fuera de la MIT); mostrar la atribución donde aparezca, mantener 180×180 y mencionarlo en el informe | Media | La migración y la importación ya están hechas; queda el cumplimiento de la licencia |
+| P-51 | Catálogo (T-050, D-70): las instrucciones en español del dataset están en español de España (“Túmbate”, “suelo”); se usan tal cual | Baja | Adaptarlas al rioplatense es opcional (1.324 textos) |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | **Casi cerrado (2026-10-16)**: `npm run build` ✅ y `npm run start` ✅ (exit 0, 45 páginas). El **pooler se probó y funciona**: Prisma directo tolera las transacciones interactivas (el landmine de pgbouncer no se dispara) y `npm run start` con `DATABASE_URL` *pooled* responde login `200` y `/api/home-interno` `200` (6,01 s / 2,40 s, contra 3,21 s / 1,33–1,71 s de la conexión directa: **más lento en local por `connection_limit=1`**, que serializa las consultas; su beneficio es la concurrencia en serverless). **Falta probarlo en Vercel**; las migraciones siguen necesitando conexión directa (sin `directUrl`) |

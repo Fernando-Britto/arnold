@@ -13,12 +13,12 @@ jest.mock("@/lib/auth", () => ({
   extractUserFromRequest: jest.fn(),
 }));
 
-import { handleEliminarPeso } from "@/api/peso";
+import { handleBorrarPeso } from "@/api/peso";
 import { resolveSocioIdDeUsuario } from "@/api/sesiones";
 import { extractUserFromRequest } from "@/lib/auth";
 import { DELETE } from "./route";
 
-const mockEliminar = handleEliminarPeso as jest.MockedFunction<typeof handleEliminarPeso>;
+const mockBorrar = handleBorrarPeso as jest.MockedFunction<typeof handleBorrarPeso>;
 const mockResolver = resolveSocioIdDeUsuario as jest.MockedFunction<typeof resolveSocioIdDeUsuario>;
 const mockUser = extractUserFromRequest as jest.Mock;
 
@@ -35,14 +35,14 @@ describe("DELETE /api/peso/[id]", () => {
     mockUser.mockReturnValue(null);
 
     expect((await DELETE(req(), params())).status).toBe(401);
-    expect(mockEliminar).not.toHaveBeenCalled();
+    expect(mockBorrar).not.toHaveBeenCalled();
   });
 
   it.each(["ADMINISTRADOR", "INSTRUCTOR", "RECEPCIONISTA"])("403 para %s", async (rol) => {
     mockUser.mockReturnValue({ id: "u-staff", rol });
 
     expect((await DELETE(req(), params())).status).toBe(403);
-    expect(mockEliminar).not.toHaveBeenCalled();
+    expect(mockBorrar).not.toHaveBeenCalled();
   });
 
   it("404 si el usuario socio no tiene perfil de socio", async () => {
@@ -58,18 +58,18 @@ describe("DELETE /api/peso/[id]", () => {
   it("204: borra el pesaje del propio socio", async () => {
     mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
     mockResolver.mockResolvedValueOnce("socio-1");
-    mockEliminar.mockResolvedValueOnce(undefined);
+    mockBorrar.mockResolvedValueOnce(undefined);
 
     const res = await DELETE(req(), params("m1"));
 
     expect(res.status).toBe(204);
-    expect(mockEliminar).toHaveBeenCalledWith({ socioId: "socio-1", id: "m1" });
+    expect(mockBorrar).toHaveBeenCalledWith({ socioId: "socio-1", id: "m1" });
   });
 
   it("404 si el pesaje no es del socio (el dominio no distingue de inexistente)", async () => {
     mockUser.mockReturnValue({ id: "u-socio", rol: "SOCIO" });
     mockResolver.mockResolvedValueOnce("socio-1");
-    mockEliminar.mockRejectedValueOnce(new Error("NOT_FOUND"));
+    mockBorrar.mockRejectedValueOnce(new Error("NOT_FOUND"));
 
     const res = await DELETE(req(), params("m-ajeno"));
 

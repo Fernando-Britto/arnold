@@ -409,7 +409,7 @@ describe("registrarSerie", () => {
       },
       data: { ejercicioActualId: "ej-1", serieActual: 2 },
     });
-    expect(r).toEqual({ registro: { id: "reg-1" }, sesion: actualizada });
+    expect(r).toEqual({ registro: { id: "reg-1" }, sesion: actualizada, drops: [] });
   });
 
   it("al terminar las series del ejercicio avanza al siguiente y vuelve a serie 1", async () => {
@@ -625,17 +625,6 @@ describe("registrarSerie con tipo de serie (T-047, D-64)", () => {
     );
   });
 
-  it("un DROP_SET cuelga de la serie anterior: se guarda sin número y sin avanzar", async () => {
-    const prisma = await conSesion();
-
-    await registrarSerie({ ...base, tipo: "DROP_SET" });
-
-    expect(prisma.registroDeProgreso.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ tipo: "DROP_SET", numeroSerie: null }),
-    });
-    expect(prisma.sesionDeEntrenamiento.updateMany).not.toHaveBeenCalled();
-  });
-
   describe("calentamiento", () => {
     it("se guarda sin número de serie y sin avanzar la sesión", async () => {
       const prisma = await conSesion();
@@ -699,6 +688,207 @@ describe("registrarSerie con tipo de serie (T-047, D-64)", () => {
     );
     expect(prisma.sesionDeEntrenamiento.findUnique).not.toHaveBeenCalled();
     expect(prisma.registroDeProgreso.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("registrarSerie con drop sets colgados (P-46, D-69)", () => {
+  const FECHA = new Date("2026-10-16T13:20:00.000Z");
+  const base = { sesionId: "sesion-1", ejercicioId: "ej-1", carga: 40, repeticiones: 8, rir: 1 };
+
+  beforeEach(async () => {
+    const prisma = await mocks();
+    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockReset();
+    (prisma.sesionDeEntrenamiento.updateMany as jest.Mock).mockReset();
+    (prisma.registroDeProgreso.create as jest.Mock).mockReset();
+    (prisma.sesionDeEntrenamiento.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    let n = 0;
+    // Devuelve la fila como la guardaría la base, con la fecha que se le dio (o la de "ahora").
+    (prisma.registroDeProgreso.create as jest.Mock).mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        id: `reg-${++n}`,
+        ...data,
+        fecha: (data.fecha as Date | undefined) ?? FECHA,
+      })
+    );
+  });
+
+  // Un valor encolado que no se consume (por ejemplo si falla guardar un drop) no debe pasar al test siguiente.
+  afterEach(async () => {
+    const prisma = await mocks();
+    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock).mockReset();
+    (prisma.registroDeProgreso.create as jest.Mock).mockReset();
+  });
+
+  async function conSesion(overrides: Record<string, unknown> = {}) {
+    const prisma = await mocks();
+    (prisma.sesionDeEntrenamiento.findUnique as jest.Mock)
+      .mockResolvedValueOnce(sesionEnCurso(overrides))
+      .mockResolvedValueOnce({ id: "sesion-1", ejercicioActualId: "ej-1", serieActual: 2 });
+    return prisma;
+  }
+
+  const creados = (prisma: Awaited<ReturnType<typeof mocks>>) =>
+    (prisma.registroDeProgreso.create as jest.Mock).mock.calls.map(([arg]) => arg.data);
+
+  it("guarda la serie y, enseguida, una fila DROP_SET por cada drop, en la misma operación", async () => {
+    const prisma = await conSesion();
+
+    await registrarSerie({
+      ...base,
+      drops: [
+        { carga: 30, repeticiones: 6 },
+        { carga: 20, repeticiones: 8 },
+      ],
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    const filas = creados(prisma);
+    expect(filas).toHaveLength(3);
+    expect(filas[0]).toMatchObject({ tipo: "NORMAL", numeroSerie: 1, carga: 40, repeticiones: 8 });
+    expect(filas[1]).toMatchObject({ tipo: "DROP_SET", carga: 30, repeticiones: 6 });
+    expect(filas[2]).toMatchObject({ tipo: "DROP_SET", carga: 20, repeticiones: 8 });
+  });
+
+  it("los drops no tienen número de serie ni RIR, y son del mismo socio, ejercicio y sesión", async () => {
+    const prisma = await conSesion();
+
+    await registrarSerie({ ...base, drops: [{ carga: 30, repeticiones: 6 }] });
+
+    expect(creados(prisma)[1]).toMatchObject({
+      numeroSerie: null,
+      rir: null,
+      socioId: "socio-1",
+      ejercicioId: "ej-1",
+      sesionId: "sesion-1",
+    });
+  });
+
+  it("cada drop queda 1 ms después del anterior: el orden en el historial es el de la serie", async () => {
+    const prisma = await conSesion();
+
+    await registrarSerie({
+      ...base,
+      drops: [
+        { carga: 30, repeticiones: 6 },
+        { carga: 20, repeticiones: 8 },
+      ],
+    });
+
+    // La serie no lleva fecha explícita (la pone la base); los drops se cuentan desde la que devolvió.
+    const [, primero, segundo] = creados(prisma).map((d) => d.fecha as Date);
+    expect(primero.getTime()).toBe(FECHA.getTime() + 1);
+    expect(segundo.getTime()).toBe(FECHA.getTime() + 2);
+  });
+
+  it("los drops NO mueven la sesión: avanza una sola serie", async () => {
+    const prisma = await conSesion();
+
+    await registrarSerie({ ...base, drops: [{ carga: 30, repeticiones: 6 }, { carga: 20, repeticiones: 8 }] });
+
+    expect(prisma.sesionDeEntrenamiento.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.sesionDeEntrenamiento.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { ejercicioActualId: "ej-1", serieActual: 2 } })
+    );
+  });
+
+  it("también se pueden colgar de una serie hasta el fallo", async () => {
+    const prisma = await conSesion();
+
+    await registrarSerie({ ...base, tipo: "HASTA_EL_FALLO", rir: 0, drops: [{ carga: 30, repeticiones: 6 }] });
+
+    expect(creados(prisma).map((d) => d.tipo)).toEqual(["HASTA_EL_FALLO", "DROP_SET"]);
+  });
+
+  it("devuelve la serie y sus drops", async () => {
+    await conSesion();
+
+    const r = await registrarSerie({ ...base, drops: [{ carga: 30, repeticiones: 6 }] });
+
+    expect(r.registro).toMatchObject({ id: "reg-1", tipo: "NORMAL" });
+    expect(r.drops).toHaveLength(1);
+    expect(r.drops[0]).toMatchObject({ id: "reg-2", tipo: "DROP_SET", carga: 30 });
+  });
+
+  it("sin drops no se crea nada de más y `drops` queda vacío", async () => {
+    const prisma = await conSesion();
+
+    const r = await registrarSerie(base);
+
+    expect(creados(prisma)).toHaveLength(1);
+    expect(r.drops).toEqual([]);
+  });
+
+  it("una lista vacía de drops equivale a no mandar ninguno", async () => {
+    const prisma = await conSesion();
+
+    const r = await registrarSerie({ ...base, drops: [] });
+
+    expect(creados(prisma)).toHaveLength(1);
+    expect(r.drops).toEqual([]);
+  });
+
+  describe("validación (nada llega a la base si algo está mal)", () => {
+    const rechaza = async (input: Record<string, unknown>, mensaje: RegExp) => {
+      const prisma = await mocks();
+      await expect(registrarSerie({ ...base, ...input } as never)).rejects.toThrow(mensaje);
+      expect(prisma.sesionDeEntrenamiento.findUnique).not.toHaveBeenCalled();
+      expect(prisma.registroDeProgreso.create).not.toHaveBeenCalled();
+    };
+
+    it("el drop set no se registra solo como tipo de serie: se agrega a una serie", async () => {
+      await rechaza({ tipo: "DROP_SET" }, /VALIDATION_ERROR: .*drop set.*agrega a una serie/i);
+    });
+
+    it("un calentamiento no lleva drop sets", async () => {
+      await rechaza(
+        { tipo: "CALENTAMIENTO", drops: [{ carga: 10, repeticiones: 5 }] },
+        /VALIDATION_ERROR: Un calentamiento no lleva drop sets/
+      );
+    });
+
+    it("hay un máximo de drop sets por serie", async () => {
+      const seis = Array.from({ length: 6 }, () => ({ carga: 20, repeticiones: 5 }));
+
+      await rechaza({ drops: seis }, /VALIDATION_ERROR: Una serie admite hasta 5 drop sets/);
+    });
+
+    it("`drops` tiene que ser una lista", async () => {
+      await rechaza({ drops: "30x6" }, /VALIDATION_ERROR: .*drop sets.*lista/i);
+      await rechaza({ drops: { carga: 30, repeticiones: 6 } }, /VALIDATION_ERROR: .*drop sets.*lista/i);
+    });
+
+    it.each([
+      [{ carga: -5, repeticiones: 6 }],
+      [{ carga: Number.NaN, repeticiones: 6 }],
+      [{ carga: "30", repeticiones: 6 }],
+      [{ repeticiones: 6 }],
+    ])("la carga de un drop tiene que ser un número mayor o igual a 0: %j", async (drop) => {
+      await rechaza({ drops: [drop] }, /VALIDATION_ERROR: La carga del drop set/);
+    });
+
+    it.each([[{ carga: 30, repeticiones: 0 }], [{ carga: 30, repeticiones: 1.5 }], [{ carga: 30 }]])(
+      "las repeticiones de un drop tienen que ser un entero mayor o igual a 1: %j",
+      async (drop) => {
+        await rechaza({ drops: [drop] }, /VALIDATION_ERROR: Las repeticiones del drop set/);
+      }
+    );
+
+    it("un elemento que no es un objeto se rechaza sin romper", async () => {
+      await rechaza({ drops: [null] }, /VALIDATION_ERROR/);
+      await rechaza({ drops: [7] }, /VALIDATION_ERROR/);
+    });
+  });
+
+  it("si falla guardar un drop el error sube (la transacción revierte la serie)", async () => {
+    const prisma = await conSesion();
+    (prisma.registroDeProgreso.create as jest.Mock)
+      .mockImplementationOnce(async ({ data }: { data: Record<string, unknown> }) => ({ id: "reg-1", ...data, fecha: FECHA }))
+      .mockRejectedValueOnce(new Error("boom-drop"));
+
+    await expect(registrarSerie({ ...base, drops: [{ carga: 30, repeticiones: 6 }] })).rejects.toThrow(
+      "boom-drop"
+    );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 });
 

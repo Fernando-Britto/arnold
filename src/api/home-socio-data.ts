@@ -6,7 +6,6 @@ import type { HomeSocioViewModel } from "@/api/home-socio";
 import { estadoCuotaSocio, periodoDe } from "@/domains/pago/cuota";
 import { evaluarOfertaDeSocio } from "@/domains/pago/oferta-reactivacion-consulta";
 import type { ConfigOferta } from "@/domains/pago/oferta-reactivacion";
-import { puntosDelGrafico } from "@/domains/peso/peso-corporal";
 import { seguimientoDeEjercicios } from "@/domains/sesion/sesion-de-entrenamiento";
 import { SOLO_SERIES_DE_TRABAJO } from "@/domains/sesion/tipo-serie";
 import {
@@ -146,7 +145,7 @@ export async function buildHomeSocioPayload(
       },
       now,
     ),
-    // T-048: los pesajes del propio socio, los más recientes primero (se reduce a uno por día abajo).
+    // T-048: los pesajes del propio socio, los más recientes primero (se entregan del más antiguo al más reciente).
     prisma.medicionDePeso.findMany({
       where: { socioId: socio.id },
       orderBy: { fecha: "desc" },
@@ -248,16 +247,12 @@ export async function buildHomeSocioPayload(
         : null,
     oferta: evaluacionOferta.elegible ? { descuentoPct: evaluacionOferta.descuentoPct } : null,
     peso: {
-      puntos: puntosDelGrafico(pesajes.map((m) => ({ fecha: m.fecha, peso: Number(m.peso) }))).map((p) => ({
-        fecha: p.fecha.toISOString(),
-        peso: p.peso,
-      })),
-      // P-47: los últimos pesajes con su id para poder borrarlos desde la tarjeta. Van del más
-      // reciente al más antiguo; es la lista de "Pesajes recientes", no la serie del gráfico.
-      recientes: pesajes.slice(0, 10).map((m) => ({
+      // P-47 (D-68): los pesajes con su id, del más antiguo al más reciente. La tarjeta decide
+      // cuáles dibujar (uno por día, el último) y cuáles listar para borrar (los 3 últimos).
+      mediciones: [...pesajes].reverse().map((m) => ({
         id: m.id,
-        peso: Number(m.peso),
         fecha: m.fecha.toISOString(),
+        peso: Number(m.peso),
       })),
       pesoObjetivo: socio.pesoObjetivo === null || socio.pesoObjetivo === undefined ? null : Number(socio.pesoObjetivo),
       pesoInicial:

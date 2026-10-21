@@ -3,6 +3,8 @@
  */
 import {
   ETIQUETAS_TIPO_SERIE,
+  MAX_DROPS,
+  TIPOS_ELEGIBLES,
   SOLO_SERIES_DE_TRABAJO,
   etiquetaDeTipo,
   TIPOS_DE_SERIE,
@@ -54,3 +56,17 @@ describe("etiquetas de los tipos de serie (T-047 parte 2)", () => {
   });
 });
 
+describe("drop sets colgados de una serie (P-46, D-69)", () => {
+  it("el socio elige el tipo entre tres: el drop set no es un tipo de serie que se elija, se agrega a una serie", () => {
+    expect(TIPOS_ELEGIBLES).toEqual(["NORMAL", "CALENTAMIENTO", "HASTA_EL_FALLO"]);
+    expect(TIPOS_ELEGIBLES).not.toContain("DROP_SET");
+  });
+
+  it("DROP_SET sigue siendo un tipo válido para lo ya guardado y para el historial", () => {
+    expect(esTipoSerie("DROP_SET")).toBe(true);
+  });
+
+  it("una serie admite un número acotado de drop sets", () => {
+    expect(MAX_DROPS).toBe(5);
+  });
+});

@@ -21,6 +21,7 @@ import { agruparSesiones, type RegistroHistorico, type UltimaVez } from "./histo
 import { sugerirProximaCarga, type Sugerencia } from "./progresion-ejercicio";
 import { fronteraDeRecords, type SerieMarca } from "./marcas-ejercicio";
 import {
+  MAX_DROPS,
   SOLO_SERIES_DE_TRABAJO,
   TIPO_SERIE_POR_DEFECTO,
   esTipoSerie,
@@ -54,10 +55,21 @@ export interface RegistrarSerieInput {
   carga: number;
   repeticiones: number;
   rir?: number | null;
-  /** Tipo de serie (D-64); sin él es NORMAL. */
+  /** Tipo de serie (D-64); sin él es NORMAL. El drop set no es un tipo que se elija: ver `drops`. */
   tipo?: TipoSerie;
+  /**
+   * Drop sets colgados de esta serie (P-46, D-69): repeticiones extra con menos carga, hechas
+   * enseguida. Se guardan con la serie, en la misma operación, y no mueven la sesión.
+   */
+  drops?: DropDeSerie[];
   /** Inyectable en tests; en producción es `new Date()`. */
   ahora?: Date;
+}
+
+/** Un drop set: la carga reducida y las repeticiones que hizo con ella. */
+export interface DropDeSerie {
+  carga: number;
+  repeticiones: number;
 }
 
 export interface FinalizarSesionInput {
@@ -94,6 +106,8 @@ export interface SesionIniciada {
 export interface SerieRegistrada {
   registro: unknown;
   sesion: unknown;
+  /** Filas DROP_SET guardadas junto con la serie, en el orden en que se hicieron (P-46, D-69). */
+  drops: unknown[];
 }
 
 export interface UltimaCarga {
@@ -367,6 +381,11 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
   if (!esTipoSerie(tipo)) {
     throw new Error("VALIDATION_ERROR: El tipo de serie no es válido");
   }
+  // P-46, D-69: el drop set no es una serie. Se agrega a una serie ya hecha, no se registra solo.
+  if (tipo === "DROP_SET") {
+    throw new Error("VALIDATION_ERROR: El drop set se agrega a una serie, no se registra solo");
+  }
+  const drops = validarDrops(input.drops, tipo);
 
   return prisma.$transaction(async (tx) => {
     // SE-2: la lectura y revalidación de la sesión van DENTRO de la transacción. Si se
@@ -404,7 +423,7 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
     // guardan sin número de serie y SIN mover la sesión (ni siquiera en la última serie del
     // ejercicio): el socio sigue parado donde estaba. Un drop set cuelga de la serie anterior,
     // así que tampoco dispara el descanso largo (lo resuelve la pantalla).
-    if (tipo === "CALENTAMIENTO" || tipo === "DROP_SET") {
+    if (tipo === "CALENTAMIENTO") {
       const registro = await tx.registroDeProgreso.create({
         data: {
           socioId: sesion.socioId,
@@ -419,7 +438,7 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
         },
       });
       const sinCambios = await tx.sesionDeEntrenamiento.findUnique({ where: { id: sesion.id } });
-      return { registro, sesion: sinCambios };
+      return { registro, sesion: sinCambios, drops: [] };
     }
 
     const actual = ejercicios[idxActual];
@@ -472,10 +491,67 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
         fecha: input.ahora,
       },
     });
+
+    // P-46, D-69: los drop sets cuelgan de esta serie. Cada uno queda 1 ms después del anterior para
+    // que el historial los muestre en el orden en que se hicieron; no llevan número de serie (no son
+    // una serie de la rutina) ni RIR, y no mueven la sesión: ya avanzó una sola vez, con la serie.
+    const dropsGuardados: unknown[] = [];
+    for (const [i, drop] of drops.entries()) {
+      dropsGuardados.push(
+        await tx.registroDeProgreso.create({
+          data: {
+            socioId: sesion.socioId,
+            ejercicioId: input.ejercicioId,
+            carga: drop.carga,
+            repeticiones: drop.repeticiones,
+            rir: null,
+            numeroSerie: null,
+            tipo: "DROP_SET",
+            sesionId: sesion.id,
+            fecha: new Date(registro.fecha.getTime() + i + 1),
+          },
+        })
+      );
+    }
+
     const sesionActualizada = await tx.sesionDeEntrenamiento.findUnique({
       where: { id: sesion.id },
     });
-    return { registro, sesion: sesionActualizada };
+    return { registro, sesion: sesionActualizada, drops: dropsGuardados };
+  });
+}
+
+/**
+ * Valida los drop sets de una serie (P-46, D-69). Todo se valida ANTES de tocar la base: una lista
+ * mal formada no deja la serie a medias.
+ */
+function validarDrops(drops: unknown, tipo: TipoSerie): DropDeSerie[] {
+  if (drops === undefined || drops === null) return [];
+  if (!Array.isArray(drops)) {
+    throw new Error("VALIDATION_ERROR: Los drop sets tienen que ser una lista");
+  }
+  if (drops.length === 0) return [];
+  if (tipo === "CALENTAMIENTO") {
+    throw new Error("VALIDATION_ERROR: Un calentamiento no lleva drop sets");
+  }
+  if (drops.length > MAX_DROPS) {
+    throw new Error(`VALIDATION_ERROR: Una serie admite hasta ${MAX_DROPS} drop sets`);
+  }
+
+  return drops.map((drop: unknown) => {
+    if (typeof drop !== "object" || drop === null) {
+      throw new Error("VALIDATION_ERROR: Cada drop set tiene que indicar carga y repeticiones");
+    }
+    const { carga, repeticiones } = drop as { carga?: unknown; repeticiones?: unknown };
+    if (typeof carga !== "number" || !Number.isFinite(carga) || carga < 0) {
+      throw new Error("VALIDATION_ERROR: La carga del drop set debe ser un número mayor o igual a 0");
+    }
+    if (typeof repeticiones !== "number" || !Number.isInteger(repeticiones) || repeticiones < 1) {
+      throw new Error(
+        "VALIDATION_ERROR: Las repeticiones del drop set deben ser un entero mayor o igual a 1"
+      );
+    }
+    return { carga, repeticiones };
   });
 }
 
@@ -751,7 +827,11 @@ export async function resumenDeSesion(sesionId: string): Promise<ResumenSesion> 
 
   return {
     sesionId,
-    seriesHechas: hechos.reduce((total, r) => total + r.hoy.length, 0),
+    // Los drop sets se muestran pero no son series de la rutina (P-46, D-69).
+    seriesHechas: hechos.reduce(
+      (total, r) => total + r.hoy.filter((serie) => serie.tipo !== "DROP_SET").length,
+      0
+    ),
     duracionMinutos: sesion.horaFin
       ? Math.max(1, Math.round((sesion.horaFin.getTime() - sesion.horaInicio.getTime()) / 60_000))
       : null,

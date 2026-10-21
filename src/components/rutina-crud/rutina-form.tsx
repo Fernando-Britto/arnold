@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Rutina, Ejercicio } from "@prisma/client";
+import { Rutina } from "@prisma/client";
+import type { EjercicioResumen } from "@/domains/ejercicio/ejercicio";
 import { EjercicioEnRutinaList } from "./ejercicio-en-rutina-list";
 import { type EjercicioEnRutinaRow } from "@/api/rutinas";
 import { validateRutina, OBJETIVOS_PRINCIPALES } from "@/domains/rutina/rutina";
@@ -34,7 +35,7 @@ export interface RutinaFormProps {
     ejercicios: EjercicioEnRutinaRow[];
   }) => Promise<void> | void;
   initialData: (Rutina & { ejercicios?: EjercicioEnRutinaRow[] }) | null;
-  availableEjercicios: Ejercicio[];
+  availableEjercicios: EjercicioResumen[];
   isLoading?: boolean;
 }
 

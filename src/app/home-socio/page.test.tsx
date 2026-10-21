@@ -95,13 +95,9 @@ const baseViewModel: HomeSocioViewModel = {
   },
   oferta: null,
   peso: {
-    puntos: [
-      { fecha: "2026-09-28T15:00:00.000Z", peso: 80 },
-      { fecha: "2026-10-05T15:00:00.000Z", peso: 78.4 },
-    ],
-    recientes: [
-      { id: "m2", fecha: "2026-10-05T15:00:00.000Z", peso: 78.4 },
+    mediciones: [
       { id: "m1", fecha: "2026-09-28T15:00:00.000Z", peso: 80 },
+      { id: "m2", fecha: "2026-10-05T15:00:00.000Z", peso: 78.4 },
     ],
     pesoObjetivo: 77,
     pesoInicial: 80,

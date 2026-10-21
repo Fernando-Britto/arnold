@@ -3,6 +3,7 @@
 import React from "react";
 import { Trophy } from "lucide-react";
 import type { EjercicioDeRutinaDTO } from "@/api/home-socio-secciones";
+import { AtribucionMedia, EjercicioVideo } from "@/components/ejercicio-crud/ejercicio-media";
 
 /**
  * MisEjerciciosSection (T-039, D-45): los ejercicios de la rutina del socio con su
@@ -15,6 +16,7 @@ export interface MisEjerciciosSectionProps {
 const kgFormatter = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
 
 export function MisEjerciciosSection({ ejercicios }: MisEjerciciosSectionProps) {
+  const hayMedia = ejercicios.some((e) => e.mediaId);
   return (
     <section aria-labelledby="mis-ejercicios-titulo" className="flex flex-col gap-6">
       <h1 id="mis-ejercicios-titulo" className="text-xl font-bold text-zinc-900">
@@ -35,15 +37,33 @@ export function MisEjerciciosSection({ ejercicios }: MisEjerciciosSectionProps) 
                 <div className="flex flex-col">
                   <span className="font-bold text-zinc-900">{e.nombre}</span>
                   <span className="text-xs text-zinc-500">{e.grupoMuscular}</span>
+                  {(e.musculoObjetivo || e.equipamiento) && (
+                    <span className="text-xs text-zinc-500">
+                      {[e.musculoObjetivo, e.equipamiento].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
                 </div>
                 <span className="rounded-sm bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
                   {e.series} × {e.repeticiones}
                 </span>
               </div>
 
+              {e.mediaId && <EjercicioVideo mediaId={e.mediaId} nombre={e.nombre} />}
+
               <p className="text-sm text-zinc-600">
                 {e.descripcion ?? "Sin descripción."}
               </p>
+
+              {e.instrucciones.length > 0 && (
+                <details className="text-sm text-zinc-600">
+                  <summary className="cursor-pointer font-bold text-[#FC4C02]">Cómo se hace</summary>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5">
+                    {e.instrucciones.map((paso, i) => (
+                      <li key={i}>{paso}</li>
+                    ))}
+                  </ol>
+                </details>
+              )}
 
               <div className="flex items-center gap-2 border-t border-zinc-100 pt-3">
                 <Trophy className="h-4 w-4 text-[#FC4C02]" aria-hidden="true" />
@@ -56,6 +76,8 @@ export function MisEjerciciosSection({ ejercicios }: MisEjerciciosSectionProps) 
           ))}
         </ul>
       )}
+
+      {hayMedia && <AtribucionMedia />}
     </section>
   );
 }
