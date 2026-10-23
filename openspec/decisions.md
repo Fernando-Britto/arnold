@@ -1239,7 +1239,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   equipamiento (28) y músculos (59) viven en `prisma/data/glosario-ejercicios.json` y los nombres en `nombres-ejercicios.json`. El generador
   `npm run catalogo:generar -- <dataset>` produce `prisma/data/ejercicios-es.json`; `tests/catalogo/catalogo-datos.test.ts` verifica 1.324 ids/nombres únicos,
   los 8 grupos y que no queden términos sin traducir. Resultado por grupo: Brazos 329, Piernas 286, Espalda 203, Abdomen 169, Pecho 163, Hombros 143,
-  Cardio 29, Cuello 2. **P-51**: las instrucciones vienen en español de España y se usan tal cual.
+  Cardio 29, Cuello 2. **P-51** (resuelto en T-050g): las instrucciones venían en español de España y se pasaron a rioplatense.
 - **Importador** (`npm run catalogo:importar [-- --dry-run]`): la decisión de qué hacer con cada ejercicio es pura (`planificarImportacion`); la ejecución
   usa lotes (200 `createMany`, 100 `update` por transacción). **Idempotente** por `datasetId`, no pisa nombre/grupo editados por el admin (salvo
   `--sobrescribir-nombres`), no toca ejercicios sin `datasetId` y reporta conflictos de nombre en vez de duplicar. Se corrió el 2026-10-21:
@@ -1255,10 +1255,87 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   "Cómo se hace"; "Mi rutina" muestra miniaturas; la atribución aparece una vez por pantalla. Toleran un ejercicio sin media o un archivo que no carga.
 - **Licencia (P-50)**: el código/textos del dataset son MIT, pero los GIF/imágenes son **© Gym visual** y no los cubre la MIT: exigen la atribución y no
   pasar de 180×180. Es un pendiente de negocio/compliance, no de código.
+- **Ejecución de la sesión (T-050f)**: `EjecucionRutina` muestra, entre el encabezado de la sesión y "Serie X de N", la animación del ejercicio **actual**,
+  su músculo principal, un desplegable **"Cómo se hace"** cerrado (para no empujar hacia abajo el registro de series, que el socio usa con las manos ocupadas)
+  y la atribución "© Gym visual"; al pasar de ejercicio cambia la animación. Un ejercicio cargado a mano queda igual que antes. Los datos salen de
+  `iniciarSesion` y `detalleSesionEnCurso` (`EjercicioDeSesion` suma `mediaId`, `musculoObjetivo` e `instrucciones`, con `null` y `[]` si faltan); la tercera
+  consulta con el mismo `include` (`resumenDeSesion`) no los pide porque no arma ejercicios para esa pantalla. Se actualizaron las dos aserciones existentes
+  que comparaban el ejercicio completo con `toEqual`, porque el contrato del DTO creció. Verificado con tests de dominio y de la pantalla; no se revisó el
+  aspecto en el navegador (el video convive con el encabezado de D-67: conviene mirarlo en el celular).
+- **Español rioplatense (T-050g, resuelve P-51)**: las instrucciones del dataset vienen en castellano ("Túmbate", "Mantén", "suelo") y en Argentina
+  se dice "Acostate", "Mantené", "piso". `aRioplatense` (`src/domains/ejercicio/rioplatense.ts`, función pura) las convierte y se aplica en
+  `construirEjercicioDelCatalogo`, o sea que la conversión queda **en el generador** (`npm run catalogo:generar`) y el dataset original no se toca. Es un
+  conversor por reglas pensado para el vocabulario acotado de estas instrucciones, **no un traductor general**. Qué hace: **(1) imperativo de vos**: "Repite"
+  → "Repetí", "Haz" → "Hacé", "Mantén" → "Mantené", "Da" → "Dá"; con pronombre pegado, "Ponte" → "Ponete", "Siéntate" → "Sentate", "Levántala" →
+  "Levantala". **(2) presente de vos** después de "mientras", "cuando", "si" o "que" (con pronombres o adverbios en medio) y encadenado con "y": "mientras
+  bajas" → "mientras bajás". **(3) vocabulario**: suelo → piso, esterilla → colchoneta, tumbado → acostado, "Túmbate" → "Acostate", "jala" → "tirá" (jalar es
+  mexicanismo) y balón → pelota (cambia el género: "el balón" → "la pelota"). Los 134 verbos están en un léxico con su infinitivo, de donde salen las formas.
+  **Cuándo convierte**: un verbo sin pronombre solo se convierte donde empieza una orden (inicio de paso, tras coma, "y", "luego", "después", "de inmediato", "esta
+  vez", "al mismo tiempo"), porque "baja", "planta" o "rueda" también son adjetivo o sustantivo ("la parte baja", "la planta del pie"); con pronombre pegado se
+  convierte en cualquier posición. El subjuntivo ("hasta que sientas", "no arquees") y los gerundios quedan como están, igual que en el habla rioplatense.
+  "Tomate" no se confunde con "toma" + "te". **Cómo se validó**: tests del conversor (56 casos, incluidos los que aparecieron al revisar el catálogo real) y
+  tests de integridad sobre los 7.710 pasos (`tests/catalogo`): todo paso empieza con un imperativo de vos o con un arranque que no es verbo, no queda
+  vocabulario de España ni presentes de tú de los verbos más usados. Se revisó a mano una muestra de 45 conversiones en medio de la frase y las 25 con sujeto
+  subordinado: sin falsos positivos. Un test del conversor atrapó un error real de una regla propia (encadenar "y" convertía el sustantivo "plantas"), ya corregido.
+  **Resultado**: 7.704 de 7.710 pasos cambiaron; los 6 restantes ya eran correctos ("Esta será tu posición inicial."). También cambian 11 nombres ("…con
+  pelota medicinal") y el equipamiento "Balón medicinal" → "Pelota medicinal" (13 ejercicios). **Para llevarlo a la base**: `npm run catalogo:importar` actualiza
+  las instrucciones y el equipamiento de los 1.324 ejercicios sin tocar los nombres; los 11 nombres nuevos solo se aplican con `--sobrescribir-nombres` (que
+  también vuelve a tomar nombre y grupo del catálogo en los demás ejercicios importados). **Límites**: los nombres de los ejercicios no se tocaron salvo
+  "balón" (ya eran neutros: "Zancada", "Gemelos", "Peso muerto" se usan en Argentina); la interfaz de la aplicación ya estaba en voseo; el conversor no entiende
+  frases fuera de este vocabulario, así que si se agrega otro dataset hay que revisar el resultado (los tests de integridad avisan de un arranque de paso
+  desconocido).
 - **Verificado**: tests del mapeo, traducción y catálogo; del planificador/importador con base en memoria; del conversor (ffprobe: duración y archivos
   íntegros); de las rutas y de la UI. `tsc` y `eslint` limpios; **224 suites / 3.052 tests**; `npm run build` OK. Migración aplicada y catálogo importado
   contra Supabase (2026-10-21). **No** se revisó el aspecto en el navegador: queda para Fernando.
 
+
+### D-71 · Músculos de un ejercicio: 18 músculos canónicos y su peso (T-051 parte 1, idea 7 de openGym)
+- **Origen**: Fernando (2026-10-21), después de cargar el catálogo (D-70): faltaba el "músculo primario y secundario con volumen por músculo y mapa corporal" de la lista de ideas de openGym. **Con el catálogo
+  cargado la mitad del dato ya está**: cada ejercicio trae `musculoObjetivo` y `musculosSecundarios` (D-70), así que esta parte **no necesita schema ni migración**. Idea tomada de openGym como referencia (sus 18
+  músculos y el peso menor de los secundarios); la tabla de términos, los nombres y los pesos de respaldo son propios, y **no se copió código** (AGPL-3.0).
+- **Problema**: los músculos del catálogo son texto libre y no son parejos: **47 términos distintos** (19 objetivos y 40 secundarios, con repetidos) donde "Hombros", "Deltoides" y "Deltoides posteriores" son lo
+  mismo, igual que "Trapecio" y "Trapecios" o "Dorsales" y "Dorsal ancho". Sumar por texto contaría mal y no hay manera de dibujar 47 zonas en un mapa corporal.
+- **Decisión**: `src/domains/ejercicio/musculos.ts` (dominio puro) reduce los 47 términos a **18 músculos que se pueden dibujar**, de la cabeza a los pies: trapecios, hombros (deltoides), pecho, espalda, serrato, bíceps,
+  tríceps, antebrazos, abdominales, oblicuos, zona lumbar, glúteos, cuádriceps, isquiotibiales, aductores, flexores de cadera, gemelos y tibial. Lo que **no se puede dibujar** (manos, pies, tobillos, estabilizadores del
+  tobillo, esternocleidomastoideo y el sistema cardiovascular) da `null` y se descarta. Un término **desconocido lanza** (`musculoDesdeTermino`): que falle el importador y no que el volumen salga mal.
+- **Peso de cada músculo**: el objetivo cuenta **1** y cada secundario distinto **0,4**. Dos términos que son el mismo músculo cuentan **una vez** ("Hombros" y "Deltoides" → un solo hombro) y, si un secundario
+  coincide con el objetivo, manda el objetivo. El volumen por músculo (`volumenPorMusculo`) es la suma, por ejercicio, de las series de trabajo por ese peso.
+- **Sin músculos** (los 6 ejercicios del seed y los que cargue el admin a mano): se usa el **grupo muscular** con un reparto que suma 1, para que un grupo no cuente doble: Pecho → pecho; Hombros → hombros; Cuello →
+  trapecios; Brazos → bíceps 0,5 y tríceps 0,5; Espalda → espalda 0,75 y zona lumbar 0,25; Abdomen → abdominales 0,7 y oblicuos 0,3; Piernas → cuádriceps 0,4, isquiotibiales 0,3 y glúteos 0,3.
+- **El cardio nunca suma músculos**, aunque el catálogo le anote secundarios (la bicicleta trae cuádriceps, gemelos e isquiotibiales): una serie de cardio no es una serie de fuerza y sumaría volumen que no existió.
+  Salió de los datos reales: la primera versión del test suponía que el cardio no traía secundarios y falló.
+- **Resiliencia**: `pesosDeMusculos` **descarta** un término raro que aparezca en la base en lugar de lanzar, para que una fila mal cargada no deje sin pantalla al socio. La integridad la cuida un test contra el
+  catálogo real (`tests/catalogo/musculos-catalogo.test.ts`), que falla si alguien regenera el catálogo con un término nuevo.
+- **Lo que viene** (partes siguientes de T-051): el volumen semanal por músculo calculado desde el historial (series de trabajo, sin calentamientos ni drop sets), el mapa corporal en SVG propio y el rediseño de Stats
+  con sus pestañas (Balance muscular, Fatiga y Fuerza) y el filtro de período.
+- **Alternativas descartadas**: sumar por el texto del catálogo (cuenta doble hombros y deltoides); inventar un grupo para lo que no se dibuja (el volumen mentiría); un secundario que pese lo mismo que el objetivo (un
+  press de banca contaría igual para el tríceps que para el pecho); migrar los términos a una tabla de músculos (más estructura de la que hace falta mientras el catálogo no cambie).
+- **Verificado**: tests de los 18 músculos y sus nombres, de los 47 términos y de los que no se dibujan, del peso (objetivo, secundarios, repetidos, coincidencias, cardio, términos raros), del respaldo por grupo (cada
+  grupo suma 1) y del volumen, y contra los **1.324 ejercicios reales**: todos los términos se resuelven, solo seis quedan sin dibujo, todo ejercicio que no es cardio entrena al menos un músculo con el objetivo
+  pesando 1 y los 18 músculos están entrenados por algún ejercicio. Pruebas de mutación: con un secundario que pisa al objetivo, con el cardio sumando, con un término desconocido que no lanza, sin mapear un término del
+  catálogo y con otro peso para los secundarios, algún test falla.
+
+### D-72 · Modal para agregar ejercicios a una rutina, preparado para el catálogo de 1.330 (T-052, P-52)
+- **Origen**: hallazgo al revisar la carga del catálogo (D-70), que Fernando aceptó resolver primero por ser lo más corto (2026-10-22). El modal de `ejercicio-en-rutina-list.tsx` es la pantalla donde más se usa el
+  catálogo y había quedado sin preparar.
+- **Problema**: dibujaba los 1.330 ejercicios juntos dentro de un cuadro de altura fija, buscaba solo por el texto exacto del nombre y **distinguía tildes** (escribir "biceps" no encontraba "Bíceps"), no filtraba por
+  grupo ni equipamiento y no mostraba la miniatura. Además **cancelar no descartaba lo tildado**: al volver a abrir el modal las casillas seguían marcadas.
+- **Búsqueda** (`src/domains/ejercicio/busqueda.ts`, dominio puro): no distingue mayúsculas ni tildes; exige **todas las palabras** aunque no estén seguidas ni en orden ("press banca" encuentra "Press de banca con barra");
+  y busca en el nombre, el **grupo**, el **equipamiento** y el **músculo objetivo**. El texto normalizado de cada ejercicio se calcula una sola vez (`WeakMap`): se vuelve a buscar con cada tecla sobre más de mil filas.
+- **Filtros** por grupo muscular y por equipamiento, con las opciones sacadas del catálogo y ordenadas sin tildes. El de equipamiento solo aparece si hay ejercicios con equipamiento (los cargados a mano no lo tienen).
+- **Paginación**: se dibuja de a **50** ("Mostrando 50 de 312 ejercicios" y "Ver más ejercicios"), la misma convención del listado del admin; al cambiar la búsqueda o un filtro se vuelve a la primera página. Sin ese
+  límite el modal pintaba 1.330 filas con checkbox.
+- **Miniatura y atribución**: cada fila muestra la miniatura del ejercicio y el modal lleva la atribución de la media ("Animaciones © Gym visual") cuando el catálogo la trae, como en el resto de las pantallas (D-70).
+- **Selección**: lo que se tilda se **conserva aunque cambie la búsqueda o el filtro** y se cuenta en "Agregar (N)". Cancelar, agregar y Escape dejan el modal **limpio** (selección, búsqueda y filtros).
+- **Accesibilidad**: es un diálogo con nombre ("Agregar Ejercicios", `role="dialog"` y `aria-modal`), el buscador recibe el foco al abrir y Escape lo cierra.
+- **Lo que no cambia**: el componente padre ya **quita de la lista los ejercicios que están en la rutina**, así que no se ofrecen de nuevo y no hace falta una marca de "ya está". Sin migración ni cambios en la API.
+- **Lo que no hace**: no ordena por relevancia (mantiene el orden del catálogo) y no virtualiza la lista (con 50 por página alcanza). El listado del admin conserva su propio filtro, que busca el texto completo y no por
+  palabras; unificarlo con `busqueda.ts` es opcional.
+- **Alternativas descartadas**: virtualizar la lista (una dependencia más para un problema que la paginación ya resuelve); buscar en el servidor (el modal ya recibe el catálogo completo sin las instrucciones y
+  filtrar en el navegador es inmediato); búsqueda aproximada (tolerar errores de tipeo es más de lo que hace falta con filtros y varias palabras).
+- **Verificado**: tests del dominio (tildes, mayúsculas, varias palabras, campos, filtros, combinación, nulos, no modifica la lista, opciones) y del modal (búsqueda sin tildes, por palabras y por músculo, filtros,
+  opciones, paginación y reinicio, selección conservada, cancelar, Escape, diálogo y foco, miniaturas y atribución, mensajes vacíos). Pruebas de mutación: distinguiendo tildes, exigiendo el texto contiguo, sin el filtro
+  de equipamiento, sin volver a la primera página, sin descartar lo tildado al cerrar y sin la atribución, algún test falla. **No** se probó en el navegador con los 1.330 reales: queda para Fernando.
 
 ---
 
@@ -1337,7 +1414,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-48 | ~~Peso corporal (D-65): confirmar si el instructor debe poder verlo o cargarlo~~ | — | **Resuelto (2026-10-20)**: se mantiene **privado**, como openGym (el peso nunca se comparte con nombre). Si el negocio quiere que lo vea el instructor, que lo decida el socio con un permiso explícito |
 | P-49 | La cuarta fila del Home (peso corporal, D-66) no estaba en el diseño original: confirmar con el diseño de Home_Socio dónde va y cómo se ve (hoy, una tarjeta de ancho completo debajo de Racha y Membresía) | Baja | — |
 | P-50 | Catálogo de ejercicios (T-050, D-70): la media es © Gym visual (fuera de la MIT); mostrar la atribución donde aparezca, mantener 180×180 y mencionarlo en el informe | Media | La migración y la importación ya están hechas; queda el cumplimiento de la licencia |
-| P-51 | Catálogo (T-050, D-70): las instrucciones en español del dataset están en español de España (“Túmbate”, “suelo”); se usan tal cual | Baja | Adaptarlas al rioplatense es opcional (1.324 textos) |
+| P-51 | ~~Catálogo (T-050, D-70): las instrucciones en español del dataset están en español de España (“Túmbate”, “suelo”); se usan tal cual~~ | Baja | **Resuelto (T-050g, 2026-10-21)**: conversor `aRioplatense` aplicado al generar el catálogo (1.324 ejercicios, 7.710 pasos) |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | **Casi cerrado (2026-10-16)**: `npm run build` ✅ y `npm run start` ✅ (exit 0, 45 páginas). El **pooler se probó y funciona**: Prisma directo tolera las transacciones interactivas (el landmine de pgbouncer no se dispara) y `npm run start` con `DATABASE_URL` *pooled* responde login `200` y `/api/home-interno` `200` (6,01 s / 2,40 s, contra 3,21 s / 1,33–1,71 s de la conexión directa: **más lento en local por `connection_limit=1`**, que serializa las consultas; su beneficio es la concurrencia en serverless). **Falta probarlo en Vercel**; las migraciones siguen necesitando conexión directa (sin `directUrl`) |

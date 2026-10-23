@@ -1,5 +1,6 @@
 import { Cliente, ClienteRepository, CreateClienteResult, type ClienteInput } from "@/domains/cliente/cliente";
 import { throwIfNotOk } from "@/utils/api-error";
+import { CLAVES, conCache, invalidarCache } from "@/lib/cache-cliente";
 
 /**
  * Cliente input type for create/update operations.
@@ -74,10 +75,12 @@ export async function handleClienteDelete(id: string): Promise<void> {
 /**
  * Client-side API call: fetch all clientes
  */
-export async function fetchClientes(): Promise<Cliente[]> {
-  const response = await fetch("/api/clientes");
-  await throwIfNotOk(response, "No se pudieron cargar los clientes");
-  return response.json();
+export function fetchClientes(): Promise<Cliente[]> {
+  return conCache(CLAVES.clientes, async () => {
+    const response = await fetch("/api/clientes");
+    await throwIfNotOk(response, "No se pudieron cargar los clientes");
+    return response.json();
+  });
 }
 
 /**
@@ -99,6 +102,7 @@ export async function createCliente(
   await throwIfNotOk(response, "No se pudo crear el cliente");
 
   const json = await response.json();
+  invalidarCache(CLAVES.clientes);
 
   // B1 fix: Support both wrapped { cliente, tempPassword } and flat { ...cliente, tempPassword }
   if (json.cliente) {
@@ -130,7 +134,9 @@ export async function updateCliente(
     body: JSON.stringify(data),
   });
   await throwIfNotOk(response, "No se pudo actualizar el cliente");
-  return response.json();
+  const cliente = (await response.json()) as Cliente;
+  invalidarCache(CLAVES.clientes);
+  return cliente;
 }
 
 /**
@@ -141,4 +147,5 @@ export async function deleteCliente(id: string): Promise<void> {
     method: "DELETE",
   });
   await throwIfNotOk(response, "No se pudo eliminar el cliente");
+  invalidarCache(CLAVES.clientes);
 }

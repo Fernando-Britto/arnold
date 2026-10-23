@@ -3,6 +3,8 @@
  * Dominio PURO: sin Prisma ni acceso a datos (lo importan el importador y las pantallas).
  */
 
+import { aRioplatense } from "./rioplatense";
+
 /** Mapa de las 10 categorías del dataset a los grupos musculares de Arnold (`GRUPOS_MUSCULARES`). */
 const GRUPO_POR_CATEGORIA: Readonly<Record<string, string>> = {
   chest: "Pecho",
@@ -80,7 +82,11 @@ export function construirEjercicioDelCatalogo(
   const nombre = nombres[crudo.id]?.trim();
   if (!nombre) throw new Error(`Falta la traducción del nombre del ejercicio ${crudo.id} ("${crudo.name}")`);
 
-  const instrucciones = (crudo.instruction_steps?.es ?? []).map((p) => p.trim()).filter(Boolean);
+  // El dataset trae las instrucciones en castellano ("Túmbate", "suelo"): se pasan a rioplatense (D-70).
+  const instrucciones = (crudo.instruction_steps?.es ?? [])
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map(aRioplatense);
   if (instrucciones.length === 0) throw new Error(`El ejercicio ${crudo.id} no tiene instrucciones en español`);
 
   const secundarios = [...new Set(crudo.secondary_muscles.map((m) => traducir(glosario.musculos, m, "el músculo")))];

@@ -90,6 +90,10 @@ export interface EjercicioDeSesion {
   repeticiones: number;
   descanso: number; // segundos
   orden: number;
+  /** Catálogo de ejercicios (D-70): `null` y `[]` en un ejercicio cargado a mano. */
+  mediaId: string | null;
+  musculoObjetivo: string | null;
+  instrucciones: string[];
 }
 
 export interface SesionIniciada {
@@ -126,7 +130,13 @@ interface EjercicioEnRutinaConEjercicio {
   orden: number;
   /** Último cambio de la fila; las sesiones anteriores son de otro plan (D-59). */
   updatedAt?: Date;
-  ejercicio: { id: string; nombre: string };
+  ejercicio: {
+    id: string;
+    nombre: string;
+    mediaId?: string | null;
+    musculoObjetivo?: string | null;
+    instrucciones?: string[];
+  };
 }
 
 /** Rutina asignada con sus ejercicios ordenados, como la devuelve Prisma. */
@@ -158,6 +168,9 @@ function mapearEjercicios(ejercicios: EjercicioEnRutinaConEjercicio[]): Ejercici
       repeticiones: e.repeticiones,
       descanso: e.descanso,
       orden: e.orden,
+      mediaId: e.ejercicio.mediaId ?? null,
+      musculoObjetivo: e.ejercicio.musculoObjetivo ?? null,
+      instrucciones: e.ejercicio.instrucciones ?? [],
     }));
 }
 
@@ -203,7 +216,7 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
         include: {
           ejercicios: {
             orderBy: { orden: "asc" },
-            include: { ejercicio: { select: { id: true, nombre: true } } },
+            include: { ejercicio: { select: { id: true, nombre: true, mediaId: true, musculoObjetivo: true, instrucciones: true } } },
           },
         },
       },
@@ -320,7 +333,7 @@ export async function detalleSesionEnCurso(
             include: {
               ejercicios: {
                 orderBy: { orden: "asc" },
-                include: { ejercicio: { select: { id: true, nombre: true } } },
+                include: { ejercicio: { select: { id: true, nombre: true, mediaId: true, musculoObjetivo: true, instrucciones: true } } },
               },
             },
           },

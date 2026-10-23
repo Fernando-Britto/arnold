@@ -1,6 +1,7 @@
 import type { Ejercicio, EjercicioEnRutina, Prisma, Rutina } from "@prisma/client";
 import { RutinaRepository } from "@/domains/rutina/rutina-repositorio";
 import { throwIfNotOk } from "@/utils/api-error";
+import { CLAVES, conCache, invalidarCache } from "@/lib/cache-cliente";
 
 /**
  * Fila de ejercicio dentro de una rutina, tal como la consume el formulario de edición.
@@ -354,10 +355,12 @@ export async function handleRutinaDelete(id: string): Promise<void> {
 /**
  * Client-side API call: fetch all rutinas
  */
-export async function fetchRutinas(): Promise<RutinaWithCount[]> {
-  const response = await fetch("/api/rutinas");
-  await throwIfNotOk(response, "No se pudieron cargar las rutinas");
-  return response.json();
+export function fetchRutinas(): Promise<RutinaWithCount[]> {
+  return conCache(CLAVES.rutinas, async () => {
+    const response = await fetch("/api/rutinas");
+    await throwIfNotOk(response, "No se pudieron cargar las rutinas");
+    return response.json();
+  });
 }
 
 /**
@@ -397,6 +400,7 @@ export async function createRutina(
   });
 
   await throwIfNotOk(response, "No se pudo crear la rutina");
+  invalidarCache(CLAVES.rutinas, CLAVES.ejercicios);
   return response.json();
 }
 
@@ -414,6 +418,7 @@ export async function updateRutina(
   });
 
   await throwIfNotOk(response, "No se pudo actualizar la rutina");
+  invalidarCache(CLAVES.rutinas, CLAVES.ejercicios);
   return response.json();
 }
 
@@ -426,4 +431,5 @@ export async function deleteRutina(id: string): Promise<void> {
   });
 
   await throwIfNotOk(response, "No se pudo eliminar la rutina");
+  invalidarCache(CLAVES.rutinas, CLAVES.ejercicios);
 }

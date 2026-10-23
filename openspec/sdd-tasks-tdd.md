@@ -89,6 +89,8 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-050c ➕ Catálogo de ejercicios (parte 3): importador idempotente | ✅ | — (direct to `dev`) | — | `planificarImportacion`, `importarCatalogo` (lotes, dry-run) y `npm run catalogo:importar`; 1.324 importados contra Supabase (D-70) |
 | T-050d ➕ Catálogo de ejercicios (parte 4): media optimizada | ✅ | — (direct to `dev`) | — | `npm run media:convertir`; 1.324 mp4 + jpg en `public/ejercicios/` (122,8 MB → 16,5 MB), mp4 fuera del proxy, GIF ignorados (D-70) |
 | T-050e ➕ Catálogo de ejercicios (parte 5): UI admin y socio | ✅ | — (direct to `dev`) | — | Miniaturas/video, detalle con instrucciones, filtros, paginación, atribución; las tarjetas del socio muestran la animación (D-70) |
+| T-050f ➕ Catálogo de ejercicios (parte 6): animación en la ejecución de la sesión | ✅ | — (direct to `dev`) | — | `EjecucionRutina` con animación, músculo, "Cómo se hace" y atribución; `EjercicioDeSesion` con media (D-70) |
+| T-050g ➕ Catálogo de ejercicios (parte 7): instrucciones en español rioplatense | ✅ | — (direct to `dev`) | — | `aRioplatense` (voseo, presente de vos y vocabulario), aplicado en el generador; catálogo regenerado (7.704 de 7.710 pasos, 11 nombres, 13 equipamientos); P-51 resuelto (D-70) |
 
 ## Scope changes during apply
 

@@ -62,3 +62,47 @@ describe("catálogo de ejercicios en español (prisma/data)", () => {
     expect(sospechosos.map((e) => e.nombre)).toEqual([]);
   });
 });
+
+describe("instrucciones en español rioplatense (prisma/data)", () => {
+  /** Arranques de paso que no son un verbo en imperativo (gerundios, conjunciones, preposiciones). */
+  const NO_VERBOS = new Set([
+    "manteniendo", "mientras", "activando", "al", "cuando", "con", "una", "en", "usando", "para", "desde", "luego",
+    "esta", "ahora", "después", "a", "presionando", "contrayendo", "deberías", "permite", "simultáneamente",
+  ]);
+  const primeraPalabra = (paso: string) => (paso.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/)?.[0] ?? "").toLowerCase();
+  const pasos = catalogo.flatMap((e) => e.instrucciones.map((paso) => ({ id: e.datasetId, paso })));
+
+  it("todo paso empieza con un imperativo de vos o con un arranque que no es verbo", () => {
+    const sospechosos = pasos.filter(({ paso }) => {
+      const w = primeraPalabra(paso);
+      if (NO_VERBOS.has(w)) return false;
+      if (/[áéíó]$/.test(w)) return false; // "Colocá", "Subí", "Hacé": voseo
+      // con pronombre pegado el voseo NO lleva tilde ("Ponete", "Sentate", "Levantala"); el tuteo sí ("Siéntate")
+      return !(/^[a-zñ]+(te|se|la|las|lo|los|le|les)$/.test(w) && !["ponte", "detente"].includes(w));
+    });
+    expect([...new Set(sospechosos.map(({ paso }) => primeraPalabra(paso)))]).toEqual([]);
+  });
+
+  it("no queda vocabulario de España que ya se convierte: suelo, esterilla, tumbado, balón", () => {
+    const restos = pasos.filter(({ paso }) => /\b(suelos?|esterillas?|tumbad[oa]s?|tumb[aá]ndo(te|se)|bal[oó]n(es)?)\b/i.test(paso));
+    expect(restos.map(({ id }) => id)).toEqual([]);
+  });
+
+  it("no queda ningún presente de tú de los verbos más usados en las instrucciones", () => {
+    const tu = /\b(aprietas|mantienes|contraes|levantas|empujas|tiras|haces|llevas|comienzas|inhalas|giras|exhalas|balanceas|saltas|extiendes|avanzas|subes|presionas|elevas|estiras|regresas|sostienes|vuelves|agachas|reclinas|realizas|caminas|incorporas|encoges|inclinas|flexionas|lanzas|controlas|sueltas|deseas)\b/i;
+    expect(pasos.filter(({ paso }) => tu.test(paso)).map(({ id }) => id)).toEqual([]);
+  });
+
+  it("los pasos ya están en voseo en los casos típicos (hay voseo, no solo ausencia de tuteo)", () => {
+    const texto = pasos.map(({ paso }) => paso).join(" ");
+    for (const voseo of ["Repetí", "Hacé", "Mantené", "Colocá", "Ponete", "Sentate", "Acostate", "Bajá"]) {
+      expect(texto).toContain(voseo);
+    }
+    expect(texto).toContain("piso");
+  });
+
+  it("los nombres y el equipamiento usan 'pelota' y no 'balón'", () => {
+    expect(catalogo.filter((e) => /bal[oó]n/i.test(`${e.nombre} ${e.equipamiento}`)).map((e) => e.datasetId)).toEqual([]);
+    expect(Object.values(glosario.equipamiento).filter((v) => /bal[oó]n/i.test(v))).toEqual([]);
+  });
+});

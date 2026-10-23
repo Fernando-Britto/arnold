@@ -16,6 +16,7 @@ import {
   fetchMembresias,
 } from "./membresias";
 import { MembresiaRepository, type Membresia } from "@/domains/membresia/membresia";
+import { limpiarCache } from "@/lib/cache-cliente";
 
 // Mock the entire domain module to control both repository and validation
 jest.mock("@/domains/membresia/membresia", () => {
@@ -463,6 +464,7 @@ describe("handleMembresiasActivas (dropdown de Clientes: lectura mínima para Re
 
 describe("fetchMembresias (cliente: alimenta el dropdown de Clientes)", () => {
   beforeEach(() => {
+    limpiarCache();
     global.fetch = jest.fn();
   });
 

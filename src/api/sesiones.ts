@@ -166,6 +166,10 @@ export interface EjercicioDeSesionDTO {
   /** Descanso tras el ejercicio, en segundos. */
   descanso: number;
   orden: number;
+  /** Catálogo de ejercicios (D-70): `null` y `[]` en un ejercicio cargado a mano. */
+  mediaId: string | null;
+  musculoObjetivo: string | null;
+  instrucciones: string[];
 }
 
 /** Detalle de la sesión en curso que consume la pantalla de ejecución (T-038). */

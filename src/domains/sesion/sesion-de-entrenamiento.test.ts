@@ -145,8 +145,8 @@ describe("iniciarSesion", () => {
     });
     // Devuelve los ejercicios ordenados con series/repeticiones/descanso.
     expect(r.ejercicios).toEqual([
-      { id: "ej-1", nombre: "Press banca", series: 2, repeticiones: 10, descanso: 60, orden: 0 },
-      { id: "ej-2", nombre: "Sentadilla", series: 1, repeticiones: 8, descanso: 90, orden: 1 },
+      { id: "ej-1", nombre: "Press banca", series: 2, repeticiones: 10, descanso: 60, orden: 0, mediaId: null, musculoObjetivo: null, instrucciones: [] },
+      { id: "ej-2", nombre: "Sentadilla", series: 1, repeticiones: 8, descanso: 90, orden: 1, mediaId: null, musculoObjetivo: null, instrucciones: [] },
     ]);
     // Sin historial previo no hay "última vez" (D-58).
     expect(r.ultimasVeces).toEqual({});
@@ -1012,8 +1012,8 @@ describe("detalleSesionEnCurso", () => {
     const r = await detalleSesionEnCurso("socio-1");
 
     expect(r?.ejercicios).toEqual([
-      { id: "ej-1", nombre: "Press banca", series: 2, repeticiones: 10, descanso: 60, orden: 0 },
-      { id: "ej-2", nombre: "Sentadilla", series: 1, repeticiones: 8, descanso: 90, orden: 1 },
+      { id: "ej-1", nombre: "Press banca", series: 2, repeticiones: 10, descanso: 60, orden: 0, mediaId: null, musculoObjetivo: null, instrucciones: [] },
+      { id: "ej-2", nombre: "Sentadilla", series: 1, repeticiones: 8, descanso: 90, orden: 1, mediaId: null, musculoObjetivo: null, instrucciones: [] },
     ]);
     expect(r?.sesion).toBe(sesion);
     expect(r?.ultimaSerie).toEqual({ ejercicioId: "ej-1", fecha: fechaUltima });
@@ -1637,3 +1637,65 @@ describe("seguimientoDeEjercicios: tipos de serie (T-047 parte 2, D-64)", () => 
   });
 });
 
+
+describe("ejercicios de la sesión con media del catálogo (T-050f, D-70)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const delCatalogo = {
+    id: "ej-9",
+    nombre: "Curl de bíceps con mancuernas",
+    mediaId: "0294-NbVPDMW",
+    musculoObjetivo: "Bíceps",
+    instrucciones: ["Párate con una mancuerna.", "Flexiona los codos."],
+  };
+  const rutinaConCatalogo = () =>
+    asignacionActiva({
+      rutina: {
+        ejercicios: [{ id: "er-9", ejercicioId: "ej-9", series: 3, repeticiones: 12, descanso: 60, orden: 0, ejercicio: delCatalogo }],
+      },
+    });
+  const esperado = {
+    id: "ej-9", nombre: "Curl de bíceps con mancuernas", series: 3, repeticiones: 12, descanso: 60, orden: 0,
+    mediaId: "0294-NbVPDMW", musculoObjetivo: "Bíceps", instrucciones: ["Párate con una mancuerna.", "Flexiona los codos."],
+  };
+
+  it("iniciarSesion devuelve la animación, el músculo y las instrucciones de cada ejercicio", async () => {
+    const prisma = await mocks();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio-1" });
+    (prisma.rutinaAsignada.findUnique as jest.Mock).mockResolvedValue(rutinaConCatalogo());
+    (prisma.sesionDeEntrenamiento.create as jest.Mock).mockResolvedValue({ id: "sesion-1" });
+
+    const r = await iniciarSesion({ socioId: "socio-1", rutinaAsignadaId: "asig-1", ahora: new Date() });
+    expect(r.ejercicios).toEqual([esperado]);
+  });
+
+  it("detalleSesionEnCurso devuelve lo mismo al retomar una sesión", async () => {
+    const prisma = await mocks();
+    (prisma.sesionDeEntrenamiento.findFirst as jest.Mock).mockResolvedValue({
+      id: "sesion-1", socioId: "socio-1", ejercicioActualId: "ej-9", serieActual: 1, rutinaAsignada: rutinaConCatalogo(),
+    });
+    (prisma.registroDeProgreso.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const r = await detalleSesionEnCurso("socio-1");
+    expect(r?.ejercicios).toEqual([esperado]);
+  });
+
+  it("ambas consultas le piden a la base esos tres campos del ejercicio", async () => {
+    const prisma = await mocks();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue({ id: "socio-1" });
+    (prisma.rutinaAsignada.findUnique as jest.Mock).mockResolvedValue(asignacionActiva());
+    (prisma.sesionDeEntrenamiento.create as jest.Mock).mockResolvedValue({ id: "sesion-1" });
+    await iniciarSesion({ socioId: "socio-1", rutinaAsignadaId: "asig-1", ahora: new Date() });
+
+    (prisma.sesionDeEntrenamiento.findFirst as jest.Mock).mockResolvedValue(null);
+    await detalleSesionEnCurso("socio-1");
+
+    const consultas = [
+      JSON.stringify((prisma.rutinaAsignada.findUnique as jest.Mock).mock.calls[0][0]),
+      JSON.stringify((prisma.sesionDeEntrenamiento.findFirst as jest.Mock).mock.calls[0][0]),
+    ];
+    for (const consulta of consultas) {
+      for (const campo of ["mediaId", "musculoObjetivo", "instrucciones"]) expect(consulta).toContain(`"${campo}":true`);
+    }
+  });
+});

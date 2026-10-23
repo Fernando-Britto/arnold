@@ -65,7 +65,7 @@ describe("construirEjercicioDelCatalogo: de un registro del dataset a un ejercic
     equipment: "dumbbell",
     target: "biceps",
     secondary_muscles: ["forearms", "brachialis", "forearms"],
-    instruction_steps: { es: ["  Párate con una mancuerna en cada mano. ", "Flexiona los codos.", ""] },
+    instruction_steps: { es: ["  Ponte de pie con una mancuerna en cada mano. ", "Flexiona los codos.", ""] },
     gif_url: "videos/0294-NbVPDMW.gif",
   };
 
@@ -77,9 +77,18 @@ describe("construirEjercicioDelCatalogo: de un registro del dataset a un ejercic
       equipamiento: "Mancuerna",
       musculoObjetivo: "Bíceps",
       musculosSecundarios: ["Antebrazos", "Braquial"],
-      instrucciones: ["Párate con una mancuerna en cada mano.", "Flexiona los codos."],
+      instrucciones: ["Ponete de pie con una mancuerna en cada mano.", "Flexioná los codos."],
       mediaId: "0294-NbVPDMW",
     });
+  });
+
+  it("pasa las instrucciones de castellano a español rioplatense (voseo y vocabulario)", () => {
+    const e = construirEjercicioDelCatalogo(
+      { ...crudo, instruction_steps: { es: ["Túmbate en el suelo y mantén el balón medicinal.", "Mientras bajas, repite."] } },
+      nombres,
+      glosario
+    );
+    expect(e.instrucciones).toEqual(["Acostate en el piso y mantené la pelota medicinal.", "Mientras bajás, repetí."]);
   });
 
   it("falla si falta la traducción del nombre, indicando el id", () => {

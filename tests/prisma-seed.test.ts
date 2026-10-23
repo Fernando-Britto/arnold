@@ -123,6 +123,140 @@ describe("runSeed", () => {
     expect(vencida).toBe("VENCIDA");
   });
 
+  it("siembra rutinas nuevas con sus ejercicios para probar el tracking", async () => {
+    const { prisma, calls } = fakePrisma();
+    await run(prisma);
+
+    const rutinas = calls
+      .filter((c) => c.model === "rutina" && c.method === "create")
+      .map((c) => c.args.data.nombre);
+    expect(rutinas).toEqual(expect.arrayContaining(["Fuerza A", "Piernas", "Torso B", "Piernas B"]));
+
+    const ejercicios = calls
+      .filter((c) => c.model === "ejercicio" && c.method === "create")
+      .map((c) => c.args.data.nombre);
+    expect(ejercicios).toEqual(
+      expect.arrayContaining(["Press inclinado", "Jalón al pecho", "Prensa de piernas", "Curl femoral"])
+    );
+  });
+
+  it("enlaza los ejercicios nuevos con la media del catálogo (T-050f)", async () => {
+    const { prisma, calls } = fakePrisma({
+      "ejercicio.findUnique": { mediaId: "0047-3TZduzM", musculoObjetivo: "Pectorales", instrucciones: ["Paso"] },
+    });
+    await run(prisma);
+
+    const creados = calls.filter((c) => c.model === "ejercicio" && c.method === "create");
+    const conMedia = creados.filter((c) => c.args.data.mediaId);
+    expect(conMedia).toHaveLength(8);
+    for (const c of conMedia) {
+      expect(c.args.data).toMatchObject({
+        mediaId: "0047-3TZduzM",
+        musculoObjetivo: "Pectorales",
+        instrucciones: ["Paso"],
+      });
+    }
+  });
+
+  it("completa la media de un ejercicio del seed que ya existía sin ella", async () => {
+    const { prisma, calls } = fakePrisma({
+      "ejercicio.findFirst": { id: "ya-existe" },
+      "ejercicio.findUnique": { mediaId: "0334-DsgkuIt", musculoObjetivo: "Deltoides", instrucciones: ["Paso"] },
+    });
+    await run(prisma);
+
+    const updates = calls.filter((c) => c.model === "ejercicio" && c.method === "update");
+    expect(updates).toHaveLength(8);
+    expect(updates[0].args.data).toMatchObject({
+      mediaId: "0334-DsgkuIt",
+      musculoObjetivo: "Deltoides",
+      instrucciones: ["Paso"],
+    });
+    expect(calls.filter((c) => c.model === "ejercicio" && c.method === "create")).toHaveLength(0);
+  });
+
+  it("refresca la media cuando el catálogo cambió (T-050g)", async () => {
+    const { prisma, calls } = fakePrisma({
+      "ejercicio.findFirst": {
+        id: "ya-existe",
+        mediaId: "viejo",
+        musculoObjetivo: "Pecho",
+        instrucciones: ["Túmbate en el suelo."],
+      },
+      "ejercicio.findUnique": { mediaId: "0334-DsgkuIt", musculoObjetivo: "Deltoides", instrucciones: ["Acostate en el piso."] },
+    });
+    await run(prisma);
+
+    const updates = calls.filter((c) => c.model === "ejercicio" && c.method === "update");
+    expect(updates).toHaveLength(8);
+    expect(updates[0].args.data).toMatchObject({
+      mediaId: "0334-DsgkuIt",
+      musculoObjetivo: "Deltoides",
+      instrucciones: ["Acostate en el piso."],
+    });
+  });
+
+  it("deja Torso B activa, desactivando la asignación anterior del socio 1", async () => {
+    const { prisma, calls } = fakePrisma();
+    await run(prisma);
+
+    const desactivadas = calls.filter((c) => c.model === "rutinaAsignada" && c.method === "updateMany");
+    expect(desactivadas).toHaveLength(1);
+    expect(desactivadas[0].args).toMatchObject({ where: { activa: true }, data: { activa: false } });
+
+    const activas = calls.filter(
+      (c) =>
+        c.model === "rutinaAsignada" &&
+        (c.method === "create" || c.method === "update") &&
+        c.args.data?.activa === true
+    );
+    expect(activas.length).toBeGreaterThan(0);
+  });
+
+  it("carga historial por serie con los cuatro tipos de serie (D-64/D-69)", async () => {
+    const { prisma, calls } = fakePrisma();
+    await run(prisma);
+
+    const filas = calls
+      .filter((c) => c.model === "registroDeProgreso" && c.method === "createMany")
+      .flatMap((c) => c.args.data);
+
+    expect(new Set(filas.map((f) => f.tipo))).toEqual(
+      new Set(["NORMAL", "CALENTAMIENTO", "HASTA_EL_FALLO", "DROP_SET"])
+    );
+
+    const conSesion = filas.filter((f) => f.sesionId);
+    expect(conSesion.length).toBeGreaterThan(30);
+    for (const f of conSesion.filter((x) => x.tipo !== "CALENTAMIENTO")) {
+      expect(Number.isInteger(f.numeroSerie)).toBe(true);
+      expect(f.numeroSerie).toBeGreaterThanOrEqual(1);
+    }
+    expect(conSesion.filter((f) => f.tipo === "CALENTAMIENTO").every((f) => f.numeroSerie === null)).toBe(true);
+    expect(filas.some((f) => f.tipo === "HASTA_EL_FALLO" && f.rir === 0)).toBe(true);
+  });
+
+  it("siembra pesajes y meta de peso, y los borra al re-sembrar (T-048)", async () => {
+    const { prisma, calls } = fakePrisma();
+    await run(prisma);
+
+    const pesajes = calls
+      .filter((c) => c.model === "medicionDePeso" && c.method === "createMany")
+      .flatMap((c) => c.args.data);
+    expect(pesajes.length).toBeGreaterThanOrEqual(4);
+    expect(pesajes.every((p) => p.socioId && typeof p.peso === "number" && p.fecha instanceof Date)).toBe(true);
+
+    const meta = calls.find(
+      (c) => c.model === "socio" && c.method === "update" && "pesoObjetivo" in c.args.data
+    );
+    expect(meta?.args.data).toMatchObject({
+      pesoObjetivo: expect.any(Number),
+      pesoInicialDeMeta: expect.any(Number),
+    });
+
+    const borrado = calls.find((c) => c.model === "medicionDePeso" && c.method === "deleteMany");
+    expect(borrado?.args.where.socioId.in).toHaveLength(2);
+  });
+
   it("devuelve las credenciales sin hashes", async () => {
     const { prisma } = fakePrisma();
     const res = await run(prisma);

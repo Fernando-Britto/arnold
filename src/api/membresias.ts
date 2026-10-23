@@ -1,6 +1,7 @@
 import { validateMembresia, type Membresia as MembresiaDomain, type EstadoMembresia } from "@/domains/membresia/membresia";
 import { MembresiaRepository } from "@/domains/membresia/membresia";
 import { throwIfNotOk } from "@/utils/api-error";
+import { CLAVES, conCache, invalidarCache } from "@/lib/cache-cliente";
 
 /** Error de negocio con código para el route handler (en lugar de `as any`). */
 type CodedError = Error & { code?: string; assignedCount?: number };
@@ -206,13 +207,14 @@ export interface MembresiaDropdown {
   estado: EstadoMembresia;
 }
 
-export async function fetchMembresias(): Promise<MembresiaDropdown[]> {
-  const response = await fetch("/api/membresias/activas");
-  if (!response.ok) {
-    throw new Error(`Failed to fetch membresias: ${response.statusText}`);
-  }
-  const data = await response.json();
-  return data;
+export function fetchMembresias(): Promise<MembresiaDropdown[]> {
+  return conCache(CLAVES.membresiasActivas, async () => {
+    const response = await fetch("/api/membresias/activas");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch membresias: ${response.statusText}`);
+    }
+    return response.json();
+  });
 }
 
 /**
@@ -220,11 +222,13 @@ export async function fetchMembresias(): Promise<MembresiaDropdown[]> {
  * Distinct from `fetchMembresias` (active-only dropdown for Clientes, AC-004).
  * The list includes `assignedSocioCount` for the "Miembros" column (AC-007).
  */
-export async function fetchMembresiasList(): Promise<Membresia[]> {
-  const response = await fetch("/api/membresias");
-  await throwIfNotOk(response, "No se pudieron cargar las membresías");
-  const data = await response.json();
-  return Array.isArray(data) ? data : [];
+export function fetchMembresiasList(): Promise<Membresia[]> {
+  return conCache(CLAVES.membresias, async () => {
+    const response = await fetch("/api/membresias");
+    await throwIfNotOk(response, "No se pudieron cargar las membresías");
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  });
 }
 
 /**
@@ -234,4 +238,5 @@ export async function fetchMembresiasList(): Promise<Membresia[]> {
 export async function deleteMembresia(id: string): Promise<void> {
   const response = await fetch(`/api/membresias/${id}`, { method: "DELETE" });
   await throwIfNotOk(response, "No se pudo eliminar la membresía");
+  invalidarCache(CLAVES.membresias, CLAVES.membresiasActivas);
 }

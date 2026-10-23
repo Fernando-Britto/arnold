@@ -1,5 +1,6 @@
 import { Ejercicio } from "@prisma/client";
 import { throwIfNotOk } from "@/utils/api-error";
+import { CLAVES, conCache, invalidarCache } from "@/lib/cache-cliente";
 import { EjercicioInput, type EjercicioConUso } from "@/domains/ejercicio/ejercicio";
 import { ejercicioRepository } from "@/domains/ejercicio/ejercicio-repositorio";
 
@@ -61,10 +62,12 @@ export async function handleEjercicioDelete(id: string): Promise<boolean> {
 /**
  * Client-side API call: fetch all ejercicios
  */
-export async function fetchEjercicios(): Promise<EjercicioConUso[]> {
-  const response = await fetch("/api/ejercicios");
-  await throwIfNotOk(response, "No se pudieron cargar los ejercicios");
-  return response.json();
+export function fetchEjercicios(): Promise<EjercicioConUso[]> {
+  return conCache(CLAVES.ejercicios, async () => {
+    const response = await fetch("/api/ejercicios");
+    await throwIfNotOk(response, "No se pudieron cargar los ejercicios");
+    return response.json();
+  });
 }
 
 /**
@@ -86,6 +89,7 @@ export async function createEjercicio(data: EjercicioInput): Promise<Ejercicio> 
     body: JSON.stringify(data),
   });
   await throwIfNotOk(response, "No se pudo crear el ejercicio");
+  invalidarCache(CLAVES.ejercicios);
   return response.json();
 }
 
@@ -102,6 +106,7 @@ export async function updateEjercicio(
     body: JSON.stringify(data),
   });
   await throwIfNotOk(response, "No se pudo actualizar el ejercicio");
+  invalidarCache(CLAVES.ejercicios);
   return response.json();
 }
 
@@ -113,4 +118,5 @@ export async function deleteEjercicio(id: string): Promise<void> {
     method: "DELETE",
   });
   await throwIfNotOk(response, "No se pudo eliminar el ejercicio");
+  invalidarCache(CLAVES.ejercicios);
 }
