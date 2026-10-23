@@ -93,11 +93,11 @@ export function MembresiaListPanel({
   const handleSort = (key: string) => setSort((current) => toggleSort(current, key));
 
   if (isLoading) {
-    return <div className="p-8 text-center text-sm text-[#71717A]">Cargando membresías...</div>;
+    return <div className="p-8 text-center text-sm text-ink-muted">Cargando membresías...</div>;
   }
 
   if (membresias.length === 0) {
-    return <div className="p-8 text-center text-sm text-[#71717A]">No hay membresías</div>;
+    return <div className="p-8 text-center text-sm text-ink-muted">No hay membresías</div>;
   }
 
   return (
@@ -131,8 +131,8 @@ export function MembresiaListPanel({
             {isSelected && (
               <TableDetailRow>
                 <div>
-                  <p className="text-[11px] font-bold uppercase text-[#C13D00]">Descripción</p>
-                  <p className="text-sm text-[#333333]">{membresia.descripcion || "-"}</p>
+                  <p className="text-overline font-bold uppercase text-brand-strong">Descripción</p>
+                  <p className="text-sm text-ink-soft">{membresia.descripcion || "-"}</p>
                 </div>
               </TableDetailRow>
             )}
@@ -140,7 +140,7 @@ export function MembresiaListPanel({
         );
       })}
       {filtered.length === 0 && searchTerm.trim() !== "" && (
-        <p className="p-6 text-center text-sm text-[#71717A]">
+        <p className="p-6 text-center text-sm text-ink-muted">
           {`No se encontraron membresías que coincidan con "${searchTerm}".`}
         </p>
       )}

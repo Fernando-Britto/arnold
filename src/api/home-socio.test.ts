@@ -9,6 +9,7 @@ describe("fetchHomeSocioData", () => {
     racha: { semanasRacha: 0, dias: [] },
     membresia: null,
     oferta: null,
+  ultimasSesiones: [],
     peso: { mediciones: [], pesoObjetivo: null, pesoInicial: null },
   };
 

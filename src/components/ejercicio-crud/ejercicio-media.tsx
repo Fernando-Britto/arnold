@@ -18,7 +18,7 @@ function MiniaturaVacia() {
     <span
       data-testid="miniatura-vacia"
       aria-hidden="true"
-      className="inline-block shrink-0 rounded border border-[#E4E4E7] bg-[#F4F4F5]"
+      className="inline-block shrink-0 rounded border border-border bg-surface-subtle"
       style={{ width: TAMAÑO_MINIATURA, height: TAMAÑO_MINIATURA }}
     />
   );
@@ -38,7 +38,7 @@ export function EjercicioMiniatura({ mediaId }: { mediaId: string | null | undef
       height={TAMAÑO_MINIATURA}
       loading="lazy"
       onError={() => setFallo(true)}
-      className="shrink-0 rounded border border-[#E4E4E7] bg-white object-cover"
+      className="shrink-0 rounded border border-border bg-surface object-cover"
     />
   );
 }
@@ -65,12 +65,12 @@ export function EjercicioVideo({ mediaId, nombre }: { mediaId: string | null | u
   const movimientoReducido = useMovimientoReducido();
 
   if (!mediaId) {
-    return <p className="text-sm text-[#71717A]">Sin animación disponible</p>;
+    return <p className="text-sm text-ink-muted">Sin animación disponible</p>;
   }
   if (fallo) {
     // El mp4 no cargó: se muestra el primer cuadro estático.
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={urlMiniatura(mediaId)} alt={`Ejercicio ${nombre}`} width={180} height={180} className="rounded border border-[#E4E4E7] bg-white" />;
+    return <img src={urlMiniatura(mediaId)} alt={`Ejercicio ${nombre}`} width={180} height={180} className="rounded border border-border bg-surface" />;
   }
   return (
     <video
@@ -86,7 +86,7 @@ export function EjercicioVideo({ mediaId, nombre }: { mediaId: string | null | u
       width={180}
       height={180}
       onError={() => setFallo(true)}
-      className="rounded border border-[#E4E4E7] bg-white"
+      className="rounded border border-border bg-surface"
     />
   );
 }
@@ -94,7 +94,7 @@ export function EjercicioVideo({ mediaId, nombre }: { mediaId: string | null | u
 /** Atribución exigida por el titular de la media (ver D-70 y P-50). */
 export function AtribucionMedia() {
   return (
-    <p className="text-xs text-[#71717A]">
+    <p className="text-xs text-ink-muted">
       Animaciones ©{" "}
       <a href="https://gymvisual.com/" target="_blank" rel="noopener noreferrer" className="underline">
         Gym visual

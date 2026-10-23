@@ -279,6 +279,7 @@ describe("aggregateHomeInterno (composes Row_Hoy + Row_Operacion from raw data)"
     inactivosConOferta: 0,
     aforo: { asistenciasActivas: 87, horas: [{ hora: 18, ocupacion: 87 }], horaActual: 18 },
     personal: [{ rol: "INSTRUCTOR" }, { rol: "RECEPCIONISTA" }],
+    sociosSinRutina: 0,
     contadores: { rutinas: 124, ejercicios: 342, clientes: 892, membresias: 0 },
     eventos: [
       { tipo: "PAGO", nombre: "Ana López", descripcion: "Pago de membresía Pro", fecha: new Date("2026-09-30T17:45:00Z") },
@@ -338,8 +339,8 @@ describe("aggregateHomeInterno (composes Row_Hoy + Row_Operacion from raw data)"
 
   it("Col_Actividad: drops check-ins and >24h events, newest first, formatted 'Hace X'", () => {
     expect(aggregateHomeInterno(raw, hoy).actividad).toEqual([
-      { nombre: "Ana López", descripcion: "Pago de membresía Pro", haceTexto: "Hace 15 min" },
-      { nombre: "Carlos Mendez", descripcion: "Alta de nuevo socio", haceTexto: "Hace 2 horas" },
+      { nombre: "Ana López", descripcion: "Pago de membresía Pro", haceTexto: "Hace 15 min", tipo: "PAGO" },
+      { nombre: "Carlos Mendez", descripcion: "Alta de nuevo socio", haceTexto: "Hace 2 horas", tipo: "ALTA_SOCIO" },
     ]);
   });
 

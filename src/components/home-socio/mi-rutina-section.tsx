@@ -39,11 +39,11 @@ export function MiRutinaSection({
   const hayMedia = rutina?.ejercicios.some((e) => e.mediaId) ?? false;
   return (
     <section aria-labelledby="mi-rutina-titulo" className="flex flex-col gap-6">
-      <div className="flex flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6">
+      <div className="flex flex-col gap-6 rounded-lg border border-border bg-surface p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Dumbbell className="h-6 w-6 text-[#FC4C02]" aria-hidden="true" />
-            <h1 id="mi-rutina-titulo" className="text-xl font-bold text-zinc-900">
+            <Dumbbell className="h-6 w-6 text-brand" aria-hidden="true" />
+            <h1 id="mi-rutina-titulo" className="text-xl font-bold text-ink">
               {rutina ? rutina.nombre : "Mi rutina"}
             </h1>
           </div>
@@ -51,7 +51,7 @@ export function MiRutinaSection({
             <button
               type="button"
               onClick={onVerEjercicios}
-              className="text-sm font-bold text-[#FC4C02]"
+              className="text-sm font-bold text-brand"
             >
               Ver mis ejercicios →
             </button>
@@ -59,19 +59,19 @@ export function MiRutinaSection({
         </div>
 
         {!rutina ? (
-          <p className="text-sm text-zinc-500">Todavía no tenés una rutina asignada.</p>
+          <p className="text-sm text-ink-muted">Todavía no tenés una rutina asignada.</p>
         ) : (
           <>
             {sesionEnCurso && (
               <div className="flex items-center justify-between rounded-2xl bg-orange-50 p-4">
-                <p className="text-sm font-medium text-zinc-700">
+                <p className="text-sm font-medium text-ink-soft">
                   Tenés una sesión sin terminar
                   {sesionEnCurso.serieActual ? ` (serie ${sesionEnCurso.serieActual})` : ""}.
                 </p>
                 <button
                   type="button"
                   onClick={onSeguirRutina}
-                  className="flex items-center gap-2 rounded-lg bg-[#FC4C02] px-4 py-2 text-sm font-bold text-white"
+                  className="flex items-center gap-2 rounded-lg bg-brand-strong px-4 py-2 text-sm font-bold text-surface"
                 >
                   <Play className="h-4 w-4" aria-hidden="true" />
                   Retomar sesión
@@ -85,13 +85,13 @@ export function MiRutinaSection({
                   <div className="flex items-center gap-3">
                     {hayMedia && <EjercicioMiniatura mediaId={e.mediaId} />}
                     <div className="flex flex-col">
-                      <span className="font-medium text-zinc-900">{e.nombre}</span>
-                      <span className="text-xs text-zinc-500">{e.grupoMuscular}</span>
+                      <span className="font-medium text-ink">{e.nombre}</span>
+                      <span className="text-xs text-ink-muted">{e.grupoMuscular}</span>
                     </div>
                   </div>
-                  <span className="text-sm text-zinc-600">
+                  <span className="text-sm text-ink-muted">
                     {e.series} × {e.repeticiones}
-                    <span className="ml-3 inline-flex items-center gap-1 text-zinc-500">
+                    <span className="ml-3 inline-flex items-center gap-1 text-ink-muted">
                       <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                       {e.descanso}s
                     </span>
@@ -106,7 +106,7 @@ export function MiRutinaSection({
               <button
                 type="button"
                 onClick={onSeguirRutina}
-                className="w-fit rounded-lg bg-[#FC4C02] px-5 py-3 text-sm font-bold text-white"
+                className="w-fit rounded-lg bg-brand-strong px-5 py-3 text-sm font-bold text-surface"
               >
                 Seguir rutina
               </button>
@@ -115,19 +115,19 @@ export function MiRutinaSection({
         )}
       </div>
 
-      <div className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6">
-        <h2 className="text-lg font-bold text-zinc-900">Historial de sesiones</h2>
+      <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6">
+        <h2 className="text-lg font-bold text-ink">Historial de sesiones</h2>
         {sesiones.length === 0 ? (
-          <p className="text-sm text-zinc-500">Todavía no registraste sesiones.</p>
+          <p className="text-sm text-ink-muted">Todavía no registraste sesiones.</p>
         ) : (
           <ul className="flex flex-col divide-y divide-zinc-100">
             {sesiones.map((s) => (
               <li key={s.id} data-testid="sesion-historial" className="flex items-center justify-between py-3">
-                <span className="text-sm text-zinc-700">{formatFecha(s.horaInicio)}</span>
-                <span className="text-xs font-medium text-zinc-500">
+                <span className="text-sm text-ink-soft">{formatFecha(s.horaInicio)}</span>
+                <span className="text-xs font-medium text-ink-muted">
                   {ESTADO_LABEL[s.estado] ?? s.estado}
                 </span>
-                <span className="text-sm text-zinc-600">
+                <span className="text-sm text-ink-muted">
                   {s.duracionMin !== null ? `${s.duracionMin} min` : "—"}
                 </span>
               </li>

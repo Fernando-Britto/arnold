@@ -65,24 +65,24 @@ export function PanelDefinirPin() {
   return (
     <section
       aria-labelledby="definir-pin-titulo"
-      className="w-full max-w-lg rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
+      className="w-full max-w-lg rounded-lg border border-border bg-surface p-6 shadow-sm"
     >
-      <h2 id="definir-pin-titulo" className="text-lg font-semibold text-gray-900">
+      <h2 id="definir-pin-titulo" className="text-lg font-semibold text-ink">
         Definir PIN
       </h2>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-ink-muted">
         Uso exclusivo del personal de recepción. Definí el PIN de 4 dígitos para el ingreso por DNI + PIN.
       </p>
 
       {error && (
-        <p role="alert" className="mt-3 rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700">
+        <p role="alert" className="mt-3 rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger">
           {error}
         </p>
       )}
 
       <form onSubmit={handleBuscar} className="mt-4 flex items-end gap-2">
         <div className="flex-1">
-          <label htmlFor="definir-pin-dni" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="definir-pin-dni" className="mb-1 block text-sm font-medium text-ink-soft">
             DNI
           </label>
           <input
@@ -92,13 +92,13 @@ export function PanelDefinirPin() {
             value={dni}
             onChange={(e) => setDni(e.target.value)}
             placeholder="XX.XXX.XXX o XXXXXXXX"
-            className="w-full rounded-md border border-gray-300 px-3 py-2"
+            className="w-full rounded-md border border-border px-3 py-2"
           />
         </div>
         <button
           type="submit"
           disabled={buscando}
-          className="rounded bg-[#FC4C02] px-4 py-2 font-medium text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
+          className="rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
         >
           {buscando ? "Buscando..." : "Buscar"}
         </button>
@@ -106,13 +106,13 @@ export function PanelDefinirPin() {
 
       {socio && (
         <div className="mt-4 flex flex-col gap-4">
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-            <p className="font-semibold text-gray-900">{socio.nombre}</p>
-            {socio.membresia && <p className="text-sm text-gray-600">{socio.membresia.nombre}</p>}
+          <div className="rounded-md border border-border bg-surface-hover p-3">
+            <p className="font-semibold text-ink">{socio.nombre}</p>
+            {socio.membresia && <p className="text-sm text-ink-muted">{socio.membresia.nombre}</p>}
           </div>
 
           <div>
-            <label htmlFor="definir-pin-valor" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="definir-pin-valor" className="mb-1 block text-sm font-medium text-ink-soft">
               PIN (4 dígitos)
             </label>
             <input
@@ -125,16 +125,16 @@ export function PanelDefinirPin() {
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, LARGO_PIN))}
               placeholder="••••"
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              className="w-full rounded-md border border-border px-3 py-2"
             />
-            <p className="mt-1 text-xs text-gray-500">Se usa para el ingreso por DNI + PIN.</p>
+            <p className="mt-1 text-xs text-ink-muted">Se usa para el ingreso por DNI + PIN.</p>
           </div>
 
           <button
             type="button"
             onClick={handleGuardar}
             disabled={guardando || pin.length !== LARGO_PIN}
-            className="self-start rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+            className="self-start rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
           >
             {guardando ? "Guardando..." : "Guardar PIN"}
           </button>

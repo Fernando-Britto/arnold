@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Arnold Gym — Panel de hoy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --rail:#0A0A0B; --ground:#111113; --card:#18181B; --line:#2C2C31; --soft:#232327;
+    --text:#F4F4F2; --sub:#C9C9CE; --muted:#A1A1A6; --faint:#8A8A91;
+    --orange:#FC4C02; --green:#3DD68C; --red:#FF6B6B; --amber:#FFB020;
+  }
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{background:var(--ground);color:var(--text);font-family:Archivo,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;display:flex}
+  .up{text-transform:uppercase;letter-spacing:.14em}
+  .ov{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+
+  /* rail */
+  .rail{width:236px;flex:0 0 236px;background:var(--rail);border-right:1px solid var(--soft);
+    display:flex;flex-direction:column;padding:26px 14px 20px}
+  .brand{font-size:19px;font-weight:900;letter-spacing:-.01em;padding:0 10px 24px}
+  .brand em{color:var(--orange);font-style:normal}
+  .zone{padding:0 10px;margin-bottom:7px;font-size:11px;font-weight:700;color:var(--faint);
+    text-transform:uppercase;letter-spacing:.14em}
+  .zone:not(:first-of-type){margin-top:20px}
+  .rail nav a{display:flex;align-items:center;gap:10px;height:38px;padding:0 10px;margin-left:-2px;
+    border-left:2px solid transparent;border-radius:0 6px 6px 0;color:var(--muted);
+    text-decoration:none;font-size:14px;font-weight:500}
+  .rail nav a.on{background:#17171A;border-left-color:var(--orange);color:var(--text);font-weight:700}
+  .rail nav a .d{width:5px;height:5px;border-radius:50%;background:var(--orange)}
+  .rail .foot{margin-top:auto;border-top:1px solid var(--soft);padding:14px 10px 0;
+    display:flex;align-items:center;gap:10px}
+  .av{width:30px;height:30px;border-radius:50%;background:#2A2A2E;display:grid;place-items:center;
+    font-size:13px;font-weight:700;color:var(--sub)}
+  .rail .foot p{font-size:13px;font-weight:600}
+  .rail .foot div span{display:block;font-size:12px;font-weight:500;color:var(--faint)}
+
+  /* main */
+  main{flex:1;min-width:0;max-width:1360px;margin:0 auto;padding:24px 32px 0;
+    display:flex;flex-direction:column;gap:16px}
+  .top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+    border-bottom:1px solid var(--soft);padding-bottom:14px}
+  h1{font-size:26px;font-weight:900;letter-spacing:-.02em;line-height:1}
+  .top p{font-size:13px;color:var(--muted);margin-top:4px}
+  .stamp{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--muted)}
+  .stamp i{width:7px;height:7px;border-radius:50%;background:var(--green);display:block}
+
+  /* acciones */
+  .acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .acts button{display:flex;align-items:center;justify-content:center;gap:8px;height:46px;
+    background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--text);
+    font-family:Archivo,sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+  .acts button svg{width:15px;height:15px;stroke:var(--orange);fill:none;stroke-width:1.9;
+    stroke-linecap:round;stroke-linejoin:round}
+
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;min-height:0}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;
+    display:flex;flex-direction:column;min-width:0}
+  .box h2{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+
+  /* caja */
+  .caja{grid-column:span 5}
+  .caja .total{display:flex;align-items:baseline;gap:7px;margin:10px 0 2px}
+  .caja .total b{font-size:40px;font-weight:900;letter-spacing:-.035em;
+    font-variant-numeric:tabular-nums;line-height:1}
+  .caja .total span{font-size:14px;font-weight:600;color:var(--muted)}
+  .turno{font-size:12px;font-weight:600;color:var(--muted)}
+  .desglose{margin-top:14px;border-top:1px solid var(--soft)}
+  .desglose div{display:flex;justify-content:space-between;align-items:baseline;
+    padding:8px 0;border-bottom:1px solid #1F1F23;font-size:13px}
+  .desglose span{color:var(--muted)}
+  .desglose b{font-weight:700;font-variant-numeric:tabular-nums}
+  .cta{margin-top:14px;height:46px;background:var(--orange);color:#0A0A0B;border:0;border-radius:8px;
+    font-family:Archivo,sans-serif;font-size:13px;font-weight:800;letter-spacing:.02em;
+    display:flex;align-items:center;justify-content:center;cursor:pointer}
+
+  /* alertas */
+  .alertas{grid-column:span 4}
+  .alertas .n{display:flex;align-items:baseline;gap:8px;margin:10px 0 4px}
+  .alertas .n b{font-size:32px;font-weight:900;letter-spacing:-.03em;color:var(--orange);
+    font-variant-numeric:tabular-nums;line-height:1}
+  .alertas .n span{font-size:13px;font-weight:600;color:var(--muted)}
+  .lista{margin-top:10px;border-top:1px solid var(--soft)}
+  .lista div{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    padding:9px 0;border-bottom:1px solid #1F1F23}
+  .lista p{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .lista em{font-size:12px;font-weight:700;font-style:normal;color:var(--amber);
+    white-space:nowrap;font-variant-numeric:tabular-nums}
+  .link{margin-top:auto;padding-top:10px;font-size:12px;font-weight:700;color:var(--orange)}
+
+  /* aforo */
+  .aforo{grid-column:span 3}
+  .aforo .cifra{display:flex;align-items:baseline;gap:5px;margin:10px 0 2px}
+  .aforo .cifra b{font-size:32px;font-weight:900;letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums;line-height:1}
+  .aforo .cifra span{font-size:13px;font-weight:600;color:var(--muted)}
+  .barras{display:flex;align-items:flex-end;gap:4px;height:72px;margin-top:14px;
+    border-bottom:1px solid var(--line)}
+  .barras i{flex:1;background:#2A2A30;border-radius:2px 2px 0 0;display:block}
+  .barras i.now{background:var(--orange)}
+  .horas{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--faint)}
+
+  /* operación y gestión */
+  .ops{grid-column:span 7}
+  .ops .fila{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:12px;padding-top:2px}
+  .ops .fila.cuatro{grid-template-columns:repeat(4,1fr)}
+  .stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .stat span{font-size:12px;font-weight:500;color:var(--faint)}
+  .stat b{font-size:22px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .stat em{font-size:12px;font-weight:600;font-style:normal;color:var(--faint)}
+  .stat em.warn{color:var(--amber)}
+  .ops .sep{margin:16px 0 0;border-top:1px solid var(--soft);padding-top:14px}
+
+  /* actividad */
+  .act{grid-column:span 5}
+  .feed{margin-top:10px;border-top:1px solid var(--soft)}
+  .feed div{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #1F1F23;align-items:baseline}
+  .feed time{font-size:11.5px;font-weight:700;color:var(--faint);white-space:nowrap;
+    width:78px;flex:0 0 78px}
+  .feed p{font-size:13px;color:var(--sub);min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  .feed p b{color:var(--text);font-weight:700}
+  
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <p class="brand">ARNOLD<em>GYM</em></p>
+  <nav>
+    <p class="zone">Inicio</p>
+    <a href="#" class="on"><span class="d"></span>Hoy</a>
+    <p class="zone">Operación</p>
+    <a href="#">Clientes</a>
+    <a href="#">Rutinas</a>
+    <a href="#">Ejercicios</a>
+    <p class="zone">Comercial</p>
+    <a href="#">Membresías</a>
+    <a href="#">Pagos</a>
+    <a href="#">Cierres</a>
+    <p class="zone">Sistema</p>
+    <a href="#">Configuración</a>
+  </nav>
+  <div class="foot">
+    <span class="av">A</span>
+    <div><p>Admin Arnold</p><span>Administrador</span></div>
+  </div>
+</aside>
+
+<main>
+  <div class="top">
+    <div>
+      <h1>Hoy</h1>
+      <p>Admin · jueves, 22 de octubre de 2026</p>
+    </div>
+    <p class="stamp"><i></i>Datos en vivo</p>
+  </div>
+
+  <div class="acts">
+    <button><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>Nuevo socio</button>
+    <button><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Registrar pago</button>
+    <button><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 13h6M9 17h4"/></svg>Asignar rutina</button>
+    <button><svg viewBox="0 0 24 24"><path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3M13 20h9"/><path d="M10 12V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v16"/></svg>Control de acceso</button>
+  </div>
+
+  <div class="grid">
+    <section class="box caja">
+      <h2>Caja de hoy</h2>
+      <p class="total"><b>84.500</b><span>ARS</span></p>
+      <p class="turno">Turno mañana · abierto 08:00</p>
+      <div class="desglose">
+        <div><span>Efectivo</span><b>52.000</b></div>
+        <div><span>Transferencia</span><b>24.500</b></div>
+        <div><span>Tarjeta</span><b>8.000</b></div>
+      </div>
+      <button class="cta">Cerrar caja</button>
+    </section>
+
+    <section class="box alertas">
+      <h2>Cuotas por vencer</h2>
+      <p class="n"><b>3</b><span>socios en los próximos 5 días</span></p>
+      <div class="lista">
+        <div><p>Santiago Socio</p><em>vence hoy</em></div>
+        <div><p>Sofía Socia</p><em>en 2 días</em></div>
+        <div><p>Martín Gómez</p><em>en 4 días</em></div>
+      </div>
+      <p class="link">Ver los 3 →</p>
+    </section>
+
+    <section class="box aforo">
+      <h2>Aforo ahora</h2>
+      <p class="cifra"><b>18</b><span>/ 60 personas</span></p>
+      <div class="barras">
+        <i style="height:22%"></i><i style="height:34%"></i><i style="height:52%"></i>
+        <i style="height:71%"></i><i style="height:88%"></i><i class="now" style="height:100%"></i>
+        <i style="height:64%"></i><i style="height:41%"></i>
+      </div>
+      <div class="horas"><span>14h</span><span>18h</span><span>22h</span></div>
+    </section>
+
+    <section class="box ops">
+      <h2>Operación</h2>
+      <div class="fila">
+        <div class="stat"><span>Equipos operativos</span><b>83%</b><em class="warn">1 en mantenimiento</em></div>
+        <div class="stat"><span>Personal en turno</span><b>2</b><em>1 entrenador · 1 recepción</em></div>
+        <div class="stat"><span>Socios inactivos</span><b>4</b><em>+15 días sin venir</em></div>
+      </div>
+      <div class="sep">
+        <h2>Gestión</h2>
+        <div class="fila cuatro" style="margin-top:10px">
+          <div class="stat"><span>Rutinas</span><b>9</b></div>
+          <div class="stat"><span>Ejercicios</span><b>1.339</b></div>
+          <div class="stat"><span>Clientes</span><b>5</b></div>
+          <div class="stat"><span>Membresías</span><b>7</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="box act">
+      <h2>Últimos movimientos</h2>
+      <div class="feed">
+        <div><time>Hace 6 min</time><p><b>Sofía Socia</b> — pago registrado</p></div>
+        <div><time>Hace 24 min</time><p><b>Cintia Ruiz</b> — alta de socio</p></div>
+        <div><time>Hace 1 hora</time><p><b>Martín Gómez</b> — rutina asignada</p></div>
+        <div><time>Hace 2 horas</time><p><b>Lucía Paz</b> — pago anulado</p></div>
+        <div><time>Hace 3 horas</time><p><b>Jorge Díaz</b> — baja de socio</p></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+</body>
+</html>

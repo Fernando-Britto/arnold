@@ -25,7 +25,7 @@ export function SocioSeccionPage({
   if (loading) {
     return (
       <SocioShell active={active}>
-        <p className="text-gray-500">Cargando...</p>
+        <p className="text-ink-muted">Cargando...</p>
       </SocioShell>
     );
   }
@@ -33,7 +33,7 @@ export function SocioSeccionPage({
   if (error || !data) {
     return (
       <SocioShell active={active}>
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-danger">
           {error ?? "No pudimos cargar tus datos. Probá de nuevo en un momento."}
         </p>
       </SocioShell>

@@ -14,12 +14,12 @@ interface PlaceholderPanelProps {
 export function PlaceholderPanel({ title, description, className = "" }: PlaceholderPanelProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center gap-3 rounded-lg border border-[#E4E4E7] bg-white px-6 py-10 text-center ${className}`}
+      className={`flex flex-col items-center justify-center gap-3 rounded-lg border border-border bg-surface px-6 py-10 text-center ${className}`}
     >
-      <Construction size={24} className="text-[#A1A5B0]" aria-hidden="true" />
-      <p className="text-sm font-medium text-[#3D4454]">Trabajando en esto</p>
-      {title && <p className="text-sm font-bold text-[#18181B]">{title}</p>}
-      {description && <p className="text-sm text-[#71717A]">{description}</p>}
+      <Construction size={24} className="text-ink-disabled" aria-hidden="true" />
+      <p className="text-sm font-medium text-ink-soft">Trabajando en esto</p>
+      {title && <p className="text-sm font-bold text-ink">{title}</p>}
+      {description && <p className="text-sm text-ink-muted">{description}</p>}
     </div>
   );
 }

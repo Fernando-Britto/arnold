@@ -22,10 +22,10 @@ const ESTADO_LABEL: Record<string, string> = {
 };
 
 const ESTADO_CLASS: Record<string, string> = {
-  AL_DIA: "bg-green-100 text-green-800",
-  PENDIENTE: "bg-amber-100 text-amber-800",
-  VENCIDA: "bg-red-100 text-red-800",
-  SIN_CUOTA: "bg-zinc-100 text-zinc-700",
+  AL_DIA: "bg-success-soft text-success",
+  PENDIENTE: "bg-warning-soft text-warning",
+  VENCIDA: "bg-danger-soft text-danger",
+  SIN_CUOTA: "bg-surface-subtle text-ink-soft",
 };
 
 const METODO_LABEL: Record<string, string> = {
@@ -47,22 +47,22 @@ function formatPeriodo(periodo: string | null): string {
 export function PagosSection({ membresia }: PagosSectionProps) {
   return (
     <section aria-labelledby="pagos-titulo" className="flex flex-col gap-6">
-      <h1 id="pagos-titulo" className="text-xl font-bold text-zinc-900">
+      <h1 id="pagos-titulo" className="text-xl font-bold text-ink">
         Mis pagos y membresía
       </h1>
 
       {!membresia ? (
-        <p className="text-sm text-zinc-500">Todavía no tenés pagos ni membresía registrados.</p>
+        <p className="text-sm text-ink-muted">Todavía no tenés pagos ni membresía registrados.</p>
       ) : (
         <>
-          <div className="flex items-center justify-between rounded-lg border border-[#E4E4E7] bg-white p-6">
+          <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-6">
             <div className="flex items-center gap-3">
-              <CreditCard className="h-6 w-6 text-[#FC4C02]" aria-hidden="true" />
+              <CreditCard className="h-6 w-6 text-brand" aria-hidden="true" />
               <div className="flex flex-col">
-                <span className="font-bold text-zinc-900">
+                <span className="font-bold text-ink">
                   {membresia.planNombre ?? "Sin plan asignado"}
                 </span>
-                <span className="text-sm text-zinc-500">
+                <span className="text-sm text-ink-muted">
                   {membresia.fechaVencimiento
                     ? `Cubierto hasta el ${formatFecha(membresia.fechaVencimiento)}`
                     : "Sin cobertura registrada"}
@@ -72,21 +72,21 @@ export function PagosSection({ membresia }: PagosSectionProps) {
             <span
               data-testid="estado-pago"
               className={`rounded-sm px-2.5 py-1 text-xs font-bold ${
-                ESTADO_CLASS[membresia.estado] ?? "bg-zinc-100 text-zinc-700"
+                ESTADO_CLASS[membresia.estado] ?? "bg-surface-subtle text-ink-soft"
               }`}
             >
               {ESTADO_LABEL[membresia.estado] ?? membresia.estado}
             </span>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6">
-            <h2 className="text-lg font-bold text-zinc-900">Historial de pagos</h2>
+          <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6">
+            <h2 className="text-lg font-bold text-ink">Historial de pagos</h2>
             {membresia.historial.length === 0 ? (
-              <p className="text-sm text-zinc-500">Todavía no registraste pagos.</p>
+              <p className="text-sm text-ink-muted">Todavía no registraste pagos.</p>
             ) : (
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="text-xs text-zinc-500">
+                  <tr className="text-xs text-ink-muted">
                     <th className="pb-2 font-medium">Fecha</th>
                     <th className="pb-2 font-medium">Período</th>
                     <th className="pb-2 font-medium">Método</th>
@@ -96,10 +96,10 @@ export function PagosSection({ membresia }: PagosSectionProps) {
                 <tbody className="divide-y divide-zinc-100">
                   {membresia.historial.map((p) => (
                     <tr key={p.id} data-testid="pago-historial">
-                      <td className="py-2 text-zinc-700">{formatFecha(p.fechaPago)}</td>
-                      <td className="py-2 capitalize text-zinc-700">{formatPeriodo(p.periodo)}</td>
-                      <td className="py-2 text-zinc-700">{METODO_LABEL[p.metodoPago] ?? p.metodoPago}</td>
-                      <td className="py-2 text-right font-medium text-zinc-900">
+                      <td className="py-2 text-ink-soft">{formatFecha(p.fechaPago)}</td>
+                      <td className="py-2 capitalize text-ink-soft">{formatPeriodo(p.periodo)}</td>
+                      <td className="py-2 text-ink-soft">{METODO_LABEL[p.metodoPago] ?? p.metodoPago}</td>
+                      <td className="py-2 text-right font-medium text-ink">
                         {formatMoney(p.monto)}
                       </td>
                     </tr>

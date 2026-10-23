@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-22T18:11:23.818Z",
+        "reason": "Tipografía fijada por los mockups OpenPencil; cambio de fuente fuera de alcance"
+      }
+    ]
+  }
+}

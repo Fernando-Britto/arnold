@@ -45,7 +45,7 @@ function ejercicioSortValue(ejercicio: EjercicioConUso, key: string): string | n
 /** Cuántos ejercicios se dibujan de una vez: el catálogo tiene más de 1.300 (D-70). */
 const POR_PAGINA = 50;
 
-const SELECT_CLASES = "rounded border border-[#E4E4E7] bg-white px-3 py-2 text-sm text-[#333333]";
+const SELECT_CLASES = "rounded border border-border bg-surface px-3 py-2 text-sm text-ink-soft";
 
 /** Valores distintos, sin vacíos y ordenados sin tildes (para las opciones de un filtro). */
 function opcionesDe(valores: (string | null | undefined)[]): string[] {
@@ -115,15 +115,15 @@ export function EjercicioListPanel({
   const hayFiltros = grupo !== "" || equipamiento !== "";
 
   if (ejercicios.length === 0) {
-    return <div className="p-8 text-center text-sm text-[#71717A]">No hay ejercicios</div>;
+    return <div className="p-8 text-center text-sm text-ink-muted">No hay ejercicios</div>;
   }
 
   return (
     <>
       {(grupos.length > 1 || equipamientos.length > 0) && (
-        <div className="flex flex-wrap items-center gap-4 border-b border-[#E4E4E7] bg-white px-6 py-3">
+        <div className="flex flex-wrap items-center gap-4 border-b border-border bg-surface px-6 py-3">
           {grupos.length > 1 && (
-            <label className="flex items-center gap-2 text-sm text-[#52525B]">
+            <label className="flex items-center gap-2 text-sm text-ink-muted">
               Grupo muscular
               <select value={grupo} onChange={(e) => setGrupo(e.target.value)} className={SELECT_CLASES}>
                 <option value="">Todos los grupos</option>
@@ -134,7 +134,7 @@ export function EjercicioListPanel({
             </label>
           )}
           {equipamientos.length > 0 && (
-            <label className="flex items-center gap-2 text-sm text-[#52525B]">
+            <label className="flex items-center gap-2 text-sm text-ink-muted">
               Equipamiento
               <select value={equipamiento} onChange={(e) => setEquipamiento(e.target.value)} className={SELECT_CLASES}>
                 <option value="">Todo el equipamiento</option>
@@ -182,22 +182,22 @@ export function EjercicioListPanel({
           );
         })}
         {filtered.length === 0 && searchTerm.trim() !== "" && (
-          <p className="p-6 text-center text-sm text-[#71717A]">
+          <p className="p-6 text-center text-sm text-ink-muted">
             {`No se encontraron ejercicios que coincidan con "${searchTerm}".`}
           </p>
         )}
         {filtered.length === 0 && searchTerm.trim() === "" && hayFiltros && (
-          <p className="p-6 text-center text-sm text-[#71717A]">No hay ejercicios con esos filtros.</p>
+          <p className="p-6 text-center text-sm text-ink-muted">No hay ejercicios con esos filtros.</p>
         )}
       </Table>
       {filtered.length > POR_PAGINA && (
-        <div className="flex items-center justify-center gap-4 p-4 text-sm text-[#52525B]">
+        <div className="flex items-center justify-center gap-4 p-4 text-sm text-ink-muted">
           <span>{`Mostrando ${visibles.length} de ${filtered.length} ejercicios`}</span>
           {visibles.length < filtered.length && (
             <button
               type="button"
               onClick={() => setPaginacion({ clave, limite: limite + POR_PAGINA })}
-              className="rounded border border-[#E4E4E7] bg-white px-3 py-2 font-medium text-[#333333] hover:bg-[#F4F4F5]"
+              className="rounded border border-border bg-surface px-3 py-2 font-medium text-ink-soft hover:bg-surface-subtle"
             >
               Ver más ejercicios
             </button>

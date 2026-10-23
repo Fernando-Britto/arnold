@@ -273,7 +273,7 @@ duracionEstimada: Number(formData.duracionEstimada),
             type="text"
             disabled
             value={formData.id}
-            className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 bg-gray-100"
+            className="mt-1 block w-full rounded border border-border px-3 py-2 bg-surface-subtle"
           />
         </div>
       )}
@@ -291,12 +291,12 @@ duracionEstimada: Number(formData.duracionEstimada),
           onBlur={() => handleBlur("nombre")}
           disabled={isDisabled}
           className={`mt-1 block w-full rounded border px-3 py-2 ${
-            errors.nombre ? "border-red-500 bg-red-50" : "border-gray-300"
+            errors.nombre ? "border-danger bg-danger-soft" : "border-border"
           }`}
           placeholder="Ej: Rutina Full Body"
         />
         {errors.nombre && (
-          <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>
+          <p className="mt-1 text-sm text-danger">{errors.nombre}</p>
         )}
       </div>
 
@@ -318,8 +318,8 @@ duracionEstimada: Number(formData.duracionEstimada),
           disabled={isDisabled}
           className={`mt-1 block w-full rounded border px-3 py-2 ${
             errors.objetivoPrincipal
-              ? "border-red-500 bg-red-50"
-              : "border-gray-300"
+              ? "border-danger bg-danger-soft"
+              : "border-border"
           }`}
         >
           <option value="">Seleccionar...</option>
@@ -330,7 +330,7 @@ duracionEstimada: Number(formData.duracionEstimada),
           ))}
         </select>
         {errors.objetivoPrincipal && (
-          <p className="mt-1 text-sm text-red-600">
+          <p className="mt-1 text-sm text-danger">
             {errors.objetivoPrincipal}
           </p>
         )}
@@ -361,12 +361,12 @@ duracionEstimada: Number(formData.duracionEstimada),
             disabled={isDisabled}
             className={`mt-1 block w-full rounded border px-3 py-2 ${
               errors.frecuenciaSemanal
-                ? "border-red-500 bg-red-50"
-                : "border-gray-300"
+                ? "border-danger bg-danger-soft"
+                : "border-border"
             }`}
           />
           {errors.frecuenciaSemanal && (
-            <p className="mt-1 text-sm text-red-600">
+            <p className="mt-1 text-sm text-danger">
               {errors.frecuenciaSemanal}
             </p>
           )}
@@ -395,12 +395,12 @@ duracionEstimada: Number(formData.duracionEstimada),
             disabled={isDisabled}
             className={`mt-1 block w-full rounded border px-3 py-2 ${
               errors.duracionEstimada
-                ? "border-red-500 bg-red-50"
-                : "border-gray-300"
+                ? "border-danger bg-danger-soft"
+                : "border-border"
             }`}
           />
           {errors.duracionEstimada && (
-            <p className="mt-1 text-sm text-red-600">
+            <p className="mt-1 text-sm text-danger">
               {errors.duracionEstimada}
             </p>
           )}
@@ -432,7 +432,7 @@ duracionEstimada: Number(formData.duracionEstimada),
           ))}
         </div>
         {errors.nivelDeDificultad && (
-          <p className="mt-1 text-sm text-red-600">
+          <p className="mt-1 text-sm text-danger">
             {errors.nivelDeDificultad}
           </p>
         )}
@@ -451,14 +451,14 @@ duracionEstimada: Number(formData.duracionEstimada),
           disabled={isDisabled}
           className={`mt-1 block w-full rounded border px-3 py-2 ${
             errors.descripcion
-              ? "border-red-500 bg-red-50"
-              : "border-gray-300"
+              ? "border-danger bg-danger-soft"
+              : "border-border"
           }`}
           rows={3}
           placeholder="Descripción adicional de la rutina..."
         />
         {errors.descripcion && (
-          <p className="mt-1 text-sm text-red-600">{errors.descripcion}</p>
+          <p className="mt-1 text-sm text-danger">{errors.descripcion}</p>
         )}
       </div>
 
@@ -475,7 +475,7 @@ duracionEstimada: Number(formData.duracionEstimada),
       <button
         type="submit"
         disabled={isDisabled}
-        className="mt-4 rounded bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        className="mt-4 rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
       >
         Guardar
       </button>

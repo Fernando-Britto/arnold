@@ -128,7 +128,7 @@ export function MembresiaForm({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Nombre */}
         <div>
-          <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="nombre" className="block text-sm font-medium text-ink-soft mb-1">
             Nombre *
           </label>
           <input
@@ -138,16 +138,16 @@ export function MembresiaForm({
             value={formData.nombre}
             onChange={handleChange}
             placeholder="Ej: Gold, Silver, Bronze"
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.nombre ? "border-red-500 bg-red-50" : "border-gray-300"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand ${
+              errors.nombre ? "border-danger bg-danger-soft" : "border-border"
             }`}
           />
-          {errors.nombre && <p className="text-red-600 text-sm mt-1">{errors.nombre}</p>}
+          {errors.nombre && <p className="text-danger text-sm mt-1">{errors.nombre}</p>}
         </div>
 
         {/* Precio */}
         <div>
-          <label htmlFor="precio" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="precio" className="block text-sm font-medium text-ink-soft mb-1">
             Precio (ARS) *
           </label>
           <input
@@ -159,16 +159,16 @@ export function MembresiaForm({
             onBlur={handleBlur}
             placeholder="Ej: 15000"
             step="0.01"
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.precio ? "border-red-500 bg-red-50" : "border-gray-300"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand ${
+              errors.precio ? "border-danger bg-danger-soft" : "border-border"
             }`}
           />
-          {errors.precio && <p className="text-red-600 text-sm mt-1">{errors.precio}</p>}
+          {errors.precio && <p className="text-danger text-sm mt-1">{errors.precio}</p>}
         </div>
 
         {/* Periodicidad */}
         <div>
-          <label htmlFor="periodicidad" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="periodicidad" className="block text-sm font-medium text-ink-soft mb-1">
             Periodicidad (días) *
           </label>
           <input
@@ -179,18 +179,18 @@ export function MembresiaForm({
             onChange={handleChange}
             placeholder="Ej: 30"
             step="1"
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.periodicidad ? "border-red-500 bg-red-50" : "border-gray-300"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand ${
+              errors.periodicidad ? "border-danger bg-danger-soft" : "border-border"
             }`}
           />
           {errors.periodicidad && (
-            <p className="text-red-600 text-sm mt-1">{errors.periodicidad}</p>
+            <p className="text-danger text-sm mt-1">{errors.periodicidad}</p>
           )}
         </div>
 
         {/* Descripción */}
         <div>
-          <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="descripcion" className="block text-sm font-medium text-ink-soft mb-1">
             Descripción
           </label>
           <textarea
@@ -201,21 +201,21 @@ export function MembresiaForm({
             placeholder="Descripción opcional de la membresía (máx 300 caracteres)"
             rows={3}
             maxLength={300}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.descripcion ? "border-red-500 bg-red-50" : "border-gray-300"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand ${
+              errors.descripcion ? "border-danger bg-danger-soft" : "border-border"
             }`}
           />
           {errors.descripcion && (
-            <p className="text-red-600 text-sm mt-1">{errors.descripcion}</p>
+            <p className="text-danger text-sm mt-1">{errors.descripcion}</p>
           )}
-          <p className="text-gray-500 text-xs mt-1">
+          <p className="text-ink-muted text-xs mt-1">
             {formData.descripcion.length}/300 caracteres
           </p>
         </div>
 
         {/* Estado */}
         <div>
-          <label htmlFor="estado" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="estado" className="block text-sm font-medium text-ink-soft mb-1">
             Estado *
           </label>
           <select
@@ -223,14 +223,14 @@ export function MembresiaForm({
             name="estado"
             value={formData.estado}
             onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.estado ? "border-red-500 bg-red-50" : "border-gray-300"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand ${
+              errors.estado ? "border-danger bg-danger-soft" : "border-border"
             }`}
           >
             <option value="ACTIVA">Activa</option>
             <option value="INACTIVA">Inactiva</option>
           </select>
-          {errors.estado && <p className="text-red-600 text-sm mt-1">{errors.estado}</p>}
+          {errors.estado && <p className="text-danger text-sm mt-1">{errors.estado}</p>}
         </div>
 
         {/* Action buttons */}
@@ -238,7 +238,7 @@ export function MembresiaForm({
           <button
             type="submit"
             disabled={isLoading}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+            className="flex-1 rounded-md bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
           >
             {isLoading ? "Guardando..." : "Guardar"}
           </button>
@@ -246,7 +246,7 @@ export function MembresiaForm({
             type="button"
             onClick={onCancel}
             disabled={isLoading}
-            className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed font-medium"
+            className="flex-1 px-4 py-2 bg-surface-active text-ink rounded-md hover:bg-surface-active disabled:bg-surface-subtle disabled:cursor-not-allowed font-medium"
           >
             Cancelar
           </button>

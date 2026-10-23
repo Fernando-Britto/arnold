@@ -49,7 +49,7 @@ export function TarjetaRutina({
     return (
       <div
         data-testid="card-rutina"
-        className="rounded-lg border border-[#E4E4E7] bg-white p-6 text-center text-gray-500"
+        className="rounded-lg border border-border bg-surface p-6 text-center text-ink-muted"
       >
         Sin rutina asignada
       </div>
@@ -59,11 +59,11 @@ export function TarjetaRutina({
   return (
     <div
       data-testid="card-rutina"
-      className="flex flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-5"
+      className="flex flex-col gap-6 rounded-lg border border-border bg-surface p-5"
     >
       <div className="flex flex-col gap-1">
-        <p className="text-xs font-bold text-gray-500">MI RUTINA ASIGNADA</p>
-        <p className="text-lg font-bold text-gray-900">{rutinaNombre}</p>
+        <p className="text-xs font-bold text-ink-muted">MI RUTINA ASIGNADA</p>
+        <p className="text-lg font-bold text-ink">{rutinaNombre}</p>
       </div>
 
       <div className="flex items-center justify-between">
@@ -80,34 +80,34 @@ export function TarjetaRutina({
               >
                 <div className="flex items-center gap-1">
                   {estado === "completado" && (
-                    <CheckCircle2 className="h-4 w-4 text-green-700" aria-hidden="true" />
+                    <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
                   )}
                   {estado === "actual" && (
-                    <span className="h-2 w-2 rounded-full bg-[#FC4C02]" aria-hidden="true" />
+                    <span className="h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
                   )}
                   <p
                     className={`text-xl ${
                       estado === "actual"
-                        ? "font-bold text-[#FC4C02]"
+                        ? "font-bold text-brand"
                         : estado === "completado"
-                          ? "font-medium text-gray-900/70"
-                          : "font-medium text-gray-900"
+                          ? "font-medium text-ink/70"
+                          : "font-medium text-ink"
                     }`}
                   >
                     {ejercicio.nombre}
                   </p>
                 </div>
-                <p className="text-base text-gray-500">
+                <p className="text-base text-ink-muted">
                   {ejercicio.series}x{ejercicio.repeticiones}
                 </p>
               </div>
 
               {i < ejercicios.length - 1 && (
                 <div className="flex flex-col items-center gap-1">
-                  <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  <ChevronRight className="h-4 w-4 text-ink-disabled" aria-hidden="true" />
                   <div className="flex flex-col items-center">
-                    <p className="text-base font-medium text-gray-400">Descanso</p>
-                    <p className="text-sm font-bold text-gray-400">
+                    <p className="text-base font-medium text-ink-disabled">Descanso</p>
+                    <p className="text-sm font-bold text-ink-disabled">
                       {formatDescansoLabel(ejercicio.descanso)}
                     </p>
                   </div>
@@ -126,12 +126,12 @@ export function TarjetaRutina({
               key={ejercicio.id}
               data-testid="progreso-segmento"
               data-estado={estado}
-              className={`h-full grow rounded-[3px] ${
+              className={`h-full grow rounded-sm ${
                 estado === "completado"
-                  ? "bg-green-700"
+                  ? "bg-success"
                   : estado === "actual"
-                    ? "bg-[#FC4C02]"
-                    : "bg-gray-200"
+                    ? "bg-brand"
+                    : "bg-surface-active"
               }`}
             />
           );
@@ -141,7 +141,7 @@ export function TarjetaRutina({
       <button
         type="button"
         onClick={onSeguirRutina}
-        className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#FC4C02] text-[15px] font-bold text-white"
+        className="flex h-12 items-center justify-center gap-2 rounded-lg bg-brand-strong text-[15px] font-bold text-surface"
       >
         <Play className="h-[18px] w-[18px]" aria-hidden="true" />
         {sesionEnProgreso ? "Retomar sesión" : "Seguir rutina"}

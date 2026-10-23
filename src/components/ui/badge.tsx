@@ -2,12 +2,18 @@ import React from "react";
 
 export type BadgeVariant = "success" | "danger" | "warning" | "info" | "neutral";
 
+/**
+ * Misma paleta de estados que `TableStatusBadge` (table.tsx). Antes este componente
+ * usaba la escala de Tailwind (green-100/red-100/amber-100/blue-100) y el de tabla
+ * hex crudos: dos lenguajes de color para el mismo concepto. Ahora salen de los
+ * tokens de estado y un cambio en globals.css mueve ambos.
+ */
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  success: "bg-green-100 text-green-800",
-  danger: "bg-red-100 text-red-700",
-  warning: "bg-amber-100 text-amber-800",
-  info: "bg-blue-100 text-blue-700",
-  neutral: "bg-zinc-100 text-gray-500",
+  success: "bg-success-soft text-success",
+  danger: "bg-danger-soft text-danger",
+  warning: "bg-warning-soft text-warning",
+  info: "bg-info-soft text-info",
+  neutral: "bg-surface-subtle text-ink-soft",
 };
 
 interface BadgeProps {

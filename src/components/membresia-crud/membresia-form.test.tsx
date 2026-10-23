@@ -142,7 +142,7 @@ describe("MembresiaForm", () => {
       
       // Verify error appears in the form
       await waitFor(() => {
-        expect(screen.getByLabelText(/Precio/i)).toHaveClass("border-red-500");
+        expect(screen.getByLabelText(/Precio/i)).toHaveClass("border-danger");
       });
     });
 
@@ -160,7 +160,7 @@ describe("MembresiaForm", () => {
       
       // Verify error appears in the form
       await waitFor(() => {
-        expect(screen.getByLabelText(/Periodicidad/i)).toHaveClass("border-red-500");
+        expect(screen.getByLabelText(/Periodicidad/i)).toHaveClass("border-danger");
       });
     });
 

@@ -26,7 +26,7 @@ const staff = {
 
 const data = buildHomeInternoData();
 
-const loaded = () => waitFor(() => expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument());
+const loaded = () => waitFor(() => expect(screen.getByTestId("caja-total")).toBeInTheDocument());
 
 describe("HomeInternoPage Part 1 (Row_Acciones, Row_Hoy, Row_Operacion)", () => {
   beforeEach(() => {
@@ -65,7 +65,8 @@ describe("HomeInternoPage Part 1 (Row_Acciones, Row_Hoy, Row_Operacion)", () => 
     mockAuth.mockReturnValue(staff);
     render(<HomeInternoPage />);
     await loaded();
-    expect(screen.getByText("Vencimiento · Marta G.")).toBeInTheDocument();
+    // "Pendientes de hoy" muestra el nombre sin el prefijo "Vencimiento · " y su plazo aparte.
+    expect(screen.getByTestId("pendientes-de-hoy")).toHaveTextContent("Marta G.");
     expect(screen.getByText("87 / 100 miembros")).toBeInTheDocument();
     expect(screen.getByTestId("caja-total")).toHaveTextContent("$ 350");
     expect(screen.getByText("$ 150")).toBeInTheDocument();
@@ -112,15 +113,15 @@ describe("HomeInternoPage Part 1 (Row_Acciones, Row_Hoy, Row_Operacion)", () => 
     expect(mockPush).toHaveBeenCalledWith("/clientes");
   });
 
-  it("Socios inactivos card and an alert's 'Ver' navigate to the Clientes list", async () => {
+  it("Socios inactivos lleva a Clientes y el pendiente de cuota lleva a Pagos a cobrar", async () => {
     mockAuth.mockReturnValue(staff);
     render(<HomeInternoPage />);
     await loaded();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /socios inactivos/i }));
-    await user.click(screen.getByRole("button", { name: /ver/i }));
+    await user.click(screen.getByRole("button", { name: "Cobrar" }));
     expect(mockPush).toHaveBeenNthCalledWith(1, "/clientes");
-    expect(mockPush).toHaveBeenNthCalledWith(2, "/clientes");
+    expect(mockPush).toHaveBeenNthCalledWith(2, "/pagos");
   });
 
   it("shows 'Aforo no configurado' instead of crashing when ConfiguracionDelSistema values are null", async () => {

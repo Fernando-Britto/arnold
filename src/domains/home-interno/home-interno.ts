@@ -214,6 +214,11 @@ export interface AlertaVencimiento {
   socioId: string;
   texto: string;
   detalle: string;
+  /**
+   * Urgencia estructurada. La UI no debe parsear `detalle` para decidir un color:
+   * `vencida` ya pasó (rojo), `hoy` vence dentro de 24 h (ámbar), `proxima` es el resto.
+   */
+  nivel: "vencida" | "hoy" | "proxima";
 }
 
 const MS_PER_HOUR = 60 * 60 * 1000;
@@ -242,7 +247,8 @@ export function computeAlertasVencimiento(
           : dias === 0
             ? "Venció hoy"
             : `Venció hace ${dias} ${dias === 1 ? "día" : "días"}`;
-      return { socioId: c.socioId, texto: `Vencimiento · ${c.socioNombre}`, detalle };
+      const nivel: AlertaVencimiento["nivel"] = diff < 0 ? "vencida" : "hoy";
+      return { socioId: c.socioId, texto: `Vencimiento · ${c.socioNombre}`, detalle, nivel };
     });
 }
 
@@ -268,6 +274,8 @@ export interface ActivityItemView {
   nombre: string;
   descripcion: string;
   haceTexto: string;
+  /** Tipo del evento: la UI destaca las anulaciones de pago y enlaza a la sección correcta. */
+  tipo: ActivityEventType;
 }
 
 /** Renders a Date as "Hace N min" / "Hace 1 hora" / "Hace N horas" /
@@ -297,6 +305,11 @@ export interface HomeInternoRaw {
   personal: { rol: "ADMINISTRADOR" | "INSTRUCTOR" | "RECEPCIONISTA" }[];
   /** Live COUNT(*) per table (Row_Gestion, AC-006). */
   contadores: { rutinas: number; ejercicios: number; clientes: number; membresias: number };
+  /**
+   * Socios activos sin ninguna rutina asignada activa. Es una excepción que el staff puede
+   * resolver hoy (asignarles rutina), no un total de referencia.
+   */
+  sociosSinRutina: number;
   /** Unfiltered candidate events; the feed rules are applied in aggregateHomeInterno. */
   eventos: ActivityEvent[];
   /**
@@ -323,6 +336,7 @@ export interface HomeInternoViewModel {
   inactivos: OperationCardView;
   gestion: { rutinas: string; ejercicios: string; clientes: string; membresias: string };
   actividad: ActivityItemView[];
+  sociosSinRutina: number;
 }
 
 /** Composes every zone's derivations (Hoy, Operación, Gestión, Actividad). `hoy` is the server's
@@ -365,6 +379,8 @@ export function aggregateHomeInterno(
       nombre: e.nombre,
       descripcion: e.descripcion,
       haceTexto: formatHaceTiempo(e.fecha, hoy),
+      tipo: e.tipo,
     })),
+    sociosSinRutina: raw.sociosSinRutina,
   };
 }

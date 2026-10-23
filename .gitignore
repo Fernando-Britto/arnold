@@ -56,3 +56,11 @@ opencode.json.backup
 # y lo que entra al historial de git no se puede sacar después.
 public/**/*.gif
 public/**/*.GIF
+
+# Skill de diseño vendored (binario del engine, ~86 MB). Se instala con `npx impeccable install`;
+# no se versiona.
+.opencode/
+
+# Capturas de pantalla locales (no son parte del producto).
+/Captura de pantalla*.png
+/*.png

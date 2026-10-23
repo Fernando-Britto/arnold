@@ -1,5 +1,5 @@
 import React from "react";
-import { AdminTopNav, type NavSection } from "./admin-top-nav";
+import { StaffRail, type NavSection } from "./staff-rail";
 import { ActionBar } from "./action-bar";
 
 interface SectionPageLayoutProps {
@@ -24,17 +24,20 @@ export function SectionPageLayout({
   children,
 }: SectionPageLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-[#F7F7F7]">
-      <AdminTopNav activeSection={activeSection} />
-      <ActionBar breadcrumb={breadcrumb}>{actions}</ActionBar>
+    <div className="theme-dark flex min-h-screen flex-col bg-surface-page lg:flex-row">
+      <StaffRail activeSection={activeSection} />
 
-      {error && (
-        <div role="alert" className="mx-12 mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ActionBar breadcrumb={breadcrumb}>{actions}</ActionBar>
 
-      <main className="flex grow flex-col gap-6 px-12 pb-12">{children}</main>
+        {error && (
+          <div role="alert" className="mx-6 mb-4 rounded-lg border border-danger-soft bg-danger-soft p-4 xl:mx-12">
+            <p className="text-sm text-danger">{error}</p>
+          </div>
+        )}
+
+        <main className="flex grow flex-col gap-6 px-6 pb-8 xl:px-12 xl:pb-12">{children}</main>
+      </div>
     </div>
   );
 }

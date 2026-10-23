@@ -49,8 +49,8 @@ export function CrudActions({
   return (
     <>
       {searchOpen && (
-        <div className="flex h-10 items-center gap-2 rounded-lg border border-[#E5E5E5] bg-white px-3">
-          <Search size={16} className="text-[#71717A]" aria-hidden="true" />
+        <div className="flex h-10 items-center gap-2 rounded-lg border border-border bg-surface px-3">
+          <Search size={16} className="text-ink-muted" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
@@ -58,7 +58,7 @@ export function CrudActions({
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-full w-52 bg-transparent text-sm text-[#333333] outline-none placeholder:text-[#A1A5B0]"
+            className="h-full w-52 bg-transparent text-sm text-ink-soft outline-none placeholder:text-ink-muted"
           />
         </div>
       )}

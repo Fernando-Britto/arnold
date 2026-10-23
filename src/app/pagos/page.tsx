@@ -38,14 +38,14 @@ export function PagosPage() {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <h1 className="mb-4 text-2xl font-bold">Acceso Denegado</h1>
-          <p className="text-gray-600">No tenés permiso para acceder a esta página.</p>
+          <p className="text-ink-muted">No tenés permiso para acceder a esta página.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <SectionPageLayout breadcrumb="Registrar Pago">
+    <SectionPageLayout activeSection="pagos" breadcrumb="Registrar Pago">
       <h1 className="sr-only">Registrar Pago</h1>
       <PagoForm />
     </SectionPageLayout>

@@ -89,7 +89,7 @@ export function RutinaListPanel({
   const handleSort = (key: string) => setSort((current) => toggleSort(current, key));
 
   if (rutinas.length === 0) {
-    return <div className="p-8 text-center text-sm text-[#71717A]">No hay rutinas</div>;
+    return <div className="p-8 text-center text-sm text-ink-muted">No hay rutinas</div>;
   }
 
   return (
@@ -123,12 +123,12 @@ export function RutinaListPanel({
             {isSelected && (
               <TableDetailRow>
                 <div>
-                  <p className="text-[11px] font-bold uppercase text-[#C13D00]">Objetivo</p>
-                  <p className="text-sm text-[#333333]">{rutina.objetivoPrincipal || "-"}</p>
+                  <p className="text-overline font-bold uppercase text-brand-strong">Objetivo</p>
+                  <p className="text-sm text-ink-soft">{rutina.objetivoPrincipal || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold uppercase text-[#C13D00]">Descripción</p>
-                  <p className="text-sm text-[#333333]">{rutina.descripcion || "-"}</p>
+                  <p className="text-overline font-bold uppercase text-brand-strong">Descripción</p>
+                  <p className="text-sm text-ink-soft">{rutina.descripcion || "-"}</p>
                 </div>
               </TableDetailRow>
             )}
@@ -136,7 +136,7 @@ export function RutinaListPanel({
         );
       })}
       {filtered.length === 0 && searchTerm.trim() !== "" && (
-        <p className="p-6 text-center text-sm text-[#71717A]">
+        <p className="p-6 text-center text-sm text-ink-muted">
           {`No se encontraron rutinas que coincidan con "${searchTerm}".`}
         </p>
       )}

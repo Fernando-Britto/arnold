@@ -40,7 +40,7 @@ export function DispositivoListPanel({
   desactivandoId = null,
 }: DispositivoListPanelProps) {
   if (dispositivos.length === 0) {
-    return <div className="p-8 text-center text-sm text-[#71717A]">No hay dispositivos</div>;
+    return <div className="p-8 text-center text-sm text-ink-muted">No hay dispositivos</div>;
   }
 
   return (
@@ -66,7 +66,7 @@ export function DispositivoListPanel({
                 type="button"
                 onClick={() => onDesactivar(dispositivo)}
                 disabled={desactivandoId === dispositivo.id}
-                className="rounded border border-[#E5E5E5] bg-white px-3 py-1 text-sm font-medium text-[#333333] hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded border border-border bg-surface px-3 py-1 text-sm font-medium text-ink-soft hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Desactivar
               </button>

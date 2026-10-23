@@ -37,6 +37,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const VENTANA_PROGRESO_DIAS = 28;
 const MAX_SEMANAS_RACHA = 53;
 /** Pesajes que se leen para el gráfico: de sobra para los 120 puntos (uno por día) que se dibujan. */
+const MAX_SESIONES_HISTORIAL = 5;
 const MAX_PESAJES = 400;
 
 export async function buildHomeSocioPayload(
@@ -79,7 +80,7 @@ export async function buildHomeSocioPayload(
     enfriamientoOfertaDias: config.enfriamientoOfertaDias,
   };
 
-  const [asistenciasGym, asistenciasSocio, registros, asignaciones, sesion, evaluacionOferta, pesajes] = await Promise.all([
+  const [asistenciasGym, asistenciasSocio, registros, asignaciones, sesion, evaluacionOferta, sesionesCerradas, pesajes] = await Promise.all([
     prisma.asistencia.findMany({
       where: { estado: "PERMITIDO", fechaHora: { gte: new Date(Math.min(inicioDia.getTime(), desdeVentana.getTime())) } },
       select: { fechaHora: true },
@@ -121,7 +122,7 @@ export async function buildHomeSocioPayload(
                 descanso: true,
                 // D-59: el motor ignora las sesiones anteriores al último cambio del ejercicio en la rutina.
                 updatedAt: true,
-                ejercicio: { select: { id: true, nombre: true, grupoMuscular: true, descripcion: true } },
+                ejercicio: { select: { id: true, nombre: true, grupoMuscular: true, descripcion: true, mediaId: true } },
               },
             },
           },
@@ -145,6 +146,28 @@ export async function buildHomeSocioPayload(
       },
       now,
     ),
+    // Historial del inicio: las últimas sesiones cerradas con sus series de trabajo. Es el único
+    // lugar donde se calcula volumen y duración para el socio; no se guarda denormalizado.
+    prisma.sesionDeEntrenamiento.findMany({
+      where: {
+        socioId: socio.id,
+        estadoDeFinalizacion: { in: ["COMPLETADA", "INCOMPLETA"] },
+        // Una sesión abierta y cerrada sin registrar series no es historial: no ensucia la tabla.
+        registrosProgreso: { some: { tipo: { not: "CALENTAMIENTO" } } },
+      },
+      orderBy: { horaInicio: "desc" },
+      take: MAX_SESIONES_HISTORIAL,
+      select: {
+        id: true,
+        horaInicio: true,
+        horaFin: true,
+        rutinaAsignada: { select: { rutina: { select: { nombre: true } } } },
+        registrosProgreso: {
+          where: SOLO_SERIES_DE_TRABAJO,
+          select: { carga: true, repeticiones: true },
+        },
+      },
+    }),
     // T-048: los pesajes del propio socio, los más recientes primero (se entregan del más antiguo al más reciente).
     prisma.medicionDePeso.findMany({
       where: { socioId: socio.id },
@@ -180,6 +203,21 @@ export async function buildHomeSocioPayload(
     ? ejerciciosDeRutina.findIndex((e) => e.ejercicio.id === sesion.ejercicioActualId)
     : -1;
   const indiceActual = idxSesion >= 0 ? idxSesion : 0;
+
+  // Historial del inicio. D-64: el volumen sólo cuenta series de trabajo (la consulta ya filtra
+  // CALENTAMIENTO). Si la sesión quedó sin `horaFin`, la duración se mide contra el inicio (0 min).
+  const ultimasSesiones = sesionesCerradas.map((s) => {
+    const fin = s.horaFin ?? s.horaInicio;
+    const volumen = s.registrosProgreso.reduce((total, r) => total + Number(r.carga) * r.repeticiones, 0);
+    return {
+      id: s.id,
+      fecha: s.horaInicio.toISOString(),
+      rutinaNombre: s.rutinaAsignada.rutina.nombre,
+      series: s.registrosProgreso.length,
+      volumenKg: Math.round(volumen),
+      duracionMin: Math.max(0, Math.round((fin.getTime() - s.horaInicio.getTime()) / 60000)),
+    };
+  });
 
   // P-42 (D-60): la tarjeta de progreso muestra la sugerencia del motor, no "marca + incremento".
   const progresoActual = computeProgresoActual(
@@ -222,6 +260,7 @@ export async function buildHomeSocioPayload(
           ejercicios: ejerciciosDeRutina.map((e) => ({
             id: e.ejercicio.id,
             nombre: e.ejercicio.nombre,
+            mediaId: e.ejercicio.mediaId,
             grupoMuscular: e.ejercicio.grupoMuscular,
             descripcion: e.ejercicio.descripcion,
             series: e.series,
@@ -246,6 +285,7 @@ export async function buildHomeSocioPayload(
           }
         : null,
     oferta: evaluacionOferta.elegible ? { descuentoPct: evaluacionOferta.descuentoPct } : null,
+    ultimasSesiones,
     peso: {
       // P-47 (D-68): los pesajes con su id, del más antiguo al más reciente. La tarjeta decide
       // cuáles dibujar (uno por día, el último) y cuáles listar para borrar (los 3 últimos).

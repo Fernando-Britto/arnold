@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Arnold Gym — Torso B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --rail:#0A0A0B; --ground:#111113; --card:#18181B; --line:#2C2C31;
+    --text:#F4F4F2; --sub:#C9C9CE; --muted:#A1A1A6; --faint:#8A8A91;
+    --orange:#FC4C02; --green:#3DD68C;
+  }
+  html,body{width:1440px;height:900px;overflow:hidden}
+  body{background:var(--ground);color:var(--text);font-family:Archivo,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;display:flex}
+  .up{text-transform:uppercase;letter-spacing:.14em}
+
+  /* ── rail ───────────────────────────────────────────── */
+  .rail{width:236px;flex:0 0 236px;background:var(--rail);border-right:1px solid #232327;
+    display:flex;flex-direction:column;padding:26px 14px 20px}
+  .brand{font-size:19px;font-weight:900;letter-spacing:-.01em;padding:0 10px 26px}
+  .brand em{color:var(--orange);font-style:normal}
+  .zone{padding:0 10px;margin-bottom:7px;font-size:11px;font-weight:700;color:var(--faint)}
+  .zone:not(:first-of-type){margin-top:22px}
+  .rail nav a{display:flex;align-items:center;gap:11px;height:40px;padding:0 10px;border-radius:6px;
+    color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;
+    border-left:2px solid transparent;border-radius:0 6px 6px 0;margin-left:-2px}
+  .rail nav a.on{background:#17171A;border-left-color:var(--orange);color:var(--text);font-weight:700}
+  .dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.55}
+  .rail .foot{margin-top:auto;border-top:1px solid #232327;padding:16px 10px 0;display:flex;align-items:center;gap:10px}
+  .av{width:30px;height:30px;border-radius:50%;background:#2A2A2E;display:grid;place-items:center;
+    font-size:13px;font-weight:700;color:var(--sub)}
+  .rail .foot div{font-size:13px;font-weight:600}
+  .rail .foot div span{display:block;font-size:12px;font-weight:500;color:var(--faint);white-space:nowrap}
+  .bell{margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--orange)}
+
+  /* ── main ───────────────────────────────────────────── */
+  main{flex:1;padding:24px 32px 0;display:flex;flex-direction:column;gap:18px;min-width:0}
+  .top{display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:14px;
+    border-bottom:1px solid #232327}
+  .top h1{font-size:28px;font-weight:800;letter-spacing:-.02em}
+  .top p{font-size:13px;color:var(--muted);margin-top:3px}
+
+  .cols{display:grid;grid-template-columns:1fr 352px;gap:18px;min-height:0}
+
+  /* hero */
+  .hero{position:relative;border:1px solid var(--line);border-radius:12px;background:var(--card);
+    overflow:hidden;display:grid;grid-template-columns:1fr 300px;min-height:436px}
+  .hero .body{padding:26px 26px 24px;display:flex;flex-direction:column}
+  .hero h2{font-size:42px;font-weight:900;letter-spacing:-.03em;line-height:.96}
+  .hero .meta{font-size:13px;color:var(--muted);margin-top:8px}
+  .hero .meta b{color:var(--sub);font-weight:700}
+
+  .route{margin-top:18px;display:flex;flex-direction:column}
+  .stop{display:grid;grid-template-columns:26px 1fr 84px;align-items:center;gap:10px;
+    height:40px;position:relative}
+  .stop::after{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:#232327}
+  .stop .n{font-size:12px;font-weight:800;color:var(--faint);font-variant-numeric:tabular-nums}
+  .stop .nm{font-size:14px;font-weight:500;color:var(--muted)}
+  .stop .rx{font-size:12px;font-weight:600;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+  .stop.now{background:linear-gradient(90deg,rgba(252,76,2,.10),transparent 70%)}
+  .stop.now::before{content:"";position:absolute;left:-26px;top:6px;bottom:6px;width:2px;background:var(--orange)}
+  .stop.now .n{color:var(--orange)}
+  .stop.now .nm,.stop.now .rx{color:var(--text);font-weight:700}
+  .stop.done .n,.stop.done .nm{color:var(--sub)}
+  .stop.done .n::after{content:" ·";color:var(--green)}
+
+  .cta{margin-top:auto;height:56px;background:var(--orange);color:#0A0A0B;border:0;border-radius:8px;
+    font-family:Archivo,sans-serif;font-size:14px;font-weight:800;letter-spacing:-.01em;
+    display:flex;align-items:center;justify-content:center;gap:10px;padding:0 16px}
+  .cta small{font-size:11px;font-weight:600;color:#3A1400}
+
+  .hero .shot{position:relative;background:#000}
+  .hero .shot img{width:100%;height:100%;object-fit:cover;display:block;opacity:.9}
+  .hero .shot::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,var(--card) 0%,rgba(24,24,27,.35) 42%,rgba(24,24,27,0) 100%)}
+  .hero .shot .tag{position:absolute;left:14px;bottom:14px;z-index:2;font-size:11px;font-weight:700;
+    color:var(--text);background:rgba(10,10,11,.72);border:1px solid #34343A;padding:5px 9px}
+
+  /* right rail */
+  .side{display:flex;flex-direction:column;gap:18px}
+  .box{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:18px}
+  .box h3{font-size:12px;font-weight:700;color:var(--faint)}
+  .box .big{display:flex;align-items:baseline;gap:8px;margin:9px 0 2px}
+  .box .big b{font-size:34px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .box .big span{font-size:13px;font-weight:600;color:var(--muted)}
+  .delta{font-size:12px;font-weight:700;color:var(--green)}
+  .delta.down{color:var(--green)}
+  .chart{display:flex;align-items:flex-end;gap:6px;height:78px;margin-top:14px;
+    border-bottom:1px solid var(--line);padding-bottom:0}
+  .chart i{flex:1;background:#2E2E34;border-radius:2px 2px 0 0;display:block}
+  .chart i.last{background:var(--orange)}
+  .axis{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--faint)}
+  .rows{margin-top:12px;border-top:1px solid #232327}
+  .rows div{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;
+    border-bottom:1px solid #1F1F23;font-size:12px}
+  .rows span{color:var(--muted)}
+  .rows b{font-weight:700;font-variant-numeric:tabular-nums}
+
+  /* tu serie */
+  .serie{display:flex;align-items:center;gap:12px;margin-top:10px}
+  .flame{flex:0 0 52px;text-align:center;color:var(--orange)}
+  .flame svg{display:block;margin:0 auto 2px}
+  .flame b{display:block;font-size:21px;font-weight:900;letter-spacing:-.03em;
+    color:var(--text);line-height:1.05;font-variant-numeric:tabular-nums}
+  .flame span{font-size:12px;font-weight:600;color:var(--faint)}
+  .week{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;flex:1;list-style:none}
+  .week li{text-align:center}
+  .week li span{display:block;font-size:12px;font-weight:700;color:var(--faint);margin-bottom:5px}
+  .week li i{display:grid;place-items:center;height:27px;border-radius:50%;font-style:normal;
+    font-size:12px;font-weight:700;color:var(--muted);border:1px solid #2C2C31;
+    font-variant-numeric:tabular-nums}
+  .week li.on i{background:var(--orange);border-color:var(--orange);color:#0A0A0B}
+  .week li.today i{border:2px solid var(--orange);color:var(--text)}
+  .past{margin-top:14px;border-top:1px solid #232327;padding-top:11px}
+  .past p{font-size:12px;font-weight:500;color:var(--faint);margin-bottom:7px}
+  .past ol{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;list-style:none}
+  .past li{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .past li u{display:block;height:9px;text-decoration:none;background:#242429;border-radius:1px}
+  .past li u.hit{background:var(--orange)}
+  .past li u.hit.low{background:#7A3A18}
+
+  /* table */
+  .sessions{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden;padding-bottom:8px}
+  .sessions h3{padding:15px 18px 0;font-size:12px;font-weight:700;color:var(--faint)}
+  .sessions .sub{padding:4px 18px 0;font-size:12px;font-weight:500;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin-top:11px}
+  th{font-size:11px;font-weight:700;color:var(--faint);text-align:left;padding:8px 18px;
+    border-bottom:1px solid var(--line);border-top:1px solid #232327}
+  th.r,td.r{text-align:right}
+  td{font-size:13px;padding:11px 18px;border-bottom:1px solid #1F1F23;color:var(--sub);
+    font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:0}
+  td.name{color:var(--text);font-weight:600}
+  td .pill{font-size:12px;font-weight:700;color:var(--orange);border:1px solid #4A2109;padding:2px 6px}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <p class="brand">ARNOLD<em>GYM</em></p>
+  <nav>
+    <p class="zone up">Inicio</p>
+    <a href="#" class="on"><span class="dot"></span>Hoy</a>
+
+    <p class="zone up">Entrenamiento</p>
+    <a href="#">Mi rutina</a>
+    <a href="#">Ejercicios</a>
+    <a href="#">Mi progreso</a>
+
+    <p class="zone up">Mi cuenta</p>
+    <a href="#">Mi membresía</a>
+    <a href="#">Mis asistencias</a>
+  </nav>
+  <div class="foot">
+    <span class="av">F</span>
+    <div>Fer<span>Premium · 19 días</span></div>
+    <span class="bell"></span>
+  </div>
+</aside>
+
+<main>
+  <div class="top">
+    <div>
+      <h1>Torso B</h1>
+      <p>Sesión de hoy · jueves 22 de octubre</p>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <section class="hero">
+        <div class="body">
+          <h2>Torso B</h2>
+          <p class="meta"><b>5 ejercicios</b> · 48 min · 3 de 5 completados</p>
+
+          <div class="route">
+            <div class="stop done"><span class="n">01</span><span class="nm">Press banca</span><span class="rx">4 × 8 · 60 kg</span></div>
+            <div class="stop done"><span class="n">02</span><span class="nm">Remo con barra</span><span class="rx">4 × 8 · 50 kg</span></div>
+            <div class="stop now"><span class="n">03</span><span class="nm">Press inclinado con barra</span><span class="rx">4 × 8 · 25 kg</span></div>
+            <div class="stop"><span class="n">04</span><span class="nm">Press militar</span><span class="rx">3 × 10 · 30 kg</span></div>
+            <div class="stop"><span class="n">05</span><span class="nm">Extensión de tríceps</span><span class="rx">3 × 12 · 20 kg</span></div>
+          </div>
+
+          <button class="cta">Continuar entrenamiento <small>serie 2 de 4</small></button>
+        </div>
+        <div class="shot">
+          <img src="../../../public/ejercicios/0047-3TZduzM.jpg" alt="Press inclinado con barra">
+          <span class="tag">Media real del catálogo · 0047</span>
+        </div>
+      </section>
+
+      <section class="sessions" style="margin-top:18px">
+        <h3 class="up">Últimas sesiones</h3>
+        <p class="sub">10 asistencias en las últimas 4 semanas</p>
+        <table>
+          <tr><th>Día</th><th>Rutina</th><th class="r">Series</th><th class="r">Volumen</th><th class="r">Duración</th></tr>
+          <tr><td>16 oct</td><td class="name">Torso B</td><td class="r">18</td><td class="r">6.480 kg</td><td class="r">51 min</td></tr>
+          <tr><td>14 oct</td><td class="name">Piernas A</td><td class="r">16</td><td class="r">8.120 kg</td><td class="r">47 min</td></tr>
+          <tr><td>11 oct</td><td class="name">Torso A</td><td class="r">20</td><td class="r">7.050 kg</td><td class="r">55 min</td></tr>
+          <tr><td>09 oct</td><td class="name">Piernas B <span class="pill">RÉCORD</span></td><td class="r">17</td><td class="r">8.640 kg</td><td class="r">49 min</td></tr>
+        </table>
+      </section>
+    </div>
+
+    <aside class="side">
+      <div class="box">
+        <h3 class="up">Press inclinado · carga</h3>
+        <div class="big"><b>25</b><span>kg</span></div>
+        <p class="delta">+2,5 kg vs semana anterior</p>
+        <div class="chart">
+          <i style="height:44%"></i><i style="height:44%"></i><i style="height:68%"></i>
+          <i style="height:68%"></i><i style="height:88%"></i><i class="last" style="height:100%"></i>
+        </div>
+        <div class="axis"><span>17 sep</span><span>25 sep</span><span>16 oct</span></div>
+      </div>
+
+      <div class="box">
+        <h3 class="up">Tu serie</h3>
+        <div class="serie">
+          <div class="flame">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
+              stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+            </svg>
+            <b>5</b><span>semanas</span>
+          </div>
+          <ol class="week">
+            <li class="on"><span>L</span><i>19</i></li>
+            <li class="on"><span>M</span><i>20</i></li>
+            <li><span>X</span><i>21</i></li>
+            <li class="today"><span>J</span><i>22</i></li>
+            <li><span>V</span><i>23</i></li>
+            <li><span>S</span><i>24</i></li>
+            <li><span>D</span><i>25</i></li>
+          </ol>
+        </div>
+        <div class="past">
+          <p>Últimas 5 semanas</p>
+          <ol>
+            <li><u class="hit low"></u><u class="hit low"></u><u></u><u class="hit low"></u><u></u><u class="hit low"></u><u></u></li>
+            <li><u class="hit low"></u><u></u><u class="hit low"></u><u></u><u class="hit low"></u><u></u><u></u></li>
+            <li><u class="hit low"></u><u class="hit low"></u><u></u><u class="hit low"></u><u class="hit low"></u><u></u><u></u></li>
+            <li><u class="hit low"></u><u></u><u class="hit low"></u><u class="hit low"></u><u></u><u class="hit low"></u><u></u></li>
+            <li><u class="hit"></u><u class="hit"></u><u></u><u></u><u></u><u></u><u></u></li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="box">
+        <h3 class="up">Peso corporal</h3>
+        <div class="big"><b>79,9</b><span>kg</span></div>
+        <p class="delta down">−0,3 kg vs registro anterior</p>
+        <div class="rows">
+          <div><span>19 oct</span><b>79,9 kg</b></div>
+          <div><span>14 oct</span><b>80,2 kg</b></div>
+          <div><span>07 oct</span><b>80,8 kg</b></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+</body>
+</html>

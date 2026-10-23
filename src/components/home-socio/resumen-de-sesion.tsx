@@ -11,10 +11,10 @@ const ESTILO_TENDENCIA: Record<
   TendenciaDTO,
   { texto: string; clase: string; Icono: typeof ArrowUp }
 > = {
-  subio: { texto: "Mejor que la última vez", clase: "text-green-700", Icono: ArrowUp },
-  bajo: { texto: "Menos que la última vez", clase: "text-amber-700", Icono: ArrowDown },
-  igual: { texto: "Igual que la última vez", clase: "text-gray-600", Icono: Equal },
-  primera: { texto: "Primera vez", clase: "text-gray-600", Icono: Star },
+  subio: { texto: "Mejor que la última vez", clase: "text-success", Icono: ArrowUp },
+  bajo: { texto: "Menos que la última vez", clase: "text-warning", Icono: ArrowDown },
+  igual: { texto: "Igual que la última vez", clase: "text-ink-muted", Icono: Equal },
+  primera: { texto: "Primera vez", clase: "text-ink-muted", Icono: Star },
 };
 
 /** Una marca personal batida hoy (T-046c, D-63): trofeo y texto, no solo color. */
@@ -46,7 +46,7 @@ export function ResumenDeSesion({ resumen }: ResumenDeSesionProps) {
 
   return (
     <div data-testid="resumen-sesion" className="flex w-full flex-col gap-3 text-left">
-      <p data-testid="resumen-totales" className="text-center text-sm text-gray-500">
+      <p data-testid="resumen-totales" className="text-center text-sm text-ink-muted">
         {totales}
       </p>
       <ul className="flex flex-col gap-3">
@@ -58,10 +58,10 @@ export function ResumenDeSesion({ resumen }: ResumenDeSesionProps) {
             <li
               key={ejercicio.ejercicioId}
               data-testid="resumen-ejercicio"
-              className="flex flex-col gap-1.5 rounded-lg border border-[#E4E4E7] p-3"
+              className="flex flex-col gap-1.5 rounded-lg border border-border p-3"
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="font-bold text-gray-900">{ejercicio.nombre}</p>
+                <p className="font-bold text-ink">{ejercicio.nombre}</p>
                 <span
                   data-testid="resumen-tendencia"
                   data-tendencia={ejercicio.tendencia}
@@ -71,7 +71,7 @@ export function ResumenDeSesion({ resumen }: ResumenDeSesionProps) {
                   {tendencia.texto}
                 </span>
               </div>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-ink-muted">
                 Hoy: {describirSeries(ejercicio.hoy)}
                 {ejercicio.ultimaVez && ` · Antes: ${describirSeries(ejercicio.ultimaVez.series)}`}
               </p>

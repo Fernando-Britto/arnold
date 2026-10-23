@@ -175,7 +175,7 @@ export function EjerciciosPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Acceso Denegado</h1>
-          <p className="text-gray-600">
+          <p className="text-ink-muted">
             No tienes permiso para acceder a esta página.
           </p>
         </div>
@@ -228,7 +228,7 @@ export function EjerciciosPage() {
               editing && (
                 <button
                   onClick={() => setEditing(null)}
-                  className="rounded-md bg-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-400"
+                  className="rounded-md bg-surface-active px-3 py-1 text-sm text-ink-soft hover:bg-ink-disabled"
                 >
                   Cancelar
                 </button>
@@ -246,7 +246,7 @@ export function EjerciciosPage() {
           <ListPanelShell>
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <p className="text-gray-500">Cargando ejercicios...</p>
+                <p className="text-ink-muted">Cargando ejercicios...</p>
               </div>
             ) : (
               <EjercicioListPanel

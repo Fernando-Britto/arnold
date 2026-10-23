@@ -23,7 +23,8 @@ export function buildHomeInternoData(overrides: Partial<HomeInternoData> = {}): 
     inactivosConOferta: 0,
     aforo: { asistenciasActivas: 87, horas: [{ hora: 18, ocupacion: 87 }], horaActual: 18 },
     personal: [{ rol: "INSTRUCTOR" }, { rol: "RECEPCIONISTA" }],
-    contadores: { rutinas: 124, ejercicios: 342, clientes: 892, membresias: 15 },
+    sociosSinRutina: 2,
+  contadores: { rutinas: 124, ejercicios: 342, clientes: 892, membresias: 15 },
     eventos: [
       { tipo: "PAGO", nombre: "Ana López", descripcion: "Pago de membresía Pro", fecha: new Date("2026-09-30T17:45:00Z") },
       { tipo: "ALTA_SOCIO", nombre: "Carlos Mendez", descripcion: "Alta de nuevo socio", fecha: new Date("2026-09-30T16:00:00Z") },

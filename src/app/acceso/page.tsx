@@ -42,7 +42,7 @@ export function AccesoPage() {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <h1 className="mb-4 text-2xl font-bold">Acceso Denegado</h1>
-          <p className="text-gray-600">No tenés permiso para acceder a esta página.</p>
+          <p className="text-ink-muted">No tenés permiso para acceder a esta página.</p>
         </div>
       </div>
     );
@@ -56,7 +56,7 @@ export function AccesoPage() {
           type="button"
           aria-expanded={mostrarDefinirPin}
           onClick={() => setMostrarDefinirPin((prev) => !prev)}
-          className="flex items-center gap-2 rounded-lg border border-[#E5E5E5] bg-white px-4 py-2 text-sm font-medium text-[#333333] hover:bg-zinc-50"
+          className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-ink-soft hover:bg-surface-hover"
         >
           {mostrarDefinirPin ? "Volver al kiosco" : "Definir PIN"}
         </button>

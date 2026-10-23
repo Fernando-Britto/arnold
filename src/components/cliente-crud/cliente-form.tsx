@@ -284,14 +284,14 @@ export function ClienteForm({
         {/* ID (read-only) */}
         {initialData?.id && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-ink-soft mb-1">
               ID
             </label>
             <input
               type="text"
               value={initialData.id}
               disabled
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
+              className="w-full px-3 py-2 border border-border rounded-md bg-surface-subtle text-ink-soft cursor-not-allowed"
             />
           </div>
         )}
@@ -299,21 +299,21 @@ export function ClienteForm({
         {/* Fecha de Alta (read-only) */}
         {fechaAlta && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-ink-soft mb-1">
               Fecha de Alta
             </label>
             <input
               type="text"
               value={formatDateDDMMYYYY(fechaAlta)}
               disabled
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
+              className="w-full px-3 py-2 border border-border rounded-md bg-surface-subtle text-ink-soft cursor-not-allowed"
             />
           </div>
         )}
 
         {/* Nombre */}
         <div>
-          <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="nombre" className="block text-sm font-medium text-ink-soft mb-1">
             Nombre *
           </label>
           <input
@@ -325,18 +325,18 @@ export function ClienteForm({
             placeholder="e.g., Ana García"
             className={`w-full px-3 py-2 border rounded-md ${
               errors.nombre
-                ? "border-red-500 bg-red-50"
-                : "border-gray-300"
+                ? "border-danger bg-danger-soft"
+                : "border-border"
             }`}
           />
           {errors.nombre && (
-            <p className="text-red-600 text-sm mt-1">{errors.nombre}</p>
+            <p className="text-danger text-sm mt-1">{errors.nombre}</p>
           )}
         </div>
 
         {/* DNI */}
         <div>
-          <label htmlFor="dni" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="dni" className="block text-sm font-medium text-ink-soft mb-1">
             DNI *
           </label>
           <input
@@ -348,17 +348,17 @@ export function ClienteForm({
             onBlur={handleBlur}
             placeholder="XX.XXX.XXX o XXXXXXXX"
             className={`w-full px-3 py-2 border rounded-md ${
-              errors.dni ? "border-red-500 bg-red-50" : "border-gray-300"
+              errors.dni ? "border-danger bg-danger-soft" : "border-border"
             }`}
           />
           {errors.dni && (
-            <p className="text-red-600 text-sm mt-1">{errors.dni}</p>
+            <p className="text-danger text-sm mt-1">{errors.dni}</p>
           )}
         </div>
 
         {/* Email */}
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="email" className="block text-sm font-medium text-ink-soft mb-1">
             Email *
           </label>
           <input
@@ -370,18 +370,18 @@ export function ClienteForm({
             placeholder="ana@example.com"
             className={`w-full px-3 py-2 border rounded-md ${
               errors.email
-                ? "border-red-500 bg-red-50"
-                : "border-gray-300"
+                ? "border-danger bg-danger-soft"
+                : "border-border"
             }`}
           />
           {errors.email && (
-            <p className="text-red-600 text-sm mt-1">{errors.email}</p>
+            <p className="text-danger text-sm mt-1">{errors.email}</p>
           )}
         </div>
 
         {/* Teléfono */}
         <div>
-          <label htmlFor="telefono" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="telefono" className="block text-sm font-medium text-ink-soft mb-1">
             Teléfono (opcional)
           </label>
           <input
@@ -393,18 +393,18 @@ export function ClienteForm({
             placeholder="+54 9 XXXX XXXXXX"
             className={`w-full px-3 py-2 border rounded-md ${
               errors.telefono
-                ? "border-red-500 bg-red-50"
-                : "border-gray-300"
+                ? "border-danger bg-danger-soft"
+                : "border-border"
             }`}
           />
           {errors.telefono && (
-            <p className="text-red-600 text-sm mt-1">{errors.telefono}</p>
+            <p className="text-danger text-sm mt-1">{errors.telefono}</p>
           )}
         </div>
 
         {/* PIN de acceso (opcional) */}
         <div>
-          <label htmlFor="pin" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="pin" className="block text-sm font-medium text-ink-soft mb-1">
             PIN (4 dígitos)
           </label>
           <input
@@ -419,31 +419,31 @@ export function ClienteForm({
             placeholder="••••"
             aria-describedby="pin-hint"
             className={`w-full px-3 py-2 border rounded-md ${
-              errors.pin ? "border-red-500 bg-red-50" : "border-gray-300"
+              errors.pin ? "border-danger bg-danger-soft" : "border-border"
             }`}
           />
-          <p id="pin-hint" className="text-xs text-gray-500 mt-1">
+          <p id="pin-hint" className="text-xs text-ink-muted mt-1">
             Se usa para el ingreso por DNI + PIN. Dejalo vacío para no cambiarlo.
           </p>
           {errors.pin && (
-            <p className="text-red-600 text-sm mt-1">{errors.pin}</p>
+            <p className="text-danger text-sm mt-1">{errors.pin}</p>
           )}
         </div>
 
         {/* Membresía Asignada */}
         <div>
-          <label htmlFor="membresiaAsignada" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="membresiaAsignada" className="block text-sm font-medium text-ink-soft mb-1">
             Membresía Asignada *
           </label>
           {membresiasLoading ? (
             <div
               aria-busy="true"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm"
+              className="w-full px-3 py-2 border border-border rounded-md bg-surface-hover text-ink-muted text-sm"
             >
               Cargando membresías...
             </div>
           ) : activeMembresias.length === 0 ? (
-            <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm">
+            <div className="w-full px-3 py-2 border border-border rounded-md bg-surface-hover text-ink-muted text-sm">
               No hay membresías activas
             </div>
           ) : (
@@ -454,8 +454,8 @@ export function ClienteForm({
               onChange={handleChange}
               className={`w-full px-3 py-2 border rounded-md ${
                 errors.membresiaAsignada
-                  ? "border-red-500 bg-red-50"
-                  : "border-gray-300"
+                  ? "border-danger bg-danger-soft"
+                  : "border-border"
               }`}
             >
               <option value="">Seleccionar membresía...</option>
@@ -467,13 +467,13 @@ export function ClienteForm({
             </select>
           )}
           {errors.membresiaAsignada && (
-            <p className="text-red-600 text-sm mt-1">{errors.membresiaAsignada}</p>
+            <p className="text-danger text-sm mt-1">{errors.membresiaAsignada}</p>
           )}
         </div>
 
         {/* Estado de Cuenta */}
         <div>
-          <label htmlFor="estadoCuenta" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="estadoCuenta" className="block text-sm font-medium text-ink-soft mb-1">
             Estado de Cuenta *
           </label>
           <select
@@ -483,8 +483,8 @@ export function ClienteForm({
             onChange={handleChange}
             className={`w-full px-3 py-2 border rounded-md ${
               errors.estadoCuenta
-                ? "border-red-500 bg-red-50"
-                : "border-gray-300"
+                ? "border-danger bg-danger-soft"
+                : "border-border"
             }`}
           >
             <option value="Activa">Activa</option>
@@ -492,7 +492,7 @@ export function ClienteForm({
             <option value="Bloqueada">Bloqueada</option>
           </select>
           {errors.estadoCuenta && (
-            <p className="text-red-600 text-sm mt-1">{errors.estadoCuenta}</p>
+            <p className="text-danger text-sm mt-1">{errors.estadoCuenta}</p>
           )}
         </div>
 
@@ -507,7 +507,7 @@ export function ClienteForm({
               dniDuplicate ||
               activeMembresias.length === 0
             }
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+            className="flex-1 rounded-md bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
           >
             {isSubmitting ? "Guardando..." : initialData?.id ? "Actualizar" : "Crear"}
           </button>
@@ -516,7 +516,7 @@ export function ClienteForm({
               type="button"
               onClick={onCancel}
               disabled={isSubmitting}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 font-medium disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-surface-active text-ink-soft rounded-md hover:bg-surface-active font-medium disabled:bg-surface-subtle disabled:cursor-not-allowed"
             >
               Cancelar
             </button>

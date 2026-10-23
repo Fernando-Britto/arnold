@@ -17,26 +17,41 @@ export type { ActivityItemView };
  */
 export interface ActivityColumnProps {
   items: ActivityItemView[];
+  /** Cada fila lleva a la sección donde se resuelve (pagos o clientes). */
+  onSelect?: (item: ActivityItemView) => void;
 }
 
-export function ActivityColumn({ items }: ActivityColumnProps) {
+/** Una anulación de pago es una excepción, no un movimiento más: se destaca. */
+const esAnulacion = (item: ActivityItemView) => item.tipo === "ANULACION_PAGO";
+
+export function ActivityColumn({ items, onSelect }: ActivityColumnProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-5">
-      <p className="text-[13px] font-bold text-zinc-900">Últimos movimientos</p>
+    <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5">
+      <p className="text-meta font-bold text-ink">Últimos movimientos</p>
 
       {items.length === 0 ? (
-        <p className="text-sm text-zinc-500">Sin movimientos en las últimas 24 horas.</p>
+        <p className="text-sm text-ink-muted">Sin movimientos en las últimas 24 horas.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {items.map((item, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <p className="text-[13px] font-medium text-zinc-500">{item.nombre}</p>
-                <span className="text-[13px] text-zinc-400">•</span>
-                <p className="text-[13px] text-zinc-500">{item.descripcion}</p>
-              </div>
-              <p className="text-xs text-zinc-400">{item.haceTexto}</p>
-            </div>
+            <button
+              key={i}
+              type="button"
+              onClick={() => onSelect?.(item)}
+              disabled={!onSelect}
+              className="flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left enabled:hover:bg-surface-hover disabled:cursor-default"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-meta font-medium text-ink-muted">{item.nombre}</span>
+                <span aria-hidden="true" className="text-meta text-ink-disabled">•</span>
+                <span
+                  className={`truncate text-meta ${esAnulacion(item) ? "font-bold text-danger" : "text-ink-muted"}`}
+                >
+                  {item.descripcion}
+                </span>
+              </span>
+              <span className="shrink-0 text-xs text-ink-disabled">{item.haceTexto}</span>
+            </button>
           ))}
         </div>
       )}

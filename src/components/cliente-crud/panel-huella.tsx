@@ -150,25 +150,25 @@ export function PanelHuella({ socioId, socioNombre }: PanelHuellaProps) {
 
   if (!estado) {
     return (
-      <section aria-label={ariaLabel} className="flex flex-col gap-3 border-t border-[#E4E4E7] pt-4">
-        <h3 className="text-sm font-bold uppercase text-[#71717A]">Huella</h3>
+      <section aria-label={ariaLabel} className="flex flex-col gap-3 border-t border-border pt-4">
+        <h3 className="text-sm font-bold uppercase text-ink-muted">Huella</h3>
         {error ? (
-          <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700">
+          <p role="alert" className="rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger">
             {error}
           </p>
         ) : (
-          <p className="text-sm text-gray-500">Consultando estado de la huella…</p>
+          <p className="text-sm text-ink-muted">Consultando estado de la huella…</p>
         )}
       </section>
     );
   }
 
   return (
-    <section aria-label={ariaLabel} className="flex flex-col gap-3 border-t border-[#E4E4E7] pt-4">
-      <h3 className="text-sm font-bold uppercase text-[#71717A]">Huella</h3>
+    <section aria-label={ariaLabel} className="flex flex-col gap-3 border-t border-border pt-4">
+      <h3 className="text-sm font-bold uppercase text-ink-muted">Huella</h3>
 
       {error && (
-        <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -176,28 +176,28 @@ export function PanelHuella({ socioId, socioNombre }: PanelHuellaProps) {
       {pendiente ? (
         agotado ? (
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-amber-800">El sensor no respondió; podés reintentar.</p>
+            <p className="text-sm text-warning">El sensor no respondió; podés reintentar.</p>
             <button
               type="button"
               onClick={() => setAgotado(false)}
-              className="rounded bg-[#FC4C02] px-4 py-2 font-medium text-white hover:bg-[#C13D00]"
+              className="rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep"
             >
               Reintentar
             </button>
           </div>
         ) : (
-          <p role="status" className="text-sm text-gray-700">
+          <p role="status" className="text-sm text-ink-soft">
             Esperando al sensor… (acercá el dedo al lector)
           </p>
         )
       ) : estado.huellaId != null ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-gray-900">Huella registrada (ID {estado.huellaId})</p>
+          <p className="text-sm text-ink">Huella registrada (ID {estado.huellaId})</p>
           <button
             type="button"
             onClick={handleEliminar}
             disabled={accionando}
-            className="rounded border border-red-300 px-4 py-2 font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded border border-danger-soft px-4 py-2 font-medium text-danger hover:bg-danger-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             {accionando ? "Eliminando…" : "Eliminar huella"}
           </button>
@@ -205,11 +205,11 @@ export function PanelHuella({ socioId, socioNombre }: PanelHuellaProps) {
       ) : (
         <div className="flex flex-col gap-3">
           {estado.solicitud?.estado === "FALLIDA" && (
-            <p role="status" className="text-sm text-red-700">
+            <p role="status" className="text-sm text-danger">
               {textoFallida(estado.solicitud.accion, estado.solicitud.motivo)}
             </p>
           )}
-          <label className="flex items-start gap-2 text-sm text-gray-700">
+          <label className="flex items-start gap-2 text-sm text-ink-soft">
             <input
               type="checkbox"
               checked={consentimiento}
@@ -222,7 +222,7 @@ export function PanelHuella({ socioId, socioNombre }: PanelHuellaProps) {
             type="button"
             onClick={handleRegistrar}
             disabled={!consentimiento || accionando}
-            className="rounded bg-[#FC4C02] px-4 py-2 font-medium text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
+            className="rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
           >
             {accionando ? "Enviando…" : "Registrar huella"}
           </button>

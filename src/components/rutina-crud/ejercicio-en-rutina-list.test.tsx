@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EjercicioEnRutinaList } from "./ejercicio-en-rutina-list";
 import { type EjercicioEnRutinaRow } from "@/api/rutinas";
@@ -254,6 +254,223 @@ describe("EjercicioEnRutinaList Component", () => {
       await user.type(searchInput, "xyz123nonexistent");
 
       expect(screen.getByText("No se encontraron ejercicios")).toBeInTheDocument();
+    });
+  });
+
+  describe("Catalog modal: catálogo grande (P-52, D-72)", () => {
+    const hacer = (n: number): Ejercicio[] =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `e${i + 1}`,
+        nombre: `Ejercicio ${String(i + 1).padStart(3, "0")}`,
+        grupoMuscular: i % 2 === 0 ? "Pecho" : "Piernas",
+        descripcion: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...sinCatalogo(),
+        equipamiento: i % 3 === 0 ? "Barra" : "Mancuerna",
+      }));
+
+    const conTildes: Ejercicio[] = [
+      { ...mockEjercicios[0], id: "a", nombre: "Press de banca con barra", equipamiento: "Barra", musculoObjetivo: "Pectorales" },
+      { ...mockEjercicios[1], id: "b", nombre: "Curl de Bíceps con mancuernas", grupoMuscular: "Brazos", equipamiento: "Mancuerna", musculoObjetivo: "Bíceps" },
+      { ...mockEjercicios[2], id: "c", nombre: "Press militar", grupoMuscular: "Hombros", equipamiento: "Barra", musculoObjetivo: "Deltoides" },
+    ];
+
+    async function abrir(availableEjercicios: Ejercicio[], rows: EjercicioEnRutinaRow[] = []) {
+      const onRowsChange = jest.fn();
+      const user = userEvent.setup();
+      render(
+        <EjercicioEnRutinaList rows={rows} availableEjercicios={availableEjercicios} onRowsChange={onRowsChange} />
+      );
+      await user.click(screen.getByRole("button", { name: /Agregar Ejercicio/i }));
+      return { user, onRowsChange };
+    }
+
+    const buscador = () => screen.getByPlaceholderText("Buscar ejercicio...");
+
+    it("busca sin distinguir tildes ni mayúsculas: 'biceps' encuentra 'Bíceps'", async () => {
+      const { user } = await abrir(conTildes);
+
+      await user.type(buscador(), "BICEPS");
+
+      expect(screen.getByText("Curl de Bíceps con mancuernas")).toBeInTheDocument();
+      expect(screen.queryByText("Press de banca con barra")).not.toBeInTheDocument();
+    });
+
+    it("acepta varias palabras aunque no estén seguidas", async () => {
+      const { user } = await abrir(conTildes);
+
+      await user.type(buscador(), "banca press");
+
+      expect(screen.getByText("Press de banca con barra")).toBeInTheDocument();
+      expect(screen.queryByText("Press militar")).not.toBeInTheDocument();
+    });
+
+    it("también encuentra por equipamiento y por músculo, no solo por nombre", async () => {
+      const { user } = await abrir(conTildes);
+
+      await user.type(buscador(), "deltoides");
+
+      expect(screen.getByText("Press militar")).toBeInTheDocument();
+      expect(screen.queryByText("Curl de Bíceps con mancuernas")).not.toBeInTheDocument();
+    });
+
+    it("filtra por grupo muscular y por equipamiento, y se combinan con la búsqueda", async () => {
+      const { user } = await abrir(conTildes);
+
+      await user.selectOptions(screen.getByLabelText(/grupo muscular/i), "Hombros");
+      expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+      expect(screen.getByText("Press militar")).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByLabelText(/grupo muscular/i), "");
+      await user.selectOptions(screen.getByLabelText(/equipamiento/i), "Barra");
+      expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+
+      await user.type(buscador(), "militar");
+      expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    });
+
+    it("las opciones de los filtros salen del catálogo, sin repetir", async () => {
+      await abrir(conTildes);
+
+      const grupos = Array.from(screen.getByLabelText(/grupo muscular/i).querySelectorAll("option")).map((o) => o.textContent);
+      const equipos = Array.from(screen.getByLabelText(/equipamiento/i).querySelectorAll("option")).map((o) => o.textContent);
+
+      expect(grupos).toEqual(["Todos los grupos", "Brazos", "Hombros", "Pecho"]);
+      expect(equipos).toEqual(["Todo el equipamiento", "Barra", "Mancuerna"]);
+    });
+
+    it("sin ejercicios con equipamiento (cargados a mano) no ofrece ese filtro", async () => {
+      await abrir(mockEjercicios);
+
+      expect(screen.queryByLabelText(/equipamiento/i)).not.toBeInTheDocument();
+    });
+
+    it("con muchos ejercicios muestra de a 50 y permite ver más", async () => {
+      const { user } = await abrir(hacer(120));
+
+      expect(screen.getAllByRole("checkbox")).toHaveLength(50);
+      expect(screen.getByText("Mostrando 50 de 120 ejercicios")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /ver más ejercicios/i }));
+      expect(screen.getAllByRole("checkbox")).toHaveLength(100);
+
+      await user.click(screen.getByRole("button", { name: /ver más ejercicios/i }));
+      expect(screen.getAllByRole("checkbox")).toHaveLength(120);
+      expect(screen.queryByRole("button", { name: /ver más ejercicios/i })).not.toBeInTheDocument();
+    });
+
+    it("al cambiar la búsqueda o un filtro vuelve a la primera página", async () => {
+      const { user } = await abrir(hacer(120));
+      await user.click(screen.getByRole("button", { name: /ver más ejercicios/i }));
+      expect(screen.getAllByRole("checkbox")).toHaveLength(100);
+
+      await user.selectOptions(screen.getByLabelText(/grupo muscular/i), "Pecho");
+
+      // 60 de Pecho: de nuevo solo 50 a la vista.
+      expect(screen.getAllByRole("checkbox")).toHaveLength(50);
+      expect(screen.getByText("Mostrando 50 de 60 ejercicios")).toBeInTheDocument();
+    });
+
+    it("con pocos ejercicios no muestra el contador ni 'ver más'", async () => {
+      await abrir(conTildes);
+
+      expect(screen.queryByText(/mostrando/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /ver más ejercicios/i })).not.toBeInTheDocument();
+    });
+
+    it("lo que se tildó se conserva aunque se cambie el filtro o la búsqueda, y se cuenta en 'Agregar'", async () => {
+      const { user, onRowsChange } = await abrir(conTildes);
+
+      await user.click(screen.getAllByRole("checkbox")[0]); // Press de banca
+      await user.type(buscador(), "curl");
+      await user.click(screen.getAllByRole("checkbox")[0]); // Curl de bíceps
+      await user.clear(buscador());
+
+      expect(screen.getByRole("button", { name: /Agregar \(2\)/i })).toBeEnabled();
+      await user.click(screen.getByRole("button", { name: /Agregar \(2\)/i }));
+      expect(onRowsChange).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ ejercicioId: "a" }),
+          expect.objectContaining({ ejercicioId: "b" }),
+        ])
+      );
+    });
+
+    it("un ejercicio que ya está en la rutina no se ofrece de nuevo, ni siquiera buscándolo", async () => {
+      const yaEsta: EjercicioEnRutinaRow = {
+        ejercicioId: "a",
+        ejercicioNombre: "Press de banca con barra",
+        series: 3,
+        repeticiones: 10,
+        descanso: 60,
+        orden: 0,
+      };
+      const { user } = await abrir(conTildes, [yaEsta]);
+
+      expect(within(screen.getByRole("dialog")).queryByText("Press de banca con barra")).not.toBeInTheDocument();
+      expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+
+      await user.type(buscador(), "banca");
+      expect(screen.getByText("No se encontraron ejercicios")).toBeInTheDocument();
+    });
+
+    it("cancelar descarta lo tildado y la búsqueda: al volver a abrir está todo limpio", async () => {
+      const { user } = await abrir(conTildes);
+
+      await user.click(screen.getAllByRole("checkbox")[0]);
+      await user.type(buscador(), "curl");
+      await user.click(screen.getByRole("button", { name: /cancelar/i }));
+      await user.click(screen.getByRole("button", { name: /Agregar Ejercicio/i }));
+
+      expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+      expect(screen.getAllByRole("checkbox").every((c) => !(c as HTMLInputElement).checked)).toBe(true);
+      expect(buscador()).toHaveValue("");
+      expect(screen.getByRole("button", { name: /Agregar \(0\)/i })).toBeDisabled();
+    });
+
+    it("Escape cierra el modal", async () => {
+      const { user } = await abrir(conTildes);
+
+      await user.keyboard("{Escape}");
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("es un diálogo con nombre y el buscador recibe el foco al abrir", async () => {
+      await abrir(conTildes);
+
+      expect(screen.getByRole("dialog", { name: /agregar ejercicios/i })).toHaveAttribute("aria-modal", "true");
+      expect(buscador()).toHaveFocus();
+    });
+
+    it("muestra las miniaturas del catálogo y la atribución de la media", async () => {
+      const conMedia = conTildes.map((x, i) => ({ ...x, mediaId: `m${i}` }));
+      await abrir(conMedia);
+
+      const imagenes = screen.getByRole("dialog").querySelectorAll("img");
+      expect(imagenes).toHaveLength(3);
+      expect(imagenes[0].getAttribute("src")).toBe("/ejercicios/m0.jpg");
+      expect(screen.getByRole("link", { name: /gym visual/i })).toBeInTheDocument();
+    });
+
+    it("sin media no hay miniaturas ni atribución", async () => {
+      await abrir(conTildes);
+
+      expect(screen.getByRole("dialog").querySelectorAll("img")).toHaveLength(0);
+      expect(screen.queryByRole("link", { name: /gym visual/i })).not.toBeInTheDocument();
+    });
+
+    it("distingue 'no hay resultados de la búsqueda' de 'no hay con esos filtros'", async () => {
+      const { user } = await abrir(conTildes);
+
+      await user.type(buscador(), "xyz123");
+      expect(screen.getByText("No se encontraron ejercicios")).toBeInTheDocument();
+
+      await user.clear(buscador());
+      await user.selectOptions(screen.getByLabelText(/grupo muscular/i), "Hombros");
+      await user.selectOptions(screen.getByLabelText(/equipamiento/i), "Mancuerna");
+      expect(screen.getByText("No hay ejercicios con esos filtros.")).toBeInTheDocument();
     });
   });
 

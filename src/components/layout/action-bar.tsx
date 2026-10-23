@@ -8,15 +8,15 @@ interface ActionBarProps {
 
 export function ActionBar({ breadcrumb, children }: ActionBarProps) {
   return (
-    <div className="flex h-[72px] items-center justify-between px-12">
+    <div className="flex min-h-[72px] flex-wrap items-center justify-between gap-3 px-6 py-2 xl:px-12">
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm">
-        <span className="text-[#999999]">Gestión</span>
-        <ChevronRight size={14} className="text-[#999999]" />
-        <span aria-current="page" className="font-medium text-[#333333]">
+        <span className="text-ink-muted">Gestión</span>
+        <ChevronRight size={14} className="text-ink-muted" />
+        <span aria-current="page" className="font-medium text-ink-soft">
           {breadcrumb}
         </span>
       </nav>
-      <div className="flex items-center gap-4">{children}</div>
+      <div className="flex flex-wrap items-center gap-3 xl:gap-4">{children}</div>
     </div>
   );
 }
@@ -36,14 +36,14 @@ export function ActionButton({
   variant = "default",
   disabled = false,
 }: ActionButtonProps) {
-  const color = variant === "accent" ? "text-[#FC4C02]" : "text-[#333333]";
+  const color = variant === "accent" ? "text-brand-strong" : "text-ink-soft";
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center gap-2 rounded-lg border border-[#E5E5E5] bg-white px-4 py-2 text-sm font-medium ${color} ${
-        disabled ? "cursor-not-allowed opacity-50" : "hover:bg-zinc-50"
+      className={`flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium ${color} ${
+        disabled ? "cursor-not-allowed opacity-50" : "hover:bg-surface-hover"
       }`}
     >
       <Icon size={16} />

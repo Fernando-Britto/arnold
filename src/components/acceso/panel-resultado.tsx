@@ -35,9 +35,9 @@ export function PanelResultado({
   const conAviso = resultado.resultado === "PERMITIDO_CON_AVISO";
   const contenedor = permitido
     ? conAviso
-      ? "border-amber-400 bg-amber-50 text-amber-900"
-      : "border-green-500 bg-green-50 text-green-900"
-    : "border-red-500 bg-red-50 text-red-900";
+      ? "border-warning bg-warning-soft text-warning"
+      : "border-success bg-success-soft text-success"
+    : "border-danger bg-danger-soft text-danger";
 
   return (
     <div

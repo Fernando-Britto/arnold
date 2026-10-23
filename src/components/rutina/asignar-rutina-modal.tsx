@@ -103,7 +103,7 @@ export function AsignarRutinaModal({ onClose, onAsignada }: AsignarRutinaModalPr
       aria-label="Asignar Rutina a Socio"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     >
-      <div className="flex w-full max-w-lg flex-col gap-5 rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
+      <div className="flex w-full max-w-lg flex-col gap-5 rounded-lg border border-border bg-surface p-6 shadow-lg">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Asignar Rutina a Socio</h2>
           <button type="button" aria-label="Cerrar" onClick={onClose} className="text-xl leading-none">
@@ -112,14 +112,14 @@ export function AsignarRutinaModal({ onClose, onAsignada }: AsignarRutinaModalPr
         </div>
 
         {error && (
-          <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700">
+          <p role="alert" className="rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger">
             {error}
           </p>
         )}
 
         <form onSubmit={handleBuscar} className="flex items-end gap-2">
           <div className="flex-1">
-            <label htmlFor="asignar-rutina-dni" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="asignar-rutina-dni" className="mb-1 block text-sm font-medium text-ink-soft">
               DNI
             </label>
             <input
@@ -129,28 +129,28 @@ export function AsignarRutinaModal({ onClose, onAsignada }: AsignarRutinaModalPr
               value={dni}
               onChange={(e) => setDni(e.target.value)}
               placeholder="XX.XXX.XXX o XXXXXXXX"
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              className="w-full rounded-md border border-border px-3 py-2"
             />
           </div>
           <button
             type="submit"
             disabled={buscando}
-            className="rounded bg-[#FC4C02] px-4 py-2 font-medium text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
+            className="rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
           >
             {buscando ? "Buscando..." : "Buscar"}
           </button>
         </form>
 
         {socio && (
-          <section aria-label="Socio seleccionado" className="rounded-lg border border-gray-200 p-4">
-            <h3 className="text-base font-semibold text-zinc-900">{socio.nombre}</h3>
-            <p className="text-sm text-gray-500">DNI {socio.dni}</p>
+          <section aria-label="Socio seleccionado" className="rounded-lg border border-border p-4">
+            <h3 className="text-base font-semibold text-ink">{socio.nombre}</h3>
+            <p className="text-sm text-ink-muted">DNI {socio.dni}</p>
           </section>
         )}
 
         {socio && (
           <div>
-            <label htmlFor="asignar-rutina-select" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="asignar-rutina-select" className="mb-1 block text-sm font-medium text-ink-soft">
               Rutina
             </label>
             <select
@@ -159,7 +159,7 @@ export function AsignarRutinaModal({ onClose, onAsignada }: AsignarRutinaModalPr
               value={rutinaId}
               onChange={(e) => setRutinaId(e.target.value)}
               disabled={cargandoRutinas}
-              className="w-full rounded-md border border-gray-300 px-3 py-2"
+              className="w-full rounded-md border border-border px-3 py-2"
             >
               <option value="">Seleccioná una rutina</option>
               {rutinas.map((r) => (
@@ -175,7 +175,7 @@ export function AsignarRutinaModal({ onClose, onAsignada }: AsignarRutinaModalPr
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded border border-border px-4 py-2 font-medium text-ink-soft hover:bg-surface-hover"
           >
             Cancelar
           </button>
@@ -183,7 +183,7 @@ export function AsignarRutinaModal({ onClose, onAsignada }: AsignarRutinaModalPr
             type="button"
             onClick={handleAsignar}
             disabled={!socio || !rutinaId || asignando}
-            className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+            className="rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
           >
             {asignando ? "Asignando..." : "Asignar"}
           </button>

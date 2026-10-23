@@ -57,7 +57,7 @@ export function MembresiaCard({
     return (
       <div
         data-testid="card-membresia"
-        className="rounded-lg border border-[#E4E4E7] bg-white p-6 text-center text-gray-500"
+        className="rounded-lg border border-border bg-surface p-6 text-center text-ink-muted"
       >
         Sin membresía asignada
       </div>
@@ -76,35 +76,35 @@ export function MembresiaCard({
 
   const badgeClass =
     estado === "AL_DIA"
-      ? "bg-green-100 text-green-800"
+      ? "bg-success-soft text-success"
       : estado === "POR_VENCER"
-        ? "bg-amber-100 text-amber-800"
-        : "bg-red-100 text-red-800";
+        ? "bg-warning-soft text-warning"
+        : "bg-danger-soft text-danger";
 
   return (
     <div
       data-testid="card-membresia"
-      className="flex items-center justify-between gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6"
+      className="flex items-center justify-between gap-6 rounded-lg border border-border bg-surface p-6"
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
-          <p className="text-xl font-bold text-zinc-900">{planNombre}</p>
+          <p className="text-xl font-bold text-ink">{planNombre}</p>
           <span
             className={`rounded-sm px-2.5 py-1 text-xs font-bold ${badgeClass}`}
           >
             {ESTADO_LABEL[estado]}
           </span>
         </div>
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-ink-muted">
           Vencimiento: {formatFechaLarga(fechaVencimiento)}
         </p>
         <div className="flex w-80 flex-col gap-2">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-ink-muted">
             Quedan {diasRestantesClamped} de {diasTotalMembresia} días
           </p>
-          <div className="h-1 w-80 overflow-hidden rounded-full bg-zinc-100">
+          <div className="h-1 w-80 overflow-hidden rounded-full bg-surface-subtle">
             <div
-              className="h-full bg-[#FC4C02]"
+              className="h-full bg-brand"
               style={{ width: `${fillPercent}%` }}
             />
           </div>
@@ -113,7 +113,7 @@ export function MembresiaCard({
           <button
             type="button"
             onClick={onVerMembresia}
-            className="rounded-lg border border-zinc-200 px-5 py-3 text-sm font-bold text-zinc-500"
+            className="rounded-lg border border-border px-5 py-3 text-sm font-bold text-ink-muted"
           >
             Ver membresía
           </button>
@@ -121,7 +121,7 @@ export function MembresiaCard({
             <button
               type="button"
               onClick={onRenovar}
-              className="rounded-lg bg-[#FC4C02] px-5 py-3 text-sm font-bold text-white"
+              className="rounded-lg bg-brand-strong px-5 py-3 text-sm font-bold text-surface"
             >
               Renovar ahora
             </button>
@@ -131,14 +131,14 @@ export function MembresiaCard({
 
       <div className="flex items-center gap-6">
         <div className="flex flex-col gap-0.5">
-          <p className="text-xs text-zinc-500">Últimas 4 semanas</p>
-          <p className="text-4xl font-bold text-[#FC4C02]">{totalAsistencias}</p>
-          <p className="text-xs text-zinc-500">Asistencias totales</p>
+          <p className="text-xs text-ink-muted">Últimas 4 semanas</p>
+          <p className="text-4xl font-bold text-brand">{totalAsistencias}</p>
+          <p className="text-xs text-ink-muted">Asistencias totales</p>
         </div>
         <div className="flex flex-col items-center gap-2">
           <div className="flex gap-3">
             {DIAS_LABEL.map((l) => (
-              <p key={l} className="w-3 text-center text-[10px] text-zinc-500">
+              <p key={l} className="w-3 text-center text-overline text-ink-muted">
                 {l}
               </p>
             ))}
@@ -154,7 +154,7 @@ export function MembresiaCard({
                       data-testid="dia-dot"
                       data-filled={filled ? "true" : "false"}
                       className={`h-2 w-2 rounded-full ${
-                        filled ? "bg-[#FC4C02]" : "bg-zinc-200"
+                        filled ? "bg-brand" : "bg-surface-active"
                       }`}
                     />
                   );

@@ -59,7 +59,8 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
   // UNA sola ronda: ninguna consulta depende de otra ni anida relaciones (ver nota de la cabecera).
   const [
     config, maquinas, pagosRecientes, socios, usuariosSocio, ultimasCuotas, ultimasVisitas,
-    ultimosDescuentos, asistencias, personal, rutinas, ejercicios, planes, asignaciones, rutinasAsignadas,
+    ultimosDescuentos, asistencias, personal, rutinas, ejercicios, planes, sociosSinRutina, asignaciones,
+    rutinasAsignadas,
   ] = await Promise.all([
     getConfiguracion(prisma),
     prisma.maquina.findMany({ select: { estado: true } }),
@@ -97,6 +98,13 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
     prisma.rutina.count(),
     prisma.ejercicio.count(),
     prisma.membresia.findMany({ select: { id: true, nombre: true } }),
+    // Excepción accionable del día: socios activos sin ninguna rutina activa. Se cuenta en la base.
+    prisma.socio.count({
+      where: {
+        usuario: { estado: "ACTIVO", deletedAt: null },
+        rutinasAsignadas: { none: { activa: true } },
+      },
+    }),
     prisma.rutinaAsignada.findMany({
       where: { fechaAsignacion: { gte: hace24h } },
       orderBy: { fechaAsignacion: "desc" },
@@ -243,6 +251,7 @@ export async function buildHomeInternoPayload(now: Date = new Date()): Promise<H
       .map((e) => e.rol as string)
       .filter((rol): rol is StaffRol => STAFF.includes(rol))
       .map((rol) => ({ rol })),
+    sociosSinRutina,
     contadores: { rutinas, ejercicios, clientes, membresias: planes.length },
     eventos,
   };

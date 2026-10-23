@@ -1,38 +1,11 @@
-"use client";
-
-import React from "react";
-import { Bell, LogOut, Search } from "lucide-react";
-
 /**
- * TopNav — top navigation bar for the Socio-facing app (Home_Socio y afines).
- * Matches Home_Socio_1x design.
+ * Contrato de navegación del socio.
  *
- * Nota: la nav de las pantallas de gestión (Ejercicios/Rutinas/Membresías/
- * Clientes) es un componente distinto, `AdminTopNav` (./admin-top-nav.tsx),
- * porque son dos diseños de nav distintos (Home_Socio_1x vs los mockups de
- * gestión). `CrudPageLayout` usa `AdminTopNav`, no este.
- *
- * Navegación (T-039): cada solapa apunta a una ruta real de las secciones del socio.
- * El componente sigue siendo presentacional: expone `onNavigate` y cada pantalla resuelve
- * el destino con `topNavHref` (evita acoplar el nav a next/navigation en los tests).
+ * La barra horizontal que vivía acá se reemplazó por `socio-rail.tsx`. Este módulo conserva lo
+ * único que sigue siendo compartido: las claves de sección y el mapeo a ruta, que usan el rail,
+ * el marco de las secciones y sus tests.
  */
 export type TopNavLink = "inicio" | "rutina" | "ejercicios" | "progreso" | "membresia" | "asistencias";
-
-export interface TopNavProps {
-  active?: TopNavLink;
-  onNavigate?: (link: TopNavLink) => void;
-  /** Cierra la sesión (P-06: sin esto el Socio no tenía forma de salir ni de revocar su token). */
-  onLogoutClick?: () => void;
-}
-
-const LINKS: { key: TopNavLink; label: string }[] = [
-  { key: "inicio", label: "Inicio" },
-  { key: "rutina", label: "Mi rutina" },
-  { key: "ejercicios", label: "Mis ejercicios" },
-  { key: "progreso", label: "Mi progreso" },
-  { key: "membresia", label: "Mi membresía" },
-  { key: "asistencias", label: "Mis asistencias" },
-];
 
 const HREFS: Record<TopNavLink, string> = {
   inicio: "/home-socio",
@@ -43,86 +16,7 @@ const HREFS: Record<TopNavLink, string> = {
   asistencias: "/home-socio/mis-asistencias",
 };
 
-/** Ruta de cada solapa del nav del socio (T-039). */
+/** Ruta de cada sección del socio (T-039). */
 export function topNavHref(link: TopNavLink): string {
   return HREFS[link];
-}
-
-export function TopNav({
-  active = "inicio",
-  onNavigate,
-  onLogoutClick,
-}: TopNavProps) {
-  return (
-    <div className="flex h-20 items-center justify-between bg-white px-12 shadow-[0px_1px_2px_rgba(0,0,0,0.051)]">
-      <div className="flex items-center">
-        <p className="text-xl font-bold text-zinc-900">ARNOLD</p>
-        <p className="text-xl font-bold text-[#FC4C02]">GYM</p>
-      </div>
-
-      <div className="flex items-center gap-8">
-        {LINKS.map((link) => {
-          const isActive = link.key === active;
-          return (
-            <button
-              key={link.key}
-              type="button"
-              data-testid={`nav-link-${link.key}`}
-              data-active={isActive ? "true" : "false"}
-              onClick={() => onNavigate?.(link.key)}
-              className="flex flex-col items-center gap-1"
-            >
-              <span
-                className={`text-[15px] ${
-                  isActive ? "font-bold text-[#FC4C02]" : "font-medium text-zinc-500"
-                }`}
-              >
-                {link.label}
-              </span>
-              {isActive && <span className="h-0.5 w-6 rounded-px bg-[#FC4C02]" />}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-3">
-        {/* HI-1 / NEW-2: Buscar, Notificaciones y Perfil no tienen feature ni
-            ruta todavía; se deshabilitan para no dejar controles clickeables
-            sin acción (con `title` que explica por qué). */}
-        <button
-          type="button"
-          disabled
-          aria-label="Buscar"
-          title="La búsqueda no está disponible todavía"
-          className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-lg bg-zinc-100 opacity-40"
-        >
-          <Search className="h-5 w-5 text-zinc-500" />
-        </button>
-        <button
-          type="button"
-          disabled
-          aria-label="Notificaciones"
-          title="Las notificaciones no están disponibles todavía"
-          className="flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-lg bg-zinc-100 opacity-40"
-        >
-          <Bell className="h-5 w-5 text-zinc-500" />
-        </button>
-        <button
-          type="button"
-          aria-label="Cerrar sesión"
-          onClick={onLogoutClick}
-          className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 hover:bg-zinc-200"
-        >
-          <LogOut className="h-5 w-5 text-zinc-500" />
-        </button>
-        <button
-          type="button"
-          disabled
-          aria-label="Perfil"
-          title="El perfil no está disponible todavía"
-          className="h-10 w-10 cursor-not-allowed rounded-lg bg-zinc-200 opacity-40"
-        />
-      </div>
-    </div>
-  );
 }

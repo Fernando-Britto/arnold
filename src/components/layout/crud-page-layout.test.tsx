@@ -2,6 +2,12 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { CrudPageLayout, FormPanelShell, ListPanelShell } from "./crud-page-layout";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), prefetch: jest.fn() }),
+  usePathname: () => "/membresias",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 jest.mock("@/contexts/auth", () => ({
   useAuth: () => ({ user: { id: "u1", nombre: "Ana", rol: "ADMINISTRADOR" } }),
 }));
@@ -47,7 +53,8 @@ describe("FormPanelShell", () => {
     );
     expect(screen.getByRole("heading", { name: "Nuevo Ejercicio" })).toBeInTheDocument();
     expect(screen.getByText("contenido")).toBeInTheDocument();
-    expect(container.querySelector('[data-testid="accent-line"]')).toHaveClass("bg-[#FC4C02]");
+    // La banda de acento de 3px se retiró: violaba el piso de calidad de diseño.
+    expect(container.querySelector('[data-testid="accent-line"]')).toBeNull();
   });
 
   it("acepta un titleTestId opcional para el título (compat con tests existentes)", () => {

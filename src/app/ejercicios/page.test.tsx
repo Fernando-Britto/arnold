@@ -191,7 +191,7 @@ describe("Ejercicios CRUD Screen (Page)", () => {
         (r) => r.getAttribute("aria-selected") === "true",
       );
       expect(row).toBeDefined();
-      expect(row).toHaveClass("bg-[#FDEDE4]");
+      expect(row).toHaveClass("bg-brand-soft");
     });
 
     it("el segundo click en la misma fila la vuelve a cerrar", async () => {

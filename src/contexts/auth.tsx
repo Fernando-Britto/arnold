@@ -4,6 +4,7 @@ import React, { createContext, useContext, ReactNode } from "react";
 import { Rol } from "@prisma/client";
 import { isAdmin as isAdminUtil, isStaff as isStaffUtil } from "@/middleware/role-gating";
 import { navigateTo } from "@/lib/navigation";
+import { limpiarCache } from "@/lib/cache-cliente";
 
 export interface SessionUser {
   id: string;
@@ -51,6 +52,8 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
     } catch {
       // sin red: igual salimos de la pantalla actual
     } finally {
+      // No dejar listas de esta sesión para el próximo usuario de la misma máquina.
+      limpiarCache();
       navigateTo("/login");
     }
   };

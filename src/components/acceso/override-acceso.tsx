@@ -92,7 +92,7 @@ export function OverrideAcceso({
       <button
         type="button"
         onClick={() => onAbiertoChange(true)}
-        className="rounded-lg bg-[#FC4C02] px-8 py-3 text-lg font-semibold text-white hover:bg-[#C13D00]"
+        className="rounded-lg bg-brand-strong px-8 py-3 text-lg font-semibold text-surface hover:bg-brand-deep"
       >
         Otorgar acceso (override)
       </button>
@@ -104,18 +104,18 @@ export function OverrideAcceso({
           aria-label="Otorgar acceso excepcional"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
         >
-          <div ref={dialogRef} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
-            <h2 className="text-xl font-semibold text-gray-900">Otorgar acceso excepcional</h2>
-            {socio.nombre && <p className="mt-1 text-sm text-gray-600">{socio.nombre}</p>}
+          <div ref={dialogRef} className="w-full max-w-md rounded-2xl bg-surface p-6 shadow-lg">
+            <h2 className="text-xl font-semibold text-ink">Otorgar acceso excepcional</h2>
+            {socio.nombre && <p className="mt-1 text-sm text-ink-muted">{socio.nombre}</p>}
             {motivoDenegacion && (
-              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              <p className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
                 Motivo de la denegación: {motivoDenegacion}
               </p>
             )}
 
             <label
               htmlFor="override-motivo"
-              className="mt-4 block text-sm font-medium text-gray-900"
+              className="mt-4 block text-sm font-medium text-ink"
             >
               Motivo de la autorización (mínimo {MOTIVO_MIN} caracteres)
             </label>
@@ -127,11 +127,11 @@ export function OverrideAcceso({
                 setErrorServidor(null);
               }}
               rows={3}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-[#FC4C02] focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none"
             />
 
             {mensajeError && (
-              <p role="alert" className="mt-2 text-sm text-red-700">
+              <p role="alert" className="mt-2 text-sm text-danger">
                 {mensajeError}
               </p>
             )}
@@ -141,7 +141,7 @@ export function OverrideAcceso({
                 type="button"
                 onClick={cerrar}
                 disabled={enviando}
-                className="rounded-lg border border-gray-300 bg-white px-5 py-2 font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg border border-border bg-surface px-5 py-2 font-semibold text-ink-soft hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Cancelar
               </button>
@@ -149,7 +149,7 @@ export function OverrideAcceso({
                 type="button"
                 onClick={otorgar}
                 disabled={errorValidacion !== null || enviando}
-                className="rounded-lg bg-[#FC4C02] px-5 py-2 font-semibold text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
+                className="rounded-lg bg-brand-strong px-5 py-2 font-semibold text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
               >
                 {enviando ? "Otorgando..." : "Otorgar"}
               </button>

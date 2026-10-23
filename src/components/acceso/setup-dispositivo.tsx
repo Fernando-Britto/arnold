@@ -81,13 +81,13 @@ export function SetupDispositivo({ onGuardado }: { onGuardado?: (token: string) 
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-[#F1F3F5] p-6">
-      <h1 className="text-2xl font-bold text-gray-900">Configurar dispositivo</h1>
-      <p className="max-w-md text-center text-gray-600">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-surface-page p-6">
+      <h1 className="text-2xl font-bold text-ink">Configurar dispositivo</h1>
+      <p className="max-w-md text-center text-ink-muted">
         Pegá el token que se mostró al crear el dispositivo. Se guarda sólo en esta pantalla.
       </p>
       <form onSubmit={guardar} className="flex w-full max-w-md flex-col gap-3">
-        <label htmlFor="token-dispositivo" className="text-sm font-medium text-gray-700">
+        <label htmlFor="token-dispositivo" className="text-sm font-medium text-ink-soft">
           Token del dispositivo
         </label>
         <input
@@ -96,12 +96,12 @@ export function SetupDispositivo({ onGuardado }: { onGuardado?: (token: string) 
           value={token}
           onChange={(event) => setToken(event.target.value)}
           autoComplete="off"
-          className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+          className="rounded-lg border border-border bg-surface px-4 py-3 text-ink"
         />
         <button
           type="submit"
           disabled={!token.trim()}
-          className="rounded-lg bg-[#FC4C02] px-8 py-3 text-lg font-semibold text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
+          className="rounded-lg bg-brand-strong px-8 py-3 text-lg font-semibold text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
         >
           Guardar
         </button>

@@ -197,7 +197,7 @@ export function ConfiguracionPage() {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <h1 className="mb-4 text-2xl font-bold">Acceso Denegado</h1>
-          <p className="text-gray-600">No tenés permiso para acceder a esta página.</p>
+          <p className="text-ink-muted">No tenés permiso para acceder a esta página.</p>
         </div>
       </div>
     );
@@ -217,22 +217,22 @@ export function ConfiguracionPage() {
             {error && (
               <p
                 role="alert"
-                className="w-full max-w-lg rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700"
+                className="w-full max-w-lg rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger"
               >
                 {error}
               </p>
             )}
 
             {loading ? (
-              <p className="text-gray-500">Cargando la configuración...</p>
+              <p className="text-ink-muted">Cargando la configuración...</p>
             ) : form ? (
               <form
                 onSubmit={handleSubmit}
-                className="flex w-full max-w-lg flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6"
+                className="flex w-full max-w-lg flex-col gap-6 rounded-lg border border-border bg-surface p-6"
               >
                 {GRUPOS.map((grupo) => (
                   <section key={grupo.titulo} className="flex flex-col gap-4">
-                    <h2 className="text-sm font-bold text-zinc-900">{grupo.titulo}</h2>
+                    <h2 className="text-sm font-bold text-ink">{grupo.titulo}</h2>
                     {grupo.campos.map((campo) => {
                       const spec = CAMPOS_CONFIGURACION[campo];
                       const rango = rangoDe(campo);
@@ -249,7 +249,7 @@ export function ConfiguracionPage() {
                               onChange={(event) => handleCambio(campo, event.target.checked)}
                               className="h-4 w-4"
                             />
-                            <label htmlFor={campo} className="text-sm font-medium text-gray-700">
+                            <label htmlFor={campo} className="text-sm font-medium text-ink-soft">
                               {ETIQUETAS[campo]}
                             </label>
                           </div>
@@ -259,10 +259,10 @@ export function ConfiguracionPage() {
                       return (
                         <div key={campo} className="flex flex-col gap-1">
                           <div className="flex items-baseline justify-between gap-2">
-                            <label htmlFor={campo} className="text-sm font-medium text-gray-700">
+                            <label htmlFor={campo} className="text-sm font-medium text-ink-soft">
                               {ETIQUETAS[campo]}
                             </label>
-                            {rango && <span className="text-xs text-zinc-400">{rango}</span>}
+                            {rango && <span className="text-xs text-ink-muted">{rango}</span>}
                           </div>
                           <input
                             id={campo}
@@ -272,7 +272,7 @@ export function ConfiguracionPage() {
                             step={spec.tipo === "decimal" ? "0.01" : "1"}
                             value={String(form[campo])}
                             onChange={(event) => handleCambio(campo, event.target.value)}
-                            className="rounded-md border border-[#E4E4E7] px-3 py-2 text-sm"
+                            className="rounded-md border border-border px-3 py-2 text-sm"
                           />
                         </div>
                       );
@@ -283,7 +283,7 @@ export function ConfiguracionPage() {
                 <button
                   type="submit"
                   disabled={guardando}
-                  className="rounded bg-[#FC4C02] px-4 py-2 font-medium text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
+                  className="rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
                 >
                   {guardando ? "Guardando..." : "Guardar cambios"}
                 </button>

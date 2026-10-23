@@ -9,7 +9,7 @@ jest.mock("@/lib/db", () => ({
     registroDeProgreso: { findMany: jest.fn() },
     reglaDeProgresion: { findFirst: jest.fn() },
     rutinaAsignada: { findMany: jest.fn() },
-    sesionDeEntrenamiento: { findFirst: jest.fn() },
+    sesionDeEntrenamiento: { findFirst: jest.fn(), findMany: jest.fn() },
     pago: { findFirst: jest.fn() },
     medicionDePeso: { findMany: jest.fn() },
   },
@@ -51,6 +51,7 @@ const HISTORIAL_PRESS: FilaHistorial[] = [
 function seed(historial: FilaHistorial[] = HISTORIAL_PRESS) {
   db.socio.findUnique.mockResolvedValue(SOCIO);
   db.medicionDePeso.findMany.mockResolvedValue([]);
+  db.sesionDeEntrenamiento.findMany.mockResolvedValue([]);
   db.configuracionDelSistema.findFirst.mockResolvedValue({ capacidadMaxima: 50, ventanaAforoMinutos: 90 });
   db.asistencia.findMany.mockImplementation(async (args: { where: { socioId?: string } }) =>
     args.where.socioId

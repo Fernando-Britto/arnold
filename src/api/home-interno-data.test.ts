@@ -8,7 +8,7 @@ jest.mock("@/lib/db", () => ({
     configuracionDelSistema: { findFirst: jest.fn() },
     maquina: { findMany: jest.fn() },
     pago: { findMany: jest.fn(), groupBy: jest.fn() },
-    socio: { findMany: jest.fn() },
+    socio: { findMany: jest.fn(), count: jest.fn() },
     usuario: { findMany: jest.fn() },
     cuota: { groupBy: jest.fn() },
     asistencia: { findMany: jest.fn(), groupBy: jest.fn() },
@@ -308,9 +308,11 @@ describe("buildHomeInternoPayload — rendimiento (P-07): pocas idas y vueltas a
     expect([...lanzadas].sort()).toEqual([
       "asistencia.findMany", "asistencia.groupBy", "configuracionDelSistema.findFirst", "cuota.groupBy",
       "ejercicio.count", "maquina.findMany", "membresia.findMany", "pago.findMany", "pago.groupBy",
-      "rutina.count", "rutina.findMany", "rutinaAsignada.findMany", "socio.findMany", "usuario.findMany",
+      "rutina.count", "rutina.findMany", "rutinaAsignada.findMany", "socio.count", "socio.findMany",
+      "usuario.findMany",
     ]);
-    expect(todasLasLlamadas()).toHaveLength(15); // 14 modelos/métodos; usuario.findMany se usa dos veces
+    // 16 llamadas: 15 modelos/métodos + usuario.findMany, que se usa dos veces.
+    expect(todasLasLlamadas()).toHaveLength(16);
   });
 
   it("ninguna consulta anida relaciones en `select` (cada relación anidada es otra consulta, encadenada)", async () => {

@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HomeSocioPage } from "./page";
 import { useAuth } from "@/contexts/auth";
@@ -33,8 +33,9 @@ const baseViewModel: HomeSocioViewModel = {
     marcaActual: 80,
     deltaEsteMes: 7.5,
     progresionCarga: [
-      { fecha: "2026-05-12", carga: 60 },
-      { fecha: "2026-09-26", carga: 80 },
+      { fecha: "2026-09-12", carga: 60 },
+      { fecha: "2026-09-26", carga: 75 },
+      { fecha: "2026-10-10", carga: 80 },
     ],
     sugerencia: {
       tipo: "subir",
@@ -55,6 +56,7 @@ const baseViewModel: HomeSocioViewModel = {
       {
         id: "e1",
         nombre: "Press de Banca",
+        mediaId: "0001-2gPfomN",
         grupoMuscular: "Pecho",
         descripcion: "Baja la barra al pecho.",
         series: 4,
@@ -64,6 +66,7 @@ const baseViewModel: HomeSocioViewModel = {
       {
         id: "e2",
         nombre: "Press Militar",
+        mediaId: null,
         grupoMuscular: "Hombros",
         descripcion: "Empuja la barra por encima de la cabeza.",
         series: 3,
@@ -88,12 +91,30 @@ const baseViewModel: HomeSocioViewModel = {
   },
   membresia: {
     planNombre: "Plan Musculación",
-    fechaVencimiento: "2026-10-20",
+    fechaVencimiento: "2026-12-20",
     diasTotalMembresia: 30,
     dias28: new Array(28).fill(false),
     totalAsistencias28Dias: 12,
   },
   oferta: null,
+  ultimasSesiones: [
+    {
+      id: "s-1",
+      fecha: "2026-10-16T13:00:00.000Z",
+      rutinaNombre: "Torso B",
+      series: 18,
+      volumenKg: 6480,
+      duracionMin: 51,
+    },
+    {
+      id: "s-2",
+      fecha: "2026-10-14T13:00:00.000Z",
+      rutinaNombre: "Piernas A",
+      series: 16,
+      volumenKg: 8120,
+      duracionMin: 47,
+    },
+  ],
   peso: {
     mediciones: [
       { id: "m1", fecha: "2026-09-28T15:00:00.000Z", peso: 80 },
@@ -107,184 +128,187 @@ const baseViewModel: HomeSocioViewModel = {
 const waitForLoadingComplete = () =>
   waitFor(() => expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument());
 
-describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)", () => {
+const asSocio = (extra: Record<string, unknown> = {}) =>
+  mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false, ...extra });
+
+describe("HomeSocioPage (sesión primero: recorrido + historial + números)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFetch.mockResolvedValue(baseViewModel);
   });
 
-  it("redirects to /login when not authenticated", () => {
+  it("redirige a /login sin sesión", () => {
     mockAuth.mockReturnValue({ isAuthenticated: false, isMember: false });
     render(<HomeSocioPage />);
     expect(mockPush).toHaveBeenCalledWith("/login");
   });
 
-  it("redirects staff to /home-interno", () => {
+  it("redirige al staff a /home-interno", () => {
     mockAuth.mockReturnValue({ isAuthenticated: true, isMember: false, isStaff: true });
     render(<HomeSocioPage />);
     expect(mockPush).toHaveBeenCalledWith("/home-interno");
   });
 
-  it("renders the TopNav with Inicio active, and all three rows for a Socio", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+  it("muestra el rail del socio con la zona de inicio activa", async () => {
+    asSocio();
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
     expect(screen.getByTestId("nav-link-inicio")).toHaveAttribute("data-active", "true");
-    // Fila1
-    expect(screen.getByTestId("marca-actual")).toHaveTextContent("80 kg");
-    expect(screen.getByText("47 / 80")).toBeInTheDocument();
-    // Fila2
-    expect(screen.getByText("Hipertrofia - Empuje A")).toBeInTheDocument();
-    expect(screen.getByText("Pecho")).toBeInTheDocument(); // Tarjeta_Detalle for indiceActual=0
-    // Fila3
+    expect(screen.getByTestId("nav-link-rutina")).toHaveAttribute("data-active", "false");
+    expect(screen.getByText("Entrenamiento")).toBeInTheDocument();
+    expect(screen.getByText("Mi cuenta")).toBeInTheDocument();
+  });
+
+  it("la sesión de hoy es el recorrido con sus paradas y la actual marcada", async () => {
+    asSocio();
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    const recorrido = screen.getByTestId("recorrido-sesion");
+    const paradas = recorrido.querySelectorAll("li");
+    expect(paradas).toHaveLength(2);
+    expect(paradas[0]).toHaveAttribute("data-estado", "actual");
+    expect(paradas[1]).toHaveAttribute("data-estado", "pendiente");
+    expect(screen.getByText("2 ejercicios")).toBeInTheDocument();
+    expect(screen.getByText("7 series")).toBeInTheDocument();
+  });
+
+  it("usa la media real del ejercicio actual", async () => {
+    asSocio();
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.getByAltText("Press de Banca")).toHaveAttribute(
+      "src",
+      "/ejercicios/0001-2gPfomN.jpg"
+    );
+  });
+
+  it("sin media cargada no rompe el hero", async () => {
+    asSocio();
+    mockFetch.mockResolvedValue({
+      ...baseViewModel,
+      rutinaActiva: { ...baseViewModel.rutinaActiva!, ejercicios: [{ ...baseViewModel.rutinaActiva!.ejercicios[0], mediaId: null }] },
+    });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.queryByAltText("Press de Banca")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /empezar entrenamiento/i })).toBeInTheDocument();
+  });
+
+  it("con una sesión en curso el CTA invita a retomar", async () => {
+    asSocio();
+    mockFetch.mockResolvedValue({
+      ...baseViewModel,
+      sesionEnProgreso: true,
+      rutinaActiva: { ...baseViewModel.rutinaActiva!, indiceActual: 1 },
+    });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.getByRole("button", { name: /retomar entrenamiento/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /empezar entrenamiento/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId("recorrido-sesion").querySelectorAll("li")[0]).toHaveAttribute(
+      "data-estado",
+      "hecho"
+    );
+  });
+
+  it("muestra el historial de sesiones con volumen y duración del servidor", async () => {
+    asSocio();
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    const historial = screen.getByTestId("ultimas-sesiones");
+    expect(historial).toHaveTextContent("Torso B");
+    expect(historial).toHaveTextContent("6.480 kg");
+    expect(historial).toHaveTextContent("51 min");
+    expect(historial).toHaveTextContent("12 asistencias en las últimas 4 semanas");
+  });
+
+  it("sin sesiones cerradas dice que todavía no hay ninguna", async () => {
+    asSocio();
+    mockFetch.mockResolvedValue({ ...baseViewModel, ultimasSesiones: [] });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.getByTestId("ultimas-sesiones")).toHaveTextContent(/todavía no cerraste ninguna sesión/i);
+  });
+
+  it("muestra la racha como tira semanal, no como número suelto", async () => {
+    asSocio();
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
     expect(screen.getByTestId("racha-count")).toHaveTextContent("3");
-    expect(screen.getByText("Plan Musculación")).toBeInTheDocument();
+    const celdas = screen.getAllByTestId("dia-celda");
+    expect(celdas).toHaveLength(7);
+    expect(celdas.filter((c) => c.getAttribute("data-estado") === "asistio")).toHaveLength(2);
+    expect(celdas.filter((c) => c.getAttribute("data-estado") === "hoy")).toHaveLength(1);
   });
 
-  it("muestra el peso corporal en una cuarta fila, con el peso actual y la meta (T-048)", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+  it("muestra el progreso de carga con el valor y el delta del motor", async () => {
+    asSocio();
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
-    const fila = screen.getByTestId("fila-4");
-    expect(within(fila).getByTestId("peso-corporal")).toBeInTheDocument();
-    expect(within(fila).getByTestId("peso-actual")).toHaveTextContent("78,4 kg");
-    expect(within(fila).getByTestId("peso-meta")).toHaveTextContent("Meta 77 kg · te faltan 1,4 kg");
+    const progreso = screen.getByTestId("progreso-carga");
+    expect(progreso).toHaveTextContent("Press de Banca");
+    expect(progreso).toHaveTextContent("80");
+    expect(screen.getByTestId("progreso-delta")).toHaveTextContent("+7,5 kg este mes");
   });
 
-  it("un servidor que todavía no manda `peso` no rompe el Home: la tarjeta invita a registrar el peso", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    const { peso: _omitido, ...sinPeso } = baseViewModel;
-    void _omitido;
-    mockFetch.mockResolvedValue(sinPeso as HomeSocioViewModel);
-    render(<HomeSocioPage />);
-    await waitForLoadingComplete();
-
-    expect(screen.getByText(/todavía no registraste tu peso/i)).toBeInTheDocument();
-  });
-
-  it("renders the three rows (Fila1/2/3) with the six cards of the mockup", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    render(<HomeSocioPage />);
-    await waitForLoadingComplete();
-
-    expect(screen.getByTestId("fila-1")).toBeInTheDocument();
-    expect(screen.getByTestId("fila-2")).toBeInTheDocument();
-    expect(screen.getByTestId("fila-3")).toBeInTheDocument();
-
-    for (const id of [
-      "card-progreso",
-      "card-aforo",
-      "card-rutina",
-      "card-detalle",
-      "card-racha",
-      "card-membresia",
-    ]) {
-      expect(screen.getByTestId(id)).toBeInTheDocument();
-    }
-  });
-
-  it("muestra el aviso de oferta de reactivación arriba de las filas cuando el socio es elegible (D-54)", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+  it("muestra el aviso de reactivación arriba del contenido cuando el socio es elegible (D-54)", async () => {
+    asSocio();
     mockFetch.mockResolvedValue({ ...baseViewModel, oferta: { descuentoPct: 10 } });
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
     const aviso = screen.getByTestId("aviso-oferta-reactivacion");
-    expect(aviso).toBeInTheDocument();
-    // El aviso va antes de la primera fila.
-    expect(aviso.compareDocumentPosition(screen.getByTestId("fila-1")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      aviso.compareDocumentPosition(screen.getByTestId("recorrido-sesion")) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
-  it("no muestra el aviso de oferta cuando el socio no es elegible", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+  it("no muestra el aviso cuando el socio no es elegible", async () => {
+    asSocio();
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
     expect(screen.queryByTestId("aviso-oferta-reactivacion")).not.toBeInTheDocument();
   });
 
-  it("con datos vacíos muestra el estado vacío propio de cada tarjeta, no el placeholder 'Trabajando en esto'", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    mockFetch.mockResolvedValue({
-      ...baseViewModel,
-      progreso: null,
-      rutinaActiva: null,
-      membresia: null,
-    });
+  it("sin rutina asignada muestra el estado vacío propio", async () => {
+    asSocio();
+    mockFetch.mockResolvedValue({ ...baseViewModel, rutinaActiva: null });
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
-    // ProgresoSection empty state (not the shared placeholder).
-    expect(screen.getByTestId("card-progreso")).toHaveTextContent(
-      /todavía no registraste entrenamientos/i
-    );
-    // TarjetaRutina + Tarjeta_Detalle empty states.
     expect(screen.getByTestId("card-rutina")).toHaveTextContent(/sin rutina asignada/i);
-    expect(screen.getByTestId("card-detalle")).toHaveTextContent(/sin rutina asignada/i);
-    // MembresiaCard empty state.
-    expect(screen.getByTestId("card-membresia")).toHaveTextContent(/sin membresía asignada/i);
-
     expect(screen.queryByText(/trabajando en esto/i)).not.toBeInTheDocument();
   });
 
-  it("enlaza 'Ver todos los ejercicios' con /home-socio/mis-ejercicios", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    const user = userEvent.setup();
-    render(<HomeSocioPage />);
-    await waitForLoadingComplete();
-
-    await user.click(screen.getByRole("button", { name: /ver todos los ejercicios/i }));
-
-    expect(mockPush).toHaveBeenCalledWith("/home-socio/mis-ejercicios");
-  });
-
-  it("enlaza 'Ver mi historial completo' con /home-socio/mis-asistencias", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    const user = userEvent.setup();
-    render(<HomeSocioPage />);
-    await waitForLoadingComplete();
-
-    await user.click(screen.getByRole("button", { name: /ver mi historial completo/i }));
-
-    expect(mockPush).toHaveBeenCalledWith("/home-socio/mis-asistencias");
-  });
-
-  it("enlaza 'Ver membresía' y 'Renovar ahora' con /home-socio/mi-membresia", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+  it("con datos vacíos no rompe: progreso, racha y peso tienen su propio estado", async () => {
+    asSocio();
     mockFetch.mockResolvedValue({
       ...baseViewModel,
-      membresia: { ...baseViewModel.membresia!, fechaVencimiento: "2020-01-01" },
+      progreso: null,
+      membresia: null,
+      ultimasSesiones: [],
     });
-    const user = userEvent.setup();
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
-    await user.click(screen.getByRole("button", { name: /ver membresía/i }));
-    await user.click(screen.getByRole("button", { name: /renovar ahora/i }));
-
-    expect(mockPush).toHaveBeenCalledWith("/home-socio/mi-membresia");
-    expect(mockPush).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("progreso-carga")).toHaveTextContent(/todavía no hay registros/i);
+    expect(screen.getByTestId("tu-serie")).toBeInTheDocument();
+    expect(screen.getByTestId("ultimas-sesiones")).toBeInTheDocument();
+    expect(screen.queryByText(/trabajando en esto/i)).not.toBeInTheDocument();
   });
 
-  it("Buscar, Notificaciones y Perfil no son interactivos: no tienen destino todavía", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    render(<HomeSocioPage />);
-    await waitForLoadingComplete();
-
-    const buscar = screen.getByRole("button", { name: /buscar/i });
-    const notificaciones = screen.getByRole("button", { name: /notificaciones/i });
-    const perfil = screen.getByRole("button", { name: /perfil/i });
-
-    expect(buscar).toBeDisabled();
-    expect(notificaciones).toBeDisabled();
-    expect(perfil).toBeDisabled();
-    expect(buscar.getAttribute("title")).toMatch(/no est|todav/i);
-    expect(perfil.getAttribute("title")).toMatch(/no est|todav/i);
-  });
-
-  it("shows an error message and does not crash when the fetch fails", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+  it("muestra un error y no rompe cuando falla el fetch", async () => {
+    asSocio();
     mockFetch.mockRejectedValue(new Error("network down"));
     render(<HomeSocioPage />);
     await waitFor(() =>
@@ -292,8 +316,8 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
     );
   });
 
-  it('clicking "Seguir rutina" opens the run screen (T-038)', async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
+  it("'Empezar entrenamiento' abre la pantalla de ejecución (T-038)", async () => {
+    asSocio();
     mockEnCurso.mockResolvedValueOnce({
       sesion: null,
       ejercicios: [],
@@ -313,7 +337,10 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
         serieActual: 1,
       },
       ejercicios: [
-        { id: "e1", nombre: "Press de Banca", series: 4, repeticiones: 8, descanso: 120, orden: 0 },
+        {
+          id: "e1", nombre: "Press de Banca", series: 4, repeticiones: 8, descanso: 120, orden: 0,
+          mediaId: null, musculoObjetivo: null, instrucciones: [],
+        },
       ],
       ultimasVeces: {},
       sugerencias: {},
@@ -323,16 +350,15 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
 
-    await user.click(screen.getByRole("button", { name: /seguir rutina/i }));
+    await user.click(screen.getByRole("button", { name: /empezar entrenamiento/i }));
 
     expect(await screen.findByTestId("ejecucion-rutina")).toBeInTheDocument();
     expect(mockIniciar).toHaveBeenCalledWith("asig-1");
-    expect(screen.getByRole("button", { name: /serie hecha/i })).toBeInTheDocument();
   });
 
-  it('el botón "Cerrar sesión" del TopNav cierra la sesión (logout del contexto)', async () => {
+  it("el botón de cerrar sesión del rail llama al logout del contexto", async () => {
     const logout = jest.fn();
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false, logout });
+    asSocio({ logout });
     const user = userEvent.setup();
     render(<HomeSocioPage />);
     await waitForLoadingComplete();
@@ -340,36 +366,5 @@ describe("HomeSocioPage (spec: matches Home_Socio_1x layout, TopNav + Fila1/2/3)
     await user.click(screen.getByRole("button", { name: /cerrar sesión/i }));
 
     expect(logout).toHaveBeenCalledTimes(1);
-  });
-
-  // SE-4: al recargar en medio de una sesión, el inicio refleja el estado "retomar" y el
-  // ejercicio actual sale del índice devuelto por el servidor.
-  it("con una sesión en curso muestra 'Retomar sesión' y el ejercicio actual del índice", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    mockFetch.mockResolvedValue({
-      ...baseViewModel,
-      sesionEnProgreso: true,
-      rutinaActiva: { ...baseViewModel.rutinaActiva!, indiceActual: 1 },
-    });
-    render(<HomeSocioPage />);
-    await waitForLoadingComplete();
-
-    // CTA de retomar en vez de "Seguir rutina".
-    expect(screen.getByRole("button", { name: /retomar sesión/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /seguir rutina/i })).not.toBeInTheDocument();
-    // Tarjeta_Detalle muestra el ejercicio en indiceActual (1 → Press Militar), no el 0.
-    expect(screen.getByText("Hombros")).toBeInTheDocument();
-  });
-
-  // SE-4 (sin sesión): el estado normal es "empezar" y el índice vuelve a 0.
-  it("sin sesión en curso mantiene 'Seguir rutina' y el primer ejercicio", async () => {
-    mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
-    mockFetch.mockResolvedValue({ ...baseViewModel, sesionEnProgreso: false });
-    render(<HomeSocioPage />);
-    await waitForLoadingComplete();
-
-    expect(screen.getByRole("button", { name: /seguir rutina/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /retomar sesión/i })).not.toBeInTheDocument();
-    expect(screen.getByText("Pecho")).toBeInTheDocument();
   });
 });

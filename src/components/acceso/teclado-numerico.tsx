@@ -16,7 +16,7 @@ interface TecladoNumericoProps {
  */
 export function TecladoNumerico({ onDigito, onBorrar, deshabilitado = false }: TecladoNumericoProps) {
   const base =
-    "flex h-16 items-center justify-center rounded-lg border border-gray-300 bg-white text-2xl font-semibold text-gray-900 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40";
+    "flex h-16 items-center justify-center rounded-lg border border-border bg-surface text-2xl font-semibold text-ink hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
     <div role="group" aria-label="Teclado numérico" className="grid w-full max-w-xs grid-cols-3 gap-3">

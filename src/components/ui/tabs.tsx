@@ -43,7 +43,7 @@ export function Tabs({ tabs, activeId, onChange, children }: TabsProps) {
         role="tablist"
         aria-label="Secciones de configuración"
         onKeyDown={handleKeyDown}
-        className="flex gap-6 border-b border-[#E4E4E7]"
+        className="flex gap-6 border-b border-border"
       >
         {tabs.map((tab) => {
           const selected = tab.id === activeId;
@@ -62,8 +62,8 @@ export function Tabs({ tabs, activeId, onChange, children }: TabsProps) {
               onClick={() => onChange(tab.id)}
               className={`-mb-px border-b-2 px-1 pb-2 text-sm font-medium ${
                 selected
-                  ? "border-[#FC4C02] text-zinc-900"
-                  : "border-transparent text-zinc-500 hover:text-zinc-900"
+                  ? "border-brand text-ink"
+                  : "border-transparent text-ink-muted hover:text-ink"
               }`}
             >
               {tab.label}

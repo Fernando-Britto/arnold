@@ -34,7 +34,7 @@ const asRol = (rol: string) => ({
   user: { nombre: "Ana", rol },
 });
 
-const loaded = () => waitFor(() => expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument());
+const loaded = () => waitFor(() => expect(screen.getByTestId("caja-total")).toBeInTheDocument());
 
 describe("HomeInternoPage Part 2 (Row_Gestion, Col_Actividad, full integration)", () => {
   beforeEach(() => {
@@ -43,53 +43,6 @@ describe("HomeInternoPage Part 2 (Row_Gestion, Col_Actividad, full integration)"
     sessionStorage.clear();
     mockAuth.mockReturnValue(asRol("ADMINISTRADOR"));
     mockFetch.mockResolvedValue(buildHomeInternoData());
-  });
-
-  it("Row_Gestion renders the 4 counters with the live counts", async () => {
-    render(<HomeInternoPage />);
-    await loaded();
-    const expected: [RegExp, string][] = [
-      [/^Rutinas/, "124"],
-      [/^Ejercicios/, "342"],
-      [/^Clientes/, "892"],
-      [/^Membresías/, "15"],
-    ];
-    for (const [name, metric] of expected) {
-      expect(within(screen.getByRole("button", { name })).getByText(metric)).toBeInTheDocument();
-    }
-  });
-
-  it.each([
-    [/^Rutinas/, "/rutinas"],
-    [/^Ejercicios/, "/ejercicios"],
-    [/^Clientes/, "/clientes"],
-    [/^Membresías/, "/membresias"],
-  ])("clicking the %s card navigates to %s", async (name, ruta) => {
-    render(<HomeInternoPage />);
-    await loaded();
-    await userEvent.setup().click(screen.getByRole("button", { name }));
-    expect(mockPush).toHaveBeenCalledWith(ruta);
-  });
-
-  it("shows a zero count as '0', not blank", async () => {
-    mockFetch.mockResolvedValue(
-      buildHomeInternoData({ contadores: { rutinas: 0, ejercicios: 342, clientes: 892, membresias: 15 } })
-    );
-    render(<HomeInternoPage />);
-    await loaded();
-    expect(within(screen.getByRole("button", { name: /^Rutinas/ })).getByText("0")).toBeInTheDocument();
-  });
-
-  it("disables the cards whose section the role cannot open (INSTRUCTOR: no Clientes/Membresías)", async () => {
-    mockAuth.mockReturnValue(asRol("INSTRUCTOR"));
-    render(<HomeInternoPage />);
-    await loaded();
-    expect(screen.getByRole("button", { name: /^Clientes/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /^Membresías/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /^Rutinas/ })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /^Ejercicios/ })).toBeEnabled();
-    await userEvent.setup().click(screen.getByRole("button", { name: /^Clientes/ }));
-    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("Col_Actividad shows 'Nombre · Acción · Hace X' for payments and signups", async () => {
@@ -121,13 +74,11 @@ describe("HomeInternoPage Part 2 (Row_Gestion, Col_Actividad, full integration)"
     render(<HomeInternoPage />);
     await loaded();
     expect(screen.getByRole("button", { name: "Nuevo Socio" })).toBeInTheDocument(); // Row_Acciones
-    expect(screen.getByText("Alertas críticas")).toBeInTheDocument(); // Row_Hoy
-    expect(screen.getByRole("button", { name: /estado de equipos/i })).toBeInTheDocument(); // Row_Operacion
-    expect(screen.getByRole("button", { name: /^Rutinas/ })).toBeInTheDocument(); // Row_Gestion
-    expect(screen.getByText("Últimos movimientos")).toBeInTheDocument(); // Col_Actividad
-    for (const label of ["HOY", "OPERACIÓN", "GESTIÓN", "ACTIVIDAD RECIENTE"]) {
-      expect(screen.getByText(label)).toBeInTheDocument();
-    }
+    expect(screen.getByTestId("pendientes-de-hoy")).toBeInTheDocument(); // excepciones accionables
+    expect(screen.getByRole("button", { name: /estado de equipos/i })).toBeInTheDocument(); // Operación
+    expect(screen.getByText("Últimos movimientos")).toBeInTheDocument(); // Actividad
+    // Los contadores de gestión se retiraron: son totales que ya están en el rail.
+    expect(screen.queryByRole("button", { name: /^Rutinas/ })).not.toBeInTheDocument();
   });
 
   it("INSTRUCTOR: every entry point to /clientes is disabled (Nuevo Socio, Ver, Socios inactivos)", async () => {
@@ -137,7 +88,6 @@ describe("HomeInternoPage Part 2 (Row_Gestion, Col_Actividad, full integration)"
     const user = userEvent.setup();
     const puertas = [
       screen.getByRole("button", { name: "Nuevo Socio" }),
-      screen.getByRole("button", { name: /ver/i }),
       screen.getByRole("button", { name: /socios inactivos/i }),
     ];
     for (const puerta of puertas) {
@@ -147,13 +97,13 @@ describe("HomeInternoPage Part 2 (Row_Gestion, Col_Actividad, full integration)"
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("RECEPCIONISTA can reach /clientes from all three entry points", async () => {
+  it("RECEPCIONISTA puede accionar sus dos entradas a Clientes y cobrar desde el pendiente", async () => {
     mockAuth.mockReturnValue(asRol("RECEPCIONISTA"));
     render(<HomeInternoPage />);
     await loaded();
     expect(screen.getByRole("button", { name: "Nuevo Socio" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /ver/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /socios inactivos/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Cobrar" })).toBeEnabled();
   });
 
   it("Registrar Pago navigates to /pagos for ADMINISTRADOR", async () => {

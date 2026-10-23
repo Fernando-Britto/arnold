@@ -141,7 +141,7 @@ export function TarjetaDetalle({
     return (
       <div
         data-testid="card-detalle"
-        className="rounded-lg border border-[#E4E4E7] bg-white p-6 text-center text-gray-500"
+        className="rounded-lg border border-border bg-surface p-6 text-center text-ink-muted"
       >
         Sin rutina asignada
       </div>
@@ -159,13 +159,13 @@ export function TarjetaDetalle({
   return (
     <div
       data-testid="card-detalle"
-      className="flex flex-col rounded-lg border border-[#E4E4E7] bg-white p-5"
+      className="flex flex-col rounded-lg border border-border bg-surface p-5"
     >
-      <p className="text-[11px] font-bold text-[#FC4C02]">EJERCICIO ACTUAL</p>
+      <p className="text-overline font-bold text-brand">EJERCICIO ACTUAL</p>
 
       <div className="mt-5 flex flex-col items-center gap-4">
         <div
-          className="flex h-20 w-20 items-center justify-center rounded-full bg-[#FC4C02] text-white"
+          className="flex h-20 w-20 items-center justify-center rounded-full bg-brand-strong text-surface"
           aria-hidden="true"
         >
           {ejercicio.icon ? (
@@ -178,41 +178,43 @@ export function TarjetaDetalle({
           <button
             type="button"
             onClick={handleNameClick}
-            className="text-[17px] font-bold text-gray-900 hover:underline"
+            className="text-[17px] font-bold text-ink hover:underline"
           >
             {ejercicio.nombre}
           </button>
-          <p className="text-sm text-gray-500">{ejercicio.grupoMuscular}</p>
+          <p className="text-sm text-ink-muted">{ejercicio.grupoMuscular}</p>
         </div>
       </div>
 
-      <div className="mt-6 flex justify-between border border-gray-200 py-4">
+      {/* Banda tintada en lugar de una caja con borde: la tarjeta ya es una caja, y
+          un contorno adentro dibujaba una card dentro de otra. */}
+      <div className="mt-6 flex justify-between rounded-md bg-surface-subtle py-4">
         <div className="flex flex-1 flex-col items-center gap-1">
-          <p className="text-[11px] font-medium text-gray-500">Series×Reps</p>
-          <p className="text-sm font-bold text-gray-900">
+          <p className="text-overline font-medium text-ink-muted">Series×Reps</p>
+          <p className="text-sm font-bold text-ink">
             {formatSeriesReps(ejercicioEnRutina.series, ejercicioEnRutina.repeticiones)}
           </p>
         </div>
-        <div className="h-8 w-px bg-gray-200" />
+        <div className="h-8 w-px bg-surface-active" />
         <div className="flex flex-1 flex-col items-center gap-1">
-          <p className="text-[11px] font-medium text-gray-500">Descanso</p>
-          <p className="text-sm font-bold text-gray-900">
+          <p className="text-overline font-medium text-ink-muted">Descanso</p>
+          <p className="text-sm font-bold text-ink">
             {formatDescansoLabel(ejercicioEnRutina.descanso)}
           </p>
         </div>
-        <div className="h-8 w-px bg-gray-200" />
+        <div className="h-8 w-px bg-surface-active" />
         {/* AC-003: Objetivo uses the highlighted brand color */}
         <div className="flex flex-1 flex-col items-center gap-1">
-          <p className="text-[11px] font-medium text-gray-500">Objetivo</p>
-          <p className="text-sm font-bold text-[#FC4C02]">{objetivo ?? "—"}</p>
+          <p className="text-overline font-medium text-ink-muted">Objetivo</p>
+          <p className="text-sm font-bold text-brand">{objetivo ?? "—"}</p>
         </div>
       </div>
 
       {ejercicio.descripcion && (
-        <p className="mt-5 grow text-[13px] text-gray-600">{ejercicio.descripcion}</p>
+        <p className="mt-5 grow text-meta text-ink-muted">{ejercicio.descripcion}</p>
       )}
 
-      <div className="mt-5 flex items-center justify-center gap-2 border-t border-gray-200 pt-5 text-[13px] font-bold text-[#FC4C02]">
+      <div className="mt-5 flex items-center justify-center gap-2 border-t border-border pt-5 text-meta font-bold text-brand">
         <Wrench className="h-3.5 w-3.5" aria-hidden="true" />
         <span>{getMachineAvailabilityMessage(maquina)}</span>
       </div>
@@ -226,31 +228,31 @@ export function TarjetaDetalle({
         >
           <div
             ref={modalRef}
-            className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg"
+            className="w-full max-w-md rounded-lg bg-surface p-6 shadow-lg"
           >
             <div className="flex items-start justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-ink">
                 {ejercicio.nombre}
               </h2>
               <button
                 type="button"
                 onClick={closeModal}
                 aria-label="Cerrar"
-                className="text-gray-400 hover:text-gray-600"
+                className="text-ink-disabled hover:text-ink-muted"
               >
                 ✕
               </button>
             </div>
-            <p className="mt-1 text-sm text-gray-500">{ejercicio.grupoMuscular}</p>
+            <p className="mt-1 text-sm text-ink-muted">{ejercicio.grupoMuscular}</p>
             {ejercicio.descripcion && (
-              <p className="mt-4 text-sm text-gray-700">{ejercicio.descripcion}</p>
+              <p className="mt-4 text-sm text-ink-soft">{ejercicio.descripcion}</p>
             )}
             {/*
               Form variations and machine alternatives from the spec's modal
               scenario aren't modeled in the schema yet (see SCHEMA GAP note
               above) — left as a visible TODO instead of fake data.
             */}
-            <p className="mt-4 text-xs text-gray-400">
+            <p className="mt-4 text-xs text-ink-disabled">
               Variantes de ejecución y máquinas alternativas: próximamente.
             </p>
           </div>

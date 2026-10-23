@@ -60,22 +60,22 @@ function mensajeDeValidacion(error: unknown): string {
 function MensajeDeFormulario({ mensaje }: { mensaje: Mensaje | null }) {
   if (!mensaje) return null;
   return mensaje.tipo === "error" ? (
-    <p role="alert" className="text-sm font-medium text-red-700">
+    <p role="alert" className="text-sm font-medium text-danger">
       {mensaje.texto}
     </p>
   ) : (
-    <p role="status" className="text-sm font-medium text-green-700">
+    <p role="status" className="text-sm font-medium text-success">
       {mensaje.texto}
     </p>
   );
 }
 
 const CAMPO =
-  "w-full rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-400";
+  "w-full rounded-md border border-border px-3 py-2 text-sm disabled:bg-surface-subtle disabled:text-ink-disabled";
 const BOTON =
-  "h-10 shrink-0 rounded-lg bg-[#FC4C02] px-4 text-sm font-bold text-white disabled:bg-gray-400";
+  "h-10 shrink-0 rounded-lg bg-brand-strong px-4 text-sm font-bold text-surface disabled:bg-ink-disabled";
 const BOTON_SECUNDARIO =
-  "h-10 shrink-0 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 disabled:text-gray-400";
+  "h-10 shrink-0 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-ink-soft disabled:text-ink-disabled";
 
 export function PesoCorporalCard({
   mediciones: inicial,
@@ -214,28 +214,28 @@ export function PesoCorporalCard({
     <section
       data-testid="peso-corporal"
       aria-label="Peso corporal"
-      className="flex flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6"
+      className="@container flex flex-col gap-4 rounded-xl border border-border bg-surface p-4"
     >
       <div className="flex items-center gap-2">
-        <Scale className="h-[18px] w-[18px] text-[#FC4C02]" aria-hidden="true" />
-        <h2 className="text-lg font-bold text-zinc-900">Peso corporal</h2>
+        <Scale className="h-[18px] w-[18px] text-brand" aria-hidden="true" />
+        <h2 className="text-lg font-bold text-ink">Peso corporal</h2>
       </div>
 
       {sinPesajes ? (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-ink-muted">
           Todavía no registraste tu peso. Anotalo y vas a ver cómo evoluciona.
         </p>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
+        <div className="grid gap-4 @xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
           <div className="flex flex-col gap-2">
-            <p data-testid="peso-actual" className="text-[40px] font-bold leading-none text-zinc-900">
+            <p data-testid="peso-actual" className="whitespace-nowrap text-4xl font-black leading-none tracking-tight text-ink">
               {formatearPesoKg(actual.peso)}
             </p>
-            <p className="text-xs text-zinc-500">Último pesaje: {etiquetaDeFecha(actual.fecha)}</p>
+            <p className="text-xs text-ink-muted">Último pesaje: {etiquetaDeFecha(actual.fecha)}</p>
             {variacion && (
               <p
                 data-testid="peso-variacion"
-                className="flex items-center gap-1.5 text-sm font-medium text-zinc-700"
+                className="flex items-center gap-1.5 text-sm font-medium text-ink-soft"
               >
                 {variacion.sentido === "baja" ? (
                   <ArrowDown className="h-4 w-4" aria-hidden="true" />
@@ -248,25 +248,27 @@ export function PesoCorporalCard({
               </p>
             )}
             {meta.objetivo !== null && (
-              <p data-testid="peso-meta" className="text-sm font-semibold text-amber-700">
+              <p data-testid="peso-meta" className="text-sm font-semibold text-warning">
                 {progreso ? describirMeta(progreso, meta.objetivo) : `Meta ${formatearPesoKg(meta.objetivo)}`}
               </p>
             )}
           </div>
-          <GraficoDePeso puntos={pesajes} meta={meta.objetivo} />
+          <div className="flex justify-end">
+            <GraficoDePeso puntos={pesajes} meta={meta.objetivo} />
+          </div>
         </div>
       )}
 
       {recientes.length > 0 && (
         <div className="flex flex-col gap-2">
-          <h3 className="text-xs font-bold text-zinc-500">PESAJES RECIENTES</h3>
-          <ul aria-label="Pesajes recientes" className="flex flex-col divide-y divide-zinc-100">
+          <h3 className="text-overline font-bold uppercase tracking-[0.14em] text-ink-disabled">Pesajes recientes</h3>
+          <ul aria-label="Pesajes recientes" className="flex flex-col divide-y divide-border-soft">
             {recientes.map((m) => {
               const descripcion = `${formatearPesoKg(m.peso)} del ${etiquetaDeFecha(m.fecha)}`;
               return (
                 <li key={m.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                  <span className="text-zinc-700">
-                    <span className="font-semibold text-zinc-900">{formatearPesoKg(m.peso)}</span>
+                  <span className="text-ink-soft">
+                    <span className="font-semibold text-ink">{formatearPesoKg(m.peso)}</span>
                     {" · "}
                     {etiquetaDeFecha(m.fecha)}
                   </span>
@@ -275,7 +277,7 @@ export function PesoCorporalCard({
                     onClick={() => borrarPeso(m.id)}
                     disabled={enviando !== null}
                     aria-label={`Borrar pesaje de ${descripcion}`}
-                    className="rounded-md p-2 text-zinc-500 hover:text-red-700 disabled:text-zinc-300"
+                    className="rounded-md p-2 text-ink-muted hover:text-danger disabled:text-ink-disabled"
                   >
                     <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -286,12 +288,12 @@ export function PesoCorporalCard({
         </div>
       )}
 
-      <div className="grid gap-6 border-t border-zinc-200 pt-6 lg:grid-cols-2">
+      <div className="grid gap-4 border-t border-border pt-4 @2xl:grid-cols-2">
         <form aria-label="Registrar peso" onSubmit={guardarPeso} className="flex flex-col gap-2">
-          <label htmlFor="peso-hoy" className="text-sm font-medium text-zinc-700">
+          <label htmlFor="peso-hoy" className="text-sm font-medium text-ink-soft">
             Tu peso de hoy (kg)
           </label>
-          <div className="flex gap-2">
+          <div className="flex min-w-0 gap-2">
             <input
               id="peso-hoy"
               type="text"
@@ -311,10 +313,10 @@ export function PesoCorporalCard({
         </form>
 
         <form aria-label="Meta de peso" onSubmit={guardarMeta} className="flex flex-col gap-2">
-          <label htmlFor="peso-meta-campo" className="text-sm font-medium text-zinc-700">
+          <label htmlFor="peso-meta-campo" className="text-sm font-medium text-ink-soft">
             Tu meta (kg)
           </label>
-          <div className="flex gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
             <input
               id="peso-meta-campo"
               type="text"
@@ -341,7 +343,7 @@ export function PesoCorporalCard({
             )}
           </div>
           {sinPesajes && (
-            <p className="text-xs text-zinc-500">Registrá tu peso para poder fijar una meta.</p>
+            <p className="text-xs text-ink-muted">Registrá tu peso para poder fijar una meta.</p>
           )}
           <MensajeDeFormulario mensaje={mensajeMeta} />
         </form>

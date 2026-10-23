@@ -40,9 +40,9 @@ export function NotificationProvider({ children, autoDismissMs = 5000 }: Notific
   );
 
   const colors: Record<NotificationKind, string> = {
-    success: "bg-green-600",
-    error: "bg-red-600",
-    info: "bg-gray-700",
+    success: "bg-success",
+    error: "bg-danger",
+    info: "bg-ink",
   };
 
   return (
@@ -53,7 +53,7 @@ export function NotificationProvider({ children, autoDismissMs = 5000 }: Notific
           <div
             key={n.id}
             role={n.kind === "error" ? "alert" : "status"}
-            className={`flex items-center gap-3 rounded px-4 py-2 text-sm text-white shadow ${colors[n.kind]}`}
+            className={`flex items-center gap-3 rounded px-4 py-2 text-sm text-surface shadow ${colors[n.kind]}`}
           >
             <span>{n.message}</span>
             <button type="button" aria-label="Cerrar notificación" onClick={() => dismiss(n.id)}>

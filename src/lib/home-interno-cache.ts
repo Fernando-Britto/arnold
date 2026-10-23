@@ -40,18 +40,28 @@ export function hidratarHomeInterno(dto: HomeInternoDTO): HomeInternoData {
 export function guardarHomeInternoCache(data: HomeInternoData): void {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(HOME_INTERNO_CACHE_KEY, JSON.stringify(serializarHomeInterno(data)));
+    const raw = JSON.stringify(serializarHomeInterno(data));
+    window.sessionStorage.setItem(HOME_INTERNO_CACHE_KEY, raw);
+    ultimaRaw = raw;
+    ultimoValor = data;
   } catch {
     // sessionStorage puede no estar disponible (modo privado, cuota): la degradación no es crítica.
   }
 }
 
+// `leerHomeInternoCache` tiene que devolver la MISMA referencia mientras no cambie el cache:
+// lo consume `useSyncExternalStore`, que exige un snapshot estable.
+let ultimaRaw: string | null = null;
+let ultimoValor: HomeInternoData | null = null;
+
 export function leerHomeInternoCache(): HomeInternoData | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.sessionStorage.getItem(HOME_INTERNO_CACHE_KEY);
-    if (!raw) return null;
-    return hidratarHomeInterno(JSON.parse(raw) as HomeInternoDTO);
+    if (raw === ultimaRaw) return ultimoValor;
+    ultimaRaw = raw;
+    ultimoValor = raw ? hidratarHomeInterno(JSON.parse(raw) as HomeInternoDTO) : null;
+    return ultimoValor;
   } catch {
     return null;
   }

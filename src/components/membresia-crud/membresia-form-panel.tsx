@@ -5,6 +5,7 @@ import { MembresiaForm } from "./membresia-form";
 import type { Membresia, EstadoMembresia } from "@/domains/membresia/membresia";
 import { useNotifications } from "@/contexts/notifications";
 import { ApiError, handleApiError, throwIfNotOk } from "@/utils/api-error";
+import { CLAVES, invalidarCache } from "@/lib/cache-cliente";
 
 interface MembresiaFormPanelProps {
   initialData?: Membresia | null;
@@ -65,6 +66,7 @@ export function MembresiaFormPanel({
 
       await throwIfNotOk(response, fallback);
       const data = await response.json();
+      invalidarCache(CLAVES.membresias, CLAVES.membresiasActivas);
 
       // Success: clear warning state and pending data
       setDeactivationWarning(null);
@@ -103,23 +105,23 @@ export function MembresiaFormPanel({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="rounded-md bg-red-50 p-4 text-sm text-red-800">
+        <div className="rounded-md bg-danger-soft p-4 text-sm text-danger">
           {error}
         </div>
       )}
 
       {deactivationWarning && (
-        <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
+        <div className="rounded-md bg-warning-soft p-4 text-sm text-warning">
           <p className="font-semibold mb-2">⚠️ Advertencia de Desactivación</p>
           <p className="mb-3">{deactivationWarning.message}</p>
-          <p className="text-xs text-yellow-700 mb-3">
+          <p className="text-xs text-warning mb-3">
             Esta membresía está asignada a {deactivationWarning.assignedCount} socio(s).
             Si la desactivas, estos socios dejarán de tener acceso a este plan.
           </p>
           <button
             type="button"
             onClick={handleConfirmDeactivation}
-            className="inline-block px-3 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700"
+            className="inline-block rounded bg-warning px-3 py-1 text-xs text-surface hover:opacity-90"
           >
             Entendido, desactivar de todas formas
           </button>

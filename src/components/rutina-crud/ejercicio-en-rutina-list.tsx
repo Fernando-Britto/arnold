@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useMemo } from "react";
 import type { EjercicioResumen } from "@/domains/ejercicio/ejercicio";
 import type { EjercicioEnRutinaRow } from "@/api/rutinas";
+import { filtrarEjercicios, opcionesDeFiltro } from "@/domains/ejercicio/busqueda";
+import { AtribucionMedia, EjercicioMiniatura } from "@/components/ejercicio-crud/ejercicio-media";
 import { formatDescansoDisplay, parseDescansoInput } from "./descanso-utils";
 
 export interface EjercicioEnRutinaListProps {
@@ -9,8 +11,17 @@ export interface EjercicioEnRutinaListProps {
   onRowsChange: (rows: EjercicioEnRutinaRow[]) => void;
 }
 
+/** Cuántos ejercicios se dibujan de una vez: el catálogo tiene más de 1.300 (D-70). */
+const POR_PAGINA = 50;
+
+const SELECT_CLASES = "rounded border border-border bg-surface px-3 py-2 text-sm text-ink-soft";
+
 /**
- * Modal for selecting exercises from the catalog
+ * Modal for selecting exercises from the catalog (T-052, D-72).
+ *
+ * Con el catálogo de 1.330 ejercicios: busca sin distinguir tildes y por varias palabras, filtra por
+ * grupo muscular y equipamiento, muestra la miniatura de cada ejercicio (con la atribución de la
+ * media) y dibuja de a 50. Lo que se tilda se conserva aunque cambie la búsqueda o el filtro.
  */
 function CatalogModal({
   isOpen,
@@ -25,10 +36,36 @@ function CatalogModal({
   onSelect: (ejercicioIds: string[]) => void;
   onClose: () => void;
 }) {
-  const [selectedInModal, setSelectedInModal] = useState<Set<string>>(
-    new Set()
-  );
+  const [selectedInModal, setSelectedInModal] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [grupo, setGrupo] = useState("");
+  const [equipamiento, setEquipamiento] = useState("");
+  const [paginacion, setPaginacion] = useState({ clave: "", limite: POR_PAGINA });
+
+  const grupos = useMemo(() => opcionesDeFiltro(ejercicios.map((e) => e.grupoMuscular)), [ejercicios]);
+  const equipamientos = useMemo(() => opcionesDeFiltro(ejercicios.map((e) => e.equipamiento)), [ejercicios]);
+  const hayMedia = useMemo(() => ejercicios.some((e) => e.mediaId), [ejercicios]);
+
+  const filteredEjercicios = useMemo(
+    () => filtrarEjercicios(ejercicios, { texto: searchTerm, grupo, equipamiento }),
+    [ejercicios, searchTerm, grupo, equipamiento]
+  );
+
+  // Al cambiar la búsqueda o un filtro se vuelve a la primera página. Se deriva de una clave (en vez de
+  // un efecto) para no renderizar dos veces.
+  const clave = `${searchTerm}|${grupo}|${equipamiento}`;
+  const limite = paginacion.clave === clave ? paginacion.limite : POR_PAGINA;
+  const visibles = filteredEjercicios.slice(0, limite);
+  const hayFiltros = grupo !== "" || equipamiento !== "";
+
+  /** Cierra y deja el modal limpio: lo tildado y la búsqueda no se arrastran a la próxima vez que se abre. */
+  const cerrar = () => {
+    setSelectedInModal(new Set());
+    setSearchTerm("");
+    setGrupo("");
+    setEquipamiento("");
+    onClose();
+  };
 
   const handleCheckChange = (ejercicioId: string) => {
     const newSelected = new Set(selectedInModal);
@@ -42,66 +79,136 @@ function CatalogModal({
 
   const handleAdd = () => {
     onSelect(Array.from(selectedInModal));
-    setSelectedInModal(new Set());
-    setSearchTerm("");
-    onClose();
+    cerrar();
   };
-
-  const filteredEjercicios = ejercicios.filter(ejercicio =>
-    ejercicio.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full max-h-96 overflow-y-auto flex flex-col">
-        <h2 className="text-lg font-semibold mb-4">Agregar Ejercicios</h2>
+    <div
+      className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") cerrar();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="catalogo-titulo"
+        className="bg-surface rounded-lg shadow-lg p-6 max-w-2xl w-full max-h-[85vh] flex flex-col"
+      >
+        <h2 id="catalogo-titulo" className="text-lg font-semibold mb-4 shrink-0">
+          Agregar Ejercicios
+        </h2>
         
         <input
           type="text"
           placeholder="Buscar ejercicio..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Buscar ejercicio"
+          autoFocus
+          className="w-full px-3 py-2 border border-border rounded mb-3 shrink-0 focus:outline-none focus:ring-2 focus:ring-brand"
           data-testid="catalog-search"
         />
         
-        {filteredEjercicios.length === 0 ? (
-          <p className="text-gray-500">{searchTerm ? "No se encontraron ejercicios" : "No hay ejercicios disponibles"}</p>
-        ) : (
-          <div className="space-y-2 mb-4 overflow-y-auto flex-1">
-            {filteredEjercicios.map(ejercicio => (
-              <label
-                key={ejercicio.id}
-                className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedInModal.has(ejercicio.id)}
-                  onChange={() => handleCheckChange(ejercicio.id)}
-                  disabled={selectedIds.has(ejercicio.id)}
-                  className="w-4 h-4"
-                />
-                <span className="flex-1">
-                  <span className="font-medium">{ejercicio.nombre}</span>
-                  <span className="text-sm text-gray-500 ml-2">
-                    ({ejercicio.grupoMuscular})
-                  </span>
-                </span>
+        {(grupos.length > 1 || equipamientos.length > 0) && (
+          <div className="flex flex-wrap items-center gap-4 mb-3 shrink-0">
+            {grupos.length > 1 && (
+              <label className="flex items-center gap-2 text-sm text-ink-soft">
+                Grupo muscular
+                <select value={grupo} onChange={(e) => setGrupo(e.target.value)} className={SELECT_CLASES}>
+                  <option value="">Todos los grupos</option>
+                  {grupos.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
               </label>
-            ))}
+            )}
+            {equipamientos.length > 0 && (
+              <label className="flex items-center gap-2 text-sm text-ink-soft">
+                Equipamiento
+                <select
+                  value={equipamiento}
+                  onChange={(e) => setEquipamiento(e.target.value)}
+                  className={SELECT_CLASES}
+                >
+                  <option value="">Todo el equipamiento</option>
+                  {equipamientos.map((q) => (
+                    <option key={q} value={q}>
+                      {q}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
         )}
 
-        <div className="flex justify-end gap-3 mt-6">
+        {filteredEjercicios.length === 0 ? (
+          <p className="text-ink-muted">
+            {searchTerm.trim() !== ""
+              ? "No se encontraron ejercicios"
+              : hayFiltros
+                ? "No hay ejercicios con esos filtros."
+                : "No hay ejercicios disponibles"}
+          </p>
+        ) : (
+          <div className="space-y-2 mb-4 overflow-y-auto flex-1 min-h-0">
+            {visibles.map((ejercicio) => {
+              return (
+                <label
+                  key={ejercicio.id}
+                  className="flex items-center gap-3 p-2 hover:bg-surface-hover rounded cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedInModal.has(ejercicio.id)}
+                    onChange={() => handleCheckChange(ejercicio.id)}
+                    disabled={selectedIds.has(ejercicio.id)}
+                    className="w-4 h-4"
+                  />
+                  {hayMedia && <EjercicioMiniatura mediaId={ejercicio.mediaId} />}
+                  <span className="flex-1">
+                    <span className="font-medium">{ejercicio.nombre}</span>
+                    <span className="text-sm text-ink-muted ml-2">
+                      ({ejercicio.grupoMuscular}
+                      {ejercicio.equipamiento ? ` · ${ejercicio.equipamiento}` : ""})
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+            {filteredEjercicios.length > POR_PAGINA && (
+              <div className="flex items-center justify-center gap-4 p-2 text-sm text-ink-soft">
+                <span>{`Mostrando ${visibles.length} de ${filteredEjercicios.length} ejercicios`}</span>
+                {visibles.length < filteredEjercicios.length && (
+                  <button
+                    type="button"
+                    onClick={() => setPaginacion({ clave, limite: limite + POR_PAGINA })}
+                    className="rounded border border-border bg-surface px-3 py-2 font-medium text-ink-soft hover:bg-surface-subtle"
+                  >
+                    Ver más ejercicios
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {hayMedia && (
+          <div className="shrink-0">
+            <AtribucionMedia />
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 mt-4 shrink-0">
           <button
             type="button"
-            onClick={() => {
-              setSearchTerm("");
-              onClose();
-            }}
-            className="px-4 py-2 text-gray-700 border border-gray-300 rounded hover:bg-gray-50"
+            onClick={cerrar}
+            className="px-4 py-2 text-ink-soft border border-border rounded hover:bg-surface-hover"
           >
             Cancelar
           </button>
@@ -109,7 +216,7 @@ function CatalogModal({
             type="button"
             onClick={handleAdd}
             disabled={selectedInModal.size === 0}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="rounded bg-brand-strong px-4 py-2 text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
           >
             Agregar ({selectedInModal.size})
           </button>
@@ -275,34 +382,34 @@ export function EjercicioEnRutinaList({
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+          className="rounded bg-brand-strong px-3 py-1 text-sm text-surface hover:bg-brand-deep"
         >
           Agregar Ejercicio
         </button>
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-gray-500 p-4 border border-dashed border-gray-300 rounded">
+        <p className="text-sm text-ink-muted p-4 border border-dashed border-border rounded">
           No hay ejercicios agregados aún
         </p>
       ) : (
-        <div className="overflow-x-auto border border-gray-200 rounded">
+        <div className="overflow-x-auto border border-border rounded">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-surface-hover border-b border-border">
               <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-700">
+                <th className="px-4 py-2 text-left font-medium text-ink-soft">
                   NOMBRE
                 </th>
-                <th className="px-4 py-2 text-center font-medium text-gray-700 w-20">
+                <th className="px-4 py-2 text-center font-medium text-ink-soft w-20">
                   SER.
                 </th>
-                <th className="px-4 py-2 text-center font-medium text-gray-700 w-20">
+                <th className="px-4 py-2 text-center font-medium text-ink-soft w-20">
                   REPS.
                 </th>
-                 <th className="px-4 py-2 text-center font-medium text-gray-700 w-24">
+                 <th className="px-4 py-2 text-center font-medium text-ink-soft w-24">
                    DESCANSO
                  </th>
-                 <th className="px-4 py-2 text-center font-medium text-gray-700 w-24">
+                 <th className="px-4 py-2 text-center font-medium text-ink-soft w-24">
                    ACCIONES
                  </th>
               </tr>
@@ -311,10 +418,10 @@ export function EjercicioEnRutinaList({
               {rows.map((row, index) => (
                 <tr
                   key={`${row.ejercicioId}-${index}`}
-                  className="border-b border-gray-200 hover:bg-gray-50"
+                  className="border-b border-border hover:bg-surface-hover"
                 >
                   {/* Nombre (read-only) */}
-                  <td className="px-4 py-2 text-gray-900">
+                  <td className="px-4 py-2 text-ink">
                     {row.ejercicioNombre}
                   </td>
 
@@ -327,7 +434,7 @@ export function EjercicioEnRutinaList({
                       onChange={e =>
                         handleFieldChange(index, "series", e.target.value)
                       }
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-center"
+                      className="w-full border border-border rounded px-2 py-1 text-center"
                     />
                   </td>
 
@@ -340,7 +447,7 @@ export function EjercicioEnRutinaList({
                       onChange={e =>
                         handleFieldChange(index, "repeticiones", e.target.value)
                       }
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-center"
+                      className="w-full border border-border rounded px-2 py-1 text-center"
                     />
                   </td>
 
@@ -353,7 +460,7 @@ export function EjercicioEnRutinaList({
                         handleFieldChange(index, "descanso", e.target.value)
                       }
                       placeholder="M:SS"
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-center"
+                      className="w-full border border-border rounded px-2 py-1 text-center"
                     />
                   </td>
 
@@ -363,7 +470,7 @@ export function EjercicioEnRutinaList({
                        type="button"
                        onClick={() => handleMoveUp(index)}
                        disabled={index === 0}
-                       className="px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded disabled:text-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                       className="px-2 py-1 text-sm text-info hover:bg-info-soft rounded disabled:text-ink-disabled disabled:bg-surface-subtle disabled:cursor-not-allowed"
                        aria-label="Move row up"
                        data-testid={`move-up-${index}`}
                      >
@@ -373,7 +480,7 @@ export function EjercicioEnRutinaList({
                        type="button"
                        onClick={() => handleMoveDown(index)}
                        disabled={index === rows.length - 1}
-                       className="px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded disabled:text-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                       className="px-2 py-1 text-sm text-info hover:bg-info-soft rounded disabled:text-ink-disabled disabled:bg-surface-subtle disabled:cursor-not-allowed"
                        aria-label="Move row down"
                        data-testid={`move-down-${index}`}
                      >
@@ -382,7 +489,7 @@ export function EjercicioEnRutinaList({
                      <button
                        type="button"
                        onClick={() => handleDelete(index)}
-                       className="px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+                       className="px-2 py-1 text-sm text-danger hover:bg-danger-soft rounded"
                      >
                        Eliminar
                      </button>

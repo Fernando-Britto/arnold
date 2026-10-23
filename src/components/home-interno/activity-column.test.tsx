@@ -24,8 +24,8 @@ describe("formatHaceTiempo", () => {
 
 describe("ActivityColumn (spec: matches Home_Interno §Col_Actividad, AC-007)", () => {
   const items: ActivityItemView[] = [
-    { nombre: "Ana López", descripcion: "Pago de membresía Pro", haceTexto: "Hace 15 min" },
-    { nombre: "Carlos Mendez", descripcion: "Alta de nuevo socio", haceTexto: "Hace 2 horas" },
+    { nombre: "Ana López", descripcion: "Pago de membresía Pro", haceTexto: "Hace 15 min", tipo: "PAGO" },
+    { nombre: "Carlos Mendez", descripcion: "Alta de nuevo socio", haceTexto: "Hace 2 horas", tipo: "ALTA_SOCIO" },
   ];
 
   it('renders the zone title "Últimos movimientos"', () => {

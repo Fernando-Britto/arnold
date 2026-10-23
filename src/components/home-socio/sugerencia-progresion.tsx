@@ -7,9 +7,9 @@ import { numeroLegible } from "@/domains/sesion/historial-ejercicio";
 
 /** Cómo se dibuja cada tipo de sugerencia. "primera" no tiene línea: ya dice "Primera vez". */
 const ESTILO_SUGERENCIA = {
-  subir: { clase: "text-green-700", Icono: ArrowUp },
-  mantener: { clase: "text-gray-600", Icono: Equal },
-  descargar: { clase: "text-amber-700", Icono: ArrowDown },
+  subir: { clase: "text-success", Icono: ArrowUp },
+  mantener: { clase: "text-ink-muted", Icono: Equal },
+  descargar: { clase: "text-warning", Icono: ArrowDown },
 } as const;
 
 export interface SugerenciaProgresionProps {

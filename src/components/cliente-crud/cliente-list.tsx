@@ -122,12 +122,12 @@ export function ClienteList({
   const handleSort = (key: string) => setSort((current) => toggleSort(current, key));
 
   if (isLoading) {
-    return <div className="p-8 text-center text-sm text-[#71717A]">Cargando...</div>;
+    return <div className="p-8 text-center text-sm text-ink-muted">Cargando...</div>;
   }
 
   if (clientes.length === 0) {
     return (
-      <div className="p-8 text-center text-sm text-[#71717A]">No hay clientes registrados</div>
+      <div className="p-8 text-center text-sm text-ink-muted">No hay clientes registrados</div>
     );
   }
 
@@ -158,12 +158,12 @@ export function ClienteList({
             {isSelected && (
               <TableDetailRow>
                 <div>
-                  <p className="text-[11px] font-bold uppercase text-[#C13D00]">Email</p>
-                  <p className="text-sm text-[#333333]">{cliente.email || "-"}</p>
+                  <p className="text-overline font-bold uppercase text-brand-strong">Email</p>
+                  <p className="text-sm text-ink-soft">{cliente.email || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold uppercase text-[#C13D00]">Teléfono</p>
-                  <p className="text-sm text-[#333333]">{cliente.telefono || "-"}</p>
+                  <p className="text-overline font-bold uppercase text-brand-strong">Teléfono</p>
+                  <p className="text-sm text-ink-soft">{cliente.telefono || "-"}</p>
                 </div>
               </TableDetailRow>
             )}
@@ -171,7 +171,7 @@ export function ClienteList({
         );
       })}
       {filtered.length === 0 && searchTerm.trim() !== "" && (
-        <p className="p-6 text-center text-sm text-[#71717A]">
+        <p className="p-6 text-center text-sm text-ink-muted">
           {`No se encontraron clientes que coincidan con "${searchTerm}".`}
         </p>
       )}

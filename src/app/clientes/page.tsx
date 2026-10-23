@@ -240,7 +240,7 @@ export function ClientesPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Acceso Denegado</h1>
-          <p className="text-gray-600">
+          <p className="text-ink-muted">
             No tienes permiso para acceder a esta página.
           </p>
         </div>
@@ -264,7 +264,7 @@ export function ClientesPage() {
       />
 
       {membresiasError && (
-        <div role="alert" className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+        <div role="alert" className="mb-4 rounded-md border border-warning bg-warning-soft p-3 text-sm text-warning">
           No se pudieron cargar las membresías. Podés ver los clientes, pero no crear ni editar hasta que se
           recuperen. Recargá la página para reintentar.
         </div>
@@ -278,24 +278,24 @@ export function ClientesPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="temp-password-title"
-            className="bg-white rounded-lg p-6 max-w-sm"
+            className="bg-surface rounded-lg p-6 max-w-sm"
           >
             <h2 id="temp-password-title" className="text-xl font-bold mb-4">
               Contraseña Temporal
             </h2>
-            <p className="text-gray-600 mb-4">
+            <p className="text-ink-muted mb-4">
               La contraseña temporal para el nuevo cliente es:
             </p>
-            <div className="bg-gray-100 p-3 rounded border border-gray-300 mb-4 font-mono text-center">
+            <div className="bg-surface-subtle p-3 rounded border border-border mb-4 font-mono text-center">
               {tempPasswordModal.password}
             </div>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-ink-muted mb-4">
               Comunica esta contraseña al cliente. Deberá cambiarla en su primer login.
             </p>
             <button
               type="button"
               onClick={closeTempPassword}
-              className="w-full bg-[#FC4C02] text-white py-2 rounded hover:bg-[#C13D00]"
+              className="w-full bg-brand-strong text-surface py-2 rounded hover:bg-brand-deep"
             >
               Aceptar
             </button>

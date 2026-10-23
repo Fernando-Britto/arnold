@@ -30,13 +30,27 @@ const staff = {
   user: { nombre: "Ana", rol: "ADMINISTRADOR" },
 };
 const data = buildHomeInternoData();
-const loaded = () => waitFor(() => expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument());
+const loaded = () => waitFor(() => expect(screen.getByTestId("caja-total")).toBeInTheDocument());
 
 describe("HomeInternoPage — degradación parcial (AGGREGATION_TIMEOUT)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     sessionStorage.clear();
     mockAuth.mockReturnValue(staff);
+  });
+
+  it("al recargar (F5) muestra el último panel cacheado sin esperar al fetch", async () => {
+    mockFetch.mockResolvedValueOnce(data);
+    const { unmount } = render(<HomeInternoPage />);
+    await loaded();
+    unmount();
+
+    // El fetch nuevo queda colgado: el panel tiene que salir del cache de la pestaña.
+    mockFetch.mockReturnValueOnce(new Promise(() => {}));
+    render(<HomeInternoPage />);
+
+    expect(screen.getByTestId("caja-total")).toHaveTextContent("$ 350");
+    expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument();
   });
 
   it("conserva los últimos valores conocidos con aviso y reintento cuando una carga posterior falla", async () => {

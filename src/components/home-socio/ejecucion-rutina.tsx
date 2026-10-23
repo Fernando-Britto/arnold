@@ -24,6 +24,7 @@ import {
   TIPO_SERIE_POR_DEFECTO,
   type TipoSerie,
 } from "@/domains/sesion/tipo-serie";
+import { AtribucionMedia, EjercicioVideo } from "@/components/ejercicio-crud/ejercicio-media";
 import { RecordEnVivo } from "./record-en-vivo";
 import { DropsDeSerie, type DropEnEdicion } from "./drops-de-serie";
 import { EncabezadoDeSesion } from "./encabezado-de-sesion";
@@ -293,7 +294,7 @@ export function EjecucionRutina({
 
   if (cargando) {
     return (
-      <div data-testid="ejecucion-rutina" className="p-6 text-gray-500">
+      <div data-testid="ejecucion-rutina" className="p-6 text-ink-muted">
         Cargando la sesión...
       </div>
     );
@@ -304,14 +305,14 @@ export function EjecucionRutina({
       <div
         data-testid="ejecucion-rutina"
         role="status"
-        className="flex flex-col items-center gap-3 rounded-lg border border-[#E4E4E7] bg-white p-8 text-center"
+        className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-8 text-center"
       >
-        <Check className="h-10 w-10 text-green-700" aria-hidden="true" />
-        <p className="text-xl font-bold text-gray-900">¡Rutina completada!</p>
+        <Check className="h-10 w-10 text-success" aria-hidden="true" />
+        <p className="text-xl font-bold text-ink">¡Rutina completada!</p>
         {resumen && resumen.ejercicios.length > 0 ? (
           <ResumenDeSesion resumen={resumen} />
         ) : (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-muted">
             Registraste {ejercicios.reduce((total, e) => total + e.series, 0)} series.
           </p>
         )}
@@ -319,7 +320,7 @@ export function EjecucionRutina({
           <button
             type="button"
             onClick={onCerrar}
-            className="mt-2 rounded-lg bg-[#FC4C02] px-4 py-2 font-bold text-white"
+            className="mt-2 rounded-lg bg-brand-strong px-4 py-2 font-bold text-surface"
           >
             Volver al inicio
           </button>
@@ -331,20 +332,20 @@ export function EjecucionRutina({
   return (
     <div
       data-testid="ejecucion-rutina"
-      className="flex grow flex-col gap-5 rounded-lg border border-[#E4E4E7] bg-white p-6"
+      className="flex grow flex-col gap-5 rounded-lg border border-border bg-surface p-6"
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-bold text-[#FC4C02]">EJECUTANDO RUTINA</p>
+          <p className="text-xs font-bold text-brand">EJECUTANDO RUTINA</p>
           {ejercicioActual && (
-            <h2 className="text-2xl font-bold text-gray-900">{ejercicioActual.nombre}</h2>
+            <h2 className="text-2xl font-bold text-ink">{ejercicioActual.nombre}</h2>
           )}
         </div>
         {onCerrar && (
           <button
             type="button"
             onClick={onCerrar}
-            className="flex items-center gap-1 text-sm font-medium text-gray-500"
+            className="flex items-center gap-1 text-sm font-medium text-ink-muted"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" /> Salir
           </button>
@@ -362,18 +363,42 @@ export function EjecucionRutina({
       )}
 
       {error && (
-        <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger">
           {error}
         </p>
       )}
 
+      {/* Animación del ejercicio actual (catálogo, T-050f, D-70): las instrucciones van en un desplegable
+          cerrado para no empujar hacia abajo el registro de series. */}
+      {ejercicioActual?.mediaId && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-4">
+            <EjercicioVideo mediaId={ejercicioActual.mediaId} nombre={ejercicioActual.nombre} />
+            {ejercicioActual.musculoObjetivo && (
+              <p className="text-sm text-ink-muted">{ejercicioActual.musculoObjetivo}</p>
+            )}
+          </div>
+          {ejercicioActual.instrucciones.length > 0 && (
+            <details className="text-sm text-ink-muted">
+              <summary className="cursor-pointer font-bold text-brand">Cómo se hace</summary>
+              <ol className="mt-2 list-decimal space-y-1 pl-5">
+                {ejercicioActual.instrucciones.map((paso, i) => (
+                  <li key={i}>{paso}</li>
+                ))}
+              </ol>
+            </details>
+          )}
+          <AtribucionMedia />
+        </div>
+      )}
+
       {ejercicioActual && (
         <>
-          <p className="text-sm font-medium text-gray-500">
+          <p className="text-sm font-medium text-ink-muted">
             Serie {serieActual ?? 1} de {ejercicioActual.series}
           </p>
           {calentamientos > 0 && (
-            <p data-testid="calentamientos" className="text-xs text-gray-500">
+            <p data-testid="calentamientos" className="text-xs text-ink-muted">
               Calentamientos: {calentamientos}
             </p>
           )}
@@ -387,25 +412,25 @@ export function EjecucionRutina({
 
           <div className="grid grid-cols-2 gap-4">
             {/* Repeticiones */}
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-200 p-4">
-              <span className="text-xs font-bold text-gray-500">REPETICIONES</span>
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-border p-4">
+              <span className="text-xs font-bold text-ink-muted">REPETICIONES</span>
               <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={restarRepeticion}
                   aria-label="Restar una repetición"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle text-ink-soft"
                 >
                   <Minus className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <span data-testid="valor-repeticiones" className="text-3xl font-bold text-gray-900">
+                <span data-testid="valor-repeticiones" className="text-3xl font-bold text-ink">
                   {repeticiones}
                 </span>
                 <button
                   type="button"
                   onClick={sumarRepeticion}
                   aria-label="Sumar una repetición"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle text-ink-soft"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -413,25 +438,25 @@ export function EjecucionRutina({
             </div>
 
             {/* Peso */}
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-200 p-4">
-              <span className="text-xs font-bold text-gray-500">PESO (KG)</span>
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-border p-4">
+              <span className="text-xs font-bold text-ink-muted">PESO (KG)</span>
               <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={restarPeso}
                   aria-label="Restar peso"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle text-ink-soft"
                 >
                   <Minus className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <span data-testid="valor-carga" className="text-3xl font-bold text-gray-900">
+                <span data-testid="valor-carga" className="text-3xl font-bold text-ink">
                   {carga}
                 </span>
                 <button
                   type="button"
                   onClick={sumarPeso}
                   aria-label="Sumar peso"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle text-ink-soft"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -446,7 +471,7 @@ export function EjecucionRutina({
 
           {/* RIR */}
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-bold text-gray-500">RIR (repeticiones en reserva)</span>
+            <span className="text-xs font-bold text-ink-muted">RIR (repeticiones en reserva)</span>
             <div role="group" aria-label="RIR" className="flex gap-2">
               {[0, 1, 2, 3, 4, 5].map((valor) => (
                 <button
@@ -457,8 +482,8 @@ export function EjecucionRutina({
                   aria-pressed={rir === valor}
                   className={`h-10 w-10 rounded-lg border text-sm font-bold ${
                     rir === valor
-                      ? "border-[#FC4C02] bg-[#FC4C02] text-white"
-                      : "border-gray-300 bg-white text-gray-700"
+                      ? "border-brand bg-brand-strong text-surface"
+                      : "border-border bg-surface text-ink-soft"
                   }`}
                 >
                   {valor}
@@ -469,7 +494,7 @@ export function EjecucionRutina({
 
           {/* Tipo de serie (T-047, D-64) */}
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-bold text-gray-500">TIPO DE SERIE</span>
+            <span className="text-xs font-bold text-ink-muted">TIPO DE SERIE</span>
             <div role="group" aria-label="Tipo de serie" className="flex flex-wrap gap-2">
               {TIPOS_ELEGIBLES.map((opcion) => (
                 <button
@@ -479,8 +504,8 @@ export function EjecucionRutina({
                   aria-pressed={tipo === opcion}
                   className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
                     tipo === opcion
-                      ? "border-[#FC4C02] bg-orange-50 text-gray-900"
-                      : "border-gray-300 bg-white text-gray-700"
+                      ? "border-brand bg-orange-50 text-ink"
+                      : "border-border bg-surface text-ink-soft"
                   }`}
                 >
                   {ETIQUETAS_TIPO_SERIE[opcion]}
@@ -488,7 +513,7 @@ export function EjecucionRutina({
               ))}
             </div>
             {tipo === "CALENTAMIENTO" && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-ink-muted">
                 No cuenta como una de las series de la rutina ni para tu progreso.
               </p>
             )}
@@ -509,7 +534,7 @@ export function EjecucionRutina({
             type="button"
             onClick={handleSerieHecha}
             disabled={enviando}
-            className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#FC4C02] text-[15px] font-bold text-white disabled:bg-gray-400"
+            className="flex h-12 items-center justify-center gap-2 rounded-lg bg-brand-strong text-[15px] font-bold text-surface disabled:bg-ink-disabled"
           >
             <Check className="h-[18px] w-[18px]" aria-hidden="true" />
             {enviando
@@ -523,25 +548,25 @@ export function EjecucionRutina({
             <div
               role="status"
               aria-live="polite"
-              className="flex flex-col items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-4"
+              className="flex flex-col items-center gap-2 rounded-2xl border border-warning bg-warning-soft p-4"
             >
-              <div className="flex items-center gap-2 text-amber-900">
+              <div className="flex items-center gap-2 text-warning">
                 <TimerReset className="h-4 w-4" aria-hidden="true" />
                 <span className="text-sm font-bold">Descanso</span>
               </div>
               {descanso.expirado ? (
-                <p data-testid="descanso-terminado" className="text-lg font-bold text-green-700">
+                <p data-testid="descanso-terminado" className="text-lg font-bold text-success">
                   ¡Descanso terminado!
                 </p>
               ) : (
-                <p data-testid="descanso-tiempo" className="text-3xl font-bold text-amber-900">
+                <p data-testid="descanso-tiempo" className="text-3xl font-bold text-warning">
                   {formatearDescanso(descanso.restanteSegundos)}
                 </p>
               )}
               <button
                 type="button"
                 onClick={saltarDescanso}
-                className="text-sm font-bold text-[#FC4C02] underline"
+                className="text-sm font-bold text-brand underline"
               >
                 Saltar
               </button>
@@ -551,7 +576,7 @@ export function EjecucionRutina({
       )}
 
       {!ejercicioActual && !error && (
-        <p className="text-gray-500">No hay un ejercicio en curso.</p>
+        <p className="text-ink-muted">No hay un ejercicio en curso.</p>
       )}
     </div>
   );

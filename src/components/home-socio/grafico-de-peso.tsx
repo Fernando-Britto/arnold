@@ -44,7 +44,7 @@ export function GraficoDePeso({ puntos, meta }: GraficoDePesoProps) {
       role="img"
       aria-label={descripcion}
       viewBox={`0 0 ${g.ancho} ${g.alto}`}
-      className="h-auto w-full"
+      className="h-auto w-full max-w-[560px]"
     >
       <title>{descripcion}</title>
 
@@ -56,10 +56,10 @@ export function GraficoDePeso({ puntos, meta }: GraficoDePesoProps) {
             x2={g.area.derecha}
             y1={t.y}
             y2={t.y}
-            stroke="#E4E4E7"
+            stroke="var(--color-border)"
             strokeWidth={1}
           />
-          <text x={g.area.izquierda - 8} y={t.y + 4} textAnchor="end" fontSize={11} fill="#71717A">
+          <text x={g.area.izquierda - 8} y={t.y + 4} textAnchor="end" fontSize={11} fill="var(--color-ink-muted)">
             {t.etiqueta}
           </text>
         </g>
@@ -74,7 +74,7 @@ export function GraficoDePeso({ puntos, meta }: GraficoDePesoProps) {
             x2={g.area.derecha}
             y1={g.metaY}
             y2={g.metaY}
-            stroke="#B45309"
+            stroke="var(--color-warning)"
             strokeWidth={1.5}
             strokeDasharray="6 4"
           />
@@ -84,7 +84,7 @@ export function GraficoDePeso({ puntos, meta }: GraficoDePesoProps) {
             textAnchor="end"
             fontSize={11}
             fontWeight={700}
-            fill="#B45309"
+            fill="var(--color-warning)"
           >
             {`Meta ${formatearPesoKg(meta)}`}
           </text>
@@ -96,7 +96,7 @@ export function GraficoDePeso({ puntos, meta }: GraficoDePesoProps) {
           data-testid="linea-de-peso"
           d={g.ruta}
           fill="none"
-          stroke="#FC4C02"
+          stroke="var(--color-brand)"
           strokeWidth={2.5}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -110,8 +110,8 @@ export function GraficoDePeso({ puntos, meta }: GraficoDePesoProps) {
           cx={p.x}
           cy={p.y}
           r={p === ultimo ? 5 : 3}
-          fill={i === g.puntos.length - 1 ? "#FC4C02" : "#FFFFFF"}
-          stroke="#FC4C02"
+          fill={i === g.puntos.length - 1 ? "var(--color-brand)" : "var(--color-surface)"}
+          stroke="var(--color-brand)"
           strokeWidth={2}
         />
       ))}
@@ -124,7 +124,7 @@ export function GraficoDePeso({ puntos, meta }: GraficoDePesoProps) {
           y={g.alto - 8}
           textAnchor={g.etiquetasX.length === 1 ? "middle" : i === 0 ? "start" : "end"}
           fontSize={11}
-          fill="#71717A"
+          fill="var(--color-ink-muted)"
         >
           {e.texto}
         </text>

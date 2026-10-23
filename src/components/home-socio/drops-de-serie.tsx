@@ -28,7 +28,7 @@ export interface DropsDeSerieProps {
 }
 
 const BOTON_REDONDO =
-  "flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 disabled:text-gray-300";
+  "flex h-9 w-9 items-center justify-center rounded-full bg-surface-subtle text-ink-soft disabled:text-ink-disabled";
 
 export function DropsDeSerie({
   drops,
@@ -62,9 +62,9 @@ export function DropsDeSerie({
             key={i}
             role="group"
             aria-label={`Drop ${n}`}
-            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-dashed border-gray-300 p-2"
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-dashed border-border p-2"
           >
-            <span className="text-xs font-bold text-gray-500">DROP {n}</span>
+            <span className="text-xs font-bold text-ink-muted">DROP {n}</span>
 
             <div className="flex items-center gap-2">
               <button
@@ -79,7 +79,7 @@ export function DropsDeSerie({
               <span data-testid={`valor-carga-drop-${n}`} className="min-w-[3ch] text-center font-bold">
                 {drop.carga}
               </span>
-              <span className="text-xs text-gray-500">kg</span>
+              <span className="text-xs text-ink-muted">kg</span>
               <button
                 type="button"
                 disabled={deshabilitado}
@@ -104,7 +104,7 @@ export function DropsDeSerie({
               <span data-testid={`valor-repeticiones-drop-${n}`} className="min-w-[2ch] text-center font-bold">
                 {drop.repeticiones}
               </span>
-              <span className="text-xs text-gray-500">reps</span>
+              <span className="text-xs text-ink-muted">reps</span>
               <button
                 type="button"
                 disabled={deshabilitado}
@@ -121,7 +121,7 @@ export function DropsDeSerie({
               disabled={deshabilitado}
               aria-label={`Quitar drop ${n}`}
               onClick={() => onChange(drops.filter((_, j) => j !== i))}
-              className="ml-auto rounded-md p-2 text-gray-500 hover:text-red-700 disabled:text-gray-300"
+              className="ml-auto rounded-md p-2 text-ink-muted hover:text-danger disabled:text-ink-disabled"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -134,11 +134,11 @@ export function DropsDeSerie({
           type="button"
           onClick={agregar}
           disabled={deshabilitado || llegoAlMaximo}
-          className="flex items-center gap-1.5 text-sm font-semibold text-[#FC4C02] disabled:text-gray-400"
+          className="flex items-center gap-1.5 text-sm font-semibold text-brand-strong disabled:text-ink-disabled"
         >
           <Plus className="h-4 w-4" aria-hidden="true" /> Agregar drop set
         </button>
-        {llegoAlMaximo && <span className="text-xs text-gray-500">Hasta {MAX_DROPS} drop sets por serie.</span>}
+        {llegoAlMaximo && <span className="text-xs text-ink-muted">Hasta {MAX_DROPS} drop sets por serie.</span>}
       </div>
     </div>
   );

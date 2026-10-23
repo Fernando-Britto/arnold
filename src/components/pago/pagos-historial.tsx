@@ -110,26 +110,26 @@ export function PagosHistorial({ socioId, onAnulado }: PagosHistorialProps) {
   return (
     <section
       aria-labelledby="pagos-historial-titulo"
-      className="flex w-full flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4"
+      className="flex w-full flex-col gap-3 rounded-lg border border-border bg-surface p-4"
     >
-      <h3 id="pagos-historial-titulo" className="text-base font-semibold text-zinc-900">
+      <h3 id="pagos-historial-titulo" className="text-base font-semibold text-ink">
         Historial de pagos
       </h3>
 
       {error && (
-        <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger">
           {error}
         </p>
       )}
 
       {pagos === null ? (
-        <p className="text-sm text-zinc-500">Cargando…</p>
+        <p className="text-sm text-ink-muted">Cargando…</p>
       ) : pagos.length === 0 ? (
-        <p className="text-sm text-zinc-500">Todavía no hay pagos registrados.</p>
+        <p className="text-sm text-ink-muted">Todavía no hay pagos registrados.</p>
       ) : (
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="text-xs text-gray-500">
+            <tr className="text-xs text-ink-muted">
               <th className="pb-2 font-medium">Fecha</th>
               <th className="pb-2 font-medium">Método</th>
               <th className="pb-2 text-right font-medium">Monto</th>
@@ -140,11 +140,11 @@ export function PagosHistorial({ socioId, onAnulado }: PagosHistorialProps) {
           <tbody className="divide-y divide-gray-100">
             {pagos.map((pago) => (
               <tr key={pago.id} data-testid="pago-historial">
-                <td className="py-2 text-zinc-700">{formatFecha(pago.fechaPago)}</td>
-                <td className="py-2 text-zinc-700">
+                <td className="py-2 text-ink-soft">{formatFecha(pago.fechaPago)}</td>
+                <td className="py-2 text-ink-soft">
                   {METODO_LABEL[pago.metodoPago] ?? pago.metodoPago}
                 </td>
-                <td className="py-2 text-right font-medium text-zinc-900">
+                <td className="py-2 text-right font-medium text-ink">
                   {formatMoney(pago.monto)}
                 </td>
                 <td className="py-2">
@@ -163,14 +163,14 @@ export function PagosHistorial({ socioId, onAnulado }: PagosHistorialProps) {
                         value={motivo}
                         onChange={(e) => setMotivo(e.target.value)}
                         placeholder="Motivo"
-                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                        className="w-full rounded-md border border-border px-2 py-1 text-sm"
                       />
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => confirmarAnulacion(pago)}
                           disabled={enviando}
-                          className="rounded bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                          className="rounded bg-danger px-3 py-1 text-sm font-medium text-surface hover:bg-danger-strong disabled:cursor-not-allowed disabled:bg-ink-disabled"
                         >
                           {enviando ? "Anulando…" : "Confirmar"}
                         </button>
@@ -178,7 +178,7 @@ export function PagosHistorial({ socioId, onAnulado }: PagosHistorialProps) {
                           type="button"
                           onClick={cancelar}
                           disabled={enviando}
-                          className="rounded border border-gray-300 px-3 py-1 text-sm font-medium text-zinc-700 hover:bg-gray-50"
+                          className="rounded border border-border px-3 py-1 text-sm font-medium text-ink-soft hover:bg-surface-hover"
                         >
                           Cancelar
                         </button>
@@ -192,7 +192,7 @@ export function PagosHistorial({ socioId, onAnulado }: PagosHistorialProps) {
                         setMotivo("");
                         setAnulandoId(pago.id);
                       }}
-                      className="rounded border border-red-300 px-3 py-1 text-sm font-medium text-red-700 hover:bg-red-50"
+                      className="rounded border border-danger-soft px-3 py-1 text-sm font-medium text-danger hover:bg-danger-soft"
                     >
                       Anular
                     </button>

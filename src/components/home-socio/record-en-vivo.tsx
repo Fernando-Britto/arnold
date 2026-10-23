@@ -36,7 +36,7 @@ export function RecordEnVivo({ frontera, carga }: RecordEnVivoProps) {
       data-testid="record-en-vivo"
       data-tipo={aviso.tipo}
       className={`flex items-center gap-1.5 text-xs font-semibold ${
-        aviso.tipo === "nueva-carga" ? "text-orange-700" : "text-gray-600"
+        aviso.tipo === "nueva-carga" ? "text-orange-700" : "text-ink-muted"
       }`}
     >
       <Trophy className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

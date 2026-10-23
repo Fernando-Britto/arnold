@@ -33,7 +33,7 @@ export function QuickActions({ onAction, disabledActions = [] }: QuickActionsPro
           onClick={() => onAction(key)}
           disabled={disabledActions.includes(key)}
           title={disabledActions.includes(key) ? SIN_ACCESO_TITLE : undefined}
-          className="flex items-center justify-center gap-3 rounded-lg border border-[#E4E4E7] bg-white py-4 text-sm font-bold text-zinc-900 enabled:hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex items-center justify-center gap-3 rounded-lg border border-border bg-surface py-4 text-sm font-bold text-ink enabled:hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Icon className="h-4 w-4" aria-hidden="true" />
           {label}

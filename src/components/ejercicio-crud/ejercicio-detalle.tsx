@@ -5,8 +5,8 @@ import { fetchEjercicio } from "@/api/ejercicios";
 import type { EjercicioConUso } from "@/domains/ejercicio/ejercicio";
 import { AtribucionMedia, EjercicioVideo } from "./ejercicio-media";
 
-const ETIQUETA = "text-[11px] font-bold uppercase text-[#C13D00]";
-const VALOR = "text-sm text-[#333333]";
+const ETIQUETA = "text-overline font-bold uppercase text-brand-strong";
+const VALOR = "text-sm text-ink-soft";
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: string | null | undefined }) {
   if (!valor) return null;
@@ -69,8 +69,8 @@ export function EjercicioDetalle({ ejercicio }: { ejercicio: EjercicioConUso }) 
         {(delCatalogo || (pasos?.length ?? 0) > 0) && (
           <div>
             <p className={ETIQUETA}>Instrucciones</p>
-            {cargando && <p className="text-sm text-[#71717A]">Cargando instrucciones…</p>}
-            {fallo && <p className="text-sm text-[#B42318]">No se pudieron cargar las instrucciones.</p>}
+            {cargando && <p className="text-sm text-ink-muted">Cargando instrucciones…</p>}
+            {fallo && <p className="text-sm text-danger">No se pudieron cargar las instrucciones.</p>}
             {pasos && pasos.length > 0 && (
               <ol className={`${VALOR} list-decimal space-y-1 pl-5`}>
                 {pasos.map((paso, i) => (

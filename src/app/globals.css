@@ -1,8 +1,63 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens — fuente de verdad: odd/tasks/design-alignment.md
+ * (extraídos de los mockups OpenPencil en openspec/*.svg).
+ *
+ * Los nombres siguen el vocabulario de ese spec, salvo el texto, que usa `ink-*`
+ * en lugar de `text-*` para no generar utilidades tipo `text-text-primary`.
+ * Ningún componente debería volver a escribir un hex: si falta un token, se agrega acá.
+ */
+@theme {
+  /* Marca — naranja Strava */
+  --color-brand: #fc4c02;
+  --color-brand-strong: #c13d00; /* spec: brand-text — superficies con texto blanco (AA 5.34:1) */
+  --color-brand-deep: #a33300; /* hover de un relleno brand-strong (AA 6.93:1 con blanco) */
+  --color-brand-soft: #fdede4; /* fila seleccionada / superficie de detalle */
+
+  /* Superficies */
+  --color-surface: #ffffff;
+  --color-surface-page: #f7f7f7;
+  --color-surface-rail: #ffffff;
+  --color-surface-subtle: #f4f4f5;
+  --color-surface-hover: #fafafa;
+  --color-surface-active: #e4e4e7; /* hover de controles sobre surface-subtle */
+
+  /* Texto */
+  --color-ink: #18181b; /* spec: text-primary */
+  --color-ink-soft: #3d4454; /* spec: text-tertiary */
+  --color-ink-muted: #71717a; /* spec: text-secondary */
+  --color-ink-disabled: #a1a5b0; /* spec: text-disabled */
+
+  /* Líneas */
+  --color-border: #e4e4e7;
+  --color-border-soft: #f4f4f5;
+
+  /* Estados */
+  --color-success: #0f7a38; /* AA 4.82:1 sobre success-soft (el #14b452 del mockup daba 2.42:1) */
+  --color-success-soft: #def7ec;
+  --color-warning: #b94a0e;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #b42318; /* AA 5.38:1 sobre danger-soft y 6.57:1 con blanco encima */
+  --color-danger-strong: #8f1d1d; /* hover de acciones destructivas (más oscuro que danger) */
+  --color-danger-soft: #fee2e2;
+  --color-info: #1d4ed8;
+  --color-info-soft: #dbeafe;
+
+  /* Escala tipográfica: solo lo que la escala de Tailwind no cubre.
+     Hackea el spec de design-alignment.md (Uppercase-Label / Label). */
+  --text-overline: 11px;
+  --text-meta: 13px;
+  --text-hero: 40px;
+
+  /* Elevación */
+  --shadow-header: 0 1px 2px rgba(0, 0, 0, 0.051);
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: var(--color-surface);
+  --foreground: var(--color-ink);
 }
 
 @theme inline {
@@ -12,11 +67,106 @@
   --font-mono: var(--font-geist-mono);
 }
 
-
 body {
   background: var(--background);
   color: var(--foreground);
   /* El diseño especifica Inter. Sin esta regla el body caía a Arial y pisaba el
      token --font-sans, así que todo el texto se veía más chico y angosto que el mockup. */
   font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Superficies del navegador: estas piezas no las dibuja ningún componente y sus
+ * valores por defecto no pertenecen a ningún sistema. El placeholder de Chrome
+ * (#8c8c8d sobre blanco = 3.4:1) no cumple AA; el detector lo marca en cada form.
+ */
+::placeholder {
+  color: var(--color-ink-muted);
+  opacity: 1;
+}
+
+::selection {
+  background: var(--color-brand-soft);
+  color: var(--color-ink);
+}
+
+:root {
+  caret-color: var(--color-brand-strong);
+}
+
+*,
+*::before,
+*::after {
+  scrollbar-color: var(--color-surface-active) transparent;
+  scrollbar-width: thin;
+}
+
+body {
+  /* Evita la palabra suelta en la última línea de un párrafo. */
+  text-wrap: pretty;
+}
+
+/* Los números de tablas y métricas no deben bailar entre filas. */
+[role="table"],
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Sustrato oscuro del área del socio.
+ *
+ * No es "modo oscuro": es el sustrato que el gimnasio pide de noche, en el celular, entre
+ * series. Se implementa sobrescribiendo los tokens semánticos dentro de un scope, así
+ * los mismos componentes sirven en los dos sustratos sin duplicarse.
+ *
+ * El staff queda sobre el sustrato claro: es un mostrador con luz de día y una pantalla
+ * compartida; ahí el contraste alto en fondo claro gana.
+ */
+.theme-dark {
+  /* El color heredado del body sigue siendo el del tema claro: sin esto, cualquier texto sin
+     clase de color queda #181b1b sobre fondo oscuro (invisible). */
+  color: var(--color-ink);
+  --background: #111113;
+  --foreground: #f4f4f2;
+
+  --color-surface-page: #111113;
+  --color-surface-rail: #0a0a0b;
+  --color-surface: #18181b;
+  --color-surface-subtle: #1f1f23;
+  --color-surface-hover: #202024;
+  --color-surface-active: #2c2c31;
+
+  --color-ink: #f4f4f2;
+  --color-ink-soft: #c9c9ce;
+  --color-ink-muted: #a1a1a6;
+  --color-ink-disabled: #8a8a91;
+
+  --color-border: #2c2c31;
+  --color-border-soft: #232327;
+
+  /* Sobre negro el naranja sí funciona como texto (5.21:1), así que el acento no se apaga. */
+  --color-brand-strong: #ff7a45;
+  --color-brand-soft: #2a1508;
+
+  --color-success: #3dd68c;
+  --color-success-soft: #12281f;
+  --color-warning: #ffb020;
+  --color-warning-soft: #2a1f0c;
+  --color-danger: #ff6b6b;
+  --color-danger-strong: #ff8a8a;
+  --color-danger-soft: #2a1213;
+  --color-info: #7aa7ff;
+  --color-info-soft: #131d2e;
+
+  --shadow-header: 0 1px 0 #232327;
+  --shadow-card: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.theme-dark ::selection {
+  background: #fc4c02;
+  color: #0a0a0b;
+}
+
+.theme-dark ::placeholder {
+  color: var(--color-ink-muted);
 }

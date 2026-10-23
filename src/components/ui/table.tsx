@@ -100,8 +100,8 @@ export function Table({ label, children }: { label?: string; children: React.Rea
 }
 
 /**
- * Header: flex row, h52, px24, gap16, bg #F4F4F5, border #E4E4E7, top corners 8.
- * Labels: 13/700 #71717A.
+ * Header: flex row, h52, px24, gap16, bg surface-subtle, border border, top corners 8.
+ * Labels: 13/700 ink-muted.
  *
  * Sorting is opt-in per column (`TableColumn.sortable`) and only activates when
  * `onSort` is provided, so existing non-sortable usages render unchanged.
@@ -123,7 +123,7 @@ export function TableHeader({
   return (
     <div
       role="row"
-      className="flex h-[52px] items-center gap-4 rounded-t-lg border-b border-[#E4E4E7] bg-[#F4F4F5] px-6"
+      className="flex h-[52px] items-center gap-4 rounded-t-lg border-b border-border bg-surface-subtle px-6"
     >
       {columns.map((col) => {
         const isSortable = Boolean(col.sortable && onSort);
@@ -142,7 +142,7 @@ export function TableHeader({
             key={col.key}
             role="columnheader"
             aria-sort={ariaSort}
-            className={`text-[13px] font-bold text-[#71717A] ${alignClass(col.align)}`}
+            className={`text-meta font-bold text-ink-soft ${alignClass(col.align)}`}
             style={cellStyle(col.width)}
           >
             {isSortable ? (
@@ -150,7 +150,7 @@ export function TableHeader({
                 type="button"
                 onClick={() => onSort!(col.key)}
                 title={`Ordenar por ${col.label}`}
-                className="inline-flex cursor-pointer items-center gap-1 hover:text-[#333333]"
+                className="inline-flex cursor-pointer items-center gap-1 hover:text-ink-soft"
               >
                 <span>{col.label}</span>
                 <span aria-hidden="true" data-sort-indicator>
@@ -179,7 +179,7 @@ interface TableRowProps {
 }
 
 /**
- * Row: h56, border-bottom #E4E4E7, px24, items-center.
+ * Row: h56, border-bottom border, px24, items-center.
  *
  * Fila desplegada: el mockup la pinta a plena saturación (`#FC4C02` con texto blanco),
  * pero eso daba un golpe de color muy fuerte por fila. Ahora usa la light-brand
@@ -201,9 +201,9 @@ export function TableRow({
       role="row"
       aria-selected={selected}
       onClick={onClick}
-      className={`flex h-14 items-center gap-4 border-b border-[#E4E4E7] px-6 ${
+      className={`flex h-14 items-center gap-4 border-b border-border px-6 ${
         onClick ? "cursor-pointer" : ""
-      } ${selected ? "bg-[#FDEDE4]" : "bg-white hover:bg-[#FAFAFA]"}`}
+      } ${selected ? "bg-brand-soft" : "bg-surface hover:bg-surface-hover"}`}
     >
       {children}
       {disclosure && (
@@ -216,7 +216,7 @@ export function TableRow({
             aria-hidden="true"
             data-disclosure-indicator
             className={`transition-transform duration-150 ${
-              selected ? "rotate-180 text-[#FC4C02]" : "text-[#A1A1AA]"
+              selected ? "rotate-180 text-brand" : "text-ink-disabled"
             }`}
           />
         </span>
@@ -232,7 +232,7 @@ interface TableCellProps {
   children: React.ReactNode;
 }
 
-/** Cell: 14/400. primary #333333, secondary #71717A. */
+/** Cell: 14/400. primary ink-soft, secondary ink-muted. */
 export function TableCell({
   width,
   align = "left",
@@ -243,7 +243,7 @@ export function TableCell({
     <div
       role="cell"
       className={`truncate text-sm ${
-        variant === "primary" ? "text-[#333333]" : "text-[#71717A]"
+        variant === "primary" ? "text-ink-soft" : "text-ink-muted"
       } ${alignClass(align)}`}
       style={cellStyle(width)}
     >
@@ -253,13 +253,13 @@ export function TableCell({
 }
 
 const STATUS_CLASSES: Record<TableStatusVariant, string> = {
-  success: "bg-[#DEF7EC] text-[#14B452]",
-  warning: "bg-[#FEF3C7] text-[#B94A0E]",
-  danger: "bg-[#FEE2E2] text-[#DC2626]",
-  neutral: "bg-[#F4F4F5] text-[#71717A]",
+  success: "bg-success-soft text-success",
+  warning: "bg-warning-soft text-warning",
+  danger: "bg-danger-soft text-danger",
+  neutral: "bg-surface-subtle text-ink-soft",
 };
 
-/** Status badge: h23, bg #DEF7EC, radius, padding 4/10. */
+/** Status badge: h23, bg success-soft, radius, padding 4/10. */
 export function TableStatusBadge({
   children,
   variant = "success",
@@ -269,7 +269,7 @@ export function TableStatusBadge({
 }) {
   return (
     <span
-      className={`inline-flex h-[23px] items-center rounded px-2.5 text-[13px] font-medium ${STATUS_CLASSES[variant]}`}
+      className={`inline-flex h-[23px] items-center rounded px-2.5 text-meta font-medium ${STATUS_CLASSES[variant]}`}
     >
       {children}
     </span>
@@ -284,7 +284,7 @@ export function TableDetailRow({ children }: { children: React.ReactNode }) {
   return (
     <div
       role="row"
-      className="flex flex-col gap-4 border-b border-[#E4E4E7] bg-[#FDEDE4] px-12 pb-6 pt-0"
+      className="flex flex-col gap-4 border-b border-border bg-brand-soft px-12 pb-6 pt-0"
     >
       {children}
     </div>

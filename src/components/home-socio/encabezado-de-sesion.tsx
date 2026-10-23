@@ -32,7 +32,7 @@ export function EncabezadoDeSesion({
 }: EncabezadoDeSesionProps) {
   return (
     <div data-testid="encabezado-de-sesion" className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3 text-sm text-gray-600">
+      <div className="flex items-center justify-between gap-3 text-sm text-ink-muted">
         {ejercicioNumero !== null ? (
           <span data-testid="sesion-ejercicio" className="font-semibold">
             Ejercicio {ejercicioNumero} de {ejerciciosTotal}
@@ -58,11 +58,11 @@ export function EncabezadoDeSesion({
         aria-valuemax={total}
         aria-valuenow={hechas}
         aria-valuetext={`${hechas} de ${total} series`}
-        className="h-2 w-full overflow-hidden rounded-full bg-gray-200"
+        className="h-2 w-full overflow-hidden rounded-full bg-surface-active"
       >
         <div
           data-testid="sesion-relleno"
-          className="h-full rounded-full bg-[#FC4C02] transition-[width]"
+          className="h-full rounded-full bg-brand transition-[width]"
           style={{ width: `${porcentajeDeProgreso(hechas, total)}%` }}
         />
       </div>

@@ -222,7 +222,7 @@ export function RutinasPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Acceso Denegado</h1>
-          <p className="text-gray-600">
+          <p className="text-ink-muted">
             No tienes permiso para acceder a esta página.
           </p>
         </div>
@@ -270,7 +270,7 @@ export function RutinasPage() {
                 <button
                   type="button"
                   onClick={() => setEditing(null)}
-                  className="text-xs font-medium text-[#C13D00] hover:underline"
+                  className="text-xs font-medium text-brand-strong hover:underline"
                 >
                   + Nueva Rutina
                 </button>
@@ -289,7 +289,7 @@ export function RutinasPage() {
           <ListPanelShell>
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <p className="text-gray-500">Cargando rutinas...</p>
+                <p className="text-ink-muted">Cargando rutinas...</p>
               </div>
             ) : (
               <RutinaListPanel

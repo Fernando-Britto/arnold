@@ -27,25 +27,25 @@ export function RachaSemanal({ semanasRacha, dias, onVerHistorial }: RachaSemana
   return (
     <div
       data-testid="card-racha"
-      className="flex flex-col gap-6 rounded-lg border border-[#E4E4E7] bg-white p-6"
+      className="flex flex-col gap-6 rounded-lg border border-border bg-surface p-6"
     >
       <div className="flex items-center gap-10">
         <div className="flex flex-col items-center gap-2.5">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              <Flame className="h-8 w-8 text-[#FC4C02]" aria-hidden="true" />
-              <p data-testid="racha-count" className="text-[40px] font-bold text-zinc-900">
+              <Flame className="h-8 w-8 text-brand" aria-hidden="true" />
+              <p data-testid="racha-count" className="text-hero font-bold text-ink">
                 {semanasRacha}
               </p>
             </div>
-            <p className="text-[13px] text-zinc-500">
+            <p className="text-meta text-ink-muted">
               {semanasRacha === 1 ? "Semana" : "Semanas"}
             </p>
           </div>
           <button
             type="button"
             onClick={onVerHistorial}
-            className="text-sm font-bold text-[#FC4C02]"
+            className="text-sm font-bold text-brand"
           >
             Ver mi historial completo →
           </button>
@@ -56,16 +56,16 @@ export function RachaSemanal({ semanasRacha, dias, onVerHistorial }: RachaSemana
             const estado = dia.asistio ? "asistio" : dia.esHoy ? "hoy" : "libre";
             return (
               <div key={i} className="flex flex-col items-center gap-2">
-                <p className="text-[11px] font-medium text-zinc-500">{DIAS_LABEL[i]}</p>
+                <p className="text-overline font-medium text-ink-muted">{DIAS_LABEL[i]}</p>
                 <div
                   data-testid="dia-celda"
                   data-estado={estado}
                   className={`flex h-12 w-12 items-center justify-center rounded-full ${
                     estado === "asistio"
-                      ? "bg-[#FC4C02]"
+                      ? "bg-brand"
                       : estado === "hoy"
-                        ? "border-2 border-[#FC4C02]"
-                        : "border border-zinc-200"
+                        ? "border-2 border-brand"
+                        : "border border-border"
                   }`}
                 >
                   {estado === "asistio" ? (
@@ -73,7 +73,7 @@ export function RachaSemanal({ semanasRacha, dias, onVerHistorial }: RachaSemana
                   ) : (
                     <span
                       className={`text-[15px] ${
-                        estado === "hoy" ? "font-bold text-[#FC4C02]" : "font-medium text-zinc-500"
+                        estado === "hoy" ? "font-bold text-brand" : "font-medium text-ink-muted"
                       }`}
                     >
                       {dia.numero}

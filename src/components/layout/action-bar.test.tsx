@@ -41,6 +41,6 @@ describe("ActionButton", () => {
 
   it("variante accent usa el color de marca en el texto", () => {
     render(<ActionButton icon={Search} label="Modificar" onClick={() => {}} variant="accent" />);
-    expect(screen.getByRole("button", { name: "Modificar" })).toHaveClass("text-[#FC4C02]");
+    expect(screen.getByRole("button", { name: "Modificar" })).toHaveClass("text-brand-strong");
   });
 });

@@ -89,16 +89,16 @@ export function DispositivosPanel() {
   return (
     <>
       {error && (
-        <p role="alert" className="w-full max-w-lg rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-700">
+        <p role="alert" className="w-full max-w-lg rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger">
           {error}
         </p>
       )}
 
-      <section className="flex w-full max-w-lg flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6">
-        <h2 className="text-sm font-bold text-zinc-900">Nuevo dispositivo</h2>
+      <section className="flex w-full max-w-lg flex-col gap-4 rounded-lg border border-border bg-surface p-6">
+        <h2 className="text-sm font-bold text-ink">Nuevo dispositivo</h2>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="nombre" className="text-sm font-medium text-gray-700">
+          <label htmlFor="nombre" className="text-sm font-medium text-ink-soft">
             Nombre
           </label>
           <input
@@ -108,12 +108,12 @@ export function DispositivosPanel() {
             value={nombre}
             onChange={(event) => setNombre(event.target.value)}
             placeholder="Ej: Puerta principal"
-            className="rounded-md border border-[#E4E4E7] px-3 py-2 text-sm"
+            className="rounded-md border border-border px-3 py-2 text-sm"
           />
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="tipo" className="text-sm font-medium text-gray-700">
+          <label htmlFor="tipo" className="text-sm font-medium text-ink-soft">
             Tipo
           </label>
           <select
@@ -121,7 +121,7 @@ export function DispositivosPanel() {
             data-testid="dispositivo-tipo"
             value={tipo}
             onChange={(event) => setTipo(event.target.value as TipoDispositivo)}
-            className="rounded-md border border-[#E4E4E7] px-3 py-2 text-sm"
+            className="rounded-md border border-border px-3 py-2 text-sm"
           >
             {TIPOS.map((t) => (
               <option key={t.value} value={t.value}>
@@ -135,19 +135,19 @@ export function DispositivosPanel() {
           type="button"
           onClick={() => void handleCrear()}
           disabled={creando}
-          className="self-start rounded bg-[#FC4C02] px-4 py-2 font-medium text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
+          className="self-start rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
         >
           {creando ? "Creando..." : "Crear dispositivo"}
         </button>
 
         {tokenCreado && (
-          <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3">
-            <p className="text-sm font-medium text-amber-800">
+          <div role="status" className="rounded-md border border-warning bg-warning-soft p-3">
+            <p className="text-sm font-medium text-warning">
               Guardá este token ahora: no se volverá a mostrar.
             </p>
             <code
               data-testid="dispositivo-token"
-              className="mt-2 block break-all rounded bg-white px-2 py-1 text-sm"
+              className="mt-2 block break-all rounded bg-surface px-2 py-1 text-sm"
             >
               {tokenCreado}
             </code>
@@ -155,9 +155,9 @@ export function DispositivosPanel() {
         )}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-[#E4E4E7] bg-white">
+      <section className="overflow-hidden rounded-lg border border-border bg-surface">
         {loading ? (
-          <p className="p-6 text-gray-500">Cargando dispositivos...</p>
+          <p className="p-6 text-ink-muted">Cargando dispositivos...</p>
         ) : (
           <DispositivoListPanel
             dispositivos={dispositivos}

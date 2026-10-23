@@ -17,7 +17,7 @@ export function AvisoOfertaReactivacion({ descuentoPct }: AvisoOfertaReactivacio
     <div
       data-testid="aviso-oferta-reactivacion"
       role="status"
-      className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+      className="rounded-lg border border-warning bg-warning-soft p-4 text-sm text-warning"
     >
       Tenés una oferta de reactivación: {descuentoPct} % de descuento en tu próxima cuota.
       Acercate a recepción para aprovecharla.

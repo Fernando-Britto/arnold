@@ -85,19 +85,19 @@ export function KioscoPuerta({ token, onReconfigurar }: KioscoPuertaProps) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-[#F1F3F5] p-6">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-surface-page p-6">
       {paso === "RESULTADO" && resultado ? (
         <PanelResultado resultado={resultado} mostrarMembresia={false} />
       ) : (
         <>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-ink">
             {paso === "DNI" ? "Ingresá tu DNI" : "Ingresá tu PIN"}
           </h1>
 
           {paso === "DNI" ? (
             <output
               aria-label="DNI ingresado"
-              className="min-h-16 w-full max-w-xs rounded-lg border border-gray-300 bg-white px-4 py-3 text-center text-3xl tracking-widest text-gray-900"
+              className="min-h-16 w-full max-w-xs rounded-lg border border-border bg-surface px-4 py-3 text-center text-3xl tracking-widest text-ink"
             >
               {dni || "—"}
             </output>
@@ -106,7 +106,7 @@ export function KioscoPuerta({ token, onReconfigurar }: KioscoPuertaProps) {
               {Array.from({ length: LARGO_PIN }).map((_, i) => (
                 <span
                   key={i}
-                  className="flex h-16 w-12 items-center justify-center rounded-lg border border-gray-300 bg-white text-2xl text-gray-900"
+                  className="flex h-16 w-12 items-center justify-center rounded-lg border border-border bg-surface text-2xl text-ink"
                 >
                   {i < pin.length ? "●" : ""}
                 </span>
@@ -122,7 +122,7 @@ export function KioscoPuerta({ token, onReconfigurar }: KioscoPuertaProps) {
               type="button"
               onClick={continuar}
               disabled={!dni}
-              className="rounded-lg bg-[#FC4C02] px-8 py-3 text-lg font-semibold text-white hover:bg-[#C13D00] disabled:cursor-not-allowed disabled:bg-gray-400"
+              className="rounded-lg bg-brand-strong px-8 py-3 text-lg font-semibold text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
             >
               Continuar
             </button>
@@ -132,7 +132,7 @@ export function KioscoPuerta({ token, onReconfigurar }: KioscoPuertaProps) {
                 type="button"
                 onClick={volver}
                 disabled={enviando}
-                className="rounded-lg border border-gray-300 bg-white px-6 py-3 text-lg font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg border border-border bg-surface px-6 py-3 text-lg font-semibold text-ink-soft hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Volver
               </button>
@@ -140,7 +140,7 @@ export function KioscoPuerta({ token, onReconfigurar }: KioscoPuertaProps) {
                 type="button"
                 onClick={ingresar}
                 disabled={pin.length !== LARGO_PIN || enviando}
-                className="rounded-lg bg-blue-600 px-8 py-3 text-lg font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                className="rounded-lg bg-brand-strong px-8 py-3 text-lg font-semibold text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
               >
                 {enviando ? "Ingresando..." : "Ingresar"}
               </button>
@@ -153,7 +153,7 @@ export function KioscoPuerta({ token, onReconfigurar }: KioscoPuertaProps) {
         <button
           type="button"
           onClick={onReconfigurar}
-          className="text-sm text-gray-500 underline hover:text-gray-700"
+          className="text-sm text-ink-muted underline hover:text-ink-soft"
         >
           Reconfigurar dispositivo
         </button>

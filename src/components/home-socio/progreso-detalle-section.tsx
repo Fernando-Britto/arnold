@@ -22,12 +22,12 @@ function formatFechaCorta(iso: string): string {
 export function ProgresoDetalleSection({ progreso }: ProgresoDetalleSectionProps) {
   return (
     <section aria-labelledby="progreso-titulo" className="flex flex-col gap-6">
-      <h1 id="progreso-titulo" className="text-xl font-bold text-zinc-900">
+      <h1 id="progreso-titulo" className="text-xl font-bold text-ink">
         Mi progreso
       </h1>
 
       {progreso.length === 0 ? (
-        <p className="text-sm text-zinc-500">Todavía no registraste entrenamientos.</p>
+        <p className="text-sm text-ink-muted">Todavía no registraste entrenamientos.</p>
       ) : (
         progreso.map((p) => {
           const max = Math.max(...p.serie.map((s) => s.carga), 1);
@@ -35,13 +35,13 @@ export function ProgresoDetalleSection({ progreso }: ProgresoDetalleSectionProps
             <div
               key={p.ejercicioId}
               data-testid="progreso-ejercicio"
-              className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6"
+              className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6"
             >
               <div className="flex items-center justify-between">
-                <h2 className="font-bold text-zinc-900">{p.ejercicioNombre}</h2>
+                <h2 className="font-bold text-ink">{p.ejercicioNombre}</h2>
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-green-600" aria-hidden="true" />
-                  <span data-testid="progreso-delta" className="text-xs font-medium text-green-600">
+                  <TrendingUp className="h-4 w-4 text-success" aria-hidden="true" />
+                  <span data-testid="progreso-delta" className="text-xs font-medium text-success">
                     {p.delta >= 0 ? "+" : ""}
                     {kgFormatter.format(p.delta)} kg
                   </span>
@@ -51,20 +51,20 @@ export function ProgresoDetalleSection({ progreso }: ProgresoDetalleSectionProps
               <div className="flex items-end gap-2" style={{ height: 120 }} role="img" aria-label={`Progresión de ${p.ejercicioNombre}`}>
                 {p.serie.map((punto) => (
                   <div key={punto.fecha} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-                    <span className="text-[9px] text-zinc-500">{kgFormatter.format(punto.carga)}</span>
+                    <span className="text-overline text-ink-muted">{kgFormatter.format(punto.carga)}</span>
                     <div
                       data-testid="progreso-barra"
-                      className="w-full rounded-t bg-[#FC4C02]"
+                      className="w-full rounded-t bg-brand"
                       style={{ height: `${Math.max(4, (punto.carga / max) * 100)}%` }}
                     />
-                    <span className="text-[9px] text-zinc-400">{formatFechaCorta(punto.fecha)}</span>
+                    <span className="text-overline text-ink-muted">{formatFechaCorta(punto.fecha)}</span>
                   </div>
                 ))}
               </div>
 
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-ink-muted">
                 Mejor marca:{" "}
-                <span className="font-bold text-zinc-900">{kgFormatter.format(p.mejorMarca)} kg</span>
+                <span className="font-bold text-ink">{kgFormatter.format(p.mejorMarca)} kg</span>
               </p>
             </div>
           );

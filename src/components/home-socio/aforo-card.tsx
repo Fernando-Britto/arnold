@@ -34,7 +34,7 @@ export function AforoCard({
     return (
       <div
         data-testid="card-aforo"
-        className="rounded-lg border border-[#E4E4E7] bg-white p-6 text-center text-zinc-500"
+        className="rounded-lg border border-border bg-surface p-6 text-center text-ink-muted"
       >
         Aforo no configurado
       </div>
@@ -46,16 +46,16 @@ export function AforoCard({
   return (
     <div
       data-testid="card-aforo"
-      className="flex flex-col gap-4 rounded-lg border border-[#E4E4E7] bg-white p-6"
+      className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6"
     >
-      <p className="text-sm font-medium text-zinc-600">Aforo actual:</p>
+      <p className="text-sm font-medium text-ink-muted">Aforo actual:</p>
       <div className="flex items-center gap-3">
-        <span className="h-3 w-3 rounded-full border-2 border-green-700 bg-neutral-300" />
-        <p className="text-xl font-bold text-zinc-900">
+        <span className="h-3 w-3 rounded-full border-2 border-success bg-neutral-300" />
+        <p className="text-xl font-bold text-ink">
           {ocupacionActual} / {capacidadMaxima}
         </p>
       </div>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-ink-muted">
         Basado en ingresos de los últimos 90 min
       </p>
 
@@ -68,13 +68,13 @@ export function AforoCard({
             data-current={h.hora === horaActual ? "true" : "false"}
             title={`${h.hora}h: ${h.ocupacion}`}
             className={`w-full grow rounded-t-sm ${
-              h.hora === horaActual ? "bg-[#FF6B00]" : "bg-zinc-200"
+              h.hora === horaActual ? "bg-brand" : "bg-surface-active"
             }`}
             style={{ height: `${(h.ocupacion / maxOcupacion) * 100}%` }}
           />
         ))}
       </div>
-      <div className="flex justify-between text-[11px] text-gray-400">
+      <div className="flex justify-between text-overline text-ink-disabled">
         {horas.map((h) => (
           <span key={h.hora}>{h.hora}h</span>
         ))}

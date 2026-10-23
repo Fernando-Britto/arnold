@@ -50,6 +50,8 @@ export interface AforoDTO {
 export interface EjercicioEnRutinaDTO {
   id: string;
   nombre: string;
+  /** Base del archivo en `public/ejercicios` ("0001-2gPfomN"); null si el ejercicio no tiene media. */
+  mediaId: string | null;
   grupoMuscular: string;
   descripcion: string | null;
   series: number;
@@ -105,6 +107,21 @@ export interface PesoDTO {
   pesoInicial: number | null;
 }
 
+/**
+ * Una sesión ya cerrada, tal como la muestra el historial del inicio. `volumenKg` es la suma de
+ * carga × repeticiones de las series de trabajo (D-64: el calentamiento no cuenta), y
+ * `duracionMin` sale de `horaFin − horaInicio`.
+ */
+export interface UltimaSesionDTO {
+  id: string;
+  /** ISO date de `horaInicio`. */
+  fecha: string;
+  rutinaNombre: string;
+  series: number;
+  volumenKg: number;
+  duracionMin: number;
+}
+
 export interface HomeSocioViewModel {
   progreso: ProgresoActualDTO | null;
   aforo: AforoDTO;
@@ -119,6 +136,8 @@ export interface HomeSocioViewModel {
   oferta: { descuentoPct: number } | null;
   /** Peso corporal y meta (T-048). */
   peso: PesoDTO;
+  /** Últimas sesiones cerradas, de la más reciente a la más vieja (máx. 5). */
+  ultimasSesiones: UltimaSesionDTO[];
 }
 
 export async function fetchHomeSocioData(): Promise<HomeSocioViewModel> {

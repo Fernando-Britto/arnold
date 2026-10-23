@@ -1,5 +1,5 @@
 import React from "react";
-import { AdminTopNav, type NavSection } from "./admin-top-nav";
+import { StaffRail, type NavSection } from "./staff-rail";
 import { ActionBar } from "./action-bar";
 
 interface CrudPageLayoutProps {
@@ -20,20 +20,25 @@ export function CrudPageLayout({
   listPanel,
 }: CrudPageLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-[#F7F7F7]">
-      <AdminTopNav activeSection={section} />
-      <ActionBar breadcrumb={breadcrumb}>{actions}</ActionBar>
+    <div className="theme-dark flex min-h-screen flex-col bg-surface-page lg:flex-row">
+      <StaffRail activeSection={section} />
 
-      {error && (
-        <div role="alert" className="mx-12 mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
+      {/* El rail es h-screen: si el contenido no va en una columna hermana, arranca debajo del
+          pliegue y la pantalla parece vacía. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ActionBar breadcrumb={breadcrumb}>{actions}</ActionBar>
 
-      <main className="flex grow gap-6 px-12 pb-12">
-        {formPanel}
-        {listPanel}
-      </main>
+        {error && (
+          <div role="alert" className="mx-6 mb-4 rounded-lg border border-danger-soft bg-danger-soft p-4 xl:mx-12">
+            <p className="text-sm text-danger">{error}</p>
+          </div>
+        )}
+
+        <main className="flex grow flex-col gap-6 px-6 pb-8 xl:flex-row xl:px-12 xl:pb-12">
+          {formPanel}
+          {listPanel}
+        </main>
+      </div>
     </div>
   );
 }
@@ -45,14 +50,20 @@ interface FormPanelShellProps {
   children: React.ReactNode;
 }
 
-/** Panel izquierdo: tarjeta blanca con línea de acento naranja de la marca. */
+/**
+ * Panel izquierdo del CRUD.
+ *
+ * Antes llevaba una banda naranja de 3px pegada al borde izquierdo. El piso de calidad
+ * de diseño prohíbe un `border-left` de color mayor a 1px en cards y paneles: es el
+ * recurso más gastado para fingir jerarquía, y acá competía con el botón primario.
+ * El panel se distingue por su superficie, no por una barra de color.
+ */
 export function FormPanelShell({ title, titleTestId, headerAction, children }: FormPanelShellProps) {
   return (
-    <section className="flex h-fit w-[380px] shrink-0 overflow-hidden rounded-lg border border-[#E4E4E7] bg-white">
-      <div data-testid="accent-line" className="w-[3px] shrink-0 bg-[#FC4C02]" />
+    <section className="flex h-fit w-full shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-surface xl:w-[380px]">
       <div className="flex grow flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
-          <h2 data-testid={titleTestId} className="text-lg font-bold text-zinc-900">{title}</h2>
+          <h2 data-testid={titleTestId} className="text-lg font-bold text-ink">{title}</h2>
           {headerAction}
         </div>
         {children}
@@ -64,7 +75,7 @@ export function FormPanelShell({ title, titleTestId, headerAction, children }: F
 /** Panel derecho: contenedor de la lista/tabla. */
 export function ListPanelShell({ children }: { children: React.ReactNode }) {
   return (
-    <section className="grow overflow-hidden rounded-lg border border-[#E4E4E7] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
+    <section className="grow overflow-hidden rounded-lg border border-border bg-surface shadow-card">
       {children}
     </section>
   );

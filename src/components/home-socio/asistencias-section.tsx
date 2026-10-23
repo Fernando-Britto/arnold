@@ -20,33 +20,33 @@ export function AsistenciasSection({ asistencias }: AsistenciasSectionProps) {
 
   return (
     <section aria-labelledby="asistencias-titulo" className="flex flex-col gap-6">
-      <h1 id="asistencias-titulo" className="text-xl font-bold text-zinc-900">
+      <h1 id="asistencias-titulo" className="text-xl font-bold text-ink">
         Mis asistencias
       </h1>
 
-      <div className="flex items-center gap-10 rounded-lg border border-[#E4E4E7] bg-white p-6">
+      <div className="flex items-center gap-10 rounded-lg border border-border bg-surface p-6">
         <div className="flex flex-col items-center gap-1">
           <div className="flex items-center gap-2">
-            <Flame className="h-7 w-7 text-[#FC4C02]" aria-hidden="true" />
-            <p data-testid="asistencias-racha" className="text-[40px] font-bold text-zinc-900">
+            <Flame className="h-7 w-7 text-brand" aria-hidden="true" />
+            <p data-testid="asistencias-racha" className="text-hero font-bold text-ink">
               {rachaSemanas}
             </p>
           </div>
-          <p className="text-[13px] text-zinc-500">{rachaSemanas === 1 ? "Semana" : "Semanas"}</p>
+          <p className="text-meta text-ink-muted">{rachaSemanas === 1 ? "Semana" : "Semanas"}</p>
         </div>
 
         <div className="flex flex-col gap-1">
-          <p className="text-xs text-zinc-500">Últimos 35 días</p>
-          <p data-testid="asistencias-total" className="text-4xl font-bold text-[#FC4C02]">
+          <p className="text-xs text-ink-muted">Últimos 35 días</p>
+          <p data-testid="asistencias-total" className="text-4xl font-bold text-brand">
             {total}
           </p>
-          <p className="text-xs text-zinc-500">{total === 1 ? "Asistencia" : "Asistencias"}</p>
+          <p className="text-xs text-ink-muted">{total === 1 ? "Asistencia" : "Asistencias"}</p>
         </div>
 
         <div className="flex flex-col items-center gap-2">
           <div className="flex gap-3">
             {DIAS_LABEL.map((l) => (
-              <p key={l} className="w-6 text-center text-[10px] text-zinc-500">
+              <p key={l} className="w-6 text-center text-overline text-ink-muted">
                 {l}
               </p>
             ))}
@@ -63,8 +63,8 @@ export function AsistenciasSection({ asistencias }: AsistenciasSectionProps) {
                       data-testid="asistencia-celda"
                       data-asistio={dia.asistio ? "true" : "false"}
                       title={dia.fecha}
-                      className={`flex h-6 w-6 items-center justify-center rounded-md text-[9px] ${
-                        dia.asistio ? "bg-[#FC4C02] text-white" : "bg-zinc-100 text-zinc-400"
+                      className={`flex h-6 w-6 items-center justify-center rounded-md text-overline ${
+                        dia.asistio ? "bg-brand-strong text-surface" : "bg-surface-subtle text-ink-soft"
                       }`}
                     >
                       {Number(dia.fecha.slice(8, 10))}
@@ -78,7 +78,7 @@ export function AsistenciasSection({ asistencias }: AsistenciasSectionProps) {
       </div>
 
       {total === 0 && (
-        <p className="text-sm text-zinc-500">Todavía no registraste asistencias en las últimas 5 semanas.</p>
+        <p className="text-sm text-ink-muted">Todavía no registraste asistencias en las últimas 5 semanas.</p>
       )}
     </section>
   );

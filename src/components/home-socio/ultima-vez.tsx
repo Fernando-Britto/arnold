@@ -24,7 +24,7 @@ export interface UltimaVezProps {
 export function UltimaVez({ ultimaVez, serieActual, ahora, sugerencia = null }: UltimaVezProps) {
   if (!ultimaVez || ultimaVez.series.length === 0) {
     return (
-      <p data-testid="ultima-vez" className="text-sm text-gray-500">
+      <p data-testid="ultima-vez" className="text-sm text-ink-muted">
         Primera vez con este ejercicio.
       </p>
     );
@@ -32,7 +32,7 @@ export function UltimaVez({ ultimaVez, serieActual, ahora, sugerencia = null }: 
 
   return (
     <div data-testid="ultima-vez" className="flex flex-col gap-2">
-      <p className="text-xs font-bold text-gray-500">
+      <p className="text-xs font-bold text-ink-muted">
         ÚLTIMA VEZ · {describirHace(new Date(ultimaVez.fecha), new Date(ahora)).toUpperCase()}
       </p>
       <ul className="flex flex-wrap gap-2">
@@ -48,8 +48,8 @@ export function UltimaVez({ ultimaVez, serieActual, ahora, sugerencia = null }: 
               aria-current={actual ? "true" : undefined}
               className={`rounded-lg border px-2 py-1 text-xs ${
                 actual
-                  ? "border-[#FC4C02] bg-orange-50 font-bold text-gray-900"
-                  : "border-gray-200 text-gray-600"
+                  ? "border-brand bg-orange-50 font-bold text-ink"
+                  : "border-border text-ink-muted"
               }`}
             >
               {formatearSerie(serie)}

@@ -22,9 +22,9 @@ describe("Table kit", () => {
   it("TableHeader renderiza los labels con el estilo del spec", () => {
     render(<TableHeader columns={columns} />);
     const nombre = screen.getByText("Nombre");
-    expect(nombre).toHaveClass("text-[13px]", "font-bold", "text-[#71717A]");
+    expect(nombre).toHaveClass("text-meta", "font-bold", "text-ink-soft");
     const header = screen.getByRole("row");
-    expect(header).toHaveClass("h-[52px]", "bg-[#F4F4F5]", "rounded-t-lg");
+    expect(header).toHaveClass("h-[52px]", "bg-surface-subtle", "rounded-t-lg");
   });
 
   it("TableCell aplica variantes primaria/secundaria", () => {
@@ -36,8 +36,8 @@ describe("Table kit", () => {
         </TableRow>
       </Table>,
     );
-    expect(screen.getByText("primaria")).toHaveClass("text-[#333333]");
-    expect(screen.getByText("secundaria")).toHaveClass("text-[#71717A]");
+    expect(screen.getByText("primaria")).toHaveClass("text-ink-soft");
+    expect(screen.getByText("secundaria")).toHaveClass("text-ink-muted");
   });
 
   it("reparte el ancho entre todas las columnas en proporción a su medida", () => {
@@ -78,8 +78,8 @@ describe("Table kit", () => {
     const rows = screen.getAllByRole("row");
     expect(rows[0]).toHaveAttribute("aria-selected", "true");
     // Fila desplegada: light-brand suave, sin el naranja a plena saturación ni texto blanco.
-    expect(rows[0]).toHaveClass("bg-[#FDEDE4]");
-    expect(rows[0]).not.toHaveClass("bg-[#FC4C02]");
+    expect(rows[0]).toHaveClass("bg-brand-soft");
+    expect(rows[0]).not.toHaveClass("bg-brand");
     expect(rows[1]).toHaveAttribute("aria-selected", "false");
   });
 
@@ -111,7 +111,7 @@ describe("Table kit", () => {
 
       const chevron = document.querySelector("[data-disclosure-indicator]");
       expect(chevron).toBeInTheDocument();
-      expect(chevron).toHaveClass("text-[#A1A1AA]");
+      expect(chevron).toHaveClass("text-ink-disabled");
       expect(chevron).not.toHaveClass("rotate-180");
     });
 
@@ -125,7 +125,7 @@ describe("Table kit", () => {
       );
 
       const chevron = document.querySelector("[data-disclosure-indicator]");
-      expect(chevron).toHaveClass("rotate-180", "text-[#FC4C02]");
+      expect(chevron).toHaveClass("rotate-180", "text-brand");
     });
   });
 
@@ -145,7 +145,7 @@ describe("Table kit", () => {
   it("TableStatusBadge usa el estilo success por defecto", () => {
     render(<TableStatusBadge>Activo</TableStatusBadge>);
     const badge = screen.getByText("Activo");
-    expect(badge).toHaveClass("bg-[#DEF7EC]", "h-[23px]");
+    expect(badge).toHaveClass("bg-success-soft", "h-[23px]");
   });
 
   it("TableDetailRow usa el padding y gap del spec", () => {
@@ -209,7 +209,7 @@ describe("Table kit", () => {
     it("no altera el render sin onSort (compatibilidad)", () => {
       render(<TableHeader columns={sortableColumns} />);
 
-      expect(screen.getByText("Nombre")).toHaveClass("text-[13px]", "font-bold");
+      expect(screen.getByText("Nombre")).toHaveClass("text-meta", "font-bold");
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
   });
