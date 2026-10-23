@@ -60,7 +60,9 @@ public/**/*.GIF
 # Skill de diseño vendored (binario del engine, ~86 MB). Se instala con `npx impeccable install`;
 # no se versiona.
 .opencode/
-.impeccable/
+.impeccable/*
+!.impeccable/config.json
+!.impeccable/mocks/
 
 # Capturas de pantalla locales (no son parte del producto).
 /Captura de pantalla*.png
