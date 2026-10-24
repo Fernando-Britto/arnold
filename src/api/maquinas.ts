@@ -13,6 +13,8 @@ import {
   type TipoEquipamiento,
 } from "@/domains/maquina/maquina";
 import { maquinaRepository } from "@/domains/maquina/maquina-repositorio";
+import { throwIfNotOk } from "@/utils/api-error";
+import { CLAVES, conCache, invalidarCache } from "@/lib/cache-cliente";
 
 type CodedError = Error & { code?: string };
 
@@ -126,4 +128,49 @@ export async function handleMaquinaDelete(id: string): Promise<void> {
   }
 
   await maquinaRepository.delete(id);
+}
+
+export function fetchMaquinasList(): Promise<Maquina[]> {
+  return conCache(CLAVES.maquinas, async () => {
+    const response = await fetch("/api/maquinas");
+    await throwIfNotOk(response, "No se pudieron cargar las máquinas");
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  });
+}
+
+export async function createMaquina(input: MaquinaInput): Promise<Maquina> {
+  const response = await fetch("/api/maquinas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  await throwIfNotOk(response, "No se pudo crear la máquina");
+  invalidarCache(CLAVES.maquinas);
+  return response.json();
+}
+
+export async function updateMaquina(
+  id: string,
+  input: MaquinaInput
+): Promise<Maquina> {
+  const response = await fetch(`/api/maquinas/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  await throwIfNotOk(response, "No se pudo actualizar la máquina");
+  invalidarCache(CLAVES.maquinas);
+  return response.json();
+}
+
+export async function deleteMaquina(id: string): Promise<void> {
+  const response = await fetch(`/api/maquinas/${id}`, {
+    method: "DELETE",
+  });
+
+  await throwIfNotOk(response, "No se pudo eliminar la máquina");
+  invalidarCache(CLAVES.maquinas);
 }

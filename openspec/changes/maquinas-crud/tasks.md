@@ -107,7 +107,7 @@ planning number (tests included).
 | T-053c Migración del índice único + integración | ✅ | PR-1a-2 | ≈117 | 2026-10-23 | Integración 26/26 verde contra el Postgres de Docker (verificado por Fernando) |
 | T-053d Mapeo de errores nuevos | ✅ | PR-1a-3 | ≈135 | 2026-10-24 | Slice 3 of 1a |
 | T-053e Permisos: solo Administrador | ✅ | PR-1a-3 | ≈42 | 2026-10-24 | Slice 3 of 1a |
-| T-053f Handlers de API y envoltorios cliente | 🔄 | PR-1a-4a + 4b | ≈321 | 2026-10-24 | 4a (handlers) ✅; 4b (wrappers + `CLAVES.maquinas`) pendiente |
+| T-053f Handlers de API y envoltorios cliente | ✅ | PR-1a-4a + 4b | ≈321 | 2026-10-24 | 4a (handlers) y 4b (wrappers + `CLAVES.maquinas`) completos |
 | T-053g Rutas `GET`/`POST /api/maquinas` | ⬜ | PR-1a-5 | ≈240 | — | Slice 5 of 1a |
 | T-053h Rutas `GET`/`PUT`/`DELETE /api/maquinas/[id]` | ⬜ | PR-1a-6 | ≈360 | — | Slice 6 of 1a |
 | T-053i Formulario y distintivo de estado | ⬜ | PR-1b-1 | ≈340 | — | Slice 1 of 1b |

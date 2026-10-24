@@ -10,6 +10,7 @@
 export const CLAVES = {
   clientes: "clientes",
   ejercicios: "ejercicios",
+  maquinas: "maquinas",
   membresias: "membresias",
   membresiasActivas: "membresias-activas",
   rutinas: "rutinas",

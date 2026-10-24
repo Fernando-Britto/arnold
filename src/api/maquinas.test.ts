@@ -9,9 +9,15 @@ import {
   handleMaquinaGetById,
   handleMaquinaUpdate,
   handleMaquinaDelete,
+  fetchMaquinasList,
+  createMaquina,
+  updateMaquina,
+  deleteMaquina,
 } from "./maquinas";
 import { maquinaRepository } from "@/domains/maquina/maquina-repositorio";
 import * as maquinaDomain from "@/domains/maquina/maquina";
+import * as cacheCliente from "@/lib/cache-cliente";
+import { CLAVES, limpiarCache } from "@/lib/cache-cliente";
 import type { Maquina } from "@/domains/maquina/maquina";
 
 jest.mock("@/domains/maquina/maquina-repositorio", () => ({
@@ -219,3 +225,87 @@ describe("Maquina Business Logic", () => {
   });
 });
 
+describe("Maquina client wrappers", () => {
+  const fetchOriginal = global.fetch;
+
+  beforeEach(() => {
+    limpiarCache();
+    global.fetch = jest.fn();
+  });
+
+  afterEach(() => {
+    global.fetch = fetchOriginal;
+    jest.restoreAllMocks();
+  });
+
+  it("fetchMaquinasList guarda la respuesta en CLAVES.maquinas", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => [mockMaquina],
+    });
+
+    const result = await fetchMaquinasList();
+    expect(result).toEqual([mockMaquina]);
+    expect(global.fetch).toHaveBeenCalledWith("/api/maquinas");
+
+    const cached = await fetchMaquinasList();
+    expect(cached).toEqual([mockMaquina]);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("createMaquina invalida CLAVES.maquinas", async () => {
+    const invalidateSpy = jest.spyOn(cacheCliente, "invalidarCache");
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => mockMaquina,
+    });
+
+    await createMaquina({
+      nombre: "Polea baja",
+      ubicacion: "Sala principal",
+      tipoEquipamiento: "MAQUINA_GUIADA",
+      estado: "DISPONIBLE",
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith("/api/maquinas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre: "Polea baja",
+        ubicacion: "Sala principal",
+        tipoEquipamiento: "MAQUINA_GUIADA",
+        estado: "DISPONIBLE",
+      }),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith(CLAVES.maquinas);
+  });
+
+  it("updateMaquina invalida CLAVES.maquinas", async () => {
+    const invalidateSpy = jest.spyOn(cacheCliente, "invalidarCache");
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => mockMaquina,
+    });
+
+    await updateMaquina("m1", { nombre: "Polea baja" });
+
+    expect(global.fetch).toHaveBeenCalledWith("/api/maquinas/m1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre: "Polea baja" }),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith(CLAVES.maquinas);
+  });
+
+  it("deleteMaquina invalida CLAVES.maquinas", async () => {
+    const invalidateSpy = jest.spyOn(cacheCliente, "invalidarCache");
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+
+    await deleteMaquina("m1");
+
+    expect(global.fetch).toHaveBeenCalledWith("/api/maquinas/m1", {
+      method: "DELETE",
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith(CLAVES.maquinas);
+  });
+});
