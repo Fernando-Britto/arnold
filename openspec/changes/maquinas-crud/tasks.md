@@ -108,7 +108,7 @@ planning number (tests included).
 | T-053d Mapeo de errores nuevos | ✅ | PR-1a-3 | ≈135 | 2026-10-24 | Slice 3 of 1a |
 | T-053e Permisos: solo Administrador | ✅ | PR-1a-3 | ≈42 | 2026-10-24 | Slice 3 of 1a |
 | T-053f Handlers de API y envoltorios cliente | ✅ | PR-1a-4a + 4b | ≈321 | 2026-10-24 | 4a (handlers) y 4b (wrappers + `CLAVES.maquinas`) completos |
-| T-053g Rutas `GET`/`POST /api/maquinas` | ⬜ | PR-1a-5 | ≈240 | — | Slice 5 of 1a |
+| T-053g Rutas `GET`/`POST /api/maquinas` | 🔄 | PR-1a-5a + 5b | ≈240 | 2026-10-24 | 5a (GET) ✅; 5b (POST + auditoría ALTA) pendiente |
 | T-053h Rutas `GET`/`PUT`/`DELETE /api/maquinas/[id]` | ⬜ | PR-1a-6 | ≈360 | — | Slice 6 of 1a |
 | T-053i Formulario y distintivo de estado | ⬜ | PR-1b-1 | ≈340 | — | Slice 1 of 1b |
 | T-053j Panel del formulario (alta/edición) | ⬜ | PR-1b-2 | ≈190 | — | Slice 2 of 1b |
@@ -351,29 +351,32 @@ planning number (tests included).
 
 #### T-053g · Rutas `GET`/`POST /api/maquinas`
 
-- **Status**: ⬜ · **Slice**: PR-1a-5 (part of PR 1a) · **Est. LOC**: ≈240 (≈120 impl + ≈120 tests)
+- **Status**: ✅ · **Slice**: PR-1a-5 (part of PR 1a) · **Est. LOC**: ≈240 (≈120 impl + ≈120 tests) · **Actual LOC**: 344 (181 route.ts + 163 route.test.ts)
 - **Files**:
   - `src/app/api/maquinas/route.ts` (new)
   - `src/app/api/maquinas/route.test.ts` (new)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — `route.test.ts` with `@/api/maquinas`, `@/lib/auth`, `@/lib/audit` mocked:
-     - `GET > lista todas las máquinas`
-     - `GET > pasa estado, tipoEquipamiento y nombre como filtros`
-     - `GET > devuelve [] cuando no hay resultados`
-     - `GET > responde 400 cuando el handler lanza VALIDATION_ERROR`
-     - `POST > crea y responde 201`
-     - `POST > audita ALTA con el id del actor y { maquinaId }`
-     - `POST > responde 403 a un rol distinto de ADMINISTRADOR`
-     - `POST > responde 400 a OCUPADA con ESTADO_NO_ASIGNABLE`
-     - `POST > responde 409 a un duplicado`
-     - `POST > un fallo de auditoría no cambia la respuesta`
-  2. - [ ] RED — failures are missing module.
-  3. - [ ] GREEN — implement `GET` + `POST`, the exported `handleMaquinaListRequest` /
-     `handleMaquinaCreateRequest`, discriminated unions and guards (copy `membresias/route.ts`), and
-     `const ALLOWED_ROLES = ["ADMINISTRADOR"]` enforced with `extractUserFromRequest` → 403 `FORBIDDEN`
-     (`defensa en profundidad`, same shape as `configuracion/route.ts`). Audit after success with
-     `tipoOperacion: "ALTA"`, `detalles: { maquinaId: result.id }`, best-effort.
-  4. - [ ] REFACTOR — reuse `readJsonBody` for the body; keep the route thin.
+   1. - [x] RED — `route.test.ts` with `@/api/maquinas`, `@/lib/auth`, `@/lib/audit` mocked:
+      - `GET > lista todas las máquinas`
+      - `GET > pasa estado, tipoEquipamiento y nombre como filtros`
+      - `GET > acepta estado=OCUPADA`
+      - `GET > devuelve [] cuando no hay resultados`
+      - `GET > responde 400 VALIDATION_ERROR para estado=FOO`
+      - `GET > responde 400 VALIDATION_ERROR para tipoEquipamiento=FOO`
+      - `GET > responde 400 cuando el handler lanza VALIDATION_ERROR`
+      - `POST > crea y responde 201`
+      - `POST > audita ALTA con el id del actor y { maquinaId }`
+      - `POST > responde 403 a un rol distinto de ADMINISTRADOR`
+      - `POST > responde 400 a OCUPADA con ESTADO_NO_ASIGNABLE`
+      - `POST > responde 409 a un duplicado`
+      - `POST > un fallo de auditoría no cambia la respuesta`
+   2. - [x] RED — failures are missing module.
+   3. - [x] GREEN — implement `GET` + `POST`, the exported `handleMaquinaListRequest` /
+      `handleMaquinaCreateRequest`, discriminated unions and guards (copy `membresias/route.ts`), and
+      `const ALLOWED_ROLES = ["ADMINISTRADOR"]` enforced with `extractUserFromRequest` → 403 `FORBIDDEN`
+      (`defensa en profundidad`, same shape as `configuracion/route.ts`). Audit after success with
+      `tipoOperacion: "ALTA"`, `detalles: { maquinaId: result.id }`, best-effort.
+   4. - [x] REFACTOR — reuse `readJsonBody` for the body; keep the route thin.
 - **Acceptance criteria**: AC-001, AC-007, AC-012.
 - **Dependencies**: T-053d (mapper), T-053e (permissions), T-053f (handlers).
 - **Verification**:
