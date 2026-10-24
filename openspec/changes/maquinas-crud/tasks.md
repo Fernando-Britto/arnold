@@ -108,7 +108,7 @@ planning number (tests included).
 | T-053d Mapeo de errores nuevos | ✅ | PR-1a-3 | ≈135 | 2026-10-24 | Slice 3 of 1a |
 | T-053e Permisos: solo Administrador | ✅ | PR-1a-3 | ≈42 | 2026-10-24 | Slice 3 of 1a |
 | T-053f Handlers de API y envoltorios cliente | ✅ | PR-1a-4a + 4b | ≈321 | 2026-10-24 | 4a (handlers) y 4b (wrappers + `CLAVES.maquinas`) completos |
-| T-053g Rutas `GET`/`POST /api/maquinas` | 🔄 | PR-1a-5a + 5b | ≈240 | 2026-10-24 | 5a (GET) ✅; 5b (POST + auditoría ALTA) pendiente |
+| T-053g Rutas `GET`/`POST /api/maquinas` | ✅ | PR-1a-5a + 5b | ≈240 | 2026-10-24 | 5a (GET) y 5b (POST + auditoría ALTA) completos |
 | T-053h Rutas `GET`/`PUT`/`DELETE /api/maquinas/[id]` | ⬜ | PR-1a-6 | ≈360 | — | Slice 6 of 1a |
 | T-053i Formulario y distintivo de estado | ⬜ | PR-1b-1 | ≈340 | — | Slice 1 of 1b |
 | T-053j Panel del formulario (alta/edición) | ⬜ | PR-1b-2 | ≈190 | — | Slice 2 of 1b |

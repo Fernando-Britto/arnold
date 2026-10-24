@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleMaquinaList } from "@/api/maquinas";
-import type { Maquina } from "@/domains/maquina/maquina";
+import { handleMaquinaList, handleMaquinaCreate } from "@/api/maquinas";
+import type { Maquina, MaquinaInput } from "@/domains/maquina/maquina";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
+import { readJsonBody } from "@/lib/request-body";
 import { EstadoMaquina, TipoEquipamiento } from "@prisma/client";
 
 /**
@@ -13,8 +15,15 @@ import { EstadoMaquina, TipoEquipamiento } from "@prisma/client";
 export type ListSuccess = Maquina[];
 export type ListError = { code: string; message: string; status: number };
 
+export type CreateSuccess = Maquina & { status: 201 };
+export type CreateError = { code: string; message: string; status: number };
+
 function isListSuccess(result: ListSuccess | ListError): result is ListSuccess {
   return Array.isArray(result);
+}
+
+function isCreateSuccess(result: CreateSuccess | CreateError): result is CreateSuccess {
+  return "id" in result && result.status === 201;
 }
 
 const ALLOWED_ROLES = ["ADMINISTRADOR"];
@@ -91,6 +100,26 @@ export async function handleMaquinaListRequest(filters: {
 }
 
 /**
+ * Core handler logic for POST /api/maquinas.
+ * Exported for testing without NextRequest/NextResponse mocking.
+ */
+export async function handleMaquinaCreateRequest(
+  body: unknown
+): Promise<CreateSuccess | CreateError> {
+  try {
+    const maquina = await handleMaquinaCreate(body as MaquinaInput);
+    return { ...maquina, status: 201 } as CreateSuccess;
+  } catch (error) {
+    const mapped = mapErrorToResponse(error, ERROR_OPTIONS);
+    return {
+      code: mapped.code,
+      message: mapped.message,
+      status: mapped.status,
+    };
+  }
+}
+
+/**
  * GET /api/maquinas
  * Returns all machines, optionally filtered by estado, tipoEquipamiento and nombre.
  * Requires: Administrador role (defense in depth on top of middleware gating).
@@ -135,6 +164,40 @@ export async function GET(request: NextRequest) {
 
   if (isListSuccess(result)) {
     return NextResponse.json(result, { status: 200 });
+  }
+
+  return NextResponse.json(
+    { code: result.code, message: result.message },
+    { status: result.status }
+  );
+}
+
+/**
+ * POST /api/maquinas
+ * Creates a new machine.
+ * Requires: Administrador role (defense in depth on top of middleware gating).
+ * Audits the successful creation best-effort: an audit failure never alters the 201 response.
+ */
+export async function POST(request: NextRequest) {
+  const auth = autorizar(request);
+  if ("response" in auth) return auth.response;
+
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+
+  const result = await handleMaquinaCreateRequest(parsed.body);
+
+  if (isCreateSuccess(result)) {
+    try {
+      await registrarOperacion({
+        tipoOperacion: "ALTA",
+        responsableId: auth.user.id,
+        detalles: { maquinaId: result.id },
+      });
+    } catch {
+      // Auditoría best-effort: el error ya fue logueado por registrarOperacion.
+    }
+    return NextResponse.json(result, { status: 201 });
   }
 
   return NextResponse.json(
