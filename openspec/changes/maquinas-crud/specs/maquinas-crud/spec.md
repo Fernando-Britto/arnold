@@ -507,7 +507,7 @@ The system **MUST** keep the existing guard tests and the full Jest suite green:
 | AC-003 | `src/domains/maquina/maquina.test.ts` | "validates ubicacion 2–80", "rejects empty ubicacion" |
 | AC-004 | `src/domains/maquina/maquina.test.ts` | "validates tipoEquipamiento against TipoEquipamiento enum" |
 | AC-005 | `src/domains/maquina/maquina.test.ts` | "rejects OCUPADA on create", "rejects OCUPADA on update (unchanged)"; `src/api/maquinas.test.ts` "throws ESTADO_NO_ASIGNABLE"; `src/lib/route-error-mapper.test.ts` "maps ESTADO_NO_ASIGNABLE → 400" |
-| AC-006 | `src/domains/maquina/maquina.test.ts` | "duplicate detection (exact/case/accent)", "same name different ubicacion allowed"; `src/api/maquinas.test.ts` "throws DUPLICATE_NOMBRE_UBICACION on P2002"; `src/lib/route-error-mapper.test.ts` "maps DUPLICATE_NOMBRE_UBICACION → 409" |
+| AC-006 | `src/domains/maquina/maquina-repositorio.test.ts`, `tests/integration/maquina.integration.test.ts` | repository: "consulta el duplicado antes de insertar", "compara con unaccent(lower(btrim(...)))", "traduce P2002 a DUPLICATE_NOMBRE_UBICACION"; integration: "rechaza un duplicado que solo difiere en mayúsculas con P2002", "el repositorio traduce el duplicado de mayúsculas a DUPLICATE_NOMBRE_UBICACION", "la pre-consulta rechaza un duplicado que solo difiere en tildes", "el índice no pliega tildes: el duplicado con tilde entra por SQL crudo"; `src/lib/route-error-mapper.test.ts` "maps DUPLICATE_NOMBRE_UBICACION → 409" |
 | AC-007 | `src/app/api/maquinas/route.test.ts` | "lists all machines", "filters by estado", "filters by tipoEquipamiento", "case-insensitive nombre search", "combined filters", "empty result" |
 | AC-008 | `src/app/api/maquinas/[id]/route.test.ts` | "returns machine by id", "404 with Máquina no encontrada" |
 | AC-009 | `src/app/api/maquinas/[id]/route.test.ts` | "updates machine", "audits MODIFICACION on estado-only change", "404 on missing", "409 on duplicate" |
@@ -520,5 +520,5 @@ The system **MUST** keep the existing guard tests and the full Jest suite green:
 
 ## Open Questions
 
-- **Seed `ubicacion` per-row vs shared default**: the seed currently assigns `ubicacion: "Sala principal"` to every machine via `.map()`. The proposal recommends keeping it as-is (out of scope), but this is not a fixed decision. If per-row realism is desired, it should be decided before PR 1b.
+- **Resolved — Seed `ubicacion` per-row vs shared default**: keep `ubicacion: "Sala principal"` for all six seeded machines; only the `estado` of "Polea alta" changes from `OCUPADA` to `DISPONIBLE`.
 

@@ -103,8 +103,8 @@ planning number (tests included).
 | Task | Status | PR / slice | Est. LOC | Date | Note |
 |---|---|---|---|---|---|
 | T-053a Dominio puro de máquina | ✅ | PR-1a-1 | ≈350 | 2026-10-23 | Slice 1 of 1a |
-| T-053b Repositorio, unicidad y `P2002` | ⬜ | PR-1a-2 | ≈240 | — | Slice 2 of 1a |
-| T-053c Migración del índice único + integración | ⬜ | PR-1a-2 | ≈117 | — | Slice 2 of 1a |
+| T-053b Repositorio, unicidad y `P2002` | ✅ | PR-1a-2 | ≈240 | 2026-10-23 | Slice 2 of 1a |
+| T-053c Migración del índice único + integración | 🔄 | PR-1a-2 | ≈117 | 2026-10-23 | Files ready; integration test blocked by unavailable Docker |
 | T-053d Mapeo de errores nuevos | ⬜ | PR-1a-3 | ≈135 | — | Slice 3 of 1a |
 | T-053e Permisos: solo Administrador | ⬜ | PR-1a-3 | ≈42 | — | Slice 3 of 1a |
 | T-053f Handlers de API y envoltorios cliente | ⬜ | PR-1a-4 | ≈321 | — | Slice 4 of 1a |
@@ -169,30 +169,30 @@ planning number (tests included).
 
 #### T-053b · Repositorio, unicidad y `P2002`
 
-- **Status**: ⬜ · **Slice**: PR-1a-2 (part of PR 1a) · **Est. LOC**: ≈240 (≈120 impl + ≈120 tests)
+- **Status**: ✅ · **Slice**: PR-1a-2 (part of PR 1a) · **Est. LOC**: ≈240 (≈120 impl + ≈120 tests)
 - **Files**:
   - `src/domains/maquina/maquina-repositorio.ts` (new)
   - `src/domains/maquina/maquina-repositorio.test.ts` (new)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — write `maquina-repositorio.test.ts` with a mocked `MaquinaReader` (`maquina.*` + `$queryRaw`):
-     - `create > consulta el duplicado antes de insertar`
-     - `create > compara con unaccent(lower(btrim(...)))`
-     - `create > traduce P2002 a DUPLICATE_NOMBRE_UBICACION`
-     - `create > propaga un error que no es P2002`
-     - `create > inserta los valores ya normalizados`
-     - `update > excluye el propio id de la pre-consulta` (assert `AND "id" <>` in the query text and the bound value)
-     - `update > traduce P2002 a DUPLICATE_NOMBRE_UBICACION`
-     - `getById > devuelve null cuando no existe`
-     - `getAll > traduce estado, tipoEquipamiento y nombre a un where de Prisma`
-     - `getAll > usa contains + mode insensitive para nombre`
-     - `delete > propaga errores de infraestructura`
-  2. - [ ] RED — confirm the failures are missing-module/missing-behavior, not typos.
-  3. - [ ] GREEN — implement `MaquinaReader` (only the delegate methods and `$queryRaw` used), `MaquinaRepository`
-     with `create`, `getById`, `getAll`, `update`, `delete`, `existeDuplicado`, `esErrorP2002`
-     (`(error as { code?: unknown } | null)?.code === "P2002"`), `maquinaRepository` singleton, and the deferred
-     `getPrisma()` via `await import("@/lib/db")`. Pre-check SQL exactly as the design:
-     `unaccent(lower(btrim("nombre"))) = unaccent(lower(btrim($1)))` and the same for `ubicacion`.
-  4. - [ ] REFACTOR — keep `shortcut:` comment on the P2002 catch: `shortcut: a second unique field would need meta.target disambiguation, revisit when one exists`.
+   1. - [x] RED — write `maquina-repositorio.test.ts` with a mocked `MaquinaReader` (`maquina.*` + `$queryRaw`):
+      - `create > consulta el duplicado antes de insertar`
+      - `create > compara con unaccent(lower(btrim(...)))`
+      - `create > traduce P2002 a DUPLICATE_NOMBRE_UBICACION`
+      - `create > propaga un error que no es P2002`
+      - `create > inserta los valores ya normalizados`
+      - `update > excluye el propio id de la pre-consulta` (assert `AND "id" <>` in the query text and the bound value)
+      - `update > traduce P2002 a DUPLICATE_NOMBRE_UBICACION`
+      - `getById > devuelve null cuando no existe`
+      - `getAll > traduce estado, tipoEquipamiento y nombre a un where de Prisma`
+      - `getAll > usa contains + mode insensitive para nombre`
+      - `delete > propaga errores de infraestructura`
+   2. - [x] RED — confirm the failures are missing-module/missing-behavior, not typos.
+   3. - [x] GREEN — implement `MaquinaReader` (only the delegate methods and `$queryRaw` used), `MaquinaRepository`
+      with `create`, `getById`, `getAll`, `update`, `delete`, `existeDuplicado`, `esErrorP2002`
+      (`(error as { code?: unknown } | null)?.code === "P2002"`), `maquinaRepository` singleton, and the deferred
+      `getPrisma()` via `await import("@/lib/db")`. Pre-check SQL exactly as the design:
+      `unaccent(lower(btrim($1)))` and the same for `ubicacion`.
+   4. - [x] REFACTOR — keep `shortcut:` comment on the P2002 catch: `shortcut: a second unique field would need meta.target disambiguation, revisit when one exists`.
 - **Acceptance criteria**: AC-006, AC-007 (repository half), AC-015 (guard).
 - **Dependencies**: T-053a (types, `normalizeMaquina`).
 - **Verification**:
@@ -206,28 +206,28 @@ planning number (tests included).
 
 #### T-053c · Migración del índice único + prueba de integración
 
-- **Status**: ⬜ · **Slice**: PR-1a-2 (part of PR 1a) · **Est. LOC**: ≈117 (≈5 SQL + ≈112 test)
+- **Status**: 🔄 · **Slice**: PR-1a-2 (part of PR 1a) · **Est. LOC**: ≈117 (≈5 SQL + ≈112 test)
 - **Files**:
   - `prisma/migrations/20261023120000_maquina_nombre_ubicacion_unique/migration.sql` (new)
   - `tests/integration/maquina.integration.test.ts` (new)
   - `prisma/seed-data.ts` (one-word change: export the existing `MAQUINAS` constant so the test asserts the real
     seed pairs instead of a copy)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — write `tests/integration/maquina.integration.test.ts` (real Postgres guard: `current_database()`
-     must be `arnold_test`, same as `ejercicio.integration.test.ts`):
-     - `rechaza un duplicado que solo difiere en mayúsculas con P2002`
-     - `el repositorio traduce el duplicado de mayúsculas a DUPLICATE_NOMBRE_UBICACION`
-     - `la pre-consulta rechaza un duplicado que solo difiere en tildes`
-     - `el índice no pliega tildes: el duplicado con tilde entra por SQL crudo`
-     - `los seis pares (nombre, ubicacion) del seed son distintos y se insertan sin colisión`
-  2. - [ ] RED — `npm run test:integration` before the SQL exists (the index is missing, `P2002` does not fire).
-  3. - [ ] GREEN — add the hand-written migration:
-     ```sql
-     CREATE UNIQUE INDEX "Maquina_nombre_ubicacion_key"
-       ON "Maquina" (lower(btrim("nombre")), lower(btrim("ubicacion")));
-     ```
-     and export `MAQUINAS` from `prisma/seed-data.ts` (no value change in this task).
-  4. - [ ] REFACTOR — none. Do **not** add `unaccent()` to the index (STABLE, not IMMUTABLE).
+   1. - [x] RED — write `tests/integration/maquina.integration.test.ts` (real Postgres guard: `current_database()`
+      must be `arnold_test`, same as `ejercicio.integration.test.ts`):
+      - `rechaza un duplicado que solo difiere en mayúsculas con P2002`
+      - `el repositorio traduce el duplicado de mayúsculas a DUPLICATE_NOMBRE_UBICACION`
+      - `la pre-consulta rechaza un duplicado que solo difiere en tildes`
+      - `el índice no pliega tildes: el duplicado con tilde entra por SQL crudo`
+      - `los seis pares (nombre, ubicacion) del seed son distintos y se insertan sin colisión`
+   2. - [ ] RED — `npm run test:integration` before the SQL exists (the index is missing, `P2002` does not fire). **Blocked**: Docker no está disponible en este entorno.
+   3. - [x] GREEN — add the hand-written migration:
+      ```sql
+      CREATE UNIQUE INDEX "Maquina_nombre_ubicacion_key"
+        ON "Maquina" (lower(btrim("nombre")), lower(btrim("ubicacion")));
+      ```
+      and export `MAQUINAS` from `prisma/seed-data.ts` (no value change in this task).
+   4. - [x] REFACTOR — none. Do **not** add `unaccent()` to the index (STABLE, not IMMUTABLE).
 - **Acceptance criteria**: AC-006, AC-015.
 - **Dependencies**: T-053a (canonical form), T-053b (repository mapping).
 - **Verification**:
@@ -345,6 +345,7 @@ planning number (tests included).
   ```
 - **Note**: handlers use the `maquinaRepository` singleton (same shape as `ejercicioRepository`) so tests mock the
   module rather than `@/lib/db`.
+- **T-053d forward note**: the handler test MUST assert `ESTADO_NO_ASIGNABLE` by checking explicitly `estado === "OCUPADA"` on POST and on PUT without changes.
 
 ### Phase 5 — Collection routes (PR-1a-5)
 
