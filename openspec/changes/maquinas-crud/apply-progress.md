@@ -2,8 +2,8 @@
 
 ## Work Unit
 
-**Unit**: PR-1a-4 (Slice 4 of 1a)
-**Tasks**: T-053f (handlers + client wrappers)
+**Unit**: PR-1a-6 sub-slice 6a — `GET /api/maquinas/[id]` + route scaffolding
+**Tasks**: T-053h (partial — GET only; PUT/DELETE are 6b/6c)
 **Date**: 2026-10-24
 **Mode**: Strict TDD
 
@@ -11,18 +11,16 @@
 
 | Evidence | Value |
 |---|---|
-| Focused test command | `npm test -- src/api/maquinas.test.ts src/lib/cache-cliente.test.ts` |
-| Focused test result | Test Suites: 2 passed, 2 total — Tests: 24 passed, 24 total |
-| Runtime harness | `npm test -- --silent` → Test Suites: 233 passed, 233 total — Tests: 3286 passed, 3286 total |
-| Rollback boundary | Revert `src/api/maquinas.ts`, `src/api/maquinas.test.ts`, and the one-line addition to `src/lib/cache-cliente.ts`. No routes, UI, seed, or migration are touched; no consumer imports these files yet. |
+| Focused test command | `npm test -- --testPathPatterns='maquinas/\[id\]/route\.test\.ts'` |
+| Focused test result | Test Suites: 1 passed, 1 total — Tests: 6 passed, 6 total |
+| Runtime harness | Full unit suite: `npm test -- --silent` → Test Suites: 235 passed, 235 total — Tests: 3308 passed, 3308 total (no `npm run dev` per preflight) |
+| Rollback boundary | Revert `src/app/api/maquinas/[id]/route.ts` and `src/app/api/maquinas/[id]/route.test.ts`. No PUT/DELETE, UI, seed, migration, or DB changes. |
 
 ## TDD Cycle Evidence
 
 | Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
 |---|---|---|---|---|---|---|---|
-| T-053f handlers | `src/api/maquinas.test.ts` | Unit | ✅ cache-cliente 7/7 | ✅ Written (module missing) | ✅ 17/17 handler tests pass | ✅ list filters/no-filters, create invalid/OCUPADA/normalize/duplicate, get 404, update 404/OCUPADA-unchanged/validation/duplicate, delete 404/puedeEliminar | ✅ Clean — explicit `definedFields`, local `codedError` helper, no `any` |
-| T-053f client wrappers | `src/api/maquinas.test.ts` | Unit | N/A (new) | ✅ Written | ✅ 4/4 wrapper tests pass | ✅ fetch caches under `CLAVES.maquinas`; create/update/delete each invalidate `CLAVES.maquinas` | ✅ Clean — mirrors `membresias.ts` shape |
-| CLAVES.maquinas | `src/api/maquinas.test.ts` | Structural | N/A (new key) | ✅ Test references `CLAVES.maquinas` before it exists | ✅ Key added, tests pass | ➖ Single constant addition | ➖ None needed |
+| T-053h GET by id | `src/app/api/maquinas/[id]/route.test.ts` | Unit | N/A (new file) | ✅ Written (module missing) | ✅ 6/6 tests pass | ✅ 200 success + 404 NOT_FOUND + 401 + 403 + request-helper 500 + helper 200 | ✅ Clean — copied `autorizar`/union/guard shape from collection route; no `any`; no static `@/lib/db` import |
 
 ## Cumulative Task Status
 
@@ -34,8 +32,8 @@
 | T-053d Mapeo de errores nuevos | ✅ | PR-1a-3 | ≈135 | ≈103 | 2026-10-24 | Slice 3 of 1a |
 | T-053e Permisos: solo Administrador | ✅ | PR-1a-3 | ≈42 | ≈43 | 2026-10-24 | Slice 3 of 1a |
 | T-053f Handlers de API y envoltorios cliente | ✅ | PR-1a-4 | ≈321 | ≈198 | 2026-10-24 | Slice 4 of 1a; 17 handler + 4 wrapper tests, all green |
-| T-053g Rutas `GET`/`POST /api/maquinas` | ⬜ | PR-1a-5 | ≈240 | — | — | Slice 5 of 1a |
-| T-053h Rutas `GET`/`PUT`/`DELETE /api/maquinas/[id]` | ⬜ | PR-1a-6 | ≈360 | — | — | Slice 6 of 1a |
+| T-053g Rutas `GET`/`POST /api/maquinas` | ✅ | PR-1a-5 | ≈240 | 344 | 2026-10-24 | Slice 5 of 1a (route.ts + route.test.ts) |
+| T-053h Rutas `GET`/`PUT`/`DELETE /api/maquinas/[id]` | 🔄 | PR-1a-6 | ≈360 | — | 2026-10-24 | Sub-slice 6a (GET + scaffolding) complete; PUT/DELETE pending as 6b/6c |
 | T-053i Formulario y distintivo de estado | ⬜ | PR-1b-1 | ≈340 | — | — | Slice 1 of 1b |
 | T-053j Panel del formulario (alta/edición) | ⬜ | PR-1b-2 | ≈190 | — | — | Slice 2 of 1b |
 | T-053k Listado con filtros y búsqueda | ⬜ | PR-1b-3 | ≈240 | — | — | Slice 3 of 1b |
@@ -43,39 +41,36 @@
 | T-053m Pantalla `/maquinas` | ⬜ | PR-1b-4 | ≈330 | — | — | Slice 4 of 1b |
 | T-053n Cierre documental (P-53, P-54, D-73) | ⬜ | none (direct to `dev`) | ≈80 | — | — | After all slices merge |
 
-## Files Touched (PR-1a-4)
+## Files Touched (PR-1a-6 sub-slice 6a)
 
 | File | Action | Lines | What Was Done |
 |---|---|---|---|
-| `src/api/maquinas.ts` | Created | +177 / −0 | Five server handlers (`handleMaquinaList/Create/GetById/Update/Delete`) and four client wrappers (`fetchMaquinasList`, `createMaquina`, `updateMaquina`, `deleteMaquina`). Local `codedError(code, message)` helper; explicit `OCUPADA` guard before validation on POST/PUT; `definedFields` merge on PUT; `puedeEliminar` consulted on DELETE. |
-| `src/api/maquinas.test.ts` | Created | +313 / −0 | Strict TDD tests: mocked `maquinaRepository`; 17 handler assertions + 4 wrapper assertions covering all required 15 cases plus create/update invalidation. |
-| `src/lib/cache-cliente.ts` | Modified | +1 / −0 | Added `maquinas: "maquinas"` to `CLAVES`. |
-| `openspec/changes/maquinas-crud/tasks.md` | Modified | +4 / −4 | Marked T-053f complete and updated detail checkboxes. |
+| `src/app/api/maquinas/[id]/route.ts` | Created | +106 / −0 | `GET` handler with Next 16 `await params`; local `autorizar` guard (`ADMINISTRADOR` only); `ALLOWED_ROLES`; `ERROR_OPTIONS`; `GetSuccess`/`GetError` discriminated union and `isGetSuccess` guard; exported `handleMaquinaGetByIdRequest` that calls `handleMaquinaGetById` and maps errors via `mapErrorToResponse`. No PUT/DELETE exports. |
+| `src/app/api/maquinas/[id]/route.test.ts` | Created | +126 / −0 | Strict TDD tests mocking `@/api/maquinas`, `@/lib/auth`, `@/lib/db`: GET 200 by id, GET 404 `NOT_FOUND`, GET 401, GET 403 for `RECEPCIONISTA`, and `handleMaquinaGetByIdRequest` 500 mapping. |
 
-**Total authored changed lines**: 491 insertions + 4 deletions = 495 changed lines for PR-1a-4 as a whole.
-Note: the full slice (impl + tests + cache key) is above the 400-line review budget; this slice is committed as one commit on `feat/asignacion-dinamica` per the already-chosen Option B delivery decision (no GitHub PRs).
+**Total authored changed lines**: 232 insertions + 0 deletions = 232 changed lines for sub-slice 6a. Well under the 400-line review budget.
 
 ## Verification Results
 
 ### 1. Focused tests
 ```
-npm test -- src/api/maquinas.test.ts src/lib/cache-cliente.test.ts
+npm test -- --testPathPatterns='maquinas/\[id\]/route\.test\.ts'
 
-Test Suites: 2 passed, 2 total
-Tests:       24 passed, 24 total
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
 Snapshots:   0 total
-Time:        2.65 s
+Time:        ~4.2 s
 ```
-(Jest also emitted its routine worker-force-exit warning after the suite; tests themselves pass.)
+(The literal pattern `src/app/api/maquinas/[id]/route.test.ts` is interpreted by Jest as a glob and does not match the `[id]` directory; `--testPathPatterns` is required to target this file.)
 
 ### 2. Full suite
 ```
 npm test -- --silent
 
-Test Suites: 233 passed, 233 total
-Tests:       3286 passed, 3286 total
+Test Suites: 235 passed, 235 total
+Tests:       3308 passed, 3308 total
 Snapshots:   0 total
-Time:        41.715 s
+Time:        61.572 s
 ```
 
 ### 3. Type check
@@ -86,14 +81,13 @@ npx tsc --noEmit
 
 ### 4. Linter
 ```
-npx eslint src/api/maquinas.ts src/api/maquinas.test.ts src/lib/cache-cliente.ts
+npx eslint src/app/api/maquinas/[id]/route.ts src/app/api/maquinas/[id]/route.test.ts
 (no output)
 ```
 
 ## Notes / Deviations
 
-- Implementation matches `design.md`: handler signatures, `codedError` helper, client-wrapper shape mirroring `membresias.ts`, cache invalidation after writes, and explicit `OCUPADA` rejection on POST and unchanged PUT.
+- Implementation matches `design.md` and the collection route shape: discriminated unions, `autorizar`, `ALLOWED_ROLES`, `ERROR_OPTIONS`, `mapErrorToResponse`, and Next 16 `await params`.
 - No `any` used; Spanish user-facing messages; no direct `@/lib/db` import.
-- `definedFields` was made explicit (per-field) rather than a generic `Object.entries` helper to keep TypeScript strict mode happy without casts.
-- Added two wrapper tests beyond the listed 15 (create/update invalidation) because the behavior mandates all three write wrappers invalidate `CLAVES.maquinas`.
-- No routes, UI, seed, migration, or `authorization.ts` were modified in this slice.
+- PUT and DELETE handlers were deliberately omitted (per preflight); the route exports only `GET` and `handleMaquinaGetByIdRequest`.
+- `tasks.md` was not edited per the preflight instruction (the orchestrator tracks sub-slices).
