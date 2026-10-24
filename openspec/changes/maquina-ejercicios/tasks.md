@@ -26,54 +26,48 @@
 | Estimated changed lines — all slices | **≈1,860** (additions + deletions, tests included) |
 | Estimated changed lines — close task | **≈80** (documentation only) |
 | Estimated changed lines — total | **≈1,940** |
-| Largest single slice | **≈370** (`PR-2g`, slice 7: modal + page wiring) — under 400 |
+| Largest single slice | **≈370** (`commit 2g`, slice 7: modal + page wiring) — under 400 |
 | 400-line budget risk | **Low** per slice; the aggregate is ≈4.7× the budget, which is why chaining is mandatory |
 | Chained PRs recommended | **Yes** |
-| Suggested split | PR-2a → PR-2b → PR-2c → PR-2d → PR-2e → PR-2f → PR-2g (+ close, no PR) |
+| Suggested split | commit 2a → commit 2b → commit 2c → commit 2d → commit 2e → commit 2f → commit 2g (+ close, no PR) |
 | Delivery strategy | ask-on-risk |
-| Chain strategy | **pending** — the human decides before apply |
+| Chain strategy | **decided**: one slice = one commit on `feat/maquina-ejercicios`; no PRs, no stacked PRs |
 
 ```text
 Decision needed before apply: Yes
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: one slice = one commit on feat/maquina-ejercicios (no PRs)
 400-line budget risk: Low
 ```
 
-### Decision pending before apply
+### Delivery decision (approved)
 
-One fork only, the same one Etapa 1 resolved (D-73 precedent):
-
-- **Option A — seven slices as seven commits on `feat/maquina-ejercicios`.** No GitHub PRs, one commit per slice, each
-  leaving `npm test` / `tsc` / `eslint` green. Fastest, consistent with the previous etapa.
-- **Option B — seven stacked PRs to `feat/maquina-ejercicios`** (PR #1 targets the tracker branch, PR #2 targets PR #1,
-  and so on). Slower, but every slice gets its own review.
-
-Both preserve the slice boundaries and LOC below; nothing in the task content changes. Apply must not start until this
-is answered.
+**One slice = one commit on `feat/maquina-ejercicios`.** No GitHub PRs and no stacked PRs. Each slice leaves
+`npm test` / `tsc` / `eslint` green before the commit is requested; Fernando commits. Apply pauses at CP1, CP2 and CP3.
 
 ### Checkpoints (apply pauses for a human at each)
 
-- **CP1 — Slice 1** (`PR-2a`, T-054a…T-054c): schema + hand-written migration + pure domain. Gate: migration verified
+- **CP1 — Slice 1** (`commit 2a`, T-054a…T-054c): schema + hand-written migration + pure domain. Gate: migration verified
   against the ephemeral Docker Postgres (`npm run test:integration` green), and the pre-migration greps report
-  **0** `DROP`, **0** `ALTER`, **0** `Maquina_nombre_ubicacion_key`, **4** additive statements, **2** `ON DELETE CASCADE`.
-- **CP2 — Slices 2–4** (`PR-2b`…`PR-2d`, T-054d…T-054i): repository + integration, handlers + error mapping + real
+  `CREATE TABLE` = **1**, `CREATE UNIQUE INDEX` = **1**, `CREATE INDEX` = **2**, `ON DELETE CASCADE` = **2**, and
+  **0** `DROP`, **0** `ALTER`, **0** `Maquina_nombre_ubicacion_key`.
+- **CP2 — Slices 2–4** (`commit 2b`…`commit 2d`, T-054d…T-054i): repository + integration, handlers + error mapping + real
   DELETE count, routes + permissions. Gate: API complete; `GET`/`PUT /api/maquinas/[id]/ejercicios` and
   `DELETE /api/maquinas/[id]` exercised by tests and by a `curl` smoke (D-21).
-- **CP3 — Slices 5–7** (`PR-2e`…`PR-2g`, T-054j…T-054p): pagination, expanded row + fetchers, modal + page wiring.
+- **CP3 — Slices 5–7** (`commit 2e`…`commit 2g`, T-054j…T-054p): pagination, expanded row + fetchers, modal + page wiring.
   Gate: pagination + UI complete; `/maquinas` checked in the browser by Fernando.
 
 ### Suggested Work Units
 
 | Unit | Goal | Likely PR | Focused test command | Runtime harness | Rollback boundary |
 |---|---|---|---|---|---|
-| 1 | Schema + additive migration + pure validation domain | PR-2a | `npm test -- src/domains/maquina/maquina.test.ts src/domains/dominios-puros.guard.test.ts` | Ephemeral Docker Postgres (`npm run test:integration`) | Revert PR; `DROP TABLE IF EXISTS "EjercicioMaquina"` if the migration already ran |
-| 2 | Repository methods + FK/unique/transaction proof | PR-2b | `npm test -- src/domains/maquina/maquina-repositorio.test.ts` + `npm run test:integration` | Ephemeral Docker Postgres | Revert PR; `EjercicioMaquina` table becomes unused, no data loss elsewhere |
-| 3 | Error mapping + handlers + real DELETE count | PR-2c | `npm test -- src/api/maquinas.test.ts src/lib/route-error-mapper.test.ts` | N/A — repository mocked | Revert PR; delete returns to the Etapa-1 hardcoded `0` |
-| 4 | Nested route + permission proofs | PR-2d | `npm test -- "src/app/api/maquinas/[id]" src/middleware/matrix-consistency.test.ts src/lib/authorization.test.ts` | `npm run dev` + admin login + `curl` (D-21) | Revert PR; endpoints disappear, no data mutated |
-| 5 | Opt-in pagination on `GET /api/ejercicios` | PR-2e | `npm test -- src/domains/ejercicio/ejercicio.test.ts src/api/ejercicios.test.ts src/app/api/ejercicios/route.test.ts` | `npm run dev` + `curl` with `?limit=50&search=triceps` | Revert PR; `/ejercicios` behavior was never changed when params are omitted |
-| 6 | Client fetchers + expanded row + list disclosure | PR-2f | `npm test -- src/components/maquina-crud/maquina-list.test.tsx src/components/maquina-crud/maquina-expanded-row.test.tsx src/api/maquinas.test.ts` | N/A — jsdom; browser check lands in PR-2g | Revert PR; no page imports the expanded row yet |
-| 7 | Accessible assignment modal + `/maquinas` wiring | PR-2g | `npm test -- src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx src/app/maquinas/page.test.tsx` | `npm run dev` + browser on `/maquinas` (Fernando) | Revert PR; screen returns to the Etapa-1 state, API stays usable |
+| 1 | Schema + additive migration + pure validation domain | commit 2a | `npm test -- src/domains/maquina/maquina.test.ts src/domains/dominios-puros.guard.test.ts` | Ephemeral Docker Postgres (`npm run test:integration`) | Revert PR; `DROP TABLE IF EXISTS "EjercicioMaquina"` if the migration already ran |
+| 2 | Repository methods + FK/unique/transaction proof | commit 2b | `npm test -- src/domains/maquina/maquina-repositorio.test.ts` + `npm run test:integration` | Ephemeral Docker Postgres | Revert PR; `EjercicioMaquina` table becomes unused, no data loss elsewhere |
+| 3 | Error mapping + handlers + real DELETE count | commit 2c | `npm test -- src/api/maquinas.test.ts src/lib/route-error-mapper.test.ts` | N/A — repository mocked | Revert PR; delete returns to the Etapa-1 hardcoded `0` |
+| 4 | Nested route + permission proofs | commit 2d | `npm test -- "src/app/api/maquinas/[id]" src/middleware/matrix-consistency.test.ts src/lib/authorization.test.ts` | `npm run dev` + admin login + `curl` (D-21) | Revert PR; endpoints disappear, no data mutated |
+| 5 | Opt-in pagination on `GET /api/ejercicios` | commit 2e | `npm test -- src/domains/ejercicio/ejercicio.test.ts src/api/ejercicios.test.ts src/app/api/ejercicios/route.test.ts` | `npm run dev` + `curl` with `?limit=50&search=triceps` | Revert PR; `/ejercicios` behavior was never changed when params are omitted |
+| 6 | Client fetchers + expanded row + list disclosure | commit 2f | `npm test -- src/components/maquina-crud/maquina-list.test.tsx src/components/maquina-crud/maquina-expanded-row.test.tsx src/api/maquinas.test.ts` | N/A — jsdom; browser check lands in commit 2g | Revert PR; no page imports the expanded row yet |
+| 7 | Accessible assignment modal + `/maquinas` wiring | commit 2g | `npm test -- src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx src/app/maquinas/page.test.tsx` | `npm run dev` + browser on `/maquinas` (Fernando) | Revert PR; screen returns to the Etapa-1 state, API stays usable |
 
 ### Per-slice LOC
 
@@ -98,33 +92,33 @@ number (tests included).
 
 | Task | Status | Slice / PR | Est. LOC | Date | Note |
 |---|---|---|---|---|---|
-| T-054a Dominio puro de asignación | ⬜ | Slice 1 · PR-2a | ≈95 | — | |
-| T-054b Modelo `EjercicioMaquina` en el schema | ⬜ | Slice 1 · PR-2a | ≈30 | — | |
-| T-054c Migración escrita a mano + pre-chequeos | ⬜ | Slice 1 · PR-2a | ≈60 | — | CP1 gate |
-| T-054d Repositorio: conteo, lectura y reemplazo | ⬜ | Slice 2 · PR-2b | ≈200 | — | |
-| T-054e Integración: cascada, unicidad y transacción | ⬜ | Slice 2 · PR-2b | ≈130 | — | Docker requerido |
-| T-054f Mapeo de `VALIDATION_MAX_EJERCICIOS` | ⬜ | Slice 3 · PR-2c | ≈45 | — | |
-| T-054g Handlers de asignación + conteo real de baja | ⬜ | Slice 3 · PR-2c | ≈160 | — | AC-010/AC-011 del delta |
-| T-054h Ruta `GET`/`PUT /api/maquinas/[id]/ejercicios` | ⬜ | Slice 4 · PR-2d | ≈240 | — | `await params` (FX-06) |
-| T-054i Pruebas de permisos del path anidado | ⬜ | Slice 4 · PR-2d | ≈60 | — | Solo tests |
-| T-054j Paginación opt-in en el repositorio de ejercicios | ⬜ | Slice 5 · PR-2e | ≈130 | — | |
-| T-054k Paginación en handler y ruta de ejercicios | ⬜ | Slice 5 · PR-2e | ≈100 | — | Corrige el cortocircuito |
-| T-054l Fetchers cliente de asignación y búsqueda | ⬜ | Slice 6 · PR-2f | ≈90 | — | |
-| T-054m Fila expandida de máquina | ⬜ | Slice 6 · PR-2f | ≈80 | — | |
-| T-054n Disclosure y detalle en el listado | ⬜ | Slice 6 · PR-2f | ≈70 | — | Restaura el chevron |
-| T-054o Modal accesible de asignación | ⬜ | Slice 7 · PR-2g | ≈250 | — | `useModalA11y` |
-| T-054p Cableado de `/maquinas` | ⬜ | Slice 7 · PR-2g | ≈120 | — | CP3 gate |
+| T-054a Dominio puro de asignación | ✅ | Slice 1 · commit 2a | 112 | 2026-10-24 | 45 impl + 67 tests |
+| T-054b Modelo `EjercicioMaquina` en el schema | ✅ | Slice 1 · commit 2a | 21 | 2026-10-24 | schema additions |
+| T-054c Migración escrita a mano + pre-chequeos | ✅ | Slice 1 · commit 2a | 17 | 2026-10-24 | CP1 gate passed |
+| T-054d Repositorio: conteo, lectura y reemplazo | ⬜ | Slice 2 · commit 2b | ≈200 | — | |
+| T-054e Integración: cascada, unicidad y transacción | ⬜ | Slice 2 · commit 2b | ≈130 | — | Docker requerido |
+| T-054f Mapeo de `VALIDATION_MAX_EJERCICIOS` | ⬜ | Slice 3 · commit 2c | ≈45 | — | |
+| T-054g Handlers de asignación + conteo real de baja | ⬜ | Slice 3 · commit 2c | ≈160 | — | AC-010/AC-011 del delta |
+| T-054h Ruta `GET`/`PUT /api/maquinas/[id]/ejercicios` | ⬜ | Slice 4 · commit 2d | ≈240 | — | `await params` (FX-06) |
+| T-054i Pruebas de permisos del path anidado | ⬜ | Slice 4 · commit 2d | ≈60 | — | Solo tests |
+| T-054j Paginación opt-in en el repositorio de ejercicios | ⬜ | Slice 5 · commit 2e | ≈130 | — | |
+| T-054k Paginación en handler y ruta de ejercicios | ⬜ | Slice 5 · commit 2e | ≈100 | — | Corrige el cortocircuito |
+| T-054l Fetchers cliente de asignación y búsqueda | ⬜ | Slice 6 · commit 2f | ≈90 | — | |
+| T-054m Fila expandida de máquina | ⬜ | Slice 6 · commit 2f | ≈80 | — | |
+| T-054n Disclosure y detalle en el listado | ⬜ | Slice 6 · commit 2f | ≈70 | — | Restaura el chevron |
+| T-054o Modal accesible de asignación | ⬜ | Slice 7 · commit 2g | ≈250 | — | `useModalA11y` |
+| T-054p Cableado de `/maquinas` | ⬜ | Slice 7 · commit 2g | ≈120 | — | CP3 gate |
 | T-054q Cierre documental (D-74, P-57) | ⬜ | none (directo a `dev`) | ≈80 | — | Tras todos los slices |
 
 ---
 
 ## task_breakdown
 
-### Checkpoint CP1 — Slice 1: schema, migración y dominio puro (PR-2a)
+### Checkpoint CP1 — Slice 1: schema, migración y dominio puro (commit 2a)
 
 #### T-054a · Dominio puro de asignación
 
-- **Status**: ⬜ · **Slice**: 1 de 7 · **PR**: PR-2a · **Est. LOC**: ≈95 (≈45 impl + ≈50 tests)
+- **Status**: ⬜ · **Slice**: 1 de 7 · **PR**: commit 2a · **Est. LOC**: ≈95 (≈45 impl + ≈50 tests)
 - **Files**:
   - `src/domains/maquina/maquina.ts` (modify)
   - `src/domains/maquina/maquina.test.ts` (modify)
@@ -134,11 +128,11 @@ number (tests included).
      - `acepta el conjunto vacío y devuelve { ok: true, ejercicioIds: [] }`
      - `rechaza duplicados con VALIDATION_ERROR y "Hay ejercicios duplicados en la asignación"`
      - `rechaza ids desconocidos con VALIDATION_ERROR y "Uno o más ejercicios no existen"`
-     - `rechaza 51 ids con VALIDATION_MAX_EJERCICIOS y "No se pueden asignar más de 50 ejercicios a una máquina"`
-     - `la precedencia es duplicados → máximo → inexistentes` (a 51-id input with a duplicate reports duplicates)
-     - `MAX_EJERCIOS_POR_MAQUINA vale 50`
+     - `rechaza 101 ids con VALIDATION_MAX_EJERCICIOS y "No se pueden asignar más de 100 ejercicios a una máquina"`
+     - `la precedencia es duplicados → máximo → inexistentes` (a 101-id input with a duplicate reports duplicates)
+     - `MAX_EJERCIOS_POR_MAQUINA vale 100`
   2. - [ ] RED — run it; the failures must be "export not found", not typos.
-  3. - [ ] GREEN — add `MAX_EJERCIOS_POR_MAQUINA = 50`, `EjercicioAsociado`, `ErrorAsignacion`,
+  3. - [ ] GREEN — add `MAX_EJERCIOS_POR_MAQUINA = 100`, `EjercicioAsociado`, `ErrorAsignacion`,
      `ResultadoAsignacion` and `validarAsignacionEjercicios(ejercicioIds, existentes: ReadonlySet<string>)` with the
      exact precedence and messages from `design.md` ("Domain validation"). No Prisma runtime import.
   4. - [ ] REFACTOR — none; keep the file free of data access (ARQ-1).
@@ -155,7 +149,7 @@ number (tests included).
 
 #### T-054b · Modelo `EjercicioMaquina` en el schema
 
-- **Status**: ⬜ · **Slice**: 1 de 7 · **PR**: PR-2a · **Est. LOC**: ≈30
+- **Status**: ⬜ · **Slice**: 1 de 7 · **PR**: commit 2a · **Est. LOC**: ≈30
 - **Files**:
   - `prisma/schema.prisma` (modify)
 - **TDD (RED → GREEN)**:
@@ -182,7 +176,7 @@ number (tests included).
 
 #### T-054c · Migración escrita a mano + pre-chequeos
 
-- **Status**: ⬜ · **Slice**: 1 de 7 · **PR**: PR-2a · **Est. LOC**: ≈60
+- **Status**: ⬜ · **Slice**: 1 de 7 · **PR**: commit 2a · **Est. LOC**: ≈60
 - **Files**:
   - `prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` (new)
 - **TDD (RED → GREEN)**:
@@ -202,8 +196,10 @@ number (tests included).
   ```bash
   grep -c 'DROP\|ALTER' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql   # → 0
   grep 'Maquina_nombre_ubicacion_key' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql  # → sin salida
-  grep -c 'CREATE TABLE\|CREATE INDEX' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql   # → 4
-  grep -c 'ON DELETE CASCADE' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql            # → 2
+  grep -c 'CREATE TABLE' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql   # → 1
+  grep -c 'CREATE UNIQUE INDEX' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql   # → 1
+  grep -c 'CREATE INDEX' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql   # → 2
+  grep -c 'ON DELETE CASCADE' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql   # → 2
   npm run test:integration
   npx tsc --noEmit
   npx eslint tests/integration
@@ -213,11 +209,11 @@ number (tests included).
   with `npx prisma migrate status`, do not assume. Reference file for the convention is
   `prisma/migrations/20261023120000_maquina_nombre_ubicacion_unique/migration.sql` (read-only).
 
-### Checkpoint CP2 — Slices 2–4: API completa (PR-2b … PR-2d)
+### Checkpoint CP2 — Slices 2–4: API completa (commit 2b … commit 2d)
 
 #### T-054d · Repositorio: conteo, lectura y reemplazo
 
-- **Status**: ⬜ · **Slice**: 2 de 7 · **PR**: PR-2b · **Est. LOC**: ≈200 (≈110 impl + ≈90 tests)
+- **Status**: ⬜ · **Slice**: 2 de 7 · **PR**: commit 2b · **Est. LOC**: ≈200 (≈110 impl + ≈90 tests)
 - **Files**:
   - `src/domains/maquina/maquina-repositorio.ts` (modify)
   - `src/domains/maquina/maquina-repositorio.test.ts` (modify)
@@ -250,7 +246,7 @@ number (tests included).
 
 #### T-054e · Integración: cascada, unicidad y transacción
 
-- **Status**: ⬜ · **Slice**: 2 de 7 · **PR**: PR-2b · **Est. LOC**: ≈130
+- **Status**: ⬜ · **Slice**: 2 de 7 · **PR**: commit 2b · **Est. LOC**: ≈130
 - **Files**:
   - `tests/integration/ejercicio-maquina.integration.test.ts` (new)
 - **TDD (RED → GREEN)**:
@@ -287,7 +283,7 @@ number (tests included).
 
 #### T-054f · Mapeo de `VALIDATION_MAX_EJERCICIOS`
 
-- **Status**: ⬜ · **Slice**: 3 de 7 · **PR**: PR-2c · **Est. LOC**: ≈45
+- **Status**: ⬜ · **Slice**: 3 de 7 · **PR**: commit 2c · **Est. LOC**: ≈45
 - **Files**:
   - `src/lib/route-error-mapper.ts` (modify)
   - `src/lib/route-error-mapper.test.ts` (modify)
@@ -314,7 +310,7 @@ number (tests included).
 
 #### T-054g · Handlers de asignación + conteo real de baja
 
-- **Status**: ⬜ · **Slice**: 3 de 7 · **PR**: PR-2c · **Est. LOC**: ≈160 (≈90 impl + ≈70 tests)
+- **Status**: ⬜ · **Slice**: 3 de 7 · **PR**: commit 2c · **Est. LOC**: ≈160 (≈90 impl + ≈70 tests)
 - **Files**:
   - `src/api/maquinas.ts` (modify)
   - `src/api/maquinas.test.ts` (modify)
@@ -329,7 +325,7 @@ number (tests included).
      - `handleMaquinaEjerciciosPut > lanza NOT_FOUND sin escribir cuando la máquina no existe`
      - `handleMaquinaEjerciciosPut > rechaza ids inexistentes con VALIDATION_ERROR`
      - `handleMaquinaEjerciciosPut > rechaza duplicados con VALIDATION_ERROR`
-     - `handleMaquinaEjerciciosPut > rechaza 51 ids con VALIDATION_MAX_EJERCICIOS`
+     - `handleMaquinaEjerciciosPut > rechaza 101 ids con VALIDATION_MAX_EJERCICIOS`
      - `handleMaquinaEjerciciosPut > acepta [] y devuelve []`
      - `handleMaquinaEjerciciosPut > reemplaza y devuelve la lista nueva`
      - `handleMaquinaDelete > consulta contarEjerciciosAsociados antes de decidir`
@@ -352,7 +348,7 @@ number (tests included).
 
 #### T-054h · Ruta `GET`/`PUT /api/maquinas/[id]/ejercicios`
 
-- **Status**: ⬜ · **Slice**: 4 de 7 · **PR**: PR-2d · **Est. LOC**: ≈240 (≈110 impl + ≈130 tests)
+- **Status**: ⬜ · **Slice**: 4 de 7 · **PR**: commit 2d · **Est. LOC**: ≈240 (≈110 impl + ≈130 tests)
 - **Files**:
   - `src/app/api/maquinas/[id]/ejercicios/route.ts` (new)
   - `src/app/api/maquinas/[id]/ejercicios/route.test.ts` (new)
@@ -398,7 +394,7 @@ number (tests included).
 
 #### T-054i · Pruebas de permisos del path anidado
 
-- **Status**: ⬜ · **Slice**: 4 de 7 · **PR**: PR-2d · **Est. LOC**: ≈60 (tests only)
+- **Status**: ⬜ · **Slice**: 4 de 7 · **PR**: commit 2d · **Est. LOC**: ≈60 (tests only)
 - **Files**:
   - `src/middleware/matrix-consistency.test.ts` (modify)
   - `src/lib/authorization.test.ts` (modify)
@@ -422,11 +418,11 @@ number (tests included).
   npx eslint src/middleware src/lib/authorization.test.ts
   ```
 
-### Checkpoint CP3 — Slices 5–7: paginación y UI (PR-2e … PR-2g)
+### Checkpoint CP3 — Slices 5–7: paginación y UI (commit 2e … commit 2g)
 
 #### T-054j · Paginación opt-in en el repositorio de ejercicios
 
-- **Status**: ⬜ · **Slice**: 5 de 7 · **PR**: PR-2e · **Est. LOC**: ≈130 (≈55 impl + ≈75 tests)
+- **Status**: ⬜ · **Slice**: 5 de 7 · **PR**: commit 2e · **Est. LOC**: ≈130 (≈55 impl + ≈75 tests)
 - **Files**:
   - `src/domains/ejercicio/ejercicio-repositorio.ts` (modify)
   - `src/domains/ejercicio/ejercicio.test.ts` (modify — this is where the `getAll` suite lives, at lines 404-485)
@@ -458,7 +454,7 @@ number (tests included).
 
 #### T-054k · Paginación en handler y ruta de ejercicios
 
-- **Status**: ⬜ · **Slice**: 5 de 7 · **PR**: PR-2e · **Est. LOC**: ≈100 (≈45 impl + ≈55 tests)
+- **Status**: ⬜ · **Slice**: 5 de 7 · **PR**: commit 2e · **Est. LOC**: ≈100 (≈45 impl + ≈55 tests)
 - **Files**:
   - `src/api/ejercicios.ts` (modify)
   - `src/api/ejercicios.test.ts` (modify)
@@ -498,7 +494,7 @@ number (tests included).
 
 #### T-054l · Fetchers cliente de asignación y búsqueda
 
-- **Status**: ⬜ · **Slice**: 6 de 7 · **PR**: PR-2f · **Est. LOC**: ≈90 (≈40 impl + ≈50 tests)
+- **Status**: ⬜ · **Slice**: 6 de 7 · **PR**: commit 2f · **Est. LOC**: ≈90 (≈40 impl + ≈50 tests)
 - **Files**:
   - `src/api/maquinas.ts` (modify)
   - `src/api/maquinas.test.ts` (modify)
@@ -528,7 +524,7 @@ number (tests included).
 
 #### T-054m · Fila expandida de máquina
 
-- **Status**: ⬜ · **Slice**: 6 de 7 · **PR**: PR-2f · **Est. LOC**: ≈80 (≈45 impl + ≈35 tests)
+- **Status**: ⬜ · **Slice**: 6 de 7 · **PR**: commit 2f · **Est. LOC**: ≈80 (≈45 impl + ≈35 tests)
 - **Files**:
   - `src/components/maquina-crud/maquina-expanded-row.tsx` (new)
   - `src/components/maquina-crud/maquina-expanded-row.test.tsx` (new)
@@ -555,7 +551,7 @@ number (tests included).
 
 #### T-054n · Disclosure y detalle en el listado
 
-- **Status**: ⬜ · **Slice**: 6 de 7 · **PR**: PR-2f · **Est. LOC**: ≈70 (≈30 impl + ≈40 tests)
+- **Status**: ⬜ · **Slice**: 6 de 7 · **PR**: commit 2f · **Est. LOC**: ≈70 (≈30 impl + ≈40 tests)
 - **Files**:
   - `src/components/maquina-crud/maquina-list.tsx` (modify)
   - `src/components/maquina-crud/maquina-list.test.tsx` (modify)
@@ -582,7 +578,7 @@ number (tests included).
 
 #### T-054o · Modal accesible de asignación
 
-- **Status**: ⬜ · **Slice**: 7 de 7 · **PR**: PR-2g · **Est. LOC**: ≈250 (≈140 impl + ≈110 tests)
+- **Status**: ⬜ · **Slice**: 7 de 7 · **PR**: commit 2g · **Est. LOC**: ≈250 (≈140 impl + ≈110 tests)
 - **Files**:
   - `src/components/maquina-crud/ejercicio-asignacion-modal.tsx` (new)
   - `src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx` (new)
@@ -599,12 +595,20 @@ number (tests included).
      - `guarda con PUT y el arreglo completo de ejercicioIds`
      - `muestra el aviso de éxito al guardar`
      - `un 400 VALIDATION_ERROR deja el modal abierto, conserva la selección y muestra el mensaje`
+     - `"Ver más" aparece solo cuando la última página volvió con exactamente limit ítems`
+     - `"Ver más" avanza el offset por limit y acumula los resultados`
+     - `la selección se conserva al cambiar de página y al cambiar la búsqueda`
+     - `la selección incluye los ya asignados que no están en la página visible`
+     - `guardar hace un reemplazo total: conserva los seleccionados fuera de la página y quita los desmarcados`
   2. - [ ] RED — confirm the module is missing.
   3. - [ ] GREEN — implement with `useModalA11y<HTMLDivElement>(open, onClose)` (same signature as
      `src/app/maquinas/page.tsx:32`), a `useEffect` debounce of 300 ms, `fetchEjerciciosBusqueda({ search, limit: 50,
      offset })`, checkbox list of the visible page, "Seleccionar todo visible" scoped to the page, save via
-     `reemplazarEjerciciosMaquina`, `notify("success", ...)` and `handleApiError` on failure. `aria-labelledby` points
-     at the modal title.
+     `reemplazarEjerciciosMaquina`, `notify("success", ...)` and `handleApiError` on failure. **Pagination has no total
+     count:** keep an accumulated list and show "Ver más" only when the last response returned exactly `limit` items;
+     clicking it fetches the next page with `offset += limit` and appends. Keep the selection in a `Set` that survives
+     page and search changes and is seeded with the currently assigned exercises (including those not on the visible
+     page). Save sends the full set as the replacement. `aria-labelledby` points at the modal title.
   4. - [ ] REFACTOR — extract the debounce into a local `useDebouncedValue` inside the file only if the tests read
      cleaner; do not create a shared hook for one consumer.
 - **AC**: **AC-213**, **AC-214**, **AC-205** (client-side error surface).
@@ -620,7 +624,7 @@ number (tests included).
 
 #### T-054p · Cableado de `/maquinas`
 
-- **Status**: ⬜ · **Slice**: 7 de 7 · **PR**: PR-2g · **Est. LOC**: ≈120 (≈50 impl + ≈70 tests)
+- **Status**: ⬜ · **Slice**: 7 de 7 · **PR**: commit 2g · **Est. LOC**: ≈120 (≈50 impl + ≈70 tests)
 - **Files**:
   - `src/app/maquinas/page.tsx` (modify)
   - `src/app/maquinas/page.test.tsx` (modify)
@@ -751,7 +755,7 @@ Every AC from the three delta specs maps to a RED test written before its implem
 |---|---|---|---|
 | **AC-201** | T-054b, T-054d, T-054e | `tests/integration/ejercicio-maquina.integration.test.ts`, `src/domains/maquina/maquina-repositorio.test.ts` | `la migración crea la tabla y sus tres índices`; `el par duplicado falla con P2002`; `getEjerciciosAsociados incluye el ejercicio` |
 | **AC-202** | T-054c, T-054e | migration pre-checks + integration | `la migración crea la tabla y sus tres índices`; greps → 0/0/0, 4 statements, 2 cascades |
-| **AC-203** | T-054a | `src/domains/maquina/maquina.test.ts` | `acepta ids distintos`, `acepta el conjunto vacío`, `rechaza duplicados`, `rechaza ids desconocidos`, `rechaza 51 ids`, `precedencia` |
+| **AC-203** | T-054a | `src/domains/maquina/maquina.test.ts` | `acepta ids distintos`, `acepta el conjunto vacío`, `rechaza duplicados`, `rechaza ids desconocidos`, `rechaza 101 ids`, `precedencia` |
 | **AC-204** | T-054d, T-054g, T-054h | repository, handlers, route | `GET devuelve la lista asociada con 200`, `devuelve [] cuando no hay asociaciones`, `responde 404 NOT_FOUND` |
 | **AC-205** | T-054a, T-054g, T-054h, T-054o | domain, handlers, route, modal | `reemplaza y devuelve la lista nueva`, `responde 400 VALIDATION_MAX_EJERCICIOS`, `un 400 VALIDATION_ERROR deja el modal abierto` |
 | **AC-206** | T-054g, T-054h | handlers, route | `lanza NOT_FOUND sin escribir`, `PUT responde 404 NOT_FOUND sin escribir` |

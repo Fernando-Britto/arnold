@@ -46,13 +46,21 @@ The approach maps 1:1 to the proposal's nine points and the three delta specs (`
 
 **Choice**: `limit`/`offset` apply **only when at least one of them is present** in the request. When both are omitted, `getAll` behaves exactly as today (no `LIMIT`/`OFFSET`; returns all matches).
 
-**Rationale**: The `/ejercicios` screen (`fetchEjercicios()` → `GET /api/ejercicios` with no params) relies on the full list for client-side pagination (`POR_PAGINA = 50`, "Ver más ejercicios"). A literal "default 20" would silently truncate that screen. The spec's `ejercicios-crud` delta contains an internal tension — "default 20 when omitted" vs "returns all matches exactly as before" — and the stronger, explicit backwards-compatibility requirement wins. "Default 20 / max 50" then means: when pagination is triggered (e.g. `?offset=40` alone), a missing `limit` defaults to 20; a missing `offset` defaults to 0; `limit` is bounded to `[1, 50]`. This is **flagged** for the archive phase to reconcile the spec wording.
+**Rationale**: The `/ejercicios` screen (`fetchEjercicios()` → `GET /api/ejercicios` with no params) relies on the full list for client-side pagination (`POR_PAGINA = 50`, "Ver más ejercicios"). A literal "default 20" would silently truncate that screen. The spec's `ejercicios-crud` delta contains an internal tension — "default 20 when omitted" vs "returns all matches exactly as before" — and the stronger, explicit backwards-compatibility requirement wins. "Default 20 / max 50" then means: when pagination is triggered (e.g. `?offset=40` alone), a missing `limit` defaults to 20; a missing `offset` defaults to 0; `limit` is bounded to `[1, 50]`. The `ejercicios-crud` spec delta was reconciled to this opt-in behavior.
 
 ### Decision: Audit belongs in the route, not the handler
 
 **Choice**: best-effort `MODIFICACION` audit (via `registrarOperacion`, in a `try/catch` that never alters the response) lives in the route's `PUT`, using `auth.user.id` and `detalles: { maquinaId, ejerciciosAsignados: result.length }`.
 
 **Rationale**: matches the existing `PUT /api/maquinas/[id]` pattern exactly (route owns audit, handler stays actor-agnostic). The proposal sketched `handleMaquinaEjerciciosPut(id, ejercicioIds, actorId)`; I drop `actorId` from the handler signature to keep the handler free of audit/actor concerns and consistent with every existing route in this codebase.
+
+### Decision: Assignment modal pagination ("Ver más") and selection model
+
+**Pagination**: the exercise list API returns no total count. The modal keeps an accumulated result list and a `nextOffset`, requests `limit=50`, and shows a "Ver más" button **only when the last page returned exactly `limit` (50) items** — a short page means the end. Clicking it requests `offset = nextOffset` (advanced by `limit`) and appends the rows; the button hides when a short page arrives. An empty search fetches the first page only.
+
+**Selection**: a `Set<string>` of `ejercicioIds`, independent from the visible page. It is seeded when the modal opens with the machine's currently assigned exercises (`fetchMaquinaEjercicios`), so assigned exercises that are not on the visible page are part of the selection. Changing page or search must not drop items from the set. "Seleccionar todo visible" toggles only the current page's visible ids. Saving sends the full set as the replacement body; the backend replaces the association set atomically, so deselecting a previously assigned exercise removes it.
+
+**Tests**: "Ver más" visible only on a full page and hidden on a short page; clicking it advances the offset and appends; selection survives page/search; assigned off-page exercises are pre-selected; save sends the full replacement set.
 
 ### Decision: `roleGatingMiddleware` is exact-match and is **not** the enforcement path for nested API routes
 
@@ -85,13 +93,13 @@ The `PUT` is a full replacement (`last-writer-wins`): `deleteMany` + `createMany
 | File | Action | Description |
 |------|--------|-------------|
 | `prisma/schema.prisma` | Modify | Add `EjercicioMaquina` model; add `maquinas EjercicioMaquina[]` to `Ejercicio` and `ejercicios EjercicioMaquina[]` to `Maquina`. |
-| `prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` | Create | Hand-written additive DDL (1 `CREATE TABLE` + 3 `CREATE INDEX`, inline FKs). |
+| `prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` | Create | Hand-written additive DDL (4 statements (1 `CREATE TABLE` + 1 `CREATE UNIQUE INDEX` + 2 `CREATE INDEX`), inline FKs). |
 | `src/domains/maquina/maquina.ts` | Modify | Add `EjercicioAsociado`, `MAX_EJERCIOS_POR_MAQUINA`, `validarAsignacionEjercicios`, `ResultadoAsignacion`. |
 | `src/domains/maquina/maquina.test.ts` | Modify | Unit tests for `validarAsignacionEjercicios`. |
 | `src/domains/maquina/maquina-repositorio.ts` | Modify | Extend `MaquinaReader` (`ejercicioMaquina`, `ejercicio`, `$transaction`); add `contarEjerciciosAsociados`, `obtenerEjerciciosExistentes`, `getEjerciciosAsociados`, `reemplazarEjerciciosAsociados`. |
 | `src/domains/maquina/maquina-repositorio.test.ts` | Modify | Unit tests (Prisma mocked) for the new methods. |
 | `src/domains/ejercicio/ejercicio-repositorio.ts` | Modify | Add opt-in `limit`/`offset` to `getAll` (both `findMany` and `$queryRaw` paths). |
-| `src/domains/ejercicio/ejercicio-repositorio.test.ts` | Modify | Cover pagination + parameterized search. |
+| `src/domains/ejercicio/ejercicio.test.ts` | Modify | Cover pagination + parameterized search. |
 | `src/api/maquinas.ts` | Modify | Add `handleMaquinaEjerciciosGet`, `handleMaquinaEjerciciosPut`, client fetchers; wire real count into `handleMaquinaDelete`. |
 | `src/api/maquinas.test.ts` | Modify | Cover new handlers + real-count delete path. |
 | `src/api/ejercicios.ts` | Modify | Thread `limit`/`offset` through `handleEjercicioList`. |
@@ -162,15 +170,17 @@ CREATE INDEX "EjercicioMaquina_ejercicioId_idx" ON "EjercicioMaquina"("ejercicio
 
 1. `grep -c 'DROP\|ALTER' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` → `0`.
 2. `grep 'Maquina_nombre_ubicacion_key' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` → no output.
-3. `grep -c 'CREATE TABLE\|CREATE INDEX' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` → `4`.
-4. `npm run test:integration` green (applies `prisma migrate deploy` against ephemeral Docker Postgres).
-5. Confirm the FK constraints render `ON DELETE CASCADE` (the inline constraints must be present — `grep 'ON DELETE CASCADE'` → 2).
+3. `grep -c 'CREATE TABLE' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` → `1`.
+4. `grep -c 'CREATE UNIQUE INDEX' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` → `1`.
+5. `grep -c 'CREATE INDEX' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` → `2`.
+6. `grep -c 'ON DELETE CASCADE' prisma/migrations/20261024120000_ejercicio_maquina/migration.sql` → `2`.
+7. `npm run test:integration` green (applies `prisma migrate deploy` against ephemeral Docker Postgres).
 
 ### Domain validation (exact)
 
 ```ts
 // src/domains/maquina/maquina.ts (pure, no Prisma)
-export const MAX_EJERCIOS_POR_MAQUINA = 50;
+export const MAX_EJERCIOS_POR_MAQUINA = 100;
 
 export interface EjercicioAsociado {
   id: string;
@@ -193,7 +203,7 @@ export function validarAsignacionEjercicios(
 Precedence (first failure wins, in this order):
 
 1. Duplicates (`new Set(ejercicioIds).size !== ejercicioIds.length`) → `{ ok: false, code: "VALIDATION_ERROR", message: "Hay ejercicios duplicados en la asignación" }`.
-2. Over max (`ejercicioIds.length > MAX_EJERCIOS_POR_MAQUINA`) → `{ ok: false, code: "VALIDATION_MAX_EJERCICIOS", message: "No se pueden asignar más de 50 ejercicios a una máquina" }`.
+2. Over max (`ejercicioIds.length > MAX_EJERCIOS_POR_MAQUINA`) → `{ ok: false, code: "VALIDATION_MAX_EJERCICIOS", message: `No se pueden asignar más de ${MAX_EJERCIOS_POR_MAQUINA} ejercicios a una máquina` }`.
 3. Unknown ids (any `!existentes.has(id)`) → `{ ok: false, code: "VALIDATION_ERROR", message: "Uno o más ejercicios no existen" }`.
 4. Otherwise (including `[]`) → `{ ok: true, ejercicioIds }`.
 
@@ -318,7 +328,7 @@ try {
 | Malformed body / non-array `ejercicioIds` | `VALIDATION_ERROR` | 400 | "El cuerpo debe ser un objeto" / "El campo ejercicioIds debe ser un arreglo" |
 | Unknown exercise id | `VALIDATION_ERROR` | 400 | "Uno o más ejercicios no existen" |
 | Duplicate ids | `VALIDATION_ERROR` | 400 | "Hay ejercicios duplicados en la asignación" |
-| Over `MAX_EJERCIOS_POR_MAQUINA` | `VALIDATION_MAX_EJERCICIOS` | 400 | "No se pueden asignar más de 50 ejercicios a una máquina" |
+| Over `MAX_EJERCIOS_POR_MAQUINA` | `VALIDATION_MAX_EJERCICIOS` | 400 | Interpolated from the constant: `No se pueden asignar más de ${MAX_EJERCIOS_POR_MAQUINA} ejercicios a una máquina` |
 | Missing machine (GET/PUT) | `NOT_FOUND` | 404 | "Máquina no encontrada" |
 | Machine delete with associations | `DELETE_BLOCKED_EJERCICIOS` | 409 | "No se puede eliminar: N ejercicios usan esta máquina" (already mapped) |
 | Non-ADMIN role | `FORBIDDEN` | 403 | "Se requiere rol de administrador" |
@@ -392,7 +402,7 @@ return cliente.$queryRaw<EjercicioConUso[]>(Prisma.sql`
 `);
 ```
 
-`${take}`/`${skip}` are numbers interpolated via `Prisma.sql`, so Prisma emits them as `$2`/`$3` parameters — never inlined. `LIMIT`/`OFFSET` accept parameters in PostgreSQL. The search term `${patron}` remains `$1`. `ORDER BY` precedes `LIMIT`/`OFFSET`.
+`${take}`/`${skip}` are numbers interpolated via `Prisma.sql`, so Prisma emits them as `$2`/`$3` parameters — never inlined. `LIMIT`/`OFFSET` accept parameters in PostgreSQL. The search term `${patron}` remains `$1`. `ORDER BY` precedes `LIMIT`/`OFFSET`. **No string concatenation is used for `limit` or `offset`**: both are `Prisma.sql` parameters, exactly like the search term.
 
 **Route validation** (`src/app/api/ejercicios/route.ts`), exported pure helper:
 
@@ -434,10 +444,10 @@ Strict TDD (RED → GREEN) per layer. Unit (Jest + mocked Prisma) vs integration
 
 | Layer | What to test | Approach |
 |-------|-------------|----------|
-| Domain (unit) | `validarAsignacionEjercicios` — valid distinct ids, empty set, duplicates, >50, unknown ids, precedence | `src/domains/maquina/maquina.test.ts` |
+| Domain (unit) | `validarAsignacionEjercicios` — valid distinct ids, empty set, duplicates, > MAX_EJERCIOS_POR_MAQUINA, unknown ids, precedence | `src/domains/maquina/maquina.test.ts` |
 | Repository (unit) | `contarEjerciciosAsociados` delegates `count`; `getEjerciciosAsociados` delegates `findMany`+include+orderBy and maps `f.ejercicio`; `reemplazarEjerciciosAsociados` runs one `$transaction` (deleteMany → createMany → findMany) and `createMany` skipped when empty; `obtenerEjerciciosExistentes` maps to a `Set` | `src/domains/maquina/maquina-repositorio.test.ts` (Prisma mocked) |
-| Repository (unit) | `EjercicioRepository.getAll` pagination: `take`/`skip` on `findMany`; `LIMIT`/`OFFSET` appended to the search SQL with the term still parameterized; no `LIMIT`/`OFFSET` when params omitted | `src/domains/ejercicio/ejercicio-repositorio.test.ts` |
-| Handlers (unit) | `handleMaquinaEjerciciosGet` (404 vs list), `handleMaquinaEjerciciosPut` (shape → 400, unknown → 400, dup → 400, >50 → `VALIDATION_MAX_EJERCICIOS`, empty ok, replace), `handleMaquinaDelete` queries real count | `src/api/maquinas.test.ts` |
+| Repository (unit) | `EjercicioRepository.getAll` pagination: `take`/`skip` on `findMany`; `LIMIT`/`OFFSET` appended to the search SQL with the term still parameterized; no `LIMIT`/`OFFSET` when params omitted | `src/domains/ejercicio/ejercicio.test.ts` |
+| Handlers (unit) | `handleMaquinaEjerciciosGet` (404 vs list), `handleMaquinaEjerciciosPut` (shape → 400, unknown → 400, dup → 400, > MAX_EJERCIOS_POR_MAQUINA → `VALIDATION_MAX_EJERCICIOS`, empty ok, replace), `handleMaquinaDelete` queries real count | `src/api/maquinas.test.ts` |
 | Routes (unit) | `[id]/ejercicios/route.ts`: `await params`, 401/403 (`ALLOWED_ROLES`), 200 shape, 404, audit called with `{ maquinaId, ejerciciosAsignados }`, audit failure ignored; `ejercicios/route.ts`: `parsePaginacion` + 400 on invalid limit/offset | `src/app/api/maquinas/[id]/ejercicios/route.test.ts`, `src/app/api/ejercicios/route.test.ts` |
 | Permissions (unit) | nested path: `hasRouteAccess` — ADMIN allowed (GET+PUT), RECEPCIONISTA/INSTRUCTOR/SOCIO denied (GET+PUT) | `src/middleware/matrix-consistency.test.ts`, `src/lib/authorization.test.ts` |
 | Error mapping (unit) | `VALIDATION_MAX_EJERCICIOS → 400` | `src/lib/route-error-mapper.test.ts` |
@@ -459,7 +469,7 @@ Strict TDD (RED → GREEN) per layer. Unit (Jest + mocked Prisma) vs integration
 
 ## Migration / Rollout
 
-The migration is **additive only** (one `CREATE TABLE` + three `CREATE INDEX` with inline FKs). It does not touch `Maquina` or `Ejercicio`, and never drops `Maquina_nombre_ubicacion_key`.
+The migration is **additive only** (4 statements (1 `CREATE TABLE` + 1 `CREATE UNIQUE INDEX` + 2 `CREATE INDEX`) with inline FKs). It does not touch `Maquina` or `Ejercicio`, and never drops `Maquina_nombre_ubicacion_key`.
 
 **Rollback**: `git revert` the PR; if the migration already applied to a real DB, run the commented rollback `DROP TABLE IF EXISTS "EjercicioMaquina";`. No data loss in `Maquina`/`Ejercicio` — the new table holds only M2M links.
 

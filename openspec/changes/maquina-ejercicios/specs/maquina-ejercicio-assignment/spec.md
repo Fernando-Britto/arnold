@@ -63,11 +63,11 @@ The migration **MUST NOT** contain any `DROP`, `ALTER`, or any reference to `Maq
 
 ### Requirement: Assignment Input Validation
 
-The system **MUST** validate the assignment input in the pure domain (`src/domains/maquina/`), with no Prisma import. A pure function `validarAsignacionEjercicios(ejercicioIds, existentes)` **MUST** enforce, with the constant `MAX_EJERCIOS_POR_MAQUINA = 50`:
+The system **MUST** validate the assignment input in the pure domain (`src/domains/maquina/`), with no Prisma import. A pure function `validarAsignacionEjercicios(ejercicioIds, existentes)` **MUST** enforce, with the constant `MAX_EJERCIOS_POR_MAQUINA = 100`:
 
 - **Existence**: every `ejercicioId` **MUST** reference an existing exercise. Any unknown id → 400 `VALIDATION_ERROR`.
 - **No duplicates**: the input **MUST NOT** contain duplicate ids. Duplicates → 400 `VALIDATION_ERROR`.
-- **Maximum**: `ejercicioIds.length` **MUST** be `<= MAX_EJERCIOS_POR_MAQUINA` (50). Exceeding → 400 `VALIDATION_MAX_EJERCICIOS`.
+- **Maximum**: `ejercicioIds.length` **MUST** be `<= MAX_EJERCIOS_POR_MAQUINA` (100). Exceeding → 400 `VALIDATION_MAX_EJERCICIOS`.
 - **Empty set valid**: `ejercicioIds: []` **MUST** be accepted and means "remove all associations".
 
 The body **MUST** be a JSON object with a `ejercicioIds` array; a non-object body or a non-array `ejercicioIds` → 400 `VALIDATION_ERROR`.
@@ -96,7 +96,7 @@ The body **MUST** be a JSON object with a `ejercicioIds` array; a non-object bod
 - WHEN the Administrador submits a PUT
 - THEN the system returns 400 `VALIDATION_ERROR` ("Hay ejercicios duplicados en la asignación") and changes nothing
 
-#### Scenario: Over the 50-exercise ceiling rejected
+#### Scenario: Over the MAX_EJERCIOS_POR_MAQUINA ceiling rejected
 
 - GIVEN `ejercicioIds` with 51 distinct existing ids
 - WHEN the Administrador submits a PUT
@@ -263,10 +263,11 @@ The system **MUST** restore the expandable-row affordance on `/maquinas`:
 
 The system **MUST** provide an accessible modal (`useModalA11y`: `role="dialog"`, `aria-labelledby`, Escape closes, focus trap, focus return) to assign/unassign exercises, containing:
 
-- A debounced (~300ms) accent-insensitive search input that queries `GET /api/ejercicios?search=<term>&limit=50`.
+- A debounced (~300ms) accent-insensitive search input that queries `GET /api/ejercicios?search=<term>&limit=50&offset=<n>`.
 - Paginated results — the modal **MUST NEVER** load all exercises at once; empty search returns the first page only.
-- Multi-select checkboxes; "Seleccionar todo visible" scoped to the current page.
-- Save via `PUT /api/maquinas/[id]/ejercicios` (a single atomic write of the full `ejercicioIds` array).
+- **No total count in the response**: the modal **MUST** show a "Ver más" control only when the last page returned exactly `limit` (50) items; clicking it **MUST** fetch the next page with `offset` advanced by `limit`, append the rows, and hide "Ver más" when a page returns fewer than `limit`.
+- **Selection is a set that survives pages and searches**: it **MUST** be pre-seeded with the machine's currently assigned exercises (including those not on the visible page); page/search changes **MUST NOT** drop selections; "Seleccionar todo visible" affects only the current page's visible items.
+- Save via `PUT /api/maquinas/[id]/ejercicios` (a single atomic write of the **full** `ejercicioIds` set, including selected items outside the visible page and excluding deselected items).
 - A success notice on save; `handleApiError` surfacing Spanish error messages on failure.
 
 #### Scenario: Modal opens accessibly
@@ -292,6 +293,37 @@ The system **MUST** provide an accessible modal (`useModalA11y`: `role="dialog"`
 - GIVEN an empty search
 - WHEN the modal fetches exercises
 - THEN it requests `GET /api/ejercicios?limit=50` and renders at most the first 50 rows (never all 1,324)
+
+#### Scenario: "Ver más" only when the last page is full
+
+- GIVEN the modal fetched a page with `limit=50`
+- WHEN the response contains exactly 50 items
+- THEN "Ver más" is visible
+- AND when the response contains fewer than 50 items, "Ver más" is hidden
+
+#### Scenario: "Ver más" appends the next page by offset
+
+- GIVEN "Ver más" is visible
+- WHEN the Administrador clicks it
+- THEN the modal requests the next page with `offset` advanced by `limit` and appends the rows without losing the selection
+
+#### Scenario: Selection survives pages and searches
+
+- GIVEN the Administrador selected an exercise on page 1
+- WHEN they click "Ver más" or type a new search
+- THEN the selection is preserved
+
+#### Scenario: Selection includes assigned exercises off the visible page
+
+- GIVEN the machine has an assigned exercise that is not in the current page
+- WHEN the modal opens
+- THEN that exercise is part of the selection and is kept on save unless the admin explicitly removes it
+
+#### Scenario: Save replaces the full set
+
+- GIVEN the selection includes items from multiple pages and excludes some previously assigned items
+- WHEN the Administrador saves
+- THEN the PUT body contains exactly the full selected set (the backend replaces the association set atomically)
 
 #### Scenario: Save persists via PUT
 
@@ -339,19 +371,21 @@ The accent-insensitive `unaccent` search and the `muscleGroup` filter **MUST** b
 
 - **AC-201**: `EjercicioMaquina` join model exists with `@@unique([maquinaId, ejercicioId])`, secondary indexes on both FKs, `onDelete: Cascade` on both sides, and relation fields on `Ejercicio` and `Maquina`.
 - **AC-202**: The hand-written migration is additive only (`CREATE TABLE` + 3 `CREATE INDEX`; 0 occurrences of `DROP`, `ALTER`, or `Maquina_nombre_ubicacion_key`) and applies cleanly against the ephemeral Docker Postgres.
-- **AC-203**: `validarAsignacionEjercicios` enforces existence, no-duplicates, `<= MAX_EJERCIOS_POR_MAQUINA` (50), and accepts the empty set `[]`.
+- **AC-203**: `validarAsignacionEjercicios` enforces existence, no-duplicates, `<= MAX_EJERCIOS_POR_MAQUINA` (100), and accepts the empty set `[]`.
 - **AC-204**: `GET /api/maquinas/[id]/ejercicios` returns `{ id, nombre, grupoMuscular }` per associated exercise; 404 `NOT_FOUND` when the machine is missing.
-- **AC-205**: `PUT /api/maquinas/[id]/ejercicios` performs full replacement with validation: unknown ids → 400 `VALIDATION_ERROR`, duplicates → 400 `VALIDATION_ERROR`, >50 → 400 `VALIDATION_MAX_EJERCICIOS`, empty allowed; returns the new list.
+- **AC-205**: `PUT /api/maquinas/[id]/ejercicios` performs full replacement with validation: unknown ids → 400 `VALIDATION_ERROR`, duplicates → 400 `VALIDATION_ERROR`, > `MAX_EJERCIOS_POR_MAQUINA` (100) → 400 `VALIDATION_MAX_EJERCICIOS`, empty allowed; returns the new list.
 - **AC-206**: `PUT /api/maquinas/[id]/ejercicios` returns 404 `NOT_FOUND` when the machine is missing, without writing anything.
 - **AC-207**: A successful PUT audits `MODIFICACION` with `{ maquinaId, ejerciciosAsignados: n }` best-effort; audit failure never changes the response.
 - **AC-208**: `handleMaquinaDelete` uses the real `ejerciciosAsociados` count; >0 → 409 `DELETE_BLOCKED_EJERCICIOS` ("No se puede eliminar: N ejercicios usan esta máquina"); 0 → physical delete.
 - **AC-209**: Deleting an exercise with machine associations succeeds (M2M rows cascade); deleting an exercise in a routine still returns 409 `DELETE_BLOCKED_ASSIGNED`.
 - **AC-210**: `/api/maquinas/[id]/ejercicios` is ADMINISTRADOR-only via the `/api/maquinas` prefix in both matrices; RECEPCIONISTA, INSTRUCTOR, SOCIO → 403 on GET and PUT.
-- **AC-211**: `GET /api/ejercicios` gains optional `limit` (default 20, max 50) and `offset` (default 0); invalid/non-numeric/negative → 400 `VALIDATION_ERROR`; `unaccent` search and `muscleGroup` preserved; backwards-compatible when omitted.
+- **AC-211**: `GET /api/ejercicios` accepts optional `limit` (1–50) and `offset` (>= 0); pagination is **opt-in** — when both are omitted the full match set is returned exactly as before; when at least one is present, omitted values default to 20/0; invalid/non-numeric/negative values (and `limit > 50`) return 400 `VALIDATION_ERROR`; `unaccent` search and `muscleGroup` preserved.
 - **AC-212**: `/maquinas` restores the `disclosure` chevron and the expanded row listing associated exercises (name + muscle group) with an "Asignar ejercicios" button and empty state "Sin ejercicios asignados".
 - **AC-213**: The assignment modal is accessible (`role="dialog"`, Escape, focus trap, focus return), debounces accent-insensitive search (~300ms), paginates results (never all at once), multi-selects, and saves via `PUT`.
 - **AC-214**: The modal shows a success notice on save and surfaces failures via `handleApiError`.
 - **AC-215**: `matrix-consistency.test.ts` proves the nested path is denied for non-ADMIN roles via the prefix match; the full `npm test`, `npm run test:integration`, `tsc --noEmit`, and `eslint` stay green with no new errors (P-57 recorded in `openspec/decisions.md`).
+- **AC-216**: The modal paginates without a total count: "Ver más" is shown only when the last page returned exactly `limit` (50) items, hidden when it returned fewer, and clicking it fetches the next page with `offset` advanced by `limit`, appending the rows.
+- **AC-217**: The modal selection is a set that survives page and search changes, is pre-seeded with the machine's already assigned exercises (including those not on the visible page), and save sends the full replacement set (selected off-page items included, deselected items removed).
 
 ## Acceptance Criteria → Test Traceability
 
@@ -359,9 +393,9 @@ The accent-insensitive `unaccent` search and the `muscleGroup` filter **MUST** b
 |----|-----------|--------------|
 | AC-201 | `tests/integration/ejercicio-maquina.integration.test.ts` | "creates the EjercicioMaquina table and unique index"; "enforces @@unique([maquinaId, ejercicioId])"; "cascades on exercise delete"; "cascades on machine delete (count=0 path)" |
 | AC-202 | `tests/integration/ejercicio-maquina.integration.test.ts` | "applies the additive migration with 4 statements and no DROP/ALTER" |
-| AC-203 | `src/domains/maquina/maquina.test.ts` | "validarAsignacionEjercicios rejects unknown ids", "rejects duplicates", "rejects > 50", "accepts empty set", "accepts valid distinct ids" |
+| AC-203 | `src/domains/maquina/maquina.test.ts` | "validarAsignacionEjercicios rejects unknown ids", "rejects duplicates", "rejects > MAX_EJERCIOS_POR_MAQUINA", "accepts empty set", "accepts valid distinct ids" |
 | AC-204 | `src/app/api/maquinas/[id]/ejercicios/route.test.ts`, `src/api/maquinas.test.ts` | "GET returns associated exercises (id/nombre/grupoMuscular)", "GET returns empty list", "GET 404 on missing machine" |
-| AC-205 | `src/app/api/maquinas/[id]/ejercicios/route.test.ts`, `src/api/maquinas.test.ts` | "PUT validates unknown ids (400)", "PUT validates duplicates (400)", "PUT validates >50 (400 VALIDATION_MAX_EJERCICIOS)", "PUT accepts empty set", "PUT replaces and returns the new list" |
+| AC-205 | `src/app/api/maquinas/[id]/ejercicios/route.test.ts`, `src/api/maquinas.test.ts` | "PUT validates unknown ids (400)", "PUT validates duplicates (400)", "PUT validates > MAX_EJERCIOS_POR_MAQUINA (400 VALIDATION_MAX_EJERCICIOS)", "PUT accepts empty set", "PUT replaces and returns the new list" |
 | AC-206 | `src/app/api/maquinas/[id]/ejercicios/route.test.ts` | "PUT 404 on missing machine without writing" |
 | AC-207 | `src/app/api/maquinas/[id]/ejercicios/route.test.ts` | "PUT audits MODIFICACION with { maquinaId, ejerciciosAsignados }", "audit failure does not change the response" |
 | AC-208 | `src/api/maquinas.test.ts`, `src/app/api/maquinas/[id]/route.delete.test.ts` | "DELETE uses real count and returns 409 DELETE_BLOCKED_EJERCICIOS", "DELETE with 0 associations deletes physically" |
@@ -372,6 +406,8 @@ The accent-insensitive `unaccent` search and the `muscleGroup` filter **MUST** b
 | AC-213 | `src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx` | "role=dialog and focus trap", "Escape closes and returns focus", "debounced accent-insensitive search", "paginated results (limit=50)", "multi-select checkboxes" |
 | AC-214 | `src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx` | "success notice on save", "handleApiError toast on failure" |
 | AC-215 | `src/middleware/matrix-consistency.test.ts` | "guards stay green"; full `npm test` + `npm run test:integration` + `tsc --noEmit` + `eslint` |
+| AC-216 | `src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx` | "shows Ver más only when the last page returned exactly limit", "hides Ver más on a short page", "Ver más fetches the next page with offset advanced by limit and appends" |
+| AC-217 | `src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx` | "selection survives page and search changes", "selection includes assigned exercises off the visible page", "save sends the full replacement set" |
 
 ## Edge Cases
 
@@ -389,11 +425,11 @@ The accent-insensitive `unaccent` search and the `muscleGroup` filter **MUST** b
 | Machine missing on GET/PUT | NOT_FOUND (404) | "Máquina no encontrada" | Refresh list |
 | Unknown exercise id | VALIDATION_ERROR (400) | "Uno o más ejercicios no existen" | Correct selection |
 | Duplicate ids | VALIDATION_ERROR (400) | "Hay ejercicios duplicados en la asignación" | Remove duplicates |
-| Over 50 exercises | VALIDATION_MAX_EJERCICIOS (400) | "No se pueden asignar más de 50 ejercicios a una máquina" | Reduce selection |
+| Over `MAX_EJERCIOS_POR_MAQUINA` | VALIDATION_MAX_EJERCICIOS (400) | Interpolated from the constant: `No se pueden asignar más de ${MAX_EJERCIOS_POR_MAQUINA} ejercicios a una máquina` | Reduce selection |
 | Machine delete with associations | DELETE_BLOCKED_EJERCICIOS (409) | "No se puede eliminar: N ejercicios usan esta máquina" | Remove exercise relations first |
 | Non-ADMIN role | FORBIDDEN (403) | "Se requiere rol de administrador" | Sign in as ADMINISTRADOR |
 
 ## Open Questions
 
 - **`enMaquinas` count on the exercise list** (deferred): should `EjercicioConUso` later expose how many machines an exercise is associated with? Recommendation: defer to Etapa 3–5 when the exercise detail needs it; Etapa 2 stays machine-centric.
-- **Max exercises as a runtime parameter** (deferred): keep `MAX_EJERCIOS_POR_MAQUINA = 50` as a domain constant in Etapa 2; parameterize in Etapa 4–5 only if the business asks.
+- **Max exercises as a runtime parameter** (deferred): keep `MAX_EJERCIOS_POR_MAQUINA = 100` as a domain constant in Etapa 2; parameterize in Etapa 4–5 only if the business asks.
