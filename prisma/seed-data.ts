@@ -150,7 +150,7 @@ interface FilaDeProgreso {
   fecha: Date;
 }
 
-const MAQUINAS = [
+export const MAQUINAS = [
   { nombre: "Prensa de piernas", tipoEquipamiento: "MAQUINA_GUIADA" as const, estado: "DISPONIBLE" as const },
   { nombre: "Polea alta", tipoEquipamiento: "MAQUINA_GUIADA" as const, estado: "OCUPADA" as const },
   { nombre: "Banco plano", tipoEquipamiento: "PESO_LIBRE" as const, estado: "DISPONIBLE" as const },
