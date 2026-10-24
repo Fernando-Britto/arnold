@@ -150,9 +150,14 @@ interface FilaDeProgreso {
   fecha: Date;
 }
 
+/**
+ * Máquinas sembradas solo si la tabla está vacía (`prisma.maquina.count() === 0`). El cambio de
+ * "Polea alta" a `DISPONIBLE` solo afecta bases frescas; en instalaciones ya sembradas el
+ * administrador corrige la fila desde `/maquinas`.
+ */
 export const MAQUINAS = [
   { nombre: "Prensa de piernas", tipoEquipamiento: "MAQUINA_GUIADA" as const, estado: "DISPONIBLE" as const },
-  { nombre: "Polea alta", tipoEquipamiento: "MAQUINA_GUIADA" as const, estado: "OCUPADA" as const },
+  { nombre: "Polea alta", tipoEquipamiento: "MAQUINA_GUIADA" as const, estado: "DISPONIBLE" as const },
   { nombre: "Banco plano", tipoEquipamiento: "PESO_LIBRE" as const, estado: "DISPONIBLE" as const },
   { nombre: "Rack de sentadillas", tipoEquipamiento: "PESO_LIBRE" as const, estado: "DISPONIBLE" as const },
   { nombre: "Cinta 1", tipoEquipamiento: "CARDIO" as const, estado: "DISPONIBLE" as const },

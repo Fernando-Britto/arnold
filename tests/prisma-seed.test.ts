@@ -71,6 +71,18 @@ describe("runSeed", () => {
     expect(calls.filter((c) => c.model === "empleado" && c.method === "upsert").length).toBeGreaterThan(0);
   });
 
+  it("siembra Polea alta como DISPONIBLE en una base vacía (AC-014)", async () => {
+    const { prisma, calls } = fakePrisma();
+    await run(prisma);
+
+    const creadas = calls.find((c) => c.model === "maquina" && c.method === "createMany");
+    expect(creadas).toBeDefined();
+    const maquinas = creadas!.args.data as Array<{ nombre: string; estado: string; ubicacion: string }>;
+    const polea = maquinas.find((m) => m.nombre === "Polea alta");
+    expect(polea).toBeDefined();
+    expect(polea).toMatchObject({ estado: "DISPONIBLE", ubicacion: "Sala principal" });
+  });
+
   it("borra datos transaccionales solo de los socios del seed, nunca sin filtro", async () => {
     const { prisma, calls } = fakePrisma();
     await run(prisma);
