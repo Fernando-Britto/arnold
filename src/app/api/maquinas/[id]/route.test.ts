@@ -3,25 +3,45 @@
  * T-053h sub-slice 6a — GET only
  */
 
-import { GET, handleMaquinaGetByIdRequest, type GetSuccess } from "./route";
-import { handleMaquinaGetById } from "@/api/maquinas";
+import {
+  GET,
+  PUT,
+  handleMaquinaGetByIdRequest,
+  handleMaquinaUpdateRequest,
+  type GetSuccess,
+  type UpdateSuccess,
+} from "./route";
+import {
+  handleMaquinaGetById,
+  handleMaquinaUpdate,
+} from "@/api/maquinas";
 import { extractUserFromRequest } from "@/lib/auth";
+import { registrarOperacion } from "@/lib/audit";
 import type { Maquina } from "@/domains/maquina/maquina";
 import type { EstadoMaquina, TipoEquipamiento } from "@prisma/client";
 
 jest.mock("@/api/maquinas");
 jest.mock("@/lib/db");
 jest.mock("@/lib/auth", () => ({ extractUserFromRequest: jest.fn() }));
+jest.mock("@/lib/audit", () => ({ registrarOperacion: jest.fn() }));
 
 const mockUser = extractUserFromRequest as jest.Mock;
+const mockRegistrarOperacion = registrarOperacion as jest.MockedFunction<
+  typeof registrarOperacion
+>;
 const mockGetById = handleMaquinaGetById as jest.MockedFunction<
   typeof handleMaquinaGetById
+>;
+const mockUpdate = handleMaquinaUpdate as jest.MockedFunction<
+  typeof handleMaquinaUpdate
 >;
 
 const adminUser = { id: "u-admin", rol: "ADMINISTRADOR" };
 
 const getReq = () =>
   ({}) as unknown as Parameters<typeof GET>[0];
+const putReq = (body: unknown) =>
+  ({ json: async () => body }) as unknown as Parameters<typeof PUT>[0];
 
 const ctx = { params: Promise.resolve({ id: "m1" }) };
 
@@ -100,6 +120,131 @@ describe("Maquina [id] API Routes — GET", () => {
     });
   });
 
+  describe("PUT /api/maquinas/[id]", () => {
+    it("actualiza y responde 200 pasando el id de await params y el body parseado", async () => {
+      mockUpdate.mockResolvedValue(mockMaquina);
+      const body = {
+        nombre: "Polea baja",
+        ubicacion: "Sala principal",
+        tipoEquipamiento: "MAQUINA_GUIADA",
+        estado: "DISPONIBLE",
+      };
+
+      const res = await PUT(putReq(body), ctx);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json).toMatchObject({ id: "m1", nombre: "Polea alta" });
+      expect(mockUpdate).toHaveBeenCalledWith("m1", body);
+      expect(mockUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it("audita MODIFICACION con el id del actor y { maquinaId }", async () => {
+      mockUpdate.mockResolvedValue(mockMaquina);
+
+      await PUT(putReq({ estado: "DISPONIBLE" }), ctx);
+
+      expect(mockRegistrarOperacion).toHaveBeenCalledWith({
+        tipoOperacion: "MODIFICACION",
+        responsableId: "u-admin",
+        detalles: { maquinaId: "m1" },
+      });
+    });
+
+    it("audita MODIFICACION en un cambio solo de estado", async () => {
+      mockUpdate.mockResolvedValue(mockMaquina);
+
+      await PUT(putReq({ estado: "INACTIVA" }), ctx);
+
+      expect(mockRegistrarOperacion).toHaveBeenCalledWith({
+        tipoOperacion: "MODIFICACION",
+        responsableId: "u-admin",
+        detalles: { maquinaId: "m1" },
+      });
+    });
+
+    it("responde 404 NOT_FOUND cuando la máquina no existe", async () => {
+      mockUpdate.mockRejectedValue(
+        Object.assign(new Error("NOT_FOUND: Máquina no encontrada"), {
+          code: "NOT_FOUND",
+        })
+      );
+
+      const res = await PUT(putReq({ estado: "DISPONIBLE" }), ctx);
+      const json = await res.json();
+
+      expect(res.status).toBe(404);
+      expect(json).toEqual({
+        code: "NOT_FOUND",
+        message: "Máquina no encontrada",
+      });
+    });
+
+    it("responde 400 VALIDATION_ERROR cuando el body es null", async () => {
+      mockUpdate.mockRejectedValue(
+        Object.assign(
+          new Error("VALIDATION_ERROR: El cuerpo debe ser un objeto"),
+          { code: "VALIDATION_ERROR" }
+        )
+      );
+
+      const res = await PUT(putReq(null), ctx);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "El cuerpo debe ser un objeto",
+      });
+    });
+
+    it("responde 400 VALIDATION_ERROR cuando el body es un array", async () => {
+      mockUpdate.mockRejectedValue(
+        Object.assign(
+          new Error("VALIDATION_ERROR: El cuerpo debe ser un objeto"),
+          { code: "VALIDATION_ERROR" }
+        )
+      );
+
+      const res = await PUT(putReq([]), ctx);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "El cuerpo debe ser un objeto",
+      });
+    });
+
+    it("un fallo de auditoría no cambia la respuesta 200", async () => {
+      mockUpdate.mockResolvedValue(mockMaquina);
+      mockRegistrarOperacion.mockRejectedValue(new Error("audit exploded"));
+
+      const res = await PUT(putReq({ estado: "DISPONIBLE" }), ctx);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json).toMatchObject({ id: "m1", nombre: "Polea alta" });
+    });
+
+    it("responde 403 para un rol distinto de ADMINISTRADOR y no llama al handler", async () => {
+      mockUser.mockReturnValue({
+        id: "u-recepcionista",
+        rol: "RECEPCIONISTA",
+      });
+
+      const res = await PUT(putReq({ estado: "DISPONIBLE" }), ctx);
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json).toEqual({
+        code: "FORBIDDEN",
+        message: "Se requiere rol de administrador",
+      });
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+  });
+
   describe("handleMaquinaGetByIdRequest", () => {
     it("mapea un error inesperado a 500 SERVER_ERROR", async () => {
       mockGetById.mockRejectedValue(new Error("explosión inesperada"));
@@ -121,6 +266,34 @@ describe("Maquina [id] API Routes — GET", () => {
 
       expect((result as GetSuccess).status).toBe(200);
       expect((result as GetSuccess).id).toBe("m1");
+    });
+  });
+
+  describe("handleMaquinaUpdateRequest", () => {
+    it("devuelve la máquina actualizada con status 200", async () => {
+      mockUpdate.mockResolvedValue(mockMaquina);
+
+      const result = await handleMaquinaUpdateRequest("m1", { estado: "DISPONIBLE" });
+
+      expect((result as UpdateSuccess).status).toBe(200);
+      expect((result as UpdateSuccess).id).toBe("m1");
+    });
+
+    it("mapea un error de validación a 400", async () => {
+      mockUpdate.mockRejectedValue(
+        Object.assign(
+          new Error("VALIDATION_ERROR: El cuerpo debe ser un objeto"),
+          { code: "VALIDATION_ERROR" }
+        )
+      );
+
+      const result = await handleMaquinaUpdateRequest("m1", null);
+
+      expect("code" in result).toBe(true);
+      if ("code" in result) {
+        expect(result.status).toBe(400);
+        expect(result.code).toBe("VALIDATION_ERROR");
+      }
     });
   });
 });

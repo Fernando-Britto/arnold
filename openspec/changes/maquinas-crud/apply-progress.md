@@ -90,4 +90,82 @@ npx eslint src/app/api/maquinas/[id]/route.ts src/app/api/maquinas/[id]/route.te
 - Implementation matches `design.md` and the collection route shape: discriminated unions, `autorizar`, `ALLOWED_ROLES`, `ERROR_OPTIONS`, `mapErrorToResponse`, and Next 16 `await params`.
 - No `any` used; Spanish user-facing messages; no direct `@/lib/db` import.
 - PUT and DELETE handlers were deliberately omitted (per preflight); the route exports only `GET` and `handleMaquinaGetByIdRequest`.
+
+---
+
+## Work Unit: API handler body-validation fix
+
+**Unit**: PR-1a-4c — `handleMaquinaCreate` / `handleMaquinaUpdate` non-object body guard
+**Tasks**: T-053f body-validation fix (not in `tasks.md`; preflight bug fix)
+**Date**: 2026-10-24
+**Mode**: Strict TDD
+
+## Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command | `npm test -- src/api/maquinas.test.ts` |
+| Focused test result | Test Suites: 1 passed, 1 total — Tests: 20 passed, 20 total |
+| Runtime harness | N/A — repository-mocked unit tests; route/UI untouched |
+| Rollback boundary | Revert `src/api/maquinas.ts` and `src/api/maquinas.test.ts` to HEAD. No route/DB/migration changes. |
+
+## TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| body-validation fix | `src/api/maquinas.test.ts` | Unit | ✅ 17/17 baseline | ✅ Written (3 tests failed with TypeError/NOT_FOUND) | ✅ 20/20 pass | ✅ null + array cases for update; create null | ✅ Local `esObjetoPlano` guard; no `any` |
+
+## Files Touched
+
+| File | Action | Lines | What Was Done |
+|---|---|---|---|
+| `src/api/maquinas.ts` | Modified | +23 / −7 | Added local `esObjetoPlano` type guard; early `VALIDATION_ERROR` throw in `handleMaquinaCreate` and `handleMaquinaUpdate`; narrowed guarded value with `const body = input as MaquinaInput` to satisfy strict TS. |
+| `src/api/maquinas.test.ts` | Modified | +31 / −1 | Imported `MaquinaInput`; added three RED tests for `null`/`[]` bodies rejecting with `code: "VALIDATION_ERROR"` and message containing "El cuerpo debe ser un objeto"; asserted repository `create`/`update` are not called. |
+
+**Total authored changed lines**: 54 insertions + 8 deletions = 62 changed lines. Well under the 400-line review budget.
+
+## Verification Results
+
+### 1. Focused tests (RED)
+
+```
+npm test -- src/api/maquinas.test.ts
+
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 17 passed, 20 total
+```
+
+Failures:
+- `handleMaquinaCreate(null)` → TypeError: Cannot read properties of null (reading 'estado')
+- `handleMaquinaUpdate("m1", null)` → code: "NOT_FOUND"
+- `handleMaquinaUpdate("m1", [])` → code: "NOT_FOUND"
+
+### 2. Focused tests (GREEN)
+
+```
+npm test -- src/api/maquinas.test.ts
+
+Test Suites: 1 passed, 1 total
+Tests:       20 passed, 20 total
+```
+
+### 3. Type check
+
+```
+npx tsc --noEmit
+(no output)
+```
+
+### 4. Linter
+
+```
+npx eslint src/api/maquinas.ts src/api/maquinas.test.ts
+(no output)
+```
+
+## Notes / Deviations
+
+- Implementation matches the preflight: local type guard, `codedError("VALIDATION_ERROR", "El cuerpo debe ser un objeto")`, no `any`, Spanish messages.
+- The type guard narrows `input` to `Record<string, unknown>`; a subsequent `as MaquinaInput` cast is required inside each handler so TypeScript strict mode can resolve `body.estado`, `body.nombre`, etc. No behavior change for valid objects.
+- `tasks.md` was not edited per the preflight instruction.
 - `tasks.md` was not edited per the preflight instruction (the orchestrator tracks sub-slices).
