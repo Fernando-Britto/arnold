@@ -110,9 +110,9 @@ planning number (tests included).
 | T-053f Handlers de API y envoltorios cliente | ✅ | PR-1a-4a + 4b | ≈321 | 2026-10-24 | 4a (handlers) y 4b (wrappers + `CLAVES.maquinas`) completos |
 | T-053g Rutas `GET`/`POST /api/maquinas` | ✅ | PR-1a-5a + 5b | ≈240 | 2026-10-24 | 5a (GET) y 5b (POST + auditoría ALTA) completos |
 | T-053h Rutas `GET`/`PUT`/`DELETE /api/maquinas/[id]` | ✅ | PR-1a-6a + 6b + 6c | ≈360 | 2026-10-24 | 6a (GET), 6b (PUT + MODIFICACION) y 6c (DELETE + BAJA, 204 sin cuerpo) completos |
-| T-053i Formulario y distintivo de estado | ⬜ | PR-1b-1 | ≈340 | — | Slice 1 of 1b |
-| T-053j Panel del formulario (alta/edición) | ⬜ | PR-1b-2 | ≈190 | — | Slice 2 of 1b |
-| T-053k Listado con filtros y búsqueda | ⬜ | PR-1b-3 | ≈240 | — | Slice 3 of 1b |
+| T-053i Formulario y distintivo de estado | ✅ | PR-1b-1 | ≈340 | 2026-10-24 | Slice 1 of 1b; 372 líneas añadidas, ≤400 |
+| T-053j Panel del formulario (alta/edición) | ✅ | PR-1b-2 | ≈190 | 2026-10-24 | Slice 2 of 1b; 291 líneas añadidas (impl + tests), ≤400 |
+| T-053k Listado con filtros y búsqueda | ✅ | PR-1b-3 | ≈240 | 2026-10-24 | Slice 3 of 1b; 367 líneas añadidas (impl + tests), ≤400 |
 | T-053l Navegación y seed de «Polea alta» | ⬜ | PR-1b-4 | ≈13 | — | Slice 4 of 1b; must land before T-053m |
 | T-053m Pantalla `/maquinas` | ⬜ | PR-1b-4 | ≈330 | — | Slice 4 of 1b |
 | T-053n Cierre documental (P-53, P-54, D-73) | ⬜ | none (direct to `dev`) | ≈80 | — | After all slices merge |
@@ -453,31 +453,31 @@ planning number (tests included).
 
 #### T-053i · Formulario y distintivo de estado
 
-- **Status**: ⬜ · **Slice**: PR-1b-1 (part of PR 1b) · **Est. LOC**: ≈340 (≈170 impl + ≈170 tests)
+- **Status**: ✅ · **Slice**: PR-1b-1 (part of PR 1b) · **Est. LOC**: ≈340 (≈170 impl + ≈170 tests) · **Actual LOC**: 372 (229 impl + 143 tests)
 - **Files**:
   - `src/components/maquina-crud/estado-badge.tsx` (new)
   - `src/components/maquina-crud/estado-badge.test.tsx` (new)
   - `src/components/maquina-crud/maquina-form.tsx` (new)
   - `src/components/maquina-crud/maquina-form.test.tsx` (new)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — component tests:
-     - `estado-badge > muestra DISPONIBLE como success`
-     - `estado-badge > muestra OCUPADA como warning`
-     - `estado-badge > muestra FUERA_DE_SERVICIO como danger`
-     - `estado-badge > muestra INACTIVA como neutral`
-     - `maquina-form > renderiza nombre, ubicación, tipo y estado`
-     - `maquina-form > el select de estado solo ofrece los tres valores asignables`
-     - `maquina-form > al editar una fila OCUPADA inicializa el estado en DISPONIBLE`
-     - `maquina-form > muestra el error de nombre demasiado corto`
-     - `maquina-form > impide enviar con estado OCUPADA`
-     - `maquina-form > envía los valores normalizados`
-  2. - [ ] RED — confirm failures.
-  3. - [ ] GREEN — implement both components. `estado-badge.tsx` maps `EstadoMaquina` to the existing
-     `TableStatusBadge` variant; `maquina-form.tsx` is controlled, imports `validateMaquina`,
-     `ESTADOS_ASIGNABLES`, `TIPOS_EQUIPAMIENTO` from the pure domain (never the repository).
-  4. - [ ] REFACTOR — reuse `TableStatusBadge` from `src/components/ui/table.tsx` (the one
-     `src/components/membresia-crud/membresia-list-panel.tsx` already imports) instead of writing a new badge
-     primitive. Variants: success / warning / danger / neutral.
+   1. - [x] RED — component tests:
+      - `estado-badge > muestra DISPONIBLE como success`
+      - `estado-badge > muestra OCUPADA como warning`
+      - `estado-badge > muestra FUERA_DE_SERVICIO como danger`
+      - `estado-badge > muestra INACTIVA como neutral`
+      - `maquina-form > renderiza nombre, ubicación, tipo y estado`
+      - `maquina-form > el select de estado solo ofrece los tres valores asignables`
+      - `maquina-form > al editar una fila OCUPADA inicializa el estado en DISPONIBLE`
+      - `maquina-form > muestra el error de nombre demasiado corto`
+      - `maquina-form > impide enviar con estado OCUPADA`
+      - `maquina-form > envía los valores normalizados`
+   2. - [x] RED — confirm failures (módulos no existen).
+   3. - [x] GREEN — implement both components. `estado-badge.tsx` maps `EstadoMaquina` to the existing
+      `TableStatusBadge` variant; `maquina-form.tsx` is controlled, imports `validateMaquina`,
+      `ESTADOS_ASIGNABLES`, `TIPOS_EQUIPAMIENTO` from the pure domain (never the repository).
+   4. - [x] REFACTOR — reuse `TableStatusBadge` from `src/components/ui/table.tsx` (the one
+      `src/components/membresia-crud/membresia-list-panel.tsx` already imports) instead of writing a new badge
+      primitive. Variants: success / warning / danger / neutral.
 - **Acceptance criteria**: AC-005 (UI half), AC-013 (form/badge half).
 - **Dependencies**: T-053a (validation and constants).
 - **Verification**:
@@ -491,22 +491,22 @@ planning number (tests included).
 
 #### T-053j · Panel del formulario (alta/edición)
 
-- **Status**: ⬜ · **Slice**: PR-1b-2 (part of PR 1b) · **Est. LOC**: ≈190 (≈100 impl + ≈90 tests)
+- **Status**: ✅ · **Slice**: PR-1b-2 (part of PR 1b) · **Est. LOC**: ≈190 (≈100 impl + ≈90 tests) · **Actual LOC**: 168 (76 impl + 92 tests)
 - **Files**:
   - `src/components/maquina-crud/maquina-form-panel.tsx` (new)
   - `src/components/maquina-crud/maquina-form-panel.test.tsx` (new)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — `maquina-form-panel.test.tsx` with `@/api/maquinas` and notifications mocked:
-     - `crea una máquina y avisa el éxito`
-     - `edita una máquina y avisa el éxito`
-     - `muestra el mensaje del servidor cuando la API falla`
-     - `no envía dos veces mientras la primera petición está en curso`
-     - `llama onSuccess con la máquina devuelta`
-     - `llama onCancel al cancelar`
-  2. - [ ] RED — confirm failures.
-  3. - [ ] GREEN — implement `MaquinaFormPanel` with `submittingRef` re-entrancy guard, `notify("success", ...)`,
-     `handleApiError`, and `onSuccess`.
-  4. - [ ] REFACTOR — none.
+   1. - [x] RED — `maquina-form-panel.test.tsx` con `global.fetch`, notificaciones y caché mockeados:
+      - `crea una máquina y avisa el éxito`
+      - `edita una máquina y avisa el éxito`
+      - `muestra el mensaje del servidor cuando la API falla`
+      - `no envía dos veces mientras la primera petición está en curso`
+      - `llama onSuccess con la máquina devuelta`
+      - `llama onCancel al cancelar`
+   2. - [x] RED — confirmado fallo por módulo inexistente.
+   3. - [x] GREEN — implementado `MaquinaFormPanel` con guard `submittingRef`, `notify("success", ...)`,
+      `handleApiError`, `throwIfNotOk` y `onSuccess`; sin aviso de desactivación.
+   4. - [x] REFACTOR — none.
 - **Acceptance criteria**: AC-013 (create/edit wiring).
 - **Dependencies**: T-053f (client wrappers), T-053i (form).
 - **Verification**:
@@ -523,31 +523,31 @@ planning number (tests included).
 
 #### T-053k · Listado con filtros y búsqueda
 
-- **Status**: ⬜ · **Slice**: PR-1b-3 (part of PR 1b) · **Est. LOC**: ≈240 (≈130 impl + ≈110 tests)
+- **Status**: ✅ · **Slice**: PR-1b-3 (part of PR 1b) · **Est. LOC**: ≈240 (≈130 impl + ≈110 tests) · **Actual LOC**: 237 (101 impl + 136 tests)
 - **Files**:
   - `src/components/maquina-crud/maquina-list.tsx` (new)
   - `src/components/maquina-crud/maquina-list.test.tsx` (new)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — `maquina-list.test.tsx`:
-     - `renderiza las columnas ID, Nombre, Tipo, Ubicación y Estado`
-     - `filtra por estado`
-     - `filtra por tipo de equipamiento`
-     - `busca por nombre sin distinguir mayúsculas`
-     - `combina los tres filtros`
-     - `muestra un mensaje cuando no hay resultados`
-     - `selecciona una fila al hacer clic`
-     - `dibuja el estado con EstadoBadge`
-  2. - [ ] RED — confirm failures.
-  3. - [ ] GREEN — implement the table plus the two `<select>` filters in the header; combine
-     `estadoFilter`, `tipoEquipamientoFilter` and `searchTerm` in one `useMemo`; selection is controlled by the page.
-  4. - [ ] REFACTOR — reuse the table classes from `membresia-list-panel.tsx`; do not add a new table primitive.
+   1. - [x] RED — `maquina-list.test.tsx`:
+      - `renderiza las columnas ID, Nombre, Tipo, Ubicación y Estado`
+      - `filtra por estado`
+      - `filtra por tipo de equipamiento`
+      - `busca por nombre sin distinguir mayúsculas`
+      - `combina los tres filtros`
+      - `muestra un mensaje cuando no hay resultados`
+      - `selecciona una fila al hacer clic`
+      - `dibuja el estado con EstadoBadge`
+   2. - [x] RED — confirm failures (`Cannot find module './maquina-list'`).
+   3. - [x] GREEN — implemented the table plus the two `<select>` filters and the `nombre` search input; combine
+      `estadoFilter`, `tipoEquipamientoFilter` and `searchTerm` in one `useMemo`; selection is controlled by the page.
+   4. - [x] REFACTOR — reused `Table`, `TableHeader`, `TableRow`, `TableCell` and sort helpers from `src/components/ui/table.tsx`; no new table primitive.
 - **Acceptance criteria**: AC-007 (UI half), AC-013 (list half).
 - **Dependencies**: T-053i (`estado-badge`).
 - **Verification**:
   ```bash
   npm test -- src/components/maquina-crud/maquina-list.test.tsx
   npx tsc --noEmit
-  npx eslint src/components/maquina-crud
+  npx eslint src/components/maquina-crud/maquina-list.tsx src/components/maquina-crud/maquina-list.test.tsx
   ```
 
 ### Phase 10 — Rail + seed, then the screen (PR-1b-4)
@@ -626,15 +626,14 @@ planning number (tests included).
 
 ### Phase 11 — Close
 
-#### T-053n · Cierre documental (P-53, P-54, D-73)
+#### T-053n · Cierre documental (P-53, P-54, P-55, D-73)
 
 - **Status**: ⬜ · **Slice**: none (direct to `dev`, matching the repo's close-task convention) · **Est. LOC**: ≈80 (docs)
 - **Files**:
   - `openspec/decisions.md` (modify: record **P-53**, **P-54**, **D-73**, and mark any resolved IDs)
   - `PROJECT-STATUS.md` (modify: task table, "Cambios recientes", pendientes)
   - `openspec/sdd-tasks-tdd.md` (modify: append T-053a…T-053n to the Execution Status table with actual LOC)
-  - `odd/tasks/maquinas.md` (new: objective, one step per slice with ✅/⬜, risks, verification, pending items —
-    same shape as `odd/tasks/catalogo-ejercicios.md`)
+  - `odd/tasks/maquinas.md` (update: it already exists from apply; objective, one step per slice with ✅/⬜, risks, verification, pending items — same shape as `odd/tasks/catalogo-ejercicios.md`)
 - **Checklist**:
   1. - [ ] Record **P-53** — INACTIVA counts in Home_Interno's "Estado de equipos" total, so deleting machines lowers
      the percentage; revisit the denominator when the machines feature closes. Home_Interno is not touched here.
@@ -651,7 +650,13 @@ planning number (tests included).
      - Residual accepted: accent-only collisions under a concurrent race; `P2002` closes the case-only race.
   4. - [ ] Update `PROJECT-STATUS.md` (status, migrations 18/18 → 19/19, "Cambios recientes").
   5. - [ ] Append the 14 tasks and actual LOC to `openspec/sdd-tasks-tdd.md`.
-  6. - [ ] Create `odd/tasks/maquinas.md`.
+  6. - [ ] Update `odd/tasks/maquinas.md` (it already exists). Correct the "integración bloqueada por Docker" line:
+     the integration suite already passed **26/26** green against the ephemeral Docker Postgres.
+  7. - [ ] Confirm the migration counter in `PROJECT-STATUS.md` reflects the real state after `prisma migrate deploy`
+     (do not assume 19/19 without checking).
+  8. - [ ] Record **P-55** — `POST`, `GET` (by id) and `PUT` responses include a `status` field inside the resource
+     JSON (`{ ...maquina, status }`), same as Membresías. It is not a functional bug; the HTTP status should be the
+     only source. Do not fix it in this feature.
 - **Acceptance criteria**: none functional; closes the documentation debt required by the proposal.
 - **Dependencies**: all previous tasks merged.
 - **Verification**:
