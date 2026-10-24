@@ -39,16 +39,37 @@ const ESTADO_LABEL: Record<EstadoAsignable, string> = {
   INACTIVA: "Inactiva",
 };
 
+const EMPTY_OPTION_VALUE = "";
+const EMPTY_OPTION_LABEL = "Elegí un estado…";
+const NON_ASSIGNABLE_NOTICE =
+  "Esta máquina figura como Ocupada, un estado que ya no se asigna a mano. Elegí un estado para continuar.";
+
+function esEstadoAsignable(estado: string | undefined): estado is EstadoAsignable {
+  return !!estado && ESTADOS_ASIGNABLES.includes(estado as EstadoAsignable);
+}
+
+function mapErrorToField(error: string): keyof ValidationErrors | null {
+  if (error.includes("nombre")) return "nombre";
+  if (error.includes("ubicación")) return "ubicacion";
+  if (error.includes("equipamiento")) return "tipoEquipamiento";
+  if (error.includes("estado")) return "estado";
+  return null;
+}
+
 export function MaquinaForm({
   initialData,
   onSave,
   onCancel,
   isLoading = false,
 }: MaquinaFormProps) {
-  const estadoInicial: EstadoAsignable =
-    initialData?.estado && ESTADOS_ASIGNABLES.includes(initialData.estado as EstadoAsignable)
-      ? (initialData.estado as EstadoAsignable)
-      : "DISPONIBLE";
+  const estadoInicial: EstadoAsignable | typeof EMPTY_OPTION_VALUE =
+    esEstadoAsignable(initialData?.estado)
+      ? initialData.estado
+      : initialData
+        ? EMPTY_OPTION_VALUE
+        : "DISPONIBLE";
+
+  const requiereOpcionVacia = !!initialData && !esEstadoAsignable(initialData.estado);
 
   const [formData, setFormData] = useState({
     nombre: initialData?.nombre || "",
@@ -58,10 +79,12 @@ export function MaquinaForm({
   });
 
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [globalErrors, setGlobalErrors] = useState<string[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setGlobalErrors([]);
     if (errors[name]) {
       setErrors((prev) => {
         const next = { ...prev };
@@ -78,18 +101,29 @@ export function MaquinaForm({
       nombre: formData.nombre,
       ubicacion: formData.ubicacion,
       tipoEquipamiento: formData.tipoEquipamiento,
-      estado: formData.estado,
+      estado: formData.estado || undefined,
     });
 
-    if (!validation.valid) {
-      const next: ValidationErrors = {};
-      validation.errors.forEach((error) => {
-        if (error.includes("nombre")) next.nombre = error;
-        if (error.includes("ubicación")) next.ubicacion = error;
-        if (error.includes("equipamiento")) next.tipoEquipamiento = error;
-        if (error.includes("estado")) next.estado = error;
-      });
-      setErrors(next);
+    const next: ValidationErrors = {};
+    const unmapped: string[] = [];
+
+    validation.errors.forEach((error) => {
+      const field = mapErrorToField(error);
+      if (field) {
+        next[field] = error;
+      } else {
+        unmapped.push(error);
+      }
+    });
+
+    if (formData.estado === EMPTY_OPTION_VALUE) {
+      next.estado = "Elegí un estado";
+    }
+
+    setErrors(next);
+    setGlobalErrors(unmapped);
+
+    if (Object.keys(next).length > 0 || unmapped.length > 0) {
       return;
     }
 
@@ -110,6 +144,28 @@ export function MaquinaForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {globalErrors.length > 0 && (
+        <div role="alert" className="rounded-md bg-danger-soft p-3 text-sm text-danger">
+          {globalErrors.length === 1 ? (
+            <>No se pudo guardar: {globalErrors[0]}</>
+          ) : (
+            <>
+              No se pudo guardar:
+              <ul className="mt-1 list-disc pl-5">
+                {globalErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
+      {requiereOpcionVacia && (
+        <div role="alert" className="rounded-md bg-warning-soft p-3 text-sm text-warning">
+          {NON_ASSIGNABLE_NOTICE}
+        </div>
+      )}
       <div>
         <label htmlFor="nombre" className="block text-sm font-medium text-ink-soft mb-1">
           Nombre *
@@ -175,6 +231,9 @@ export function MaquinaForm({
           onChange={handleChange}
           className={inputClass("estado")}
         >
+          {requiereOpcionVacia && (
+            <option value={EMPTY_OPTION_VALUE}>{EMPTY_OPTION_LABEL}</option>
+          )}
           {ESTADOS_ASIGNABLES.map((estado) => (
             <option key={estado} value={estado}>
               {ESTADO_LABEL[estado]}

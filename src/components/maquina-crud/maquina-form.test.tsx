@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MaquinaForm } from "./maquina-form";
 import type { Maquina } from "@/domains/maquina/maquina";
+import * as maquinaModule from "@/domains/maquina/maquina";
 
 describe("MaquinaForm", () => {
   const mockOnSave = jest.fn();
@@ -48,7 +49,7 @@ describe("MaquinaForm", () => {
     expect(screen.getByDisplayValue("Disponible")).toBeInTheDocument();
   });
 
-  it("una fila OCUPADA inicia como DISPONIBLE y no tiene opción OCUPADA", () => {
+  it("una fila OCUPADA deja el select sin seleccionar y muestra el aviso", () => {
     render(
       <MaquinaForm
         initialData={{ ...mockMaquina, estado: "OCUPADA" }}
@@ -58,10 +59,95 @@ describe("MaquinaForm", () => {
     );
 
     const estadoSelect = screen.getByLabelText(/Estado/i) as HTMLSelectElement;
-    expect(estadoSelect.value).toBe("DISPONIBLE");
+    expect(estadoSelect.value).toBe("");
+
+    const options = Array.from(estadoSelect.options).map((opt) => opt.value);
+    expect(options).toEqual(["", "DISPONIBLE", "FUERA_DE_SERVICIO", "INACTIVA"]);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Esta máquina figura como Ocupada, un estado que ya no se asigna a mano. Elegí un estado para continuar."
+    );
+  });
+
+  it("guardar sin elegir estado no llama a onSave y marca error en el campo", async () => {
+    const user = userEvent.setup();
+    render(
+      <MaquinaForm
+        initialData={{ ...mockMaquina, estado: "OCUPADA" }}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Guardar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Elegí un estado")).toBeInTheDocument();
+    });
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  it("elegir un estado y guardar llama a onSave con el estado elegido", async () => {
+    const user = userEvent.setup();
+    render(
+      <MaquinaForm
+        initialData={{ ...mockMaquina, estado: "OCUPADA" }}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    await user.selectOptions(screen.getByLabelText(/Estado/i), "DISPONIBLE");
+    await user.click(screen.getByRole("button", { name: /Guardar/i }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith({
+        nombre: "Polea alta",
+        ubicacion: "Sala principal",
+        tipoEquipamiento: "MAQUINA_GUIADA",
+        estado: "DISPONIBLE",
+      });
+    });
+  });
+
+  it("una fila con estado asignable conserva su valor al abrir", () => {
+    render(
+      <MaquinaForm
+        initialData={{ ...mockMaquina, estado: "FUERA_DE_SERVICIO" }}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    const estadoSelect = screen.getByLabelText(/Estado/i) as HTMLSelectElement;
+    expect(estadoSelect.value).toBe("FUERA_DE_SERVICIO");
 
     const options = Array.from(estadoSelect.options).map((opt) => opt.value);
     expect(options).toEqual(["DISPONIBLE", "FUERA_DE_SERVICIO", "INACTIVA"]);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("un error sin campo conocido se muestra en la alerta y no llama a onSave", async () => {
+    const user = userEvent.setup();
+    const spy = jest
+      .spyOn(maquinaModule, "validateMaquina")
+      .mockReturnValue({ valid: false, errors: ["Algo raro pasó"] });
+
+    render(<MaquinaForm onSave={mockOnSave} onCancel={mockOnCancel} />);
+
+    await user.type(screen.getByLabelText(/Nombre/i), "Polea baja");
+    await user.type(screen.getByLabelText(/Ubicación/i), "Sala principal");
+    await user.click(screen.getByRole("button", { name: /Guardar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "No se pudo guardar: Algo raro pasó"
+      );
+    });
+    expect(mockOnSave).not.toHaveBeenCalled();
+
+    spy.mockRestore();
   });
 
   it("rechaza nombre demasiado corto, bloquea onSave y muestra el error", async () => {
