@@ -104,10 +104,10 @@ planning number (tests included).
 |---|---|---|---|---|---|
 | T-053a Dominio puro de máquina | ✅ | PR-1a-1 | ≈350 | 2026-10-23 | Slice 1 of 1a |
 | T-053b Repositorio, unicidad y `P2002` | ✅ | PR-1a-2 | ≈240 | 2026-10-23 | Slice 2 of 1a |
-| T-053c Migración del índice único + integración | 🔄 | PR-1a-2 | ≈117 | 2026-10-23 | Files ready; integration test blocked by unavailable Docker |
-| T-053d Mapeo de errores nuevos | ⬜ | PR-1a-3 | ≈135 | — | Slice 3 of 1a |
-| T-053e Permisos: solo Administrador | ⬜ | PR-1a-3 | ≈42 | — | Slice 3 of 1a |
-| T-053f Handlers de API y envoltorios cliente | ⬜ | PR-1a-4 | ≈321 | — | Slice 4 of 1a |
+| T-053c Migración del índice único + integración | ✅ | PR-1a-2 | ≈117 | 2026-10-23 | Integración 26/26 verde contra el Postgres de Docker (verificado por Fernando) |
+| T-053d Mapeo de errores nuevos | ✅ | PR-1a-3 | ≈135 | 2026-10-24 | Slice 3 of 1a |
+| T-053e Permisos: solo Administrador | ✅ | PR-1a-3 | ≈42 | 2026-10-24 | Slice 3 of 1a |
+| T-053f Handlers de API y envoltorios cliente | 🔄 | PR-1a-4a + 4b | ≈321 | 2026-10-24 | 4a (handlers) ✅; 4b (wrappers + `CLAVES.maquinas`) pendiente |
 | T-053g Rutas `GET`/`POST /api/maquinas` | ⬜ | PR-1a-5 | ≈240 | — | Slice 5 of 1a |
 | T-053h Rutas `GET`/`PUT`/`DELETE /api/maquinas/[id]` | ⬜ | PR-1a-6 | ≈360 | — | Slice 6 of 1a |
 | T-053i Formulario y distintivo de estado | ⬜ | PR-1b-1 | ≈340 | — | Slice 1 of 1b |
@@ -243,12 +243,12 @@ planning number (tests included).
 
 #### T-053d · Mapeo de errores nuevos
 
-- **Status**: ⬜ · **Slice**: PR-1a-3 (part of PR 1a) · **Est. LOC**: ≈135 (≈60 impl + ≈75 tests)
+- **Status**: ✅ · **Slice**: PR-1a-3 (part of PR 1a) · **Est. LOC**: ≈135 (≈60 impl + ≈75 tests)
 - **Files**:
   - `src/lib/route-error-mapper.ts` (modify)
   - `src/lib/route-error-mapper.test.ts` (modify)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — extend `route-error-mapper.test.ts` (mirror the existing `DELETE_BLOCKED_ASSIGNED` describes):
+   1. - [x] RED — extend `route-error-mapper.test.ts` (mirror the existing `DELETE_BLOCKED_ASSIGNED` describes):
      - `ESTADO_NO_ASIGNABLE > mapea el código explícito a 400`
      - `ESTADO_NO_ASIGNABLE > mapea el prefijo "ESTADO_NO_ASIGNABLE: ..." a 400`
      - `DUPLICATE_NOMBRE_UBICACION > mapea el código explícito a 409`
@@ -256,13 +256,13 @@ planning number (tests included).
      - `DELETE_BLOCKED_EJERCICIOS > mapea el código explícito a 409 y conserva el conteo`
      - `DELETE_BLOCKED_EJERCICIOS > mapea el prefijo a 409 y quita "DELETE_BLOCKED_EJERCICIOS: "`
      - `los tres códigos esperados no escriben en console.error`
-  2. - [ ] RED — the new assertions fail (codes fall through to 500).
-  3. - [ ] GREEN — add the three codes to the explicit-`code` branch **and** to the `validationCodeMatch`
-     alternation, with statuses 400 / 409 / 409 and `stripCodePrefix`. Fixed messages:
-     `El estado OCUPADA no puede asignarse desde este panel`,
-     `Ya existe una máquina con el mismo nombre y ubicación`; `DELETE_BLOCKED_EJERCICIOS` keeps the handler text
-     (`No se puede eliminar: N ejercicios usan esta máquina`).
-  4. - [ ] REFACTOR — group the three new blocks next to `DELETE_BLOCKED_ASSIGNED` and update the header comment list.
+   2. - [x] RED — the new assertions fail (codes fall through to 500).
+   3. - [x] GREEN — add the three codes to the explicit-`code` branch **and** to the `validationCodeMatch`
+      alternation, with statuses 400 / 409 / 409 and `stripCodePrefix`. Fixed messages:
+      `El estado OCUPADA no puede asignarse desde este panel`,
+      `Ya existe una máquina con el mismo nombre y ubicación`; `DELETE_BLOCKED_EJERCICIOS` keeps the handler text
+      (`No se puede eliminar: N ejercicios usan esta máquina`).
+   4. - [x] REFACTOR — group the three new blocks next to `DELETE_BLOCKED_ASSIGNED` and update the header comment list.
 - **Acceptance criteria**: AC-005 (API half), AC-006 (API half), AC-011 (mapping), AC-009.
 - **Dependencies**: none for compilation; must land before T-053g/T-053h.
 - **Verification**:
@@ -274,25 +274,25 @@ planning number (tests included).
 
 #### T-053e · Permisos: solo Administrador
 
-- **Status**: ⬜ · **Slice**: PR-1a-3 (part of PR 1a) · **Est. LOC**: ≈42 (≈10 impl + ≈32 tests)
+- **Status**: ✅ · **Slice**: PR-1a-3 (part of PR 1a) · **Est. LOC**: ≈42 (≈10 impl + ≈32 tests)
 - **Files**:
   - `src/middleware/role-gating.ts` (modify)
   - `src/middleware/matrix-consistency.test.ts` (modify)
   - `src/middleware/role-gating.test.ts` (modify only if a local, non-duplicated assertion adds value)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — add a `describe("máquinas es solo de Administrador")` to `matrix-consistency.test.ts`:
+   1. - [x] RED — add a `describe("máquinas es solo de Administrador")` to `matrix-consistency.test.ts`:
      - `it.each` over `["/maquinas", "/api/maquinas"] × [RECEPCIONISTA, INSTRUCTOR, SOCIO]` →
        `roleGatingMiddleware(...)` is `false` **and** `hasRouteAccess(rol, route, "GET").allowed` is `false`
      - `it.each` over the two routes → ADMIN is `true` in **both** matrices
-  2. - [ ] RED — confirm the failures (routes absent from `ROLE_GATE_MATRIX` → `roleGatingMiddleware` false while
-     `hasRouteAccess` grants ADMIN through the wildcard).
-  3. - [ ] GREEN — add to `ROLE_GATE_MATRIX`:
-     ```ts
-     "/maquinas": [Rol.ADMINISTRADOR],
-     "/api/maquinas": [Rol.ADMINISTRADOR],
-     ```
-     Do **not** add an entry to `src/lib/authorization.ts` (ADMIN wildcard already covers it; spec requirement).
-  4. - [ ] REFACTOR — none.
+   2. - [x] RED — confirm the failures (routes absent from `ROLE_GATE_MATRIX` → `roleGatingMiddleware` false while
+      `hasRouteAccess` grants ADMIN through the wildcard).
+   3. - [x] GREEN — add to `ROLE_GATE_MATRIX`:
+      ```ts
+      "/maquinas": [Rol.ADMINISTRADOR],
+      "/api/maquinas": [Rol.ADMINISTRADOR],
+      ```
+      Do **not** add an entry to `src/lib/authorization.ts` (ADMIN wildcard already covers it; spec requirement).
+   4. - [x] REFACTOR — none.
 - **Acceptance criteria**: AC-001, AC-015.
 - **Dependencies**: none.
 - **Verification**:
@@ -307,34 +307,34 @@ planning number (tests included).
 
 #### T-053f · Handlers de API y envoltorios cliente
 
-- **Status**: ⬜ · **Slice**: PR-1a-4 (part of PR 1a) · **Est. LOC**: ≈321 (≈170 impl + ≈150 tests + 1 cache key)
+- **Status**: ✅ · **Slice**: PR-1a-4 (part of PR 1a) · **Est. LOC**: ≈321 (≈170 impl + ≈150 tests + 1 cache key)
 - **Files**:
   - `src/api/maquinas.ts` (new)
   - `src/api/maquinas.test.ts` (new)
   - `src/lib/cache-cliente.ts` (modify: add `maquinas: "maquinas"` to `CLAVES`)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — `src/api/maquinas.test.ts`, repository and cache mocked (`jest.mock("@/domains/maquina/maquina-repositorio")`):
-     - `handleMaquinaList > devuelve la lista y propaga los filtros`
-     - `handleMaquinaList > acepta llamarse sin filtros`
-     - `handleMaquinaCreate > rechaza una entrada inválida con VALIDATION_ERROR`
-     - `handleMaquinaCreate > rechaza OCUPADA con ESTADO_NO_ASIGNABLE`
-     - `handleMaquinaCreate > normaliza antes de guardar`
-     - `handleMaquinaCreate > propaga DUPLICATE_NOMBRE_UBICACION del repositorio`
-     - `handleMaquinaGetById > lanza NOT_FOUND con "Máquina no encontrada"`
-     - `handleMaquinaUpdate > lanza NOT_FOUND cuando no existe`
-     - `handleMaquinaUpdate > rechaza OCUPADA aunque el valor no cambie`
-     - `handleMaquinaUpdate > valida el registro combinado`
-     - `handleMaquinaUpdate > propaga DUPLICATE_NOMBRE_UBICACION`
-     - `handleMaquinaDelete > lanza NOT_FOUND cuando no existe`
-     - `handleMaquinaDelete > consulta puedeEliminar con 0 y borra`
-     - `fetchMaquinasList > guarda la respuesta en CLAVES.maquinas`
-     - `deleteMaquina > invalida CLAVES.maquinas`
-  2. - [ ] RED — confirm failures.
-  3. - [ ] GREEN — implement the five handlers plus `fetchMaquinasList`, `createMaquina`, `updateMaquina`,
-     `deleteMaquina`. Use a local `codedError(code, message)` helper (no `any`). Merge order on update:
-     read existing → merged (near-update semantics: absent field keeps the current value) → `OCUPADA` guard →
-     `validateMaquina(merged)` → `normalizeMaquina` → repository update.
-  4. - [ ] REFACTOR — client wrappers invalidate `CLAVES.maquinas` after create/update/delete (delete already must).
+   1. - [x] RED — `src/api/maquinas.test.ts`, repository and cache mocked (`jest.mock("@/domains/maquina/maquina-repositorio")`):
+      - `handleMaquinaList > devuelve la lista y propaga los filtros`
+      - `handleMaquinaList > acepta llamarse sin filtros`
+      - `handleMaquinaCreate > rechaza una entrada inválida con VALIDATION_ERROR`
+      - `handleMaquinaCreate > rechaza OCUPADA con ESTADO_NO_ASIGNABLE`
+      - `handleMaquinaCreate > normaliza antes de guardar`
+      - `handleMaquinaCreate > propaga DUPLICATE_NOMBRE_UBICACION del repositorio`
+      - `handleMaquinaGetById > lanza NOT_FOUND con "Máquina no encontrada"`
+      - `handleMaquinaUpdate > lanza NOT_FOUND cuando no existe`
+      - `handleMaquinaUpdate > rechaza OCUPADA aunque el valor no cambie`
+      - `handleMaquinaUpdate > valida el registro combinado`
+      - `handleMaquinaUpdate > propaga DUPLICATE_NOMBRE_UBICACION`
+      - `handleMaquinaDelete > lanza NOT_FOUND cuando no existe`
+      - `handleMaquinaDelete > consulta puedeEliminar con 0 y borra`
+      - `fetchMaquinasList > guarda la respuesta en CLAVES.maquinas`
+      - `deleteMaquina > invalida CLAVES.maquinas`
+   2. - [x] RED — confirm failures (`Cannot find module './maquinas'`).
+   3. - [x] GREEN — implement the five handlers plus `fetchMaquinasList`, `createMaquina`, `updateMaquina`,
+      `deleteMaquina`. Use a local `codedError(code, message)` helper (no `any`). Merge order on update:
+      read existing → merged (near-update semantics: absent field keeps the current value) → `OCUPADA` guard →
+      `validateMaquina(merged)` → `normalizeMaquina` → repository update.
+   4. - [x] REFACTOR — client wrappers invalidate `CLAVES.maquinas` after create/update/delete (delete already must).
 - **Acceptance criteria**: AC-005, AC-006, AC-007 (handler half), AC-008, AC-009, AC-010.
 - **Dependencies**: T-053a, T-053b.
 - **Verification**:
