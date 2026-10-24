@@ -10,6 +10,7 @@ export type NavSection =
   | "membresias"
   | "rutinas"
   | "ejercicios"
+  | "maquinas"
   | "clientes"
   | "pagos"
   | "cierres"
@@ -42,6 +43,7 @@ const ZONES: { label?: string; items: NavItem[] }[] = [
       { section: "clientes", label: "Clientes", href: "/clientes", roles: ["ADMINISTRADOR", "RECEPCIONISTA"] },
       { section: "rutinas", label: "Rutinas", href: "/rutinas", roles: ["ADMINISTRADOR", "INSTRUCTOR"] },
       { section: "ejercicios", label: "Ejercicios", href: "/ejercicios", roles: ["ADMINISTRADOR", "INSTRUCTOR"] },
+      { section: "maquinas", label: "Máquinas", href: "/maquinas", roles: ["ADMINISTRADOR"] },
     ],
   },
   {

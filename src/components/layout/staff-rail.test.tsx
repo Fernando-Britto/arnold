@@ -22,15 +22,16 @@ describe("StaffRail (zonas por rol)", () => {
     expect(screen.getByText("GYM")).toBeInTheDocument();
   });
 
-  it("ADMINISTRADOR ve los 8 destinos con sus rutas", () => {
+  it("ADMINISTRADOR ve los 9 destinos con sus rutas", () => {
     mockUseAuth.mockReturnValue(asRol("ADMINISTRADOR"));
     render(<StaffRail activeSection="ejercicios" />);
-    expect(screen.getAllByRole("link")).toHaveLength(8);
+    expect(screen.getAllByRole("link")).toHaveLength(9);
     expect(screen.getByRole("link", { name: "Hoy" })).toHaveAttribute("href", "/home-interno");
     expect(screen.getByRole("link", { name: "Clientes" })).toHaveAttribute("href", "/clientes");
     expect(screen.getByRole("link", { name: "Pagos" })).toHaveAttribute("href", "/pagos");
     expect(screen.getByRole("link", { name: "Cierres" })).toHaveAttribute("href", "/cierres");
     expect(screen.getByRole("link", { name: "Configuración" })).toHaveAttribute("href", "/configuracion");
+    expect(screen.getByRole("link", { name: "Máquinas" })).toHaveAttribute("href", "/maquinas");
   });
 
   it("RECEPCIONISTA ve su trabajo real: Clientes, Pagos y Cierres", () => {
@@ -64,4 +65,13 @@ describe("StaffRail (zonas por rol)", () => {
     render(<StaffRail activeSection="ejercicios" />);
     expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
+
+  it.each(["RECEPCIONISTA", "INSTRUCTOR", "SOCIO"])(
+    "%s no ve el enlace Máquinas",
+    (rol) => {
+      mockUseAuth.mockReturnValue(asRol(rol));
+      render(<StaffRail activeSection="ejercicios" />);
+      expect(screen.queryByRole("link", { name: "Máquinas" })).not.toBeInTheDocument();
+    }
+  );
 });
