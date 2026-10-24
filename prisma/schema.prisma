@@ -294,6 +294,7 @@ model Ejercicio {
   // Relaciones
   rutinas       EjercicioEnRutina[]
   registrosProgreso RegistroDeProgreso[]
+  maquinas      EjercicioMaquina[]
 
   @@index([grupoMuscular])
   @@index([equipamiento])
@@ -386,6 +387,9 @@ model Maquina {
   fechaAlta       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // Relaciones
+  ejercicios    EjercicioMaquina[]
+
   @@index([estado])
   @@index([tipoEquipamiento])
 }
@@ -401,6 +405,23 @@ enum EstadoMaquina {
   OCUPADA
   FUERA_DE_SERVICIO
   INACTIVA
+}
+
+// ============================================================================
+// EJERCICIO EN MÁQUINA (Relación)
+// ============================================================================
+
+model EjercicioMaquina {
+  id          String    @id @default(cuid())
+  ejercicio   Ejercicio @relation(fields: [ejercicioId], references: [id], onDelete: Cascade)
+  ejercicioId String
+  maquina     Maquina   @relation(fields: [maquinaId], references: [id], onDelete: Cascade)
+  maquinaId   String
+  createdAt   DateTime  @default(now())
+
+  @@unique([maquinaId, ejercicioId])
+  @@index([maquinaId])
+  @@index([ejercicioId])
 }
 
 // ============================================================================

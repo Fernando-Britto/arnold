@@ -1,6 +1,8 @@
 import {
   ESTADOS_ASIGNABLES,
+  MAX_EJERCIOS_POR_MAQUINA,
   validateMaquina,
+  validarAsignacionEjercicios,
   normalizarTexto,
   normalizeMaquina,
   puedeEliminar,
@@ -198,5 +200,70 @@ describe("puedeEliminar", () => {
       permitido: false,
       motivo: "3 ejercicios usan esta máquina",
     });
+  });
+});
+
+describe("validarAsignacionEjercicios", () => {
+  it("acepta ids distintos que existen y los devuelve tal cual", () => {
+    const ids = ["e1", "e2", "e3"];
+    const existentes = new Set(ids);
+    const result = validarAsignacionEjercicios(ids, existentes);
+    expect(result).toEqual({ ok: true, ejercicioIds: ids });
+  });
+
+  it("acepta el conjunto vacío y devuelve { ok: true, ejercicioIds: [] }", () => {
+    const result = validarAsignacionEjercicios([], new Set());
+    expect(result).toEqual({ ok: true, ejercicioIds: [] });
+  });
+
+  it("rechaza duplicados con VALIDATION_ERROR y el mensaje esperado", () => {
+    const result = validarAsignacionEjercicios(
+      ["e1", "e1"],
+      new Set(["e1"])
+    );
+    expect(result).toEqual({
+      ok: false,
+      code: "VALIDATION_ERROR",
+      message: "Hay ejercicios duplicados en la asignación",
+    });
+  });
+
+  it("rechaza ids desconocidos con VALIDATION_ERROR y el mensaje esperado", () => {
+    const result = validarAsignacionEjercicios(
+      ["e1", "e-desconocido"],
+      new Set(["e1"])
+    );
+    expect(result).toEqual({
+      ok: false,
+      code: "VALIDATION_ERROR",
+      message: "Uno o más ejercicios no existen",
+    });
+  });
+
+  it("rechaza 101 ids con VALIDATION_MAX_EJERCICIOS y el mensaje interpolado", () => {
+    const ids = Array.from({ length: 101 }, (_, i) => `e-${i}`);
+    const existentes = new Set(ids);
+    const result = validarAsignacionEjercicios(ids, existentes);
+    expect(result).toEqual({
+      ok: false,
+      code: "VALIDATION_MAX_EJERCICIOS",
+      message: `No se pueden asignar más de ${MAX_EJERCIOS_POR_MAQUINA} ejercicios a una máquina`,
+    });
+  });
+
+  it("la precedencia es duplicados → máximo → inexistentes", () => {
+    const ids = Array.from({ length: 101 }, (_, i) => (i === 0 ? "e-dup" : `e-${i}`));
+    ids[1] = "e-dup"; // duplicate at two positions
+    const existentes = new Set<string>();
+    const result = validarAsignacionEjercicios(ids, existentes);
+    expect(result).toEqual({
+      ok: false,
+      code: "VALIDATION_ERROR",
+      message: "Hay ejercicios duplicados en la asignación",
+    });
+  });
+
+  it("MAX_EJERCIOS_POR_MAQUINA vale 100", () => {
+    expect(MAX_EJERCIOS_POR_MAQUINA).toBe(100);
   });
 });

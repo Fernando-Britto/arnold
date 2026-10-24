@@ -110,6 +110,51 @@ export function normalizeMaquina(data: {
   };
 }
 
+export const MAX_EJERCIOS_POR_MAQUINA = 100;
+
+export interface EjercicioAsociado {
+  id: string;
+  nombre: string;
+  grupoMuscular: string;
+}
+
+export type ErrorAsignacion = "VALIDATION_ERROR" | "VALIDATION_MAX_EJERCICIOS";
+
+export type ResultadoAsignacion =
+  | { ok: true; ejercicioIds: string[] }
+  | { ok: false; code: ErrorAsignacion; message: string };
+
+export function validarAsignacionEjercicios(
+  ejercicioIds: string[],
+  existentes: ReadonlySet<string>
+): ResultadoAsignacion {
+  if (new Set(ejercicioIds).size !== ejercicioIds.length) {
+    return {
+      ok: false,
+      code: "VALIDATION_ERROR",
+      message: "Hay ejercicios duplicados en la asignación",
+    };
+  }
+
+  if (ejercicioIds.length > MAX_EJERCIOS_POR_MAQUINA) {
+    return {
+      ok: false,
+      code: "VALIDATION_MAX_EJERCICIOS",
+      message: `No se pueden asignar más de ${MAX_EJERCIOS_POR_MAQUINA} ejercicios a una máquina`,
+    };
+  }
+
+  if (ejercicioIds.some((id) => !existentes.has(id))) {
+    return {
+      ok: false,
+      code: "VALIDATION_ERROR",
+      message: "Uno o más ejercicios no existen",
+    };
+  }
+
+  return { ok: true, ejercicioIds };
+}
+
 export function puedeEliminar(
   _maquina: Maquina,
   context: { ejerciciosAsociados: number }
