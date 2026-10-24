@@ -91,6 +91,20 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-050e ➕ Catálogo de ejercicios (parte 5): UI admin y socio | ✅ | — (direct to `dev`) | — | Miniaturas/video, detalle con instrucciones, filtros, paginación, atribución; las tarjetas del socio muestran la animación (D-70) |
 | T-050f ➕ Catálogo de ejercicios (parte 6): animación en la ejecución de la sesión | ✅ | — (direct to `dev`) | — | `EjecucionRutina` con animación, músculo, "Cómo se hace" y atribución; `EjercicioDeSesion` con media (D-70) |
 | T-050g ➕ Catálogo de ejercicios (parte 7): instrucciones en español rioplatense | ✅ | — (direct to `dev`) | — | `aRioplatense` (voseo, presente de vos y vocabulario), aplicado en el generador; catálogo regenerado (7.704 de 7.710 pasos, 11 nombres, 13 equipamientos); P-51 resuelto (D-70) |
+| T-053a ➕ Máquinas: dominio puro | ✅ | — (slice, direct to `dev`) | — | Validación, normalización, `ESTADOS_ASIGNABLES` y `puedeEliminar`; D-73 |
+| T-053b ➕ Máquinas: repositorio y unicidad | ✅ | — (slice, direct to `dev`) | — | Pre-consulta con `unaccent(lower(btrim(...)))` → `DUPLICATE_NOMBRE_UBICACION`; `P2002` mapeado; D-73 |
+| T-053c ➕ Máquinas: migración e integración | ✅ | — (slice, direct to `dev`) | — | Índice único `lower(btrim(nombre)), lower(btrim(ubicacion))`; integración **26/26**; D-73 |
+| T-053d ➕ Máquinas: mapeo de errores | ✅ | — (slice, direct to `dev`) | — | `ESTADO_NO_ASIGNABLE`, `DUPLICATE_NOMBRE_UBICACION`, `DELETE_BLOCKED_EJERCICIOS`; D-73 |
+| T-053e ➕ Máquinas: permisos | ✅ | — (slice, direct to `dev`) | — | ADMINISTRADOR-only en la matriz de roles; D-73 |
+| T-053f ➕ Máquinas: handlers de API y envoltorios | ✅ | — (slice, direct to `dev`) | — | 4a + 4b; D-73 |
+| T-053g ➕ Máquinas: rutas `GET`/`POST` | ✅ | — (slice, direct to `dev`) | — | 5a + 5b; D-73 |
+| T-053h ➕ Máquinas: rutas `GET`/`PUT`/`DELETE [id]` | ✅ | — (slice, direct to `dev`) | — | 6a + 6b + 6c; D-73 |
+| T-053i ➕ Máquinas: formulario y distintivo de estado | ✅ | — (slice, direct to `dev`) | 372 | D-73 |
+| T-053j ➕ Máquinas: panel del formulario | ✅ | — (slice, direct to `dev`) | 291 | Alta y edición en modal; D-73 |
+| T-053k ➕ Máquinas: listado con filtros y búsqueda | ✅ | — (slice, direct to `dev`) | 367 | D-73 |
+| T-053l ➕ Máquinas: navegación y seed | ✅ | — (slice, direct to `dev`) | — | "Polea alta" de `OCUPADA` a `DISPONIBLE`; D-73 |
+| T-053m ➕ Máquinas: pantalla `/maquinas` | ✅ | — (slice, direct to `dev`) | 352 | Probada en el navegador por Fernando; D-73 |
+| T-053n ➕ Máquinas: cierre documental | ✅ | — (slice, direct to `dev`) | — | P-53, P-54, P-55, P-56 y D-73; migración 19/19 |
 
 ## Scope changes during apply
 

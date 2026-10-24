@@ -1,6 +1,6 @@
 # Arnold — Estado del proyecto
 
-**Actualizado**: 2026-10-23 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
+**Actualizado**: 2026-10-24 · **Plan**: [`openspec/sdd-tasks-tdd.md`](openspec/sdd-tasks-tdd.md) ·
 **Decisiones y defectos**: [`openspec/decisions.md`](openspec/decisions.md) · **Modo**: Strict TDD
 
 Sistema de gestión para un gimnasio. Stack: Next.js 16.2 (Turbopack), React 19, Prisma 6 sobre PostgreSQL, Jest.
@@ -179,7 +179,9 @@ Alcance, hallazgos y orden en D-42; forma de trabajo en D-41 (siempre en `dev`).
 
 13. **Modal de ejercicios de la rutina** (T-052, D-72) — ✅ preparado para el catálogo de 1.330: búsqueda sin tildes y por varias palabras (nombre, grupo, equipamiento y músculo), filtros por grupo y equipamiento, de a 50 con "Ver más ejercicios", miniaturas con la atribución de la media y lo tildado que se conserva. Cancelar y Escape dejan el modal limpio. Sin migración.
 
-Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-050) y **las 18 migraciones están aplicadas** (incluidas `tipo_de_serie`, `peso_corporal_con_meta` y `catalogo_ejercicios`; `npx prisma migrate status`: esquema al día). El catálogo tiene **1.324 ejercicios importados** (1.330 con el seed) y **1.324 pares de media**. Falta probar el tracking y el catálogo en el navegador y, la huella, con el hardware real.
+14. **CRUD de máquinas** (T-053a–T-053n, D-73) — ✅ Etapa 1 de "asignación dinámica de ejercicios": `/api/maquinas` y `/api/maquinas/[id]` más la pantalla `/maquinas`, todo ADMINISTRADOR-only, con unicidad en dos capas (índice único y pre-consulta con `unaccent`), estados asignables (solo `DISPONIBLE`, `FUERA_DE_SERVICIO` e `INACTIVA`), auditoría y seed ("Polea alta" pasa a `DISPONIBLE`). La migración `20261023120000_maquina_nombre_ubicacion_unique` quedó **aplicada** (`migrate status`: 19/19), el índice `Maquina_nombre_ubicacion_key` **verificado** con `pg_indexes` y el smoke de 15 pasos dio verde; la pantalla la probó Fernando en el navegador. **No incluye** las asociaciones Ejercicio↔Maquina ni la fila expandida: eso es Etapa 2.
+
+Estado: **todas las tareas de código de la ampliación están hechas** (T-032…T-053) y **las 19 migraciones están aplicadas** (incluidas `tipo_de_serie`, `peso_corporal_con_meta`, `catalogo_ejercicios` y `maquina_nombre_ubicacion_unique`; `npx prisma migrate status`: esquema al día). El catálogo tiene **1.324 ejercicios importados** (1.330 con el seed) y **1.324 pares de media**. Falta probar el tracking y el catálogo en el navegador y, la huella, con el hardware real.
 
 Sugeridos y sin confirmar: usuarios internos y cambio de contraseña (T-042, T-044). La configuración (T-043) quedó confirmada en D-54, sin la parte de máquinas. El refresh token (P-20) ya está hecho (D-57); el despliegue (P-28) avanzó: el pooler de Supabase **se probó y funciona en local** (incluidas las transacciones interactivas) y `npm run build`/`npm run start` están verificados; **falta probarlo en Vercel** (D-35).
 
@@ -232,8 +234,14 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-50 | Catálogo de ejercicios (T-050, D-70): la media es © Gym visual (fuera de la MIT). Mostrar la atribución donde aparezca, mantener 180×180 y mencionarlo en el informe. La migración ya está aplicada y el catálogo importado | Media |
 | P-51 | ~~Catálogo (T-050, D-70): las instrucciones en español del dataset están en español de España (“Túmbate”, “suelo”); se usan tal cual~~ → **resuelto (T-050g, 2026-10-21)**: se pasan a español rioplatense al generar el catálogo (voseo y vocabulario), con un conversor por reglas y tests | Baja |
 | P-52 | ~~Agregar ejercicios a una rutina con el catálogo de 1.330: el modal buscaba solo por nombre, distinguía tildes y dibujaba los 1.330 de una vez~~ → **resuelto (T-052, D-72)**: búsqueda sin tildes y por palabras, filtros por grupo y equipamiento, de a 50 y miniaturas | — |
+| P-53 | Máquinas (D-73): `INACTIVA` cuenta en el total de "Estado de equipos" de Home_Interno (AC-005), así que borrar máquinas baja el porcentaje. Revisar cuando cierre la feature; Home_Interno no se tocó | Baja |
+| P-54 | Máquinas (D-73): `EstadoMaquina` está duplicado como uniones literales en `src/domains/home-interno/home-interno.ts` y `src/components/home-socio/tarjeta-detalle.tsx`; el código nuevo importa el tipo de Prisma. Consolidación diferida | Baja |
+| P-55 | Máquinas (D-73): `POST`, `GET` (por id) y `PUT` devuelven un campo `status` dentro del JSON del recurso (`{ ...maquina, status }`), igual que Membresías; el estado HTTP debería ser la única fuente. No se corrigió en esta feature | Baja |
+| P-56 | Máquinas (D-73): una actualización y un borrado simultáneos pueden chocar en un P2025 de Prisma que hoy sale como 500; mapearlo a 404/409 | Baja |
 
-## Cambios recientes (2026-10-07 al 2026-10-21)
+## Cambios recientes (2026-10-07 al 2026-10-24)
+
+- **CRUD de máquinas (T-053a–T-053n, D-73)**: admin-only `/api/maquinas` + `/api/maquinas/[id]` y pantalla `/maquinas`, cierre de la Etapa 1 de "asignación dinámica de ejercicios". Unicidad en dos capas: índice único `lower(btrim(nombre)), lower(btrim(ubicacion))` (migración `20261023120000_maquina_nombre_ubicacion_unique`, **aplicada**: `migrate status` 19/19; índice `Maquina_nombre_ubicacion_key` **verificado** con `pg_indexes`) más pre-consulta del repositorio con `unaccent(lower(btrim(...)))` que devuelve `DUPLICATE_NOMBRE_UBICACION`; `P2002` se mapea al mismo código. Solo se escriben `DISPONIBLE`, `FUERA_DE_SERVICIO` e `INACTIVA`; `OCUPADA` se rechaza con 400 `ESTADO_NO_ASIGNABLE`. Auditoría con ALTA/MODIFICACION/BAJA y seed de "Polea alta" a `DISPONIBLE`. Tests: **240 suites / 3382** en verde (`npm test`); la integración dio **26/26** aparte, contra el Postgres de Docker. El smoke de 15 pasos y la pantalla los verificó Fernando (backend y pantalla aprobados). Las asociaciones Ejercicio↔Maquina y la fila expandida son Etapa 2.
 
 - **Rutinas: el modal de ejercicios sirve para el catálogo (T-052, D-72)**: al agregar ejercicios a una rutina se busca sin distinguir tildes y por varias palabras, se filtra por grupo y equipamiento, se ve la miniatura de cada ejercicio y se muestran de a 50. Lo tildado se conserva al cambiar la búsqueda y cancelar ya no lo arrastra. Sin migración ni cambios en la API.
 - **Músculos por ejercicio, parte 1 (T-051, D-71)**: `src/domains/ejercicio/musculos.ts` reduce los 47 términos de músculos del catálogo a 18 músculos dibujables, con peso 1 para el objetivo y 0,4 para cada secundario; los ejercicios sin músculos usan su grupo muscular y el cardio nunca suma. Es la base del volumen por músculo y del mapa corporal. Sin migración ni cambios en la API.

@@ -33,12 +33,12 @@ componentes y pantalla `/maquinas`, todo ADMINISTRADOR-only.
 6. **T-053f** — Handlers de API y envoltorios cliente. ✅ (4a + 4b)
 7. **T-053g** — Rutas `GET`/`POST /api/maquinas`. ✅ (5a + 5b)
 8. **T-053h** — Rutas `GET`/`PUT`/`DELETE /api/maquinas/[id]`. ✅ (6a + 6b + 6c)
-9. **T-053i** — Formulario y distintivo de estado. ⬜
-10. **T-053j** — Panel del formulario (alta/edición). ⬜
-11. **T-053k** — Listado con filtros y búsqueda. ⬜
-12. **T-053l** — Navegación y seed de «Polea alta». ⬜
-13. **T-053m** — Pantalla `/maquinas`. ⬜
-14. **T-053n** — Cierre documental (P-53, P-54, P-55, D-73). ⬜
+9. **T-053i** — Formulario y distintivo de estado. ✅
+10. **T-053j** — Panel del formulario (alta/edición). ✅
+11. **T-053k** — Listado con filtros y búsqueda. ✅
+12. **T-053l** — Navegación y seed de «Polea alta». ✅
+13. **T-053m** — Pantalla `/maquinas`. ✅
+14. **T-053n** — Cierre documental (P-53, P-54, P-55, P-56, D-73). ✅
 
 ## Checkpoints humanos
 
@@ -119,7 +119,20 @@ Las respuestas de `POST`, `GET` (por id) y `PUT` de máquinas incluyen un campo 
 funcional, pero ensucia el contrato: debería sacarse del body y dejar el status solo en el HTTP status code.
 Se registra para el cierre (T-053n) y no se toca en esta feature.
 
+## Resultado final
+
+- **Backend aprobado** (smoke de 15 pasos y revisión de Fernando) y **pantalla aprobada** (probada en el navegador por Fernando).
+- **240 suites / 3382 tests** unitarios en verde (`npm test`).
+- Integración **26/26** contra el Postgres efímero de Docker.
+- Migración `20261023120000_maquina_nombre_ubicacion_unique` **aplicada** (`npx prisma migrate status`: **19/19**).
+- Índice `Maquina_nombre_ubicacion_key` **verificado** con `pg_indexes`.
+- Smoke de **15 pasos** en verde (login, filtros válidos e inválidos, alta, duplicado exacto y con tilde, `OCUPADA`, PUT solo de estado, cuerpos inválidos, DELETE, 404 y 403, auditoría ALTA/MODIFICACION/BAJA).
+- Pantalla `/maquinas` probada en el navegador.
+
 ## Pendientes
 
-- Aplicar T-053i..T-053m (pantalla, componentes, navegación y seed).
-- Cerrar con T-053n (P-53, P-54, P-55, D-73).
+- **P-53**: `INACTIVA` cuenta en "Estado de equipos" de Home_Interno (AC-005); revisar cuando cierre la feature. Home_Interno no se tocó.
+- **P-54**: `EstadoMaquina` duplicado como uniones literales en `home-interno.ts` y `tarjeta-detalle.tsx`; consolidación diferida.
+- **P-55**: `status` dentro del JSON del recurso en `POST`/`GET`/`PUT`; el estado HTTP debería ser la única fuente.
+- **P-56**: carrera entre actualización y borrado que puede salir como 500 (P2025); mapear a 404/409.
+- **Etapa 2**: la fila expandida (mostrar los ejercicios de la máquina) y las asociaciones Ejercicio↔Maquina. El chevron de la fila quedó oculto a propósito hasta entonces.
