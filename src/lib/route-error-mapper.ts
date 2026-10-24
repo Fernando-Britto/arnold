@@ -60,7 +60,10 @@ function mensajeNotFound(message: string, resourceName: string): string {
  * - "MEMBERSHIP_NO_LONGER_ACTIVE: ..." → 400 MEMBERSHIP_NO_LONGER_ACTIVE
  * - "DEACTIVATION_WARNING: ..." → 400 DEACTIVATION_WARNING (AC-005)
  * - "DELETE_BLOCKED_ASSIGNED: ..." → 409 DELETE_BLOCKED_ASSIGNED (AC-006)
+ * - "DELETE_BLOCKED_EJERCICIOS: ..." → 409 DELETE_BLOCKED_EJERCICIOS (AC-011)
  * - "DELETE_BLOCKED_REFERENCES: ..." → 409 DELETE_BLOCKED_REFERENCES (PG-6/H2)
+ * - "ESTADO_NO_ASIGNABLE: ..." → 400 ESTADO_NO_ASIGNABLE (AC-005)
+ * - "DUPLICATE_NOMBRE_UBICACION: ..." → 409 DUPLICATE_NOMBRE_UBICACION (AC-006)
  * - "CASH_CLOSE_CONFLICT: ..." → 409 CASH_CLOSE_CONFLICT (cierre de caja duplicado)
  * - "PAYMENT_ALREADY_REGISTERED: ..." → 409 PAYMENT_ALREADY_REGISTERED (pago duplicado, PG-4)
  * - "PAYMENT_ALREADY_ANNULLED: ..." → 409 PAYMENT_ALREADY_ANNULLED (pago ya anulado, P-39)
@@ -97,6 +100,27 @@ export function mapErrorToResponse(
     if (code === "DELETE_BLOCKED_ASSIGNED") {
       return {
         code: "DELETE_BLOCKED_ASSIGNED",
+        message: stripCodePrefix(message),
+        status: 409,
+      };
+    }
+    if (code === "DELETE_BLOCKED_EJERCICIOS") {
+      return {
+        code: "DELETE_BLOCKED_EJERCICIOS",
+        message: stripCodePrefix(message),
+        status: 409,
+      };
+    }
+    if (code === "ESTADO_NO_ASIGNABLE") {
+      return {
+        code: "ESTADO_NO_ASIGNABLE",
+        message: stripCodePrefix(message),
+        status: 400,
+      };
+    }
+    if (code === "DUPLICATE_NOMBRE_UBICACION") {
+      return {
+        code: "DUPLICATE_NOMBRE_UBICACION",
         message: stripCodePrefix(message),
         status: 409,
       };
@@ -177,13 +201,16 @@ export function mapErrorToResponse(
 
   // Extract specific error codes from message prefix (VALIDATION_XXX, MEMBERSHIP_XXX, NOT_FOUND, etc.)
   const validationCodeMatch = message.match(
-    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_REFERENCES|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|PAYMENT_ALREADY_ANNULLED|AMOUNT_CHANGED|DUPLICATE_EXERCISE|ASIGNACION_CONFLICTO|NOT_FOUND):\s*(.+)$/
+    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_EJERCICIOS|DELETE_BLOCKED_REFERENCES|ESTADO_NO_ASIGNABLE|DUPLICATE_NOMBRE_UBICACION|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|PAYMENT_ALREADY_ANNULLED|AMOUNT_CHANGED|DUPLICATE_EXERCISE|ASIGNACION_CONFLICTO|NOT_FOUND):\s*(.+)$/
   );
   if (validationCodeMatch) {
     const [, errorCode, errorMessage] = validationCodeMatch;
     let status = 400;
     if (errorCode === "DELETE_BLOCKED_ASSIGNED") status = 409;
+    if (errorCode === "DELETE_BLOCKED_EJERCICIOS") status = 409;
     if (errorCode === "DELETE_BLOCKED_REFERENCES") status = 409;
+    if (errorCode === "ESTADO_NO_ASIGNABLE") status = 400;
+    if (errorCode === "DUPLICATE_NOMBRE_UBICACION") status = 409;
     if (errorCode === "CASH_CLOSE_CONFLICT") status = 409;
     if (errorCode === "PAYMENT_ALREADY_REGISTERED") status = 409;
     if (errorCode === "PAYMENT_ALREADY_ANNULLED") status = 409;

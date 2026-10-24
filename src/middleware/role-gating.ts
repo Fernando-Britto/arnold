@@ -13,6 +13,7 @@ export const ROLE_GATE_MATRIX: Record<string, Rol[]> = {
   "/cierres": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // pantalla "Cierre de Caja" (T-040)
   "/acceso": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // kiosco de check-in por DNI + PIN (T-035)
   "/membresias": [Rol.ADMINISTRADOR],
+  "/maquinas": [Rol.ADMINISTRADOR],
   "/home-interno": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
   // AC-001 home-socio-portal: Home_Socio es exclusivo del Socio; el Administrador se
   // redirige a /home-interno (defensa en profundidad, D-17).
@@ -22,6 +23,7 @@ export const ROLE_GATE_MATRIX: Record<string, Rol[]> = {
   "/api/rutinas-asignadas": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR], // asignar rutina (T-034)
   "/api/clientes": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA],
   "/api/membresias": [Rol.ADMINISTRADOR],
+  "/api/maquinas": [Rol.ADMINISTRADOR],
   "/api/membresias/activas": [Rol.ADMINISTRADOR, Rol.RECEPCIONISTA], // dropdown de Clientes (AC-004), lectura mínima
   "/api/home-interno": [Rol.ADMINISTRADOR, Rol.INSTRUCTOR, Rol.RECEPCIONISTA],
   "/api/home-socio": [Rol.ADMINISTRADOR, Rol.SOCIO],

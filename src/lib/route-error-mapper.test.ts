@@ -352,3 +352,116 @@ describe("mapErrorToResponse — borrado bloqueado por referencias (DELETE_BLOCK
     expect(res.code).toBe("DELETE_BLOCKED_REFERENCES");
   });
 });
+
+describe("mapErrorToResponse — máquinas: ESTADO_NO_ASIGNABLE", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el código explícito a 400", () => {
+    const conCodigo = Object.assign(
+      new Error("ESTADO_NO_ASIGNABLE: El estado OCUPADA no puede asignarse desde este panel"),
+      { code: "ESTADO_NO_ASIGNABLE" }
+    );
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res).toEqual({
+      code: "ESTADO_NO_ASIGNABLE",
+      message: "El estado OCUPADA no puede asignarse desde este panel",
+      status: 400,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea el prefijo a 400", () => {
+    const res = mapErrorToResponse(
+      new Error("ESTADO_NO_ASIGNABLE: El estado OCUPADA no puede asignarse desde este panel")
+    );
+
+    expect(res).toEqual({
+      code: "ESTADO_NO_ASIGNABLE",
+      message: "El estado OCUPADA no puede asignarse desde este panel",
+      status: 400,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("mapErrorToResponse — máquinas: DUPLICATE_NOMBRE_UBICACION", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el código explícito a 409", () => {
+    const conCodigo = Object.assign(
+      new Error(
+        "DUPLICATE_NOMBRE_UBICACION: Ya existe una máquina con el mismo nombre y ubicación"
+      ),
+      { code: "DUPLICATE_NOMBRE_UBICACION" }
+    );
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res).toEqual({
+      code: "DUPLICATE_NOMBRE_UBICACION",
+      message: "Ya existe una máquina con el mismo nombre y ubicación",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea el prefijo a 409", () => {
+    const res = mapErrorToResponse(
+      new Error("DUPLICATE_NOMBRE_UBICACION: Ya existe una máquina con el mismo nombre y ubicación")
+    );
+
+    expect(res).toEqual({
+      code: "DUPLICATE_NOMBRE_UBICACION",
+      message: "Ya existe una máquina con el mismo nombre y ubicación",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("mapErrorToResponse — máquinas: DELETE_BLOCKED_EJERCICIOS", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el código explícito a 409 y conserva el conteo", () => {
+    const conCodigo = Object.assign(
+      new Error("DELETE_BLOCKED_EJERCICIOS: No se puede eliminar: 3 ejercicios usan esta máquina"),
+      { code: "DELETE_BLOCKED_EJERCICIOS" }
+    );
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res).toEqual({
+      code: "DELETE_BLOCKED_EJERCICIOS",
+      message: "No se puede eliminar: 3 ejercicios usan esta máquina",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea el prefijo a 409 y quita DELETE_BLOCKED_EJERCICIOS", () => {
+    const res = mapErrorToResponse(
+      new Error("DELETE_BLOCKED_EJERCICIOS: No se puede eliminar: 5 ejercicios usan esta máquina")
+    );
+
+    expect(res).toEqual({
+      code: "DELETE_BLOCKED_EJERCICIOS",
+      message: "No se puede eliminar: 5 ejercicios usan esta máquina",
+      status: 409,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+});

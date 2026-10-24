@@ -1,5 +1,5 @@
 import type { Maquina, Prisma } from "@prisma/client";
-import type { EstadoAsignable, TipoEquipamiento } from "./maquina";
+import type { EstadoAsignable, EstadoMaquina, TipoEquipamiento } from "./maquina";
 
 export interface MaquinaReader {
   maquina: {
@@ -67,7 +67,7 @@ export class MaquinaRepository {
 
   async getAll(
     filters: {
-      estado?: EstadoAsignable;
+      estado?: EstadoMaquina;
       tipoEquipamiento?: TipoEquipamiento;
       nombre?: string;
     } = {},

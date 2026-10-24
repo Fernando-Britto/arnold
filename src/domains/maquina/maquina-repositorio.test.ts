@@ -5,7 +5,7 @@ import {
   esErrorP2002,
   type MaquinaReader,
 } from "./maquina-repositorio";
-import type { EstadoAsignable, TipoEquipamiento } from "./maquina";
+import type { EstadoAsignable, EstadoMaquina, TipoEquipamiento } from "./maquina";
 
 const maquinaBase: Maquina = {
   id: "c1234567890123456789012345",
@@ -173,6 +173,24 @@ describe("MaquinaRepository", () => {
         where: { nombre: { contains: "PRENSA", mode: "insensitive" } },
         orderBy: { nombre: "asc" },
       });
+    });
+
+    it("acepta OCUPADA como filtro de estado para listar filas legacy", async () => {
+      const ocupadaRow = { ...maquinaBase, estado: "OCUPADA" as EstadoMaquina };
+      const reader = mockReader({
+        maquina: {
+          findMany: jest.fn().mockResolvedValue([ocupadaRow]),
+        } as Partial<MaquinaReader["maquina"]> as MaquinaReader["maquina"],
+      });
+      const repo = new MaquinaRepository();
+
+      const result = await repo.getAll({ estado: "OCUPADA" as EstadoMaquina }, reader);
+
+      expect(reader.maquina.findMany).toHaveBeenCalledWith({
+        where: { estado: "OCUPADA" },
+        orderBy: { nombre: "asc" },
+      });
+      expect(result).toEqual([ocupadaRow]);
     });
   });
 

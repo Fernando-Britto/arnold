@@ -26,3 +26,30 @@ describe("las rutas reales de la app están definidas en la matriz", () => {
     }
   );
 });
+
+describe("máquinas es solo de Administrador", () => {
+  it.each([
+    ["/maquinas", Rol.RECEPCIONISTA],
+    ["/maquinas", Rol.INSTRUCTOR],
+    ["/maquinas", Rol.SOCIO],
+    ["/api/maquinas", Rol.RECEPCIONISTA],
+    ["/api/maquinas", Rol.INSTRUCTOR],
+    ["/api/maquinas", Rol.SOCIO],
+  ] as const)("deniega %s a %s en ambas matrices", (route, rol) => {
+    const viaMatriz = roleGatingMiddleware(
+      { user: { id: "u", email: "e@e.e", nombre: "n", rol } },
+      route
+    );
+    expect(viaMatriz).toBe(false);
+    expect(hasRouteAccess(rol, route, "GET").allowed).toBe(false);
+  });
+
+  it.each(["/maquinas", "/api/maquinas"] as const)("permite ADMIN en %s en ambas matrices", (route) => {
+    const viaMatriz = roleGatingMiddleware(
+      { user: { id: "u", email: "e@e.e", nombre: "n", rol: Rol.ADMINISTRADOR } },
+      route
+    );
+    expect(viaMatriz).toBe(true);
+    expect(hasRouteAccess(Rol.ADMINISTRADOR, route, "GET").allowed).toBe(true);
+  });
+});
