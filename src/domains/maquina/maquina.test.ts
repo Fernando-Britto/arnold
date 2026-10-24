@@ -96,6 +96,30 @@ describe("validateMaquina", () => {
     );
   });
 
+  it("rechaza cualquier otro estado inválido con 'Estado inválido'", () => {
+    const result = validateMaquina({
+      ...maquinaValida,
+      estado: "FOO" as EstadoMaquina,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Estado inválido");
+    expect(result.errors).not.toContain(
+      "El estado OCUPADA no puede asignarse desde este panel"
+    );
+  });
+
+  it("rechaza estado undefined con 'Estado inválido'", () => {
+    const result = validateMaquina({
+      ...maquinaValida,
+      estado: undefined,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Estado inválido");
+    expect(result.errors).not.toContain(
+      "El estado OCUPADA no puede asignarse desde este panel"
+    );
+  });
+
   it("acepta DISPONIBLE, FUERA_DE_SERVICIO e INACTIVA", () => {
     for (const estado of ESTADOS_ASIGNABLES) {
       const result = validateMaquina({ ...maquinaValida, estado });

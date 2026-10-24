@@ -75,11 +75,13 @@ export function validateMaquina(
   }
 
   if (!partial || data.estado !== undefined) {
-    if (
+    if (data.estado === "OCUPADA") {
+      errors.push("El estado OCUPADA no puede asignarse desde este panel");
+    } else if (
       !data.estado ||
       !ESTADOS_ASIGNABLES.includes(data.estado as EstadoAsignable)
     ) {
-      errors.push("El estado OCUPADA no puede asignarse desde este panel");
+      errors.push("Estado inválido");
     }
   }
 

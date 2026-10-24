@@ -1,0 +1,212 @@
+import type { Maquina, Prisma } from "@prisma/client";
+import {
+  MaquinaRepository,
+  maquinaRepository,
+  esErrorP2002,
+  type MaquinaReader,
+} from "./maquina-repositorio";
+import type { EstadoAsignable, TipoEquipamiento } from "./maquina";
+
+const maquinaBase: Maquina = {
+  id: "c1234567890123456789012345",
+  nombre: "Polea alta",
+  ubicacion: "Sala principal",
+  tipoEquipamiento: "MAQUINA_GUIADA" as TipoEquipamiento,
+  estado: "DISPONIBLE" as EstadoAsignable,
+  fechaAlta: new Date(),
+  updatedAt: new Date(),
+};
+
+function mockReader(overrides: Partial<MaquinaReader> = {}): MaquinaReader {
+  return {
+    maquina: {
+      create: jest.fn().mockResolvedValue(maquinaBase),
+      findUnique: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+      update: jest.fn().mockResolvedValue(maquinaBase),
+      delete: jest.fn().mockResolvedValue(maquinaBase),
+      ...overrides.maquina,
+    },
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    ...overrides,
+  } as MaquinaReader;
+}
+
+const datosValidos = {
+  nombre: "Polea alta",
+  ubicacion: "Sala principal",
+  tipoEquipamiento: "MAQUINA_GUIADA" as TipoEquipamiento,
+  estado: "DISPONIBLE" as EstadoAsignable,
+};
+
+describe("MaquinaRepository", () => {
+  describe("create", () => {
+    it("consulta el duplicado antes de insertar", async () => {
+      const reader = mockReader({ $queryRaw: jest.fn().mockResolvedValue([{ n: 1 }]) });
+      const repo = new MaquinaRepository();
+
+      await expect(repo.create(datosValidos, reader)).rejects.toMatchObject({
+        code: "DUPLICATE_NOMBRE_UBICACION",
+      });
+      expect(reader.maquina.create).not.toHaveBeenCalled();
+    });
+
+    it("compara con unaccent(lower(btrim(...)))", async () => {
+      const reader = mockReader();
+      const repo = new MaquinaRepository();
+
+      await repo.create(datosValidos, reader);
+
+      const query = (reader.$queryRaw as jest.Mock).mock.calls[0][0] as Prisma.Sql;
+      const queryText = query.text ?? query.sql ?? "";
+      expect(queryText).toMatch(/unaccent\(lower\(btrim\("nombre"\)\)\)/i);
+      expect(queryText).toMatch(/unaccent\(lower\(btrim\("ubicacion"\)\)\)/i);
+    });
+
+    it("traduce P2002 a DUPLICATE_NOMBRE_UBICACION", async () => {
+      const reader = mockReader({
+        maquina: {
+          create: jest.fn().mockRejectedValue(Object.assign(new Error("P2002"), { code: "P2002" })),
+        } as Partial<MaquinaReader["maquina"]> as MaquinaReader["maquina"],
+      });
+      const repo = new MaquinaRepository();
+
+      await expect(repo.create(datosValidos, reader)).rejects.toMatchObject({
+        code: "DUPLICATE_NOMBRE_UBICACION",
+      });
+    });
+
+    it("propaga un error que no es P2002", async () => {
+      const reader = mockReader({
+        maquina: {
+          create: jest.fn().mockRejectedValue(new Error("DB_DOWN")),
+        } as Partial<MaquinaReader["maquina"]> as MaquinaReader["maquina"],
+      });
+      const repo = new MaquinaRepository();
+
+      await expect(repo.create(datosValidos, reader)).rejects.toThrow("DB_DOWN");
+    });
+
+    it("inserta los valores ya normalizados", async () => {
+      const reader = mockReader();
+      const repo = new MaquinaRepository();
+
+      await repo.create(datosValidos, reader);
+
+      expect(reader.maquina.create).toHaveBeenCalledWith({
+        data: datosValidos,
+      });
+    });
+  });
+
+  describe("update", () => {
+    it("excluye el propio id de la pre-consulta", async () => {
+      const reader = mockReader();
+      const repo = new MaquinaRepository();
+
+      await repo.update("id-123", datosValidos, reader);
+
+      const query = (reader.$queryRaw as jest.Mock).mock.calls[0][0] as Prisma.Sql;
+      const queryText = query.text ?? query.sql ?? "";
+      expect(queryText).toMatch(/"id"\s*<>/i);
+      expect(query.values).toContain("id-123");
+    });
+
+    it("traduce P2002 a DUPLICATE_NOMBRE_UBICACION", async () => {
+      const reader = mockReader({
+        maquina: {
+          findUnique: jest.fn().mockResolvedValue(maquinaBase),
+          update: jest.fn().mockRejectedValue(Object.assign(new Error("P2002"), { code: "P2002" })),
+        } as Partial<MaquinaReader["maquina"]> as MaquinaReader["maquina"],
+      });
+      const repo = new MaquinaRepository();
+
+      await expect(repo.update("id-123", datosValidos, reader)).rejects.toMatchObject({
+        code: "DUPLICATE_NOMBRE_UBICACION",
+      });
+    });
+  });
+
+  describe("getById", () => {
+    it("devuelve null cuando no existe", async () => {
+      const reader = mockReader();
+      const repo = new MaquinaRepository();
+
+      const result = await repo.getById("no-existe", reader);
+
+      expect(result).toBeNull();
+      expect(reader.maquina.findUnique).toHaveBeenCalledWith({ where: { id: "no-existe" } });
+    });
+  });
+
+  describe("getAll", () => {
+    it("traduce estado, tipoEquipamiento y nombre a un where de Prisma", async () => {
+      const reader = mockReader();
+      const repo = new MaquinaRepository();
+
+      await repo.getAll(
+        {
+          estado: "DISPONIBLE" as EstadoAsignable,
+          tipoEquipamiento: "MAQUINA_GUIADA" as TipoEquipamiento,
+          nombre: "polea",
+        },
+        reader
+      );
+
+      expect(reader.maquina.findMany).toHaveBeenCalledWith({
+        where: {
+          estado: "DISPONIBLE",
+          tipoEquipamiento: "MAQUINA_GUIADA",
+          nombre: { contains: "polea", mode: "insensitive" },
+        },
+        orderBy: { nombre: "asc" },
+      });
+    });
+
+    it("usa contains + mode insensitive para nombre", async () => {
+      const reader = mockReader();
+      const repo = new MaquinaRepository();
+
+      await repo.getAll({ nombre: "PRENSA" }, reader);
+
+      expect(reader.maquina.findMany).toHaveBeenCalledWith({
+        where: { nombre: { contains: "PRENSA", mode: "insensitive" } },
+        orderBy: { nombre: "asc" },
+      });
+    });
+  });
+
+  describe("delete", () => {
+    it("propaga errores de infraestructura", async () => {
+      const reader = mockReader({
+        maquina: {
+          delete: jest.fn().mockRejectedValue(new Error("DB_DOWN")),
+        } as Partial<MaquinaReader["maquina"]> as MaquinaReader["maquina"],
+      });
+      const repo = new MaquinaRepository();
+
+      await expect(repo.delete("id-123", reader)).rejects.toThrow("DB_DOWN");
+    });
+  });
+
+  describe("esErrorP2002", () => {
+    it("detecta un error con code P2002", () => {
+      expect(esErrorP2002(Object.assign(new Error("x"), { code: "P2002" }))).toBe(true);
+    });
+
+    it("rechaza un error sin code", () => {
+      expect(esErrorP2002(new Error("x"))).toBe(false);
+    });
+
+    it("rechaza valores no error", () => {
+      expect(esErrorP2002(null)).toBe(false);
+      expect(esErrorP2002("P2002")).toBe(false);
+    });
+  });
+});
+
+describe("maquinaRepository singleton", () => {
+  it("es una instancia de MaquinaRepository", () => {
+    expect(maquinaRepository).toBeInstanceOf(MaquinaRepository);
+  });
+});
