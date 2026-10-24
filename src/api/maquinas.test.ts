@@ -18,7 +18,7 @@ import { maquinaRepository } from "@/domains/maquina/maquina-repositorio";
 import * as maquinaDomain from "@/domains/maquina/maquina";
 import * as cacheCliente from "@/lib/cache-cliente";
 import { CLAVES, limpiarCache } from "@/lib/cache-cliente";
-import type { Maquina } from "@/domains/maquina/maquina";
+import type { Maquina, MaquinaInput } from "@/domains/maquina/maquina";
 
 jest.mock("@/domains/maquina/maquina-repositorio", () => ({
   maquinaRepository: {
@@ -87,6 +87,16 @@ describe("Maquina Business Logic", () => {
       ).rejects.toMatchObject({
         code: "VALIDATION_ERROR",
         message: expect.stringContaining("nombre"),
+      });
+      expect(maquinaRepository.create).not.toHaveBeenCalled();
+    });
+
+    it("rechaza un cuerpo que no es un objeto plano con VALIDATION_ERROR", async () => {
+      await expect(
+        handleMaquinaCreate(null as unknown as MaquinaInput)
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining("El cuerpo debe ser un objeto"),
       });
       expect(maquinaRepository.create).not.toHaveBeenCalled();
     });
@@ -161,6 +171,26 @@ describe("Maquina Business Logic", () => {
       await expect(
         handleMaquinaUpdate("no-existe", { nombre: "Nuevo nombre" })
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    });
+
+    it("rechaza un cuerpo nulo con VALIDATION_ERROR", async () => {
+      await expect(
+        handleMaquinaUpdate("m1", null as unknown as MaquinaInput)
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining("El cuerpo debe ser un objeto"),
+      });
+      expect(maquinaRepository.update).not.toHaveBeenCalled();
+    });
+
+    it("rechaza un cuerpo array con VALIDATION_ERROR", async () => {
+      await expect(
+        handleMaquinaUpdate("m1", [] as unknown as MaquinaInput)
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining("El cuerpo debe ser un objeto"),
+      });
+      expect(maquinaRepository.update).not.toHaveBeenCalled();
     });
 
     it("rechaza OCUPADA aunque el valor no cambie", async () => {

@@ -24,6 +24,10 @@ function codedError(code: string, message: string): Error {
   return error;
 }
 
+function esObjetoPlano(value: unknown): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function definedFields(input: MaquinaInput): Partial<MaquinaInput> {
   const result: Partial<MaquinaInput> = {};
   if (input.nombre !== undefined) result.nombre = input.nombre;
@@ -42,6 +46,10 @@ export async function handleMaquinaList(filters: {
 }
 
 export async function handleMaquinaCreate(input: MaquinaInput): Promise<Maquina> {
+  if (!esObjetoPlano(input)) {
+    throw codedError("VALIDATION_ERROR", "El cuerpo debe ser un objeto");
+  }
+
   if (input.estado === "OCUPADA") {
     throw codedError(
       "ESTADO_NO_ASIGNABLE",
@@ -78,6 +86,10 @@ export async function handleMaquinaUpdate(
   id: string,
   input: MaquinaInput
 ): Promise<Maquina> {
+  if (!esObjetoPlano(input)) {
+    throw codedError("VALIDATION_ERROR", "El cuerpo debe ser un objeto");
+  }
+
   const existing = await maquinaRepository.getById(id);
 
   if (!existing) {
