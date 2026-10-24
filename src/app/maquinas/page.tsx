@@ -193,6 +193,7 @@ export function MaquinasPage() {
               maquinas={maquinas}
               selectedId={selectedId}
               onSelect={handleSelect}
+              searchTerm={searchTerm}
               isLoading={loading}
             />
           </ListPanelShell>

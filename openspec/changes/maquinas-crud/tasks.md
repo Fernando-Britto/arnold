@@ -766,3 +766,22 @@ Before opening each PR (D-21, D-13, L-10):
 - A data-fix migration for already-seeded `OCUPADA` rows (the admin edits the row from `/maquinas`).
 - Per-row seed `ubicacion` (open question in the spec; the shared `"Sala principal"` stays).
 - Requesting either `size:exception` or the chain strategy — that is the human's decision before apply.
+
+---
+
+## Post-apply adjustments
+
+### List/page search and filter adjustments
+
+> Applied on `feat/asignacion-dinamica` after T-053k and T-053m were initially complete.
+
+- [x] Move search control out of `MaquinaList`: accept `searchTerm` prop, remove internal `useState` and input, filter `nombre` with `normalizeSortText`.
+- [x] Wire `MaquinasPage` to pass `searchTerm={searchTerm}` (the same state used by `CrudActions`) into `MaquinaList`.
+- [x] Add visible `<label>` elements above the estado and tipo selects (keep `aria-label` on the selects).
+- [x] Change empty option text to `"Todos los estados"` and `"Todos los tipos"`.
+- [x] Remove `disclosure` from `TableHeader` and `TableRow` in `maquina-list.tsx`; assert `[data-disclosure-indicator]` is absent.
+- [x] Update `maquina-list.test.tsx` and `page.test.tsx` to cover the new prop-driven search, labels, empty options, and missing chevron; keep existing estado/tipo/empty/loading/selection tests green.
+
+**Files touched**: `src/components/maquina-crud/maquina-list.tsx`, `src/components/maquina-crud/maquina-list.test.tsx`, `src/app/maquinas/page.tsx`, `src/app/maquinas/page.test.tsx`.
+
+**Changed lines**: 151 (103 insertions + 48 deletions). Well under the 400-line review budget.

@@ -42,6 +42,7 @@ export interface MaquinaListProps {
   selectedId?: string | null;
   onSelect?: (maquina: Maquina) => void;
   isLoading?: boolean;
+  searchTerm?: string;
 }
 
 function maquinaSortValue(maquina: Maquina, key: string): string | number {
@@ -63,9 +64,9 @@ export function MaquinaList({
   selectedId = null,
   onSelect,
   isLoading = false,
+  searchTerm = "",
 }: MaquinaListProps) {
   const [sort, setSort] = useState<TableSort | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<EstadoMaquina | "">("");
   const [tipoFilter, setTipoFilter] = useState<TipoEquipamiento | "">("");
 
@@ -99,42 +100,46 @@ export function MaquinaList({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-4 px-6 py-4">
-        <input
-          type="text"
-          aria-label="Buscar por nombre"
-          placeholder="Buscar por nombre"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          className="h-10 rounded-md border border-border bg-surface px-3 text-sm text-ink-soft placeholder:text-ink-muted"
-        />
-        <select
-          aria-label="Filtrar por estado"
-          value={estadoFilter}
-          onChange={(event) => setEstadoFilter(event.target.value as EstadoMaquina | "")}
-          className="h-10 rounded-md border border-border bg-surface px-3 text-sm text-ink-soft"
-        >
-          <option value="">Todos</option>
-          <option value="DISPONIBLE">Disponible</option>
-          <option value="OCUPADA">Ocupada</option>
-          <option value="FUERA_DE_SERVICIO">Fuera de servicio</option>
-          <option value="INACTIVA">Inactiva</option>
-        </select>
-        <select
-          aria-label="Filtrar por tipo"
-          value={tipoFilter}
-          onChange={(event) => setTipoFilter(event.target.value as TipoEquipamiento | "")}
-          className="h-10 rounded-md border border-border bg-surface px-3 text-sm text-ink-soft"
-        >
-          <option value="">Todos</option>
-          <option value="MAQUINA_GUIADA">Máquina guiada</option>
-          <option value="PESO_LIBRE">Peso libre</option>
-          <option value="CARDIO">Cardio</option>
-        </select>
+      <div className="flex flex-wrap items-end gap-4 px-6 py-4">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="estado-filter" className="text-xs font-medium text-ink-muted">
+            Estado
+          </label>
+          <select
+            id="estado-filter"
+            aria-label="Filtrar por estado"
+            value={estadoFilter}
+            onChange={(event) => setEstadoFilter(event.target.value as EstadoMaquina | "")}
+            className="h-10 rounded-md border border-border bg-surface px-3 text-sm text-ink-soft"
+          >
+            <option value="">Todos los estados</option>
+            <option value="DISPONIBLE">Disponible</option>
+            <option value="OCUPADA">Ocupada</option>
+            <option value="FUERA_DE_SERVICIO">Fuera de servicio</option>
+            <option value="INACTIVA">Inactiva</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="tipo-filter" className="text-xs font-medium text-ink-muted">
+            Tipo
+          </label>
+          <select
+            id="tipo-filter"
+            aria-label="Filtrar por tipo"
+            value={tipoFilter}
+            onChange={(event) => setTipoFilter(event.target.value as TipoEquipamiento | "")}
+            className="h-10 rounded-md border border-border bg-surface px-3 text-sm text-ink-soft"
+          >
+            <option value="">Todos los tipos</option>
+            <option value="MAQUINA_GUIADA">Máquina guiada</option>
+            <option value="PESO_LIBRE">Peso libre</option>
+            <option value="CARDIO">Cardio</option>
+          </select>
+        </div>
       </div>
 
       <Table label="Máquinas">
-        <TableHeader columns={MAQUINA_COLUMNS} sort={sort} onSort={handleSort} disclosure />
+        <TableHeader columns={MAQUINA_COLUMNS} sort={sort} onSort={handleSort} />
         {filtered.map((maquina) => {
           const isSelected = maquina.id === selectedId;
           return (
@@ -142,7 +147,6 @@ export function MaquinaList({
               <TableRow
                 selected={isSelected}
                 onClick={() => onSelect?.(maquina)}
-                disclosure
               >
                 <TableCell width={100} variant="secondary">
                   {shortId("MQ", maquina.id)}

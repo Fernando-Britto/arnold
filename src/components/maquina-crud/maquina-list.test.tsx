@@ -96,22 +96,18 @@ describe("MaquinaList", () => {
     expect(screen.queryByText("Banco press")).not.toBeInTheDocument();
   });
 
-  it("busca por nombre sin distinguir mayúsculas ni acentos", async () => {
-    const user = userEvent.setup();
-    render(<MaquinaList maquinas={maquinas} />);
-
-    await user.type(screen.getByLabelText(/Buscar por nombre/i), "polea");
+  it("filtra por searchTerm sin distinguir mayúsculas ni acentos", () => {
+    render(<MaquinaList maquinas={maquinas} searchTerm="polea" />);
 
     expect(screen.getByText("Polea alta")).toBeInTheDocument();
     expect(screen.getByText("Pólea de bíceps")).toBeInTheDocument();
     expect(screen.queryByText("Banco press")).not.toBeInTheDocument();
   });
 
-  it("combina los tres filtros", async () => {
+  it("combina searchTerm con los filtros de estado y tipo", async () => {
     const user = userEvent.setup();
-    render(<MaquinaList maquinas={maquinas} />);
+    render(<MaquinaList maquinas={maquinas} searchTerm="p" />);
 
-    await user.type(screen.getByLabelText(/Buscar por nombre/i), "p");
     await user.selectOptions(screen.getByLabelText(/Filtrar por estado/i), "DISPONIBLE");
     await user.selectOptions(screen.getByLabelText(/Filtrar por tipo/i), "MAQUINA_GUIADA");
 
@@ -121,17 +117,44 @@ describe("MaquinaList", () => {
     expect(screen.queryByText("Cinta de correr")).not.toBeInTheDocument();
   });
 
+  it("no renderiza un input de búsqueda interno", () => {
+    const { queryByLabelText } = render(<MaquinaList maquinas={maquinas} />);
+
+    expect(queryByLabelText("Buscar por nombre")).toBeNull();
+  });
+
+  it("muestra etiquetas visibles para los filtros", () => {
+    render(<MaquinaList maquinas={maquinas} />);
+
+    expect(screen.getByText("Estado", { selector: "label" })).toBeInTheDocument();
+    expect(screen.getByText("Tipo", { selector: "label" })).toBeInTheDocument();
+  });
+
+  it("muestra opciones vacías descriptivas en los selects", () => {
+    render(<MaquinaList maquinas={maquinas} />);
+
+    const estadoSelect = screen.getByLabelText(/Filtrar por estado/i) as HTMLSelectElement;
+    const tipoSelect = screen.getByLabelText(/Filtrar por tipo/i) as HTMLSelectElement;
+
+    expect(estadoSelect.options[0].text).toBe("Todos los estados");
+    expect(tipoSelect.options[0].text).toBe("Todos los tipos");
+  });
+
+  it("no renderiza el indicador de despliegue de fila", () => {
+    render(<MaquinaList maquinas={maquinas} />);
+
+    expect(screen.queryByTestId("disclosure-indicator")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-disclosure-indicator]")).not.toBeInTheDocument();
+  });
+
   it("muestra el estado vacío", () => {
     render(<MaquinaList maquinas={[]} />);
 
     expect(screen.getByText(/No hay máquinas/i)).toBeInTheDocument();
   });
 
-  it("muestra el mensaje sin resultados cuando ninguna fila coincide", async () => {
-    const user = userEvent.setup();
-    render(<MaquinaList maquinas={maquinas} />);
-
-    await user.type(screen.getByLabelText(/Buscar por nombre/i), "zzz");
+  it("muestra el mensaje sin resultados cuando ninguna fila coincide", () => {
+    render(<MaquinaList maquinas={maquinas} searchTerm="zzz" />);
 
     expect(screen.getByText(/No se encontraron máquinas/i)).toBeInTheDocument();
   });

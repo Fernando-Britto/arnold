@@ -144,4 +144,31 @@ describe("MaquinasPage", () => {
     expect(await screen.findByText("No se puede eliminar: 2 ejercicios usan esta máquina")).toBeInTheDocument();
     expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
   });
+
+  it("filters the list from the ActionBar search", async () => {
+    const user = userEvent.setup();
+    mockMaquinasApi.fetchMaquinasList.mockResolvedValue([
+      maquina1,
+      {
+        ...maquina1,
+        id: "cm2k1vq9n0000abc123def457",
+        nombre: "Banco press",
+        tipoEquipamiento: "PESO_LIBRE",
+        estado: "OCUPADA",
+      },
+    ]);
+    render(<MaquinasPage />);
+
+    await screen.findByText("Polea alta");
+    await user.click(screen.getByRole("button", { name: "Buscar" }));
+    const searchInput = screen.getByLabelText("Buscar máquinas");
+    expect(searchInput).toBeInTheDocument();
+
+    await user.type(searchInput, "banco");
+
+    await waitFor(() => {
+      expect(screen.queryByText("Polea alta")).not.toBeInTheDocument();
+      expect(screen.getByText("Banco press")).toBeInTheDocument();
+    });
+  });
 });

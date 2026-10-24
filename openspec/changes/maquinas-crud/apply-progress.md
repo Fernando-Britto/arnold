@@ -624,3 +624,91 @@ npx eslint src/app/maquinas/page.tsx src/app/maquinas/page.test.tsx
 - `MaquinaList` owns its own client-side estado/tipo/nombre filters (out of scope to modify), so the page-level `searchTerm` from `CrudActions` is maintained for UI consistency but not passed down.
 - Spanish user-facing messages; no `any`; no static `@/lib/db` import.
 
+---
+
+## Work Unit: List/page search and filter adjustments
+
+**Unit**: Post-T-053k/T-053m adjustments
+**Tasks**: Search prop move, visible filter labels, empty-option text, hide row chevron
+**Date**: 2026-10-24
+**Mode**: Strict TDD
+
+## Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command | `npm test -- src/components/maquina-crud/maquina-list.test.tsx src/app/maquinas/page.test.tsx` |
+| Focused test result | Test Suites: 2 passed, 2 total — Tests: 27 passed, 27 total |
+| Runtime harness | N/A — jsdom component/page tests; no route/page/DB surface touched beyond the existing page render |
+| Rollback boundary | Revert the four touched files: `src/components/maquina-crud/maquina-list.tsx`, `src/components/maquina-crud/maquina-list.test.tsx`, `src/app/maquinas/page.tsx`, `src/app/maquinas/page.test.tsx`. No shared components, API, form, seed, nav, or DB changes. |
+
+## TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| Move search to prop | `maquina-list.test.tsx` | Unit (jsdom) | ✅ 17/17 baseline | ✅ Written (searchTerm ignored; internal input present) | ✅ 27/27 pass | ✅ searchTerm filters case/accent-insensitive; no internal input; combined filters; empty message | ✅ Removed `searchTerm` state/input; kept `normalizeSortText` filter |
+| Visible labels + empty options | `maquina-list.test.tsx` | Unit (jsdom) | ✅ 17/17 baseline | ✅ Written (labels missing, "Todos" options) | ✅ 27/27 pass | ✅ "Estado"/"Tipo" labels; "Todos los estados"/"Todos los tipos" | ✅ Wrapped select + label in flex column; kept aria-label |
+| Hide row chevron | `maquina-list.test.tsx` | Unit (jsdom) | ✅ 17/17 baseline | ✅ Written (`[data-disclosure-indicator]` present) | ✅ 27/27 pass | ✅ Both `TableHeader` and `TableRow` chevron absent | ✅ Removed `disclosure` prop from both usages; did not touch `table.tsx` |
+| Page passes search down | `page.test.tsx` | Unit (jsdom) | ✅ 8/8 baseline | ✅ Written (`Polea alta` still visible after typing) | ✅ 9/9 pass | ✅ ActionBar search opens, typing filters list | ✅ One-line prop pass `searchTerm={searchTerm}` |
+
+## Files Touched
+
+| File | Action | Lines | What Was Done |
+|---|---|---|---|
+| `src/components/maquina-crud/maquina-list.tsx` | Modified | +42 / −32 | Added `searchTerm?: string` prop; removed internal `useState` and search `<input>`; wrapped each `<select>` in a flex column with visible `<label>`; changed empty options to `"Todos los estados"` / `"Todos los tipos"`; removed `disclosure` from `TableHeader` and `TableRow`. |
+| `src/components/maquina-crud/maquina-list.test.tsx` | Modified | +49 / −16 | Updated search tests to use `searchTerm` prop; added tests for no internal input, visible labels, descriptive empty options, and absent disclosure indicator; kept estado/tipo/empty/loading/selection tests green. |
+| `src/app/maquinas/page.tsx` | Modified | +1 / −0 | Passed `searchTerm={searchTerm}` from page state to `MaquinaList`. |
+| `src/app/maquinas/page.test.tsx` | Modified | +27 / −0 | Added test that opens the ActionBar search, types `"banco"`, and asserts the list filters. |
+
+**Total authored changed lines**: 151 (103 insertions + 48 deletions). Well under the 400-line review budget.
+
+## Verification Results
+
+### 1. Focused tests (RED)
+
+```
+npm test -- src/components/maquina-crud/maquina-list.test.tsx src/app/maquinas/page.test.tsx
+
+Test Suites: 2 failed, 2 total
+Tests:       6 failed, 21 passed, 27 total
+```
+
+Failures matched the expected behavioral gaps:
+- `filtra por searchTerm sin distinguir mayúsculas ni acentos` — `searchTerm` prop ignored, all rows rendered.
+- `no renderiza un input de búsqueda interno` — internal `"Buscar por nombre"` input still rendered.
+- `muestra opciones vacías descriptivas en los selects` — options were `"Todos"`.
+- `no renderiza el indicador de despliegue de fila` — `[data-disclosure-indicator]` present.
+- `muestra el mensaje sin resultados cuando ninguna fila coincide` — `searchTerm` prop ignored.
+- `filters the list from the ActionBar search` — page did not pass `searchTerm` down.
+
+### 2. Focused tests (GREEN)
+
+```
+npm test -- src/components/maquina-crud/maquina-list.test.tsx src/app/maquinas/page.test.tsx
+
+Test Suites: 2 passed, 2 total
+Tests:       27 passed, 27 total
+Snapshots:   0 total
+Time:        6.436 s
+```
+
+### 3. Type check
+
+```
+npx tsc --noEmit
+(no output)
+```
+
+### 4. Linter
+
+```
+npx eslint src/components/maquina-crud/maquina-list.tsx src/components/maquina-crud/maquina-list.test.tsx src/app/maquinas/page.tsx src/app/maquinas/page.test.tsx
+(no output)
+```
+
+## Notes / Deviations
+
+- Implementation matches the preflight exactly: search lives in the page, `MaquinaList` receives `searchTerm`, internal input removed, visible labels added, empty options updated, and `disclosure` removed from both `TableHeader` and `TableRow` without touching `src/components/ui/table.tsx`.
+- No shared components, API, form, seed, or nav files were modified.
+- Spanish user-facing copy preserved; no `any`; strict TypeScript clean.
+
