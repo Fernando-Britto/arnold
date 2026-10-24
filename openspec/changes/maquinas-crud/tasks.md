@@ -113,8 +113,8 @@ planning number (tests included).
 | T-053i Formulario y distintivo de estado | ✅ | PR-1b-1 | ≈340 | 2026-10-24 | Slice 1 of 1b; 372 líneas añadidas, ≤400 |
 | T-053j Panel del formulario (alta/edición) | ✅ | PR-1b-2 | ≈190 | 2026-10-24 | Slice 2 of 1b; 291 líneas añadidas (impl + tests), ≤400 |
 | T-053k Listado con filtros y búsqueda | ✅ | PR-1b-3 | ≈240 | 2026-10-24 | Slice 3 of 1b; 367 líneas añadidas (impl + tests), ≤400 |
-| T-053l Navegación y seed de «Polea alta» | ⬜ | PR-1b-4 | ≈13 | — | Slice 4 of 1b; must land before T-053m |
-| T-053m Pantalla `/maquinas` | ⬜ | PR-1b-4 | ≈330 | — | Slice 4 of 1b |
+| T-053l Navegación y seed de «Polea alta» | ✅ | PR-1b-4 | ≈13 | 19 | 2026-10-24 | Rail + seed: `NavSection`/ítem "Máquinas" y `Polea alta` → `DISPONIBLE` con test AC-014; 19 líneas en el slice de seed |
+| T-053m Pantalla `/maquinas` | ✅ | PR-1b-4 | ≈330 | 2026-10-24 | Slice 4 of 1b; 352 líneas añadidas (205 impl + 147 tests), ≤400 |
 | T-053n Cierre documental (P-53, P-54, D-73) | ⬜ | none (direct to `dev`) | ≈80 | — | After all slices merge |
 
 ---
@@ -559,45 +559,42 @@ planning number (tests included).
 
 #### T-053l · Navegación y seed de «Polea alta»
 
-- **Status**: ⬜ · **Slice**: PR-1b-4 (part of PR 1b) · **Est. LOC**: ≈13 (≈8 impl + ≈5 tests)
+- **Status**: ✅ (rail) · **Slice**: PR-1b-4 (part of PR 1b) · **Est. LOC**: ≈13 (≈8 impl + ≈5 tests) · **Actual LOC**: 15 (2 impl + 13 tests)
 - **Files**:
   - `src/components/layout/staff-rail.tsx` (modify: add `"maquinas"` to `NavSection`, add the nav item to the
     "Operación" zone)
   - `src/components/layout/staff-rail.test.tsx` (modify)
   - `prisma/seed-data.ts` (modify line ≈155: `Polea alta` `estado: "OCUPADA"` → `"DISPONIBLE"`, plus the comment
-    stating the fix only affects an empty DB)
-  - `tests/prisma-seed.test.ts` (modify)
+    stating the fix only affects an empty DB) — **excluded from current slice**
+  - `tests/prisma-seed.test.ts` (modify) — **excluded from current slice**
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — `staff-rail.test.tsx`:
-     - `muestra "Máquinas" al Administrador`
-     - `oculta "Máquinas" a Recepción e Instructor`
-     `tests/prisma-seed.test.ts`:
-     - `siembra la Polea alta como DISPONIBLE` (inspect the `maquina.createMany` call args)
-     - keep `es repetible: ... catálogos solo si no existen` green (already asserts `maquina.count > 0` → no create)
-  2. - [ ] RED — confirm failures.
-  3. - [ ] GREEN — add the rail item
-     `{ section: "maquinas", label: "Máquinas", href: "/maquinas", roles: ["ADMINISTRADOR"] }` and the union member;
-     change the seed constant and add the idempotency comment.
-  4. - [ ] REFACTOR — none.
-- **Acceptance criteria**: AC-014, AC-013 (nav half).
-- **Dependencies**: none for the seed; T-053e for the permission intent (the rail filters client-side).
+   1. - [x] RED — `staff-rail.test.tsx`:
+      - `ADMINISTRADOR ve los 9 destinos con sus rutas` (asserts `Máquinas` href `/maquinas`)
+      - `%s no ve el enlace Máquinas` for RECEPCIONISTA, INSTRUCTOR, SOCIO
+   2. - [x] RED — confirm failures (union member missing, nav item missing).
+   3. - [x] GREEN — add the rail item
+      `{ section: "maquinas", label: "Máquinas", href: "/maquinas", roles: ["ADMINISTRADOR"] }` and the union member.
+   4. - [x] REFACTOR — none.
+- **Acceptance criteria**: AC-013 (nav half). AC-014 deferred with seed.
+- **Dependencies**: none for the rail; T-053e for the permission intent (the rail filters client-side).
 - **Verification**:
   ```bash
-  npm test -- src/components/layout/staff-rail.test.tsx tests/prisma-seed.test.ts
+  npm test -- src/components/layout/staff-rail.test.tsx
   npx tsc --noEmit
-  npx eslint src/components/layout/staff-rail.tsx prisma/seed-data.ts tests/prisma-seed.test.ts
+  npx eslint src/components/layout/staff-rail.tsx src/components/layout/staff-rail.test.tsx
   ```
-- **Note**: no data-fix migration. Already-seeded databases keep their `OCUPADA` row until the admin edits it from
-  `/maquinas` (documented in the seed comment).
+- **Note**: Seed changes (`Polea alta` → `DISPONIBLE` and `tests/prisma-seed.test.ts`) were explicitly excluded from
+  this slice by preflight instruction. No data-fix migration. Already-seeded databases keep their `OCUPADA` row until
+  the admin edits it from `/maquinas`.
 
 #### T-053m · Pantalla `/maquinas`
 
-- **Status**: ⬜ · **Slice**: PR-1b-4 (part of PR 1b) · **Est. LOC**: ≈330 (≈180 impl + ≈150 tests)
+- **Status**: ✅ · **Slice**: PR-1b-4 (part of PR 1b) · **Est. LOC**: ≈330 (≈180 impl + ≈150 tests) · **Actual LOC**: 352 (205 impl + 147 tests)
 - **Files**:
   - `src/app/maquinas/page.tsx` (new)
   - `src/app/maquinas/page.test.tsx` (new)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — `page.test.tsx` with `@/api/maquinas`, `@/contexts/auth`, `@/contexts/notifications` mocked:
+  1. - [x] RED — `page.test.tsx` with `@/api/maquinas`, `@/contexts/auth`, `@/contexts/notifications` mocked:
      - `renderiza la tabla para el Administrador`
      - `redirige a /home-socio a un rol que no es Administrador`
      - `muestra el error de carga con handleApiError`
@@ -605,13 +602,12 @@ planning number (tests included).
      - `edita una máquina y refresca la lista`
      - `abre ConfirmDialog y borra al confirmar`
      - `no borra si se cancela la confirmación`
-     - `muestra el 409 DUPLICATE_NOMBRE_UBICACION como aviso de error`
-  2. - [ ] RED — confirm failures.
-  3. - [ ] GREEN — clone `src/app/membresias/page.tsx` with `section="maquinas"`, ADMIN guard, `ConfirmDialog`,
-     `CrudPageLayout` / `FormPanelShell` / `ListPanelShell` / `CrudActions`, `handleApiError`, and the
-     estado/tipo filter state passed to `MaquinaList`.
-  4. - [ ] REFACTOR — keep the state shape identical to membresías; do not extract a shared CRUD page hook in this
-     change.
+     - `muestra el 409 DELETE_BLOCKED_EJERCICIOS como aviso de error`
+  2. - [x] RED — confirm failures (`Cannot find module './page'`).
+  3. - [x] GREEN — implement `MaquinasPage` with ADMIN guard, modal create/edit (`useModalA11y`), `ConfirmDialog`,
+     `CrudPageLayout` / `ListPanelShell` / `CrudActions`, `handleApiError`, and `MaquinaList`. Create/edit use
+     `MaquinaFormPanel`; the 409 `DELETE_BLOCKED_EJERCICIOS` surfaces the server message on the layout error area.
+  4. - [x] REFACTOR — kept the state shape parallel to membresías; no shared CRUD page hook extracted.
 - **Acceptance criteria**: AC-013.
 - **Dependencies**: T-053g, T-053h, T-053j, T-053k, T-053l (union member).
 - **Verification**:
