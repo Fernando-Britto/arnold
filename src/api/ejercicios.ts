@@ -75,11 +75,13 @@ export function fetchEjercicios(): Promise<EjercicioConUso[]> {
  */
 export async function fetchEjerciciosBusqueda(params: {
   search?: string;
+  muscleGroup?: string;
   limit?: number;
   offset?: number;
 }): Promise<EjercicioConUso[]> {
   const query = new URLSearchParams();
   if (params.search) query.set("search", params.search);
+  if (params.muscleGroup) query.set("muscleGroup", params.muscleGroup);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
 

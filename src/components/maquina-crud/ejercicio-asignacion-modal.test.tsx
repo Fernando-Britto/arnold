@@ -6,7 +6,7 @@ import { fetchEjerciciosBusqueda } from "@/api/ejercicios";
 import { fetchMaquinaEjercicios, reemplazarEjerciciosMaquina } from "@/api/maquinas";
 import { useNotifications } from "@/contexts/notifications";
 import { ApiError } from "@/utils/api-error";
-import type { EjercicioConUso } from "@/domains/ejercicio/ejercicio";
+import { GRUPOS_MUSCULARES, type EjercicioConUso } from "@/domains/ejercicio/ejercicio";
 
 jest.mock("@/api/ejercicios", () => ({ fetchEjerciciosBusqueda: jest.fn() }));
 jest.mock("@/api/maquinas", () => ({ fetchMaquinaEjercicios: jest.fn(), reemplazarEjerciciosMaquina: jest.fn() }));
@@ -22,6 +22,8 @@ const pagina = (cantidad: number) => Array.from({ length: cantidad }, (_, i) => 
 const avanzarDebounce = () => act(async () => { jest.advanceTimersByTime(300); });
 const renderModal = (props: Partial<React.ComponentProps<typeof EjercicioAsignacionModal>> = {}) =>
   render(<EjercicioAsignacionModal open maquinaId="m1" onClose={jest.fn()} {...props} />);
+const elegirGrupo = (valor: string) =>
+  fireEvent.change(screen.getByLabelText("Filtrar por grupo muscular"), { target: { value: valor } });
 
 describe("EjercicioAsignacionModal", () => {
   beforeEach(() => {
@@ -134,7 +136,130 @@ describe("EjercicioAsignacionModal", () => {
     expect(screen.queryByRole("button", { name: "Ver más" })).not.toBeInTheDocument();
   });
 
-  it("'Seleccionar todo visible' solo afecta la página visible", async () => {
+  it("muestra el filtro 'Grupo muscular' con la lista canónica y 'Todos los grupos'", async () => {
+    renderModal();
+    await avanzarDebounce();
+
+    expect(screen.getByText("Grupo muscular")).toBeInTheDocument();
+    const select = screen.getByLabelText("Filtrar por grupo muscular");
+    expect(select).toHaveValue("");
+    expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Todos los grupos",
+      ...GRUPOS_MUSCULARES,
+    ]);
+  });
+
+  it("el filtro envía muscleGroup y reemplaza la lista desde la primera página", async () => {
+    mockBusqueda.mockImplementation(({ muscleGroup }) =>
+      Promise.resolve(muscleGroup ? [eje("f1", "Sentadilla", "Piernas")] : [eje("v1", "Press banca")])
+    );
+    renderModal();
+    await avanzarDebounce();
+    expect(await screen.findByText("Press banca")).toBeInTheDocument();
+
+    elegirGrupo("Piernas");
+
+    await waitFor(() =>
+      expect(mockBusqueda).toHaveBeenLastCalledWith({
+        search: "",
+        muscleGroup: "Piernas",
+        limit: 50,
+        offset: 0,
+      })
+    );
+    expect(await screen.findByText("Sentadilla")).toBeInTheDocument();
+    expect(screen.queryByText("Press banca")).not.toBeInTheDocument();
+  });
+
+  it("cambiar el filtro después de 'Ver más' vuelve al offset 0 y descarta las páginas previas", async () => {
+    mockBusqueda
+      .mockResolvedValueOnce(pagina(50))
+      .mockResolvedValueOnce([eje("x1", "Extra")])
+      .mockResolvedValueOnce([eje("f1", "Filtrado", "Piernas")]);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderModal();
+    await avanzarDebounce();
+    expect(await screen.findByText("Ejercicio 0")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ver más" }));
+    expect(await screen.findByText("Extra")).toBeInTheDocument();
+
+    elegirGrupo("Piernas");
+
+    await waitFor(() =>
+      expect(mockBusqueda).toHaveBeenLastCalledWith({
+        search: "",
+        muscleGroup: "Piernas",
+        limit: 50,
+        offset: 0,
+      })
+    );
+    expect(await screen.findByText("Filtrado")).toBeInTheDocument();
+    expect(screen.queryByText("Ejercicio 0")).not.toBeInTheDocument();
+  });
+
+  it("cambiar la búsqueda después de 'Ver más' vuelve al offset 0", async () => {
+    mockBusqueda
+      .mockResolvedValueOnce(pagina(50))
+      .mockResolvedValueOnce([eje("x1", "Extra")])
+      .mockResolvedValueOnce([eje("s1", "Bíceps")]);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderModal();
+    await avanzarDebounce();
+    expect(await screen.findByText("Ejercicio 0")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ver más" }));
+    expect(await screen.findByText("Extra")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Buscar ejercicios"), { target: { value: "biceps" } });
+    await avanzarDebounce();
+
+    await waitFor(() =>
+      expect(mockBusqueda).toHaveBeenLastCalledWith({ search: "biceps", limit: 50, offset: 0 })
+    );
+    expect(await screen.findByText("Bíceps")).toBeInTheDocument();
+    expect(screen.queryByText("Extra")).not.toBeInTheDocument();
+  });
+
+  it("'Todos los grupos' no envía muscleGroup", async () => {
+    mockBusqueda.mockResolvedValue([eje("v1", "Uno")]);
+    renderModal();
+    await avanzarDebounce();
+
+    elegirGrupo("Piernas");
+    await waitFor(() =>
+      expect(mockBusqueda).toHaveBeenLastCalledWith(
+        expect.objectContaining({ muscleGroup: "Piernas" })
+      )
+    );
+
+    elegirGrupo("");
+    await waitFor(() =>
+      expect(mockBusqueda).toHaveBeenLastCalledWith({ search: "", limit: 50, offset: 0 })
+    );
+    expect(mockBusqueda.mock.lastCall?.[0]).not.toHaveProperty("muscleGroup");
+  });
+
+  it("la selección persiste al cambiar de filtro", async () => {
+    mockBusqueda.mockImplementation(({ muscleGroup }) =>
+      Promise.resolve(muscleGroup ? [eje("f1", "Sentadilla", "Piernas")] : [eje("v1", "Press banca")])
+    );
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderModal();
+    await avanzarDebounce();
+
+    await user.click(await screen.findByLabelText("Press banca"));
+    expect(screen.getByText("1 seleccionado")).toBeInTheDocument();
+
+    elegirGrupo("Piernas");
+    expect(await screen.findByLabelText("Sentadilla")).toBeInTheDocument();
+    expect(screen.getByText("1 seleccionado")).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Sentadilla"));
+    expect(screen.getByText("2 seleccionados")).toBeInTheDocument();
+  });
+
+  it("'Seleccionar los visibles' selecciona todo lo cargado y 'Quitar los visibles' lo quita", async () => {
     mockAsignados.mockResolvedValue([{ id: "fuera", nombre: "Press militar", grupoMuscular: "Hombros" }]);
     mockBusqueda.mockResolvedValue([eje("v1", "Uno"), eje("v2", "Dos")]);
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
@@ -142,10 +267,73 @@ describe("EjercicioAsignacionModal", () => {
     await avanzarDebounce();
     expect(await screen.findByText("1 seleccionado")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Seleccionar todo visible" }));
+    await user.click(screen.getByRole("button", { name: "Seleccionar los visibles" }));
     expect(screen.getByText("3 seleccionados")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Seleccionar todo visible" }));
+    expect(screen.getByLabelText("Uno")).toBeChecked();
+    expect(screen.getByLabelText("Dos")).toBeChecked();
+    expect(screen.queryByText(/Solo se pueden asignar/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Quitar los visibles" }));
     expect(screen.getByText("1 seleccionado")).toBeInTheDocument();
+    expect(screen.getByLabelText("Uno")).not.toBeChecked();
+    expect(screen.getByLabelText("Dos")).not.toBeChecked();
+  });
+
+  it("'Seleccionar los visibles' incluye todas las páginas cargadas", async () => {
+    mockBusqueda.mockResolvedValueOnce(pagina(50)).mockResolvedValueOnce([eje("x1", "Extra")]);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderModal();
+    await avanzarDebounce();
+    expect(await screen.findByText("Ejercicio 0")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ver más" }));
+    expect(await screen.findByText("Extra")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar los visibles" }));
+    expect(screen.getByText("51 seleccionados")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ejercicio 0")).toBeChecked();
+    expect(screen.getByLabelText("Extra")).toBeChecked();
+  });
+
+  it("el tope de 100 recorta los visibles y avisa cuántos seleccionó", async () => {
+    mockAsignados.mockResolvedValue(
+      Array.from({ length: 99 }, (_, i) => ({ id: `a${i}`, nombre: `Asignado ${i}`, grupoMuscular: "Pecho" }))
+    );
+    mockBusqueda.mockResolvedValue([eje("v1", "Uno"), eje("v2", "Dos"), eje("v3", "Tres")]);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderModal();
+    await avanzarDebounce();
+    expect(await screen.findByText("99 seleccionados")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar los visibles" }));
+    expect(screen.getByText("100 seleccionados")).toBeInTheDocument();
+    expect(
+      screen.getByText("Solo se pueden asignar hasta 100 ejercicios. Se seleccionaron los primeros 1.")
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Uno")).toBeChecked();
+    expect(screen.getByLabelText("Dos")).not.toBeChecked();
+    expect(screen.getByLabelText("Tres")).not.toBeChecked();
+  });
+
+  it("con el tope ya alcanzado avisa que ya hay 100 seleccionados", async () => {
+    const asignados = Array.from({ length: 100 }, (_, i) => ({
+      id: `a-${i}`,
+      nombre: `Asignado ${i}`,
+      grupoMuscular: "Brazos",
+    }));
+    mockAsignados.mockResolvedValue(asignados);
+    mockBusqueda.mockResolvedValue([eje("v1", "Visible nuevo")]);
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderModal();
+    await avanzarDebounce();
+    expect(await screen.findByText("100 seleccionados")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar los visibles" }));
+
+    expect(
+      screen.getByText("Ya tenés 100 ejercicios seleccionados, el máximo por máquina")
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Se seleccionaron los primeros 0/)).not.toBeInTheDocument();
   });
 
   it("un error del servidor se muestra adentro y deja el modal abierto con la selección", async () => {

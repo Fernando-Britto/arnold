@@ -360,6 +360,30 @@ describe("fetchEjerciciosBusqueda (lado cliente)", () => {
     );
   });
 
+  it("incluye muscleGroup en la query cuando llega", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    }) as unknown as typeof fetch;
+
+    await fetchEjerciciosBusqueda({ search: "press", muscleGroup: "Pecho", limit: 50, offset: 0 });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/ejercicios?search=press&muscleGroup=Pecho&limit=50&offset=0"
+    );
+  });
+
+  it("omite muscleGroup de la query cuando no llega", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    }) as unknown as typeof fetch;
+
+    await fetchEjerciciosBusqueda({ search: "press", limit: 50, offset: 0 });
+
+    expect(global.fetch).toHaveBeenCalledWith("/api/ejercicios?search=press&limit=50&offset=0");
+  });
+
   it("no omite los parámetros ausentes", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
