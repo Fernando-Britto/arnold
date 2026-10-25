@@ -95,12 +95,12 @@ number (tests included).
 | T-054a Dominio puro de asignación | ✅ | Slice 1 · commit 2a | 112 | 2026-10-24 | 45 impl + 67 tests |
 | T-054b Modelo `EjercicioMaquina` en el schema | ✅ | Slice 1 · commit 2a | 21 | 2026-10-24 | schema additions |
 | T-054c Migración escrita a mano + pre-chequeos | ✅ | Slice 1 · commit 2a | 17 | 2026-10-24 | CP1 gate passed |
-| T-054d Repositorio: conteo, lectura y reemplazo | ⬜ | Slice 2 · commit 2b | ≈200 | — | |
-| T-054e Integración: cascada, unicidad y transacción | ⬜ | Slice 2 · commit 2b | ≈130 | — | Docker requerido |
-| T-054f Mapeo de `VALIDATION_MAX_EJERCICIOS` | ⬜ | Slice 3 · commit 2c | ≈45 | — | |
-| T-054g Handlers de asignación + conteo real de baja | ⬜ | Slice 3 · commit 2c | ≈160 | — | AC-010/AC-011 del delta |
-| T-054h Ruta `GET`/`PUT /api/maquinas/[id]/ejercicios` | ⬜ | Slice 4 · commit 2d | ≈240 | — | `await params` (FX-06) |
-| T-054i Pruebas de permisos del path anidado | ⬜ | Slice 4 · commit 2d | ≈60 | — | Solo tests |
+| T-054d Repositorio: conteo, lectura y reemplazo | ✅ | Slice 2 · commit 2b | 231 | 2026-10-24 | 83 impl + 148 tests |
+| T-054e Integración: cascada, unicidad y transacción | ✅ | Slice 2 · commit 2b | 165 | 2026-10-24 | Suite escrita; ejecución pendiente de Fernando (Docker) |
+| T-054f Mapeo de `VALIDATION_MAX_EJERCICIOS` | ✅ | Slice 3 · commit 2c | 50 | 2026-10-24 | 11 impl + 39 tests |
+| T-054g Handlers de asignación + conteo real de baja | ✅ | Slice 3 · commit 2c | 297 | 2026-10-24 | 67 impl + 230 tests; AC-010/AC-011 del delta |
+| T-054h Ruta `GET`/`PUT /api/maquinas/[id]/ejercicios` | ✅ | Slice 4 · commit 2d | 379 | 2026-10-24 | 167 impl + 212 tests; `await params` (FX-06) |
+| T-054i Pruebas de permisos del path anidado | ✅ | Slice 4 · commit 2d | 16 | 2026-10-24 | Solo tests (matrix) |
 | T-054j Paginación opt-in en el repositorio de ejercicios | ⬜ | Slice 5 · commit 2e | ≈130 | — | |
 | T-054k Paginación en handler y ruta de ejercicios | ⬜ | Slice 5 · commit 2e | ≈100 | — | Corrige el cortocircuito |
 | T-054l Fetchers cliente de asignación y búsqueda | ⬜ | Slice 6 · commit 2f | ≈90 | — | |
@@ -213,7 +213,7 @@ number (tests included).
 
 #### T-054d · Repositorio: conteo, lectura y reemplazo
 
-- **Status**: ⬜ · **Slice**: 2 de 7 · **PR**: commit 2b · **Est. LOC**: ≈200 (≈110 impl + ≈90 tests)
+- **Status**: ✅ · **Slice**: 2 de 7 · **PR**: commit 2b · **Est. LOC**: ≈200 (≈110 impl + ≈90 tests)
 - **Files**:
   - `src/domains/maquina/maquina-repositorio.ts` (modify)
   - `src/domains/maquina/maquina-repositorio.test.ts` (modify)
@@ -246,7 +246,7 @@ number (tests included).
 
 #### T-054e · Integración: cascada, unicidad y transacción
 
-- **Status**: ⬜ · **Slice**: 2 de 7 · **PR**: commit 2b · **Est. LOC**: ≈130
+- **Status**: ✅ · **Slice**: 2 de 7 · **PR**: commit 2b · **Est. LOC**: ≈130 · **Note**: suite escrita; ejecución de `npm run test:integration` pendiente de Fernando (requiere Docker)
 - **Files**:
   - `tests/integration/ejercicio-maquina.integration.test.ts` (new)
 - **TDD (RED → GREEN)**:
@@ -283,7 +283,7 @@ number (tests included).
 
 #### T-054f · Mapeo de `VALIDATION_MAX_EJERCICIOS`
 
-- **Status**: ⬜ · **Slice**: 3 de 7 · **PR**: commit 2c · **Est. LOC**: ≈45
+- **Status**: ✅ · **Slice**: 3 de 7 · **PR**: commit 2c · **Est. LOC**: ≈45
 - **Files**:
   - `src/lib/route-error-mapper.ts` (modify)
   - `src/lib/route-error-mapper.test.ts` (modify)
@@ -310,7 +310,7 @@ number (tests included).
 
 #### T-054g · Handlers de asignación + conteo real de baja
 
-- **Status**: ⬜ · **Slice**: 3 de 7 · **PR**: commit 2c · **Est. LOC**: ≈160 (≈90 impl + ≈70 tests)
+- **Status**: ✅ · **Slice**: 3 de 7 · **PR**: commit 2c · **Est. LOC**: ≈160 (≈90 impl + ≈70 tests)
 - **Files**:
   - `src/api/maquinas.ts` (modify)
   - `src/api/maquinas.test.ts` (modify)
@@ -348,7 +348,7 @@ number (tests included).
 
 #### T-054h · Ruta `GET`/`PUT /api/maquinas/[id]/ejercicios`
 
-- **Status**: ⬜ · **Slice**: 4 de 7 · **PR**: commit 2d · **Est. LOC**: ≈240 (≈110 impl + ≈130 tests)
+- **Status**: ✅ · **Slice**: 4 de 7 · **PR**: commit 2d · **Est. LOC**: ≈240 (≈110 impl + ≈130 tests)
 - **Files**:
   - `src/app/api/maquinas/[id]/ejercicios/route.ts` (new)
   - `src/app/api/maquinas/[id]/ejercicios/route.test.ts` (new)
@@ -394,7 +394,7 @@ number (tests included).
 
 #### T-054i · Pruebas de permisos del path anidado
 
-- **Status**: ⬜ · **Slice**: 4 de 7 · **PR**: commit 2d · **Est. LOC**: ≈60 (tests only)
+- **Status**: ✅ · **Slice**: 4 de 7 · **PR**: commit 2d · **Est. LOC**: ≈60 (tests only)
 - **Files**:
   - `src/middleware/matrix-consistency.test.ts` (modify)
   - `src/lib/authorization.test.ts` (modify)
