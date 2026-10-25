@@ -4,6 +4,31 @@ import userEvent from "@testing-library/user-event";
 import { MaquinaList } from "./maquina-list";
 import type { Maquina } from "@/domains/maquina/maquina";
 
+const mockMontajes = jest.fn();
+
+jest.mock("./maquina-expanded-row", () => ({
+  MaquinaExpandedRow: ({
+    maquinaId,
+    onAsignar,
+  }: {
+    maquinaId: string;
+    onAsignar?: (maquinaId: string) => void;
+  }) => {
+    React.useEffect(() => {
+      mockMontajes(maquinaId);
+    }, [maquinaId]);
+
+    return (
+      <div>
+        <span>{`Detalle de ${maquinaId}`}</span>
+        <button type="button" onClick={() => onAsignar?.(maquinaId)}>
+          Asignar desde el detalle
+        </button>
+      </div>
+    );
+  },
+}));
+
 const maquinas: Maquina[] = [
   {
     id: "maq001",
@@ -140,11 +165,65 @@ describe("MaquinaList", () => {
     expect(tipoSelect.options[0].text).toBe("Todos los tipos");
   });
 
-  it("no renderiza el indicador de despliegue de fila", () => {
+  it("dibuja el chevron de expansión en cada fila", () => {
     render(<MaquinaList maquinas={maquinas} />);
 
-    expect(screen.queryByTestId("disclosure-indicator")).not.toBeInTheDocument();
-    expect(document.querySelector("[data-disclosure-indicator]")).not.toBeInTheDocument();
+    expect(document.querySelectorAll("[data-disclosure-indicator]")).toHaveLength(
+      maquinas.length
+    );
+  });
+
+  it("expande la fila seleccionada con MaquinaExpandedRow", () => {
+    render(<MaquinaList maquinas={maquinas} selectedId="maq002" />);
+
+    expect(screen.getByText("Detalle de maq002")).toBeInTheDocument();
+    expect(screen.queryByText("Detalle de maq001")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/^Detalle de /)).toHaveLength(1);
+  });
+
+  it("vuelve a plegar la fila al quitar la selección", () => {
+    const { rerender } = render(
+      <MaquinaList maquinas={maquinas} selectedId="maq002" />
+    );
+
+    expect(screen.getByText("Detalle de maq002")).toBeInTheDocument();
+
+    rerender(<MaquinaList maquinas={maquinas} selectedId={null} />);
+
+    expect(screen.queryByText("Detalle de maq002")).not.toBeInTheDocument();
+  });
+
+  it("remonta la fila expandida cuando cambia refreshKey", () => {
+    mockMontajes.mockClear();
+    const { rerender } = render(
+      <MaquinaList maquinas={maquinas} selectedId="maq002" refreshKey={0} />
+    );
+
+    expect(mockMontajes).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MaquinaList maquinas={maquinas} selectedId="maq002" refreshKey={1} />
+    );
+
+    expect(mockMontajes).toHaveBeenCalledTimes(2);
+  });
+
+  it("pasa onAsignar a la fila expandida con la máquina seleccionada", async () => {
+    const user = userEvent.setup();
+    const onAsignar = jest.fn();
+    render(
+      <MaquinaList
+        maquinas={maquinas}
+        selectedId="maq002"
+        onAsignar={onAsignar}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Asignar desde el detalle" })
+    );
+
+    expect(onAsignar).toHaveBeenCalledWith(maquinas[1]);
   });
 
   it("muestra el estado vacío", () => {

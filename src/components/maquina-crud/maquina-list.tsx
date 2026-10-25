@@ -6,6 +6,7 @@ import {
   Table,
   TableHeader,
   TableRow,
+  TableDetailRow,
   TableCell,
   toggleSort,
   compareSortValues,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { shortId } from "@/utils/short-id";
 import { EstadoBadge } from "./estado-badge";
+import { MaquinaExpandedRow } from "./maquina-expanded-row";
 
 const MAQUINA_COLUMNS: TableColumn[] = [
   { key: "id", label: "ID", width: 100 },
@@ -41,6 +43,8 @@ export interface MaquinaListProps {
   maquinas: Maquina[];
   selectedId?: string | null;
   onSelect?: (maquina: Maquina) => void;
+  onAsignar?: (maquina: Maquina) => void;
+  refreshKey?: number;
   isLoading?: boolean;
   searchTerm?: string;
 }
@@ -63,6 +67,8 @@ export function MaquinaList({
   maquinas,
   selectedId = null,
   onSelect,
+  onAsignar,
+  refreshKey = 0,
   isLoading = false,
   searchTerm = "",
 }: MaquinaListProps) {
@@ -139,7 +145,12 @@ export function MaquinaList({
       </div>
 
       <Table label="Máquinas">
-        <TableHeader columns={MAQUINA_COLUMNS} sort={sort} onSort={handleSort} />
+        <TableHeader
+          columns={MAQUINA_COLUMNS}
+          sort={sort}
+          onSort={handleSort}
+          disclosure
+        />
         {filtered.map((maquina) => {
           const isSelected = maquina.id === selectedId;
           return (
@@ -147,6 +158,7 @@ export function MaquinaList({
               <TableRow
                 selected={isSelected}
                 onClick={() => onSelect?.(maquina)}
+                disclosure
               >
                 <TableCell width={100} variant="secondary">
                   {shortId("MQ", maquina.id)}
@@ -158,6 +170,15 @@ export function MaquinaList({
                   <EstadoBadge estado={maquina.estado} />
                 </TableCell>
               </TableRow>
+              {isSelected && (
+                <TableDetailRow>
+                  <MaquinaExpandedRow
+                    key={`${maquina.id}-${refreshKey}`}
+                    maquinaId={maquina.id}
+                    onAsignar={onAsignar ? () => onAsignar(maquina) : undefined}
+                  />
+                </TableDetailRow>
+              )}
             </React.Fragment>
           );
         })}
