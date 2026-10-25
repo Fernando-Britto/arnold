@@ -105,6 +105,24 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-053l ➕ Máquinas: navegación y seed | ✅ | — (slice, direct to `dev`) | — | "Polea alta" de `OCUPADA` a `DISPONIBLE`; D-73 |
 | T-053m ➕ Máquinas: pantalla `/maquinas` | ✅ | — (slice, direct to `dev`) | 352 | Probada en el navegador por Fernando; D-73 |
 | T-053n ➕ Máquinas: cierre documental | ✅ | — (slice, direct to `dev`) | — | P-53, P-54, P-55, P-56 y D-73; migración 19/19 |
+| T-054a ➕ Máquinas: dominio puro de asignación | ✅ | — (slice, direct to `dev`) | — | `validarAsignacionEjercicios`, `validarAsignacionPrevia` y `MAX_EJERCICIOS_POR_MAQUINA = 100`; D-74 |
+| T-054b ➕ Máquinas: modelo `EjercicioMaquina` | ✅ | — (slice, direct to `dev`) | — | M2M explícito, único compuesto `[maquinaId, ejercicioId]`, `onDelete: Cascade` en ambos lados; D-74 |
+| T-054c ➕ Máquinas: migración aditiva `ejercicio_maquina` | ✅ | — (slice, direct to `dev`) | — | Escrita a mano, sin `DROP`/`ALTER`; aplicada 20/20; D-74 |
+| T-054d ➕ Máquinas: repositorio de asociaciones | ✅ | — (slice, direct to `dev`) | — | Conteo, lectura y reemplazo en una transacción; D-74 |
+| T-054e ➕ Máquinas: integración de cascada y unicidad | ✅ | — (slice, direct to `dev`) | — | Suite de integración; la corrió Fernando; D-74 |
+| T-054f ➕ Máquinas: mapeo de `VALIDATION_MAX_EJERCICIOS` | ✅ | — (slice, direct to `dev`) | — | 400 con mensaje interpolado desde la constante; D-74 |
+| T-054g ➕ Máquinas: handlers de asignación y conteo real | ✅ | — (slice, direct to `dev`) | — | Orden duplicados → máximo → inexistentes, con pre-chequeo temprano; 409 `DELETE_BLOCKED_EJERCICIOS`; D-74 |
+| T-054h ➕ Máquinas: ruta `GET`/`PUT /api/maquinas/[id]/ejercicios` | ✅ | — (slice, direct to `dev`) | — | ADMINISTRADOR-only, reemplazo total, auditoría `MODIFICACION` best-effort; D-74 |
+| T-054i ➕ Máquinas: pruebas de permisos del path anidado | ✅ | — (slice, direct to `dev`) | — | `matrix-consistency` + `authorization`; D-74 |
+| T-054j ➕ Ejercicios: paginación opt-in en el repositorio | ✅ | — (slice, direct to `dev`) | — | `take`/`skip` solo con `limit`/`offset`; D-74 |
+| T-054k ➕ Ejercicios: paginación en handler y ruta | ✅ | — (slice, direct to `dev`) | ≈285 | Slice 5; `limit` 1–50, defaults 20/0 solo si se pagina; D-74 |
+| T-054l ➕ Máquinas: fetchers cliente de asignación y búsqueda | ✅ | — (slice, direct to `dev`) | ≈256 | Slice 6a; validación temprana + fetchers; D-74 |
+| T-054m ➕ Máquinas: fila expandida | ✅ | — (slice, direct to `dev`) | — | Carga diferida, loading/vacío/error+reintento; D-74 |
+| T-054n ➕ Máquinas: disclosure en el listado | ✅ | — (slice, direct to `dev`) | ≈306 | Slice 6b (T-054m + T-054n); chevron restaurado; D-74 |
+| T-054o ➕ Máquinas: modal accesible de asignación | ✅ | — (slice, direct to `dev`) | 394 | Slice 7a; debounce, página de 50, "Ver más", selección persistente; D-74 |
+| T-054p ➕ Máquinas: cableado de `/maquinas` | ✅ | — (slice, direct to `dev`) | 98 | Slice 7b; modal + refresco de la fila expandida; D-74 |
+| T-054q ➕ Máquinas: filtro por grupo muscular y selección de visibles en el modal | ✅ | — (slice, direct to `dev`) | 287 | Slice 8; `muscleGroup` en `fetchEjerciciosBusqueda`, tope 100 con aviso, paginación reiniciada; D-74 |
+| T-054r ➕ Cierre documental | ✅ | — (directo a `dev`) | — | D-74 y P-57/P-58/P-59/P-60; migración 20/20; 243 suites / 3502 tests |
 
 ## Scope changes during apply
 

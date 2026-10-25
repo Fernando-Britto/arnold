@@ -280,13 +280,18 @@ The system **MUST** expose `PUT /api/maquinas/[id]`. Update **MUST**:
 
 ### Requirement: Delete and the `puedeEliminar` extension point
 
-The system **MUST** expose `DELETE /api/maquinas/[id]`. In Etapa 1 the delete is **physical** (the `Maquina` model has no relations). The handler **MUST** consult the pure function:
+The system **MUST** expose `DELETE /api/maquinas/[id]`. The handler **MUST** query the real `ejerciciosAsociados` count via the repository (`contarEjerciciosAsociados`) and pass it to the pure function:
 
 ```
 puedeEliminar(maquina, { ejerciciosAsociados }) → { permitido: boolean, motivo: string | null }
 ```
 
-In Etapa 1 the handler passes `ejerciciosAsociados = 0`, so `puedeEliminar` returns `{ permitido: true, motivo: null }` and the delete proceeds. The spec **MUST** document that Etapa 2 will pass the real `Ejercicio↔Maquina` count and map a denial to 409 with code `DELETE_BLOCKED_EJERCICIOS` (introduced rather than reusing `DELETE_BLOCKED_ASSIGNED`, because the message template differs: "N ejercicios usan esta máquina" vs "N socios asignados", and the code is part of the API contract). The pure function's blocked branch **MUST** be unit-tested now with a non-zero `ejerciciosAsociados`, even though the Etapa 1 API always passes 0.
+- When the count is `0`, `puedeEliminar` returns `{ permitido: true, motivo: null }` and the delete proceeds **physically** (the `EjercicioMaquina` rows, if any, cascade away).
+- When the count is `> 0`, `puedeEliminar` returns `{ permitido: false, motivo: "N ejercicios usan esta máquina" }`, and the handler **MUST** return 409 with code `DELETE_BLOCKED_EJERCICIOS` (distinct from `DELETE_BLOCKED_ASSIGNED`, because the message template differs — "N ejercicios usan esta máquina" vs "N socios asignados" — and the code is part of the API contract; already mapped in `route-error-mapper.ts`).
+
+The pure function `puedeEliminar` is **UNCHANGED** from Etapa 1 — only its caller now supplies the real count instead of the hardcoded `0`.
+
+(Previously: in Etapa 1 the handler passed `ejerciciosAsociados = 0`, so `puedeEliminar` always returned `{ permitido: true }` and the delete proceeded. Etapa 2 wires the real `Ejercicio↔Maquina` count.)
 
 #### Scenario: Permitted delete
 
@@ -294,17 +299,23 @@ In Etapa 1 the handler passes `ejerciciosAsociados = 0`, so `puedeEliminar` retu
 - WHEN the Administrador calls DELETE /api/maquinas/[id] and confirms
 - THEN the system physically removes the machine and returns success
 
+#### Scenario: Delete blocked by associated exercises
+
+- GIVEN a machine with a known id and `ejerciciosAsociados = 3`
+- WHEN the Administrador calls DELETE /api/maquinas/[id]
+- THEN the system returns 409 with code `DELETE_BLOCKED_EJERCICIOS` and message "No se puede eliminar: 3 ejercicios usan esta máquina", and the machine is not deleted
+
 #### Scenario: Delete of missing machine returns 404
 
 - GIVEN an id that matches no machine
 - WHEN the Administrador calls DELETE /api/maquinas/[id]
 - THEN the system returns 404 with code `NOT_FOUND`
 
-#### Scenario: `puedeEliminar` blocked branch (unit-tested now, wired in Etapa 2)
+#### Scenario: `puedeEliminar` blocked branch (pure function)
 
 - GIVEN `puedeEliminar(maquina, { ejerciciosAsociados: 3 })`
 - WHEN the pure function runs
-- THEN it returns `{ permitido: false, motivo: "3 ejercicios usan esta máquina" }` — unit-tested today even though the Etapa 1 API passes 0
+- THEN it returns `{ permitido: false, motivo: "3 ejercicios usan esta máquina" }` — unit-tested at the domain layer, unchanged from Etapa 1
 
 ### Requirement: Audit Trail
 
@@ -451,8 +462,8 @@ The system **MUST** keep the existing guard tests and the full Jest suite green:
 - **AC-007**: `GET /api/maquinas` returns all machines; supports `estado` and `tipoEquipamiento` filters and case-insensitive `nombre` substring search.
 - **AC-008**: `GET /api/maquinas/[id]` returns the machine, or 404 with "Máquina no encontrada".
 - **AC-009**: `PUT /api/maquinas/[id]` validates/normalizes like create, updates, audits `MODIFICACION` (incl. estado-only), 404 when missing, 409 on duplicate.
-- **AC-010**: `DELETE /api/maquinas/[id]` is physical; `puedeEliminar(maquina, { ejerciciosAsociados: 0 })` permits; 404 when missing.
-- **AC-011**: `puedeEliminar` returns `{ permitido: false, motivo }` when `ejerciciosAsociados > 0` (Etapa 2 maps to 409 `DELETE_BLOCKED_EJERCICIOS`).
+- **AC-010**: `DELETE /api/maquinas/[id]` queries the real `ejerciciosAsociados` count via `contarEjerciciosAsociados`; with `0` it deletes physically; with a missing id it returns 404.
+- **AC-011**: `DELETE /api/maquinas/[id]` returns 409 `DELETE_BLOCKED_EJERCICIOS` ("No se puede eliminar: N ejercicios usan esta máquina") when `ejerciciosAsociados > 0`; the pure `puedeEliminar` function is unchanged and still unit-tested for the blocked branch.
 - **AC-012**: Every write records `RegistroDeAuditoria` (`ALTA`/`MODIFICACION`/`BAJA`) with the actor id; audit failure does not change the HTTP response.
 - **AC-013**: `/maquinas` screen (ADMINISTRADOR only) provides table, filters, search, create/edit modal, `ConfirmDialog` delete, `NotificationProvider` notices, `handleApiError` error toasts, and reuses `src/components/ui/` + `use-modal-a11y`.
 - **AC-014**: Fresh seed produces "Polea alta" as `DISPONIBLE`; seed stays idempotent (`count() === 0` guard).
@@ -511,8 +522,8 @@ The system **MUST** keep the existing guard tests and the full Jest suite green:
 | AC-007 | `src/app/api/maquinas/route.test.ts` | "lists all machines", "filters by estado", "filters by tipoEquipamiento", "case-insensitive nombre search", "combined filters", "empty result" |
 | AC-008 | `src/app/api/maquinas/[id]/route.test.ts` | "returns machine by id", "404 with Máquina no encontrada" |
 | AC-009 | `src/app/api/maquinas/[id]/route.test.ts` | "updates machine", "audits MODIFICACION on estado-only change", "404 on missing", "409 on duplicate" |
-| AC-010 | `src/app/api/maquinas/[id]/route.test.ts` / `route.delete.test.ts` | "deletes machine", "404 on missing delete" |
-| AC-011 | `src/domains/maquina/maquina.test.ts` | "puedeEliminar returns blocked when ejerciciosAsociados > 0" |
+| AC-010 | `src/api/maquinas.test.ts`, `src/app/api/maquinas/[id]/route.delete.test.ts` | "DELETE queries the real ejerciciosAsociados count", "DELETE with 0 associations deletes physically", "404 on missing machine" |
+| AC-011 | `src/api/maquinas.test.ts`, `src/domains/maquina/maquina.test.ts` | "DELETE with ejerciciosAsociados > 0 returns 409 DELETE_BLOCKED_EJERCICIOS", "puedeEliminar returns blocked when ejerciciosAsociados > 0" |
 | AC-012 | `src/app/api/maquinas/route.test.ts` and `[id]/route.test.ts` | "audits ALTA on create", "audits MODIFICACION on update", "audits BAJA on delete", "audit failure does not change response" |
 | AC-013 | `src/components/maquina-crud/maquina-form.test.tsx`, `maquina-list.test.tsx` | "renders table/filters/search", "creates via modal", "edits with forced assignable estado", "delete confirmation", "error toast via handleApiError" |
 | AC-014 | seed integration test | "fresh seed produces Polea alta DISPONIBLE", "seed is idempotent on non-empty table" |

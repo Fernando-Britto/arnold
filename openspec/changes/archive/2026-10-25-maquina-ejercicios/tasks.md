@@ -2,7 +2,7 @@
 
 > **Numbering note.** Starts at **T-054** with letter suffixes per slice, because the last task in the live record is
 > **T-053n** (`openspec/sdd-tasks-tdd.md`). Last decision is **D-73**, last pending is **P-56**; **D-74** is reserved
-> for this change's close (T-054q) and **P-57** is reserved for the pre-existing ESLint `react-hooks/purity` error at
+> for this change's close (T-054r) and **P-57** is reserved for the pre-existing ESLint `react-hooks/purity` error at
 > `src/app/home-socio/page.tsx:129` (from `f4d1ac2`, reproduced on `feat/maquina-ejercicios`).
 
 > **Authoritative inputs:** `proposal.md`, `explore.md`, `design.md` (slice boundaries, exact SQL, exact signatures),
@@ -80,8 +80,9 @@ Chain strategy: one slice = one commit on feat/maquina-ejercicios (no PRs)
 | 5 | Pagination | T-054j, T-054k | `ejercicio-repositorio.ts`, `ejercicio.test.ts`, `api/ejercicios.ts` + test, `app/api/ejercicios/route.ts` + test | **≈230** |
 | 6 | UI expanded row + client fetchers | T-054l, T-054m, T-054n | `api/maquinas.ts` + test, `api/ejercicios.ts` + client test, `maquina-expanded-row.tsx` + test, `maquina-list.tsx` + test | **≈240** |
 | 7 | Assignment modal + page wiring | T-054o, T-054p | `ejercicio-asignacion-modal.tsx` + test, `app/maquinas/page.tsx` + test | **≈370** |
-| — | Close (documentation) | T-054q | `decisions.md`, `PROJECT-STATUS.md`, `sdd-tasks-tdd.md`, `odd/tasks/maquina-ejercicios.md` | **≈80** |
-| | **Total** | **17 tasks** | | **≈1,940** |
+| 8 | Modal: filtro por grupo y selección de visibles | T-054q | `ejercicio-asignacion-modal.tsx` + test, `api/ejercicios.ts` + test | **≈287** |
+| — | Close (documentation) | T-054r | `decisions.md`, `PROJECT-STATUS.md`, `sdd-tasks-tdd.md`, `odd/tasks/maquina-ejercicios.md` | **≈80** |
+| | **Total** | **18 tasks** | | **≈2,227** |
 
 ---
 
@@ -108,7 +109,8 @@ number (tests included).
 | T-054n Disclosure y detalle en el listado | ✅ | Slice 6 · commit 2f | 82 | 2026-10-25 | 20 impl + 62 tests; chevron restaurado |
 | T-054o Modal accesible de asignación | ✅ | Slice 7 · commit 2g | 394 | 2026-10-25 | 225 impl + 169 tests; `useModalA11y` |
 | T-054p Cableado de `/maquinas` | ✅ | Slice 7 · commit 2g | 98 | 2026-10-25 | 21 impl + 77 tests; `refreshKey` |
-| T-054q Cierre documental (D-74, P-57) | ⬜ | none (directo a `dev`) | ≈80 | — | Tras todos los slices |
+| T-054q Filtro por grupo muscular y selección de visibles | ✅ | Slice 8 · commit 2h | 287 | 2026-10-25 | `muscleGroup` en el fetcher; tope 100 con aviso |
+| T-054r Cierre documental (D-74, P-57..P-60) | ✅ | none (directo a `dev`) | ≈80 | 2026-10-25 | Cierre ejecutado |
 
 ---
 
@@ -653,18 +655,42 @@ number (tests included).
   Manual check (browser; `e2e_available: false`): log in as `admin@arnold.test` / `Arnold2026!`, open `/maquinas`,
   expand a machine, assign and unassign exercises, confirm the 409 when deleting a machine with associations.
 
-#### T-054q · Cierre documental (D-74, P-57)
+#### T-054q · Filtro por grupo muscular y selección de visibles
 
-- **Status**: ⬜ · **Slice**: none (directo a `dev`, convención del cierre de Etapa 1) · **Est. LOC**: ≈80 (docs)
+- **Status**: ✅ · **Slice**: 8 · **commit 2h** · **Est. LOC**: ≈287 (90 impl + 171 tests + 26 fetcher/tests)
 - **Files**:
-  - `openspec/decisions.md` (modify: record **D-74** and **P-57**)
+  - `src/components/maquina-crud/ejercicio-asignacion-modal.tsx` (modify)
+  - `src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx` (modify)
+  - `src/api/ejercicios.ts` (modify: `muscleGroup` in `fetchEjerciciosBusqueda`)
+  - `src/api/ejercicios.test.ts` (modify)
+- **TDD (RED → GREEN)**:
+  1. - [x] RED — tests: the filter sends `muscleGroup`; changing the filter or search resets `offset` to 0; the selection persists across filters; "Todos los grupos" omits the param; "Seleccionar los visibles" caps at 100 and shows a visible message; "Quitar los visibles" removes.
+  2. - [x] GREEN — a `<select>` with `aria-label="Filtrar por grupo muscular"` sourced from `GRUPOS_MUSCULARES`; combine with the search; replace the list on filter/search change; the two buttons; the cap with `MAX_EJERCICIOS_POR_MAQUINA`.
+  3. - [x] REFACTOR — none.
+- **AC**: AC-216 (extended), AC-217.
+- **Dependencies**: T-054o, T-054p.
+- **Verification**:
+  ```bash
+  npm test -- src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx src/app/maquinas/page.test.tsx src/api/ejercicios.test.ts
+  npx tsc --noEmit
+  npx eslint src/components/maquina-crud src/api/ejercicios.ts src/api/ejercicios.test.ts src/app/maquinas
+  ```
+- **Note**: modal/fetcher only; no backend, schema or migration.
+
+#### T-054r · Cierre documental (D-74, P-57..P-60)
+
+- **Status**: ✅ · **Slice**: none (directo a `dev`, convención del cierre de Etapa 1) · **Est. LOC**: ≈80 (docs)
+- **Files**:
+  - `openspec/decisions.md` (modify: record **D-74** and **P-57, P-58, P-59, P-60**)
   - `PROJECT-STATUS.md` (modify: task table, "Cambios recientes", pendientes, migration counter)
-  - `openspec/sdd-tasks-tdd.md` (modify: append T-054a…T-054q with actual LOC)
+  - `openspec/sdd-tasks-tdd.md` (modify: append T-054a…T-054r with actual LOC)
   - `odd/tasks/maquina-ejercicios.md` (new, same shape as `odd/tasks/catalogo-ejercicios.md`)
 - **Checklist**:
   1. - [ ] Record **P-57** — pre-existing ESLint `react-hooks/purity` error at `src/app/home-socio/page.tsx:129`
      (`Date.now()` during render), from commit `f4d1ac2`. Not fixed in this change; this change introduces no new lint
-     errors.
+     errors. Also record **P-58** (`enMaquinas` count on the exercise list, deferred), **P-59**
+     (`MAX_EJERCICIOS_POR_MAQUINA` as a `/configuracion` parameter, deferred) and **P-60** (automatic/suggested
+     assignment idea; see "Ideas futuras" in `odd/tasks/maquina-ejercicios.md`).
   2. - [ ] Record **D-74** — the Etapa 2 decisions, separating what Fernando decides from what the assistant proposed:
      `EjercicioMaquina` with `Cascade` on both sides (and why exercise deletion is still gated by the two
      `Restrict` relations), the hand-written additive migration with inline FKs (no `ALTER`, never
@@ -676,7 +702,7 @@ number (tests included).
      not silently.
   4. - [ ] Update `PROJECT-STATUS.md`: task table, "Cambios recientes", and the migration counter. Confirm
      **19/19 → 20/20** with `npx prisma migrate status`; do not assume it.
-  5. - [ ] Append the 17 tasks and their actual LOC to `openspec/sdd-tasks-tdd.md`.
+  5. - [ ] Append the 18 tasks and their actual LOC to `openspec/sdd-tasks-tdd.md`.
   6. - [ ] Create `odd/tasks/maquina-ejercicios.md`: objective, one step per slice with ✅/⬜, risks, verification and
      pending items.
   7. - [ ] Confirm the four gates: `npm test`, `npm run test:integration`, `npx tsc --noEmit`, `npx eslint .` (P-57 is
@@ -712,7 +738,7 @@ T-054j (repo pagination) ── T-054k (route pagination) ──┤
                                                         ├── T-054l (fetchers) ── T-054m (expanded row) ── T-054n (list)
                                                         └── T-054o (modal) ── T-054p (page wiring)
 
-T-054q (close) after every task above
+T-054r (close) after every task above
 ```
 
 ### Per-task dependencies
@@ -735,7 +761,8 @@ T-054q (close) after every task above
 | T-054n | T-054m |
 | T-054o | T-054k, T-054l |
 | T-054p | T-054h, T-054n, T-054o |
-| T-054q | all of the above |
+| T-054q | T-054o, T-054p |
+| T-054r | all of the above |
 
 ### Hard external dependencies
 
@@ -769,7 +796,7 @@ Every AC from the three delta specs maps to a RED test written before its implem
 | **AC-212** | T-054m, T-054n, T-054p | expanded row, list, page | `dibuja el chevron`, `expande la fila con MaquinaExpandedRow`, `muestra "Sin ejercicios asignados"`, `muestra el botón "Asignar ejercicios"` |
 | **AC-213** | T-054o, T-054p | modal, page | `role="dialog" y foco inicial`, `Escape cierra y devuelve el foco`, `debounce ~300 ms`, `consulta con limit=50`, `"Seleccionar todo visible" solo afecta la página` |
 | **AC-214** | T-054o | modal | `muestra el aviso de éxito`, `un 400 deja el modal abierto y muestra el mensaje` |
-| **AC-215** | T-054i, T-054q | matrix, full suite | `matrix-consistency`; `npm test` / `npm run test:integration` / `tsc` / `eslint` green (P-57 documented, not fixed) |
+| **AC-215** | T-054i, T-054r | matrix, full suite | `matrix-consistency`; `npm test` / `npm run test:integration` / `tsc` / `eslint` green (P-57 documented, not fixed) |
 | **`maquinas-crud` AC-010** | T-054d, T-054g | repository, handlers | `consulta el conteo real`, `borra cuando el conteo es 0`, `404 cuando no existe` |
 | **`maquinas-crud` AC-011** | T-054a (unchanged), T-054g | domain, handlers | `puedeEliminar bloquea con 3` (sin cambios), `DELETE_BLOCKED_EJERCICIOS` con el conteo |
 | **`ejercicios-crud` AC-008** | T-054j, T-054k | repository, api, route | `defaults`, `rechaza limit/offset inválidos`, `backwards-compatible cuando se omiten` |
