@@ -53,3 +53,19 @@ describe("máquinas es solo de Administrador", () => {
     expect(hasRouteAccess(Rol.ADMINISTRADOR, route, "GET").allowed).toBe(true);
   });
 });
+describe("el path anidado de ejercicios hereda el prefijo de máquinas", () => {
+  it.each([
+    [Rol.RECEPCIONISTA, "GET", false],
+    [Rol.RECEPCIONISTA, "PUT", false],
+    [Rol.INSTRUCTOR, "GET", false],
+    [Rol.INSTRUCTOR, "PUT", false],
+    [Rol.SOCIO, "GET", false],
+    [Rol.SOCIO, "PUT", false],
+    [Rol.ADMINISTRADOR, "GET", true],
+    [Rol.ADMINISTRADOR, "PUT", true],
+  ] as const)("%s en %s → allowed %s", (rol, metodo, esperado) => {
+    expect(
+      hasRouteAccess(rol, "/api/maquinas/1/ejercicios", metodo).allowed
+    ).toBe(esperado);
+  });
+});
