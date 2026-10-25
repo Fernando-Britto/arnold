@@ -3,6 +3,7 @@ import {
   MAX_EJERCIOS_POR_MAQUINA,
   validateMaquina,
   validarAsignacionEjercicios,
+  validarAsignacionPrevia,
   normalizarTexto,
   normalizeMaquina,
   puedeEliminar,
@@ -265,5 +266,47 @@ describe("validarAsignacionEjercicios", () => {
 
   it("MAX_EJERCIOS_POR_MAQUINA vale 100", () => {
     expect(MAX_EJERCIOS_POR_MAQUINA).toBe(100);
+  });
+});
+
+describe("validarAsignacionPrevia", () => {
+  it("acepta ids distintos y el conjunto vacío sin mirar existencias", () => {
+    expect(validarAsignacionPrevia(["e1", "e2"])).toEqual({
+      ok: true,
+      ejercicioIds: ["e1", "e2"],
+    });
+    expect(validarAsignacionPrevia([])).toEqual({ ok: true, ejercicioIds: [] });
+  });
+
+  it("rechaza duplicados con VALIDATION_ERROR", () => {
+    expect(validarAsignacionPrevia(["e1", "e1"])).toEqual({
+      ok: false,
+      code: "VALIDATION_ERROR",
+      message: "Hay ejercicios duplicados en la asignación",
+    });
+  });
+
+  it("rechaza más de MAX_EJERCIOS_POR_MAQUINA con VALIDATION_MAX_EJERCICIOS", () => {
+    const ids = Array.from(
+      { length: MAX_EJERCIOS_POR_MAQUINA + 1 },
+      (_, i) => `e-${i}`
+    );
+    expect(validarAsignacionPrevia(ids)).toEqual({
+      ok: false,
+      code: "VALIDATION_MAX_EJERCICIOS",
+      message: `No se pueden asignar más de ${MAX_EJERCIOS_POR_MAQUINA} ejercicios a una máquina`,
+    });
+  });
+
+  it("la precedencia es duplicados antes que máximo", () => {
+    const ids = Array.from(
+      { length: MAX_EJERCIOS_POR_MAQUINA + 1 },
+      (_, i) => `e-${i}`
+    );
+    ids[1] = ids[0];
+    expect(validarAsignacionPrevia(ids)).toMatchObject({
+      ok: false,
+      code: "VALIDATION_ERROR",
+    });
   });
 });

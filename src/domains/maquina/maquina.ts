@@ -124,9 +124,12 @@ export type ResultadoAsignacion =
   | { ok: true; ejercicioIds: string[] }
   | { ok: false; code: ErrorAsignacion; message: string };
 
-export function validarAsignacionEjercicios(
-  ejercicioIds: string[],
-  existentes: ReadonlySet<string>
+/**
+ * Chequeos que no necesitan la base: duplicados y tope. La usa el handler antes de
+ * consultar existencias, para no mandarle un arreglo enorme a la DB.
+ */
+export function validarAsignacionPrevia(
+  ejercicioIds: string[]
 ): ResultadoAsignacion {
   if (new Set(ejercicioIds).size !== ejercicioIds.length) {
     return {
@@ -143,6 +146,17 @@ export function validarAsignacionEjercicios(
       message: `No se pueden asignar más de ${MAX_EJERCIOS_POR_MAQUINA} ejercicios a una máquina`,
     };
   }
+
+  return { ok: true, ejercicioIds };
+}
+
+export function validarAsignacionEjercicios(
+  ejercicioIds: string[],
+  existentes: ReadonlySet<string>
+): ResultadoAsignacion {
+  const previa = validarAsignacionPrevia(ejercicioIds);
+
+  if (!previa.ok) return previa;
 
   if (ejercicioIds.some((id) => !existentes.has(id))) {
     return {

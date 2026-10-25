@@ -8,6 +8,7 @@ import {
   normalizeMaquina,
   puedeEliminar,
   validarAsignacionEjercicios,
+  validarAsignacionPrevia,
   type Maquina,
   type MaquinaInput,
   type EstadoMaquina,
@@ -173,6 +174,15 @@ export async function handleMaquinaEjerciciosPut(
     throw codedError("NOT_FOUND", "Máquina no encontrada");
   }
 
+  // Duplicados y máximo se validan antes de la consulta de existentes: no se
+  // manda un arreglo gigante a la base. El 404 de la máquina sigue teniendo
+  // prioridad porque getById corre primero.
+  const previa = validarAsignacionPrevia(ejercicioIds);
+
+  if (!previa.ok) {
+    throw codedError(previa.code, previa.message);
+  }
+
   const existentes = await maquinaRepository.obtenerEjerciciosExistentes(
     ejercicioIds
   );
@@ -215,6 +225,35 @@ export function fetchMaquinasList(): Promise<Maquina[]> {
     const data = await response.json();
     return Array.isArray(data) ? data : [];
   });
+}
+
+export async function fetchMaquinaEjercicios(
+  id: string
+): Promise<EjercicioAsociado[]> {
+  const response = await fetch(`/api/maquinas/${id}/ejercicios`);
+  await throwIfNotOk(
+    response,
+    "No se pudieron cargar los ejercicios de la máquina"
+  );
+  return response.json();
+}
+
+export async function reemplazarEjerciciosMaquina(
+  id: string,
+  ejercicioIds: string[]
+): Promise<EjercicioAsociado[]> {
+  const response = await fetch(`/api/maquinas/${id}/ejercicios`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ejercicioIds }),
+  });
+
+  await throwIfNotOk(
+    response,
+    "No se pudieron guardar los ejercicios de la máquina"
+  );
+  invalidarCache(CLAVES.maquinas);
+  return response.json();
 }
 
 export async function createMaquina(input: MaquinaInput): Promise<Maquina> {

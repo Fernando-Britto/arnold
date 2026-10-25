@@ -15,6 +15,8 @@ import {
   createMaquina,
   updateMaquina,
   deleteMaquina,
+  fetchMaquinaEjercicios,
+  reemplazarEjerciciosMaquina,
 } from "./maquinas";
 import { maquinaRepository } from "@/domains/maquina/maquina-repositorio";
 import * as maquinaDomain from "@/domains/maquina/maquina";
@@ -405,6 +407,10 @@ describe("Maquina Business Logic", () => {
         code: "VALIDATION_ERROR",
         message: expect.stringContaining("Uno o más ejercicios no existen"),
       });
+      expect(maquinaRepository.obtenerEjerciciosExistentes).toHaveBeenCalledWith([
+        "e1",
+        "e2",
+      ]);
       expect(maquinaRepository.reemplazarEjerciciosAsociados).not.toHaveBeenCalled();
     });
 
@@ -420,6 +426,7 @@ describe("Maquina Business Logic", () => {
         code: "VALIDATION_ERROR",
         message: expect.stringContaining("Hay ejercicios duplicados en la asignación"),
       });
+      expect(maquinaRepository.obtenerEjerciciosExistentes).not.toHaveBeenCalled();
       expect(maquinaRepository.reemplazarEjerciciosAsociados).not.toHaveBeenCalled();
     });
 
@@ -436,6 +443,7 @@ describe("Maquina Business Logic", () => {
         code: "VALIDATION_MAX_EJERCICIOS",
         message: expect.stringContaining("No se pueden asignar más de 100 ejercicios"),
       });
+      expect(maquinaRepository.obtenerEjerciciosExistentes).not.toHaveBeenCalled();
       expect(maquinaRepository.reemplazarEjerciciosAsociados).not.toHaveBeenCalled();
     });
 
@@ -565,5 +573,75 @@ describe("Maquina client wrappers", () => {
       method: "DELETE",
     });
     expect(invalidateSpy).toHaveBeenCalledWith(CLAVES.maquinas);
+  });
+
+  it("fetchMaquinaEjercicios hace GET a /api/maquinas/{id}/ejercicios", async () => {
+    const asociados: EjercicioAsociado[] = [
+      { id: "e1", nombre: "Press de banca", grupoMuscular: "Pecho" },
+    ];
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => asociados,
+    });
+
+    await expect(fetchMaquinaEjercicios("m1")).resolves.toEqual(asociados);
+    expect(global.fetch).toHaveBeenCalledWith("/api/maquinas/m1/ejercicios");
+  });
+
+  it("fetchMaquinaEjercicios propaga el error del servidor", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ message: "Máquina no encontrada" }),
+    });
+
+    await expect(fetchMaquinaEjercicios("no-existe")).rejects.toThrow(
+      "Máquina no encontrada"
+    );
+  });
+
+  it("reemplazarEjerciciosMaquina hace PUT con { ejercicioIds } y devuelve la lista", async () => {
+    const asociados: EjercicioAsociado[] = [
+      { id: "e2", nombre: "Sentadilla", grupoMuscular: "Piernas" },
+    ];
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => asociados,
+    });
+
+    const result = await reemplazarEjerciciosMaquina("m1", ["e2"]);
+
+    expect(result).toEqual(asociados);
+    expect(global.fetch).toHaveBeenCalledWith("/api/maquinas/m1/ejercicios", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ejercicioIds: ["e2"] }),
+    });
+  });
+
+  it("reemplazarEjerciciosMaquina invalida CLAVES.maquinas al terminar", async () => {
+    const invalidateSpy = jest.spyOn(cacheCliente, "invalidarCache");
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    });
+
+    await reemplazarEjerciciosMaquina("m1", []);
+
+    expect(invalidateSpy).toHaveBeenCalledWith(CLAVES.maquinas);
+  });
+
+  it("reemplazarEjerciciosMaquina no invalida el cache si el PUT falla", async () => {
+    const invalidateSpy = jest.spyOn(cacheCliente, "invalidarCache");
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ message: "Hay ejercicios duplicados en la asignación" }),
+    });
+
+    await expect(reemplazarEjerciciosMaquina("m1", ["e1", "e1"])).rejects.toThrow(
+      "Hay ejercicios duplicados en la asignación"
+    );
+    expect(invalidateSpy).not.toHaveBeenCalled();
   });
 });
