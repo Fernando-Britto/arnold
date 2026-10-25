@@ -13,7 +13,7 @@ El motor es un **dominio puro**: recibe todo su contexto por parámetros (estado
 | Archivo | Acción | Descripción |
 |---|---|---|
 | `src/domains/asignacion/motor-espera.ts` | Crear | Tipos + predicado + función pública `calcularEspera`. Único archivo del módulo. |
-| `src/domains/asignacion/motor-espera.test.ts` | Crear | Suite con los 19 escenarios del spec (13 y 14 desglosados en subcasos). |
+| `src/domains/asignacion/motor-espera.test.ts` | Crear | Suite con los 23 escenarios del spec (13 y 14 desglosados en subcasos). |
 
 **Un solo archivo es suficiente.** El módulo completo (tipos + predicado + comparador + clasificación de motivo + validación + `calcularEspera`) ronda las 180 líneas con comentarios; muy por debajo del umbral de ~300 que justificaría separar `tipos.ts` y `calculos.ts`. Es la solución más pequeña que resuelve el problema completo (ponytail). Los tipos viven en el mismo módulo y se exportan, igual que `maquina.ts`.
 
@@ -86,6 +86,7 @@ export interface Bloqueado {
 export interface Sugerencia {
   ejercicioId: string;
   espera: number; // segundos
+  maquinaId: string | null; // null solo si el ejercicio no tiene candidatas
 }
 
 export type ResultadoMotor =
@@ -111,7 +112,7 @@ export function calcularEspera(input: EntradaMotor): ResultadoMotor;
 
 2. **Exportar el predicado: sí.** `esMaquinaUsable` es una función exportada de una línea, más un test dedicado (escenarios 13a–13d). Por qué: la spec exige un test dedicado que aserccione los cuatro estados (AC-302); para testearlo directamente hay que exportarlo. Es un costo mínimo y documenta la doble lectura de `OCUPADA`.
 
-3. **`SIN_MAQUINAS_ASOCIADAS` es código muerto — se elimina del union emitido.** La spec lo lista en la tabla de motivos pero su propia semántica dice "no es bloqueo: espera 0". Como los candidatos vacíos no se bloquean, ese código jamás se emite. Se registra como **desvío de spec** (ver D-77) y no se conserva un código inalcanzable. El union emitido queda en tres códigos: `TODAS_FUERA_DE_SERVICIO`, `TODAS_INACTIVAS`, `SIN_MAQUINA_USABLE`.
+3. **`SIN_MAQUINAS_ASOCIADAS` es código muerto — se elimina del union emitido.** La semántica de la spec ya establece que los candidatos vacíos no se bloquean (espera 0), y el vocabulario del spec quedó en tres códigos. Como ese código jamás se emite, se registra como **desvío de spec** (ver D-77) y no se conserva un código inalcanzable. El union emitido queda en tres códigos: `TODAS_FUERA_DE_SERVICIO`, `TODAS_INACTIVAS`, `SIN_MAQUINA_USABLE`.
 
 4. **Candidato ausente en `maquinas`:** se trata como **no usable** (nunca lanza). Por qué: es la regla total y determinista más simple; un id colgante equivale a "no hay máquina usable para ese candidato". No contribuye estado a la clasificación del motivo (ver §4).
 
@@ -138,14 +139,18 @@ calcularEspera(entrada):
 
     si ejercicio.candidatos está vacío:
       espera = 0                                 // no bloqueado, nunca espera
+      maquinaId = null                           // no hay máquina que elegir
     si no, si usables.length > 0:
-      espera = min(usables.map(m => esperaDeMaquina(m, segundosEjecucionSerie)))
+      elegida = argmin(usables.map((m, i) => ({ m, posicion: i, espera: esperaDeMaquina(m, segundosEjecucionSerie) })),
+                       clave = compararCandidata)          // menor espera → primera en candidatos → id
+      espera = elegida.espera
+      maquinaId = elegida.m.id
     si no:
       motivo = clasificarMotivo(estados de candidatas)   // ver regla abajo
       bloqueado = { ejercicioId, motivo }
 
   bloqueados = evaluados con bloqueado, en orden de entrada
-  libres = evaluados sin bloqueado (con su espera)
+  libres = evaluados sin bloqueado (con su espera y su maquinaId)
 
   si libres está vacío → { tipo: "sin_opciones", bloqueados }
 
@@ -154,8 +159,22 @@ calcularEspera(entrada):
 
   ahorro = siguienteEnOrden.espera - recomendado.espera      // >= 0 por construcción
 
-  → { tipo: "exito", recomendado: {id, espera}, siguienteEnOrden: {id, espera}, ahorro, bloqueados }
+  → { tipo: "exito",
+      recomendado:      { ejercicioId, espera, maquinaId },
+      siguienteEnOrden: { ejercicioId, espera, maquinaId },
+      ahorro, bloqueados }
 ```
+
+**Selección de máquina dentro de un ejercicio** (el `posicion` es el índice en `ejercicio.candidatos`, preservado por `map` + `filter`):
+
+```
+compararCandidata(a, b):
+  si a.espera   !== b.espera   → a.espera - b.espera            // 1) menor espera
+  si a.posicion !== b.posicion → a.posicion - b.posicion        // 2) primera en `candidatos`
+  → a.m.id < b.m.id ? -1 : a.m.id > b.m.id ? 1 : 0              // 3) id ascendente (defensivo)
+```
+
+Este comparador elige la máquina **dentro** de un ejercicio y no se confunde con `compararPorOrdenPosicionId`, que elige **entre** ejercicios. Un ejercicio sin candidatas no pasa por aquí: `maquinaId` queda `null` por la rama de lista vacía.
 
 **Regla de clasificación del motivo** (determinista, sobre las candidatas **presentes** no usables):
 
@@ -216,7 +235,7 @@ Espera de una máquina: `0` si no tiene ocupante ni cola; si tiene ocupante, `ti
 
 - **D-76 · Unidades = filas de `Maquina`.** Contexto: el esquema no tiene campo `unidades`/`cantidad`. Decisión: cada unidad física es una fila distinta; el motor trabaja con candidatos por `Maquina.id` y trata dos unidades del mismo tipo como candidatos independientes. Por qué: refleja el modelo de datos real (verificado en explore) y el escenario 4 lo asercciona.
 
-- **D-77 · Motivos de bloqueo como códigos.** Contexto: dos estilos de "motivo" conviven (código en `oferta-reactivacion.ts`, texto en `progresion-ejercicio.ts`). Decisión: literal union tipada (`MotivoBloqueo`), sin texto legible; el mapeo a mensajes queda en Etapa 4. Los tests aserccionan contra el código. **Desvío de spec registrado**: `SIN_MAQUINAS_ASOCIADAS` se elimina del union emitido porque jamás se emite (candidatos vacíos → espera 0, no bloqueo); mantener un código inalcanzable contradice la regla de no conservar código muerto.
+- **D-77 · Motivos de bloqueo como códigos.** Contexto: dos estilos de "motivo" conviven (código en `oferta-reactivacion.ts`, texto en `progresion-ejercicio.ts`). Decisión: literal union tipada (`MotivoBloqueo`), sin texto legible; el mapeo a mensajes queda en Etapa 4. Los tests aserccionan contra el código. **Desvío de spec registrado**: `SIN_MAQUINAS_ASOCIADAS` se elimina del union emitido porque jamás se emite (candidatos vacíos → espera 0, no bloqueo); mantener un código inalcanzable contradice la regla de no conservar código muerto. El vocabulario del spec quedó en los mismos tres códigos.
 
 - **D-78 · Desempate determinista en tres niveles.** Contexto: `orden` tiene `@default(0)`, lo que genera empates frecuentes. Decisión: (a) menor `orden`, (b) posición en la lista de entrada, (c) `id` ascendente. Por qué: garantiza determinismo total. Se implementa como **un único comparador** `compararPorOrdenPosicionId` reutilizado por "recomendado" (como desempate tras espera) y por "siguiente en orden" (como clave primaria), cumpliendo el requisito de "mismo criterio para ambos".
 
@@ -232,6 +251,12 @@ Espera de una máquina: `0` si no tiene ocupante ni cola; si tiene ocupante, `ti
 
 - **D-83 · Candidato ausente en `maquinas`.** Decisión: un id de candidato que no está en `maquinas` se trata como no usable (no throw) y **no aporta estado** a la clasificación del motivo. Por qué: regla total y determinista ante ids colgantes; si todos los candidatos están ausentes, el motivo es `SIN_MAQUINA_USABLE` (fallback). La regla y sus dos consecuencias (`[idAusente, INACTIVA]` → `TODAS_INACTIVAS`; todos ausentes → `SIN_MAQUINA_USABLE`) quedaron reflejadas en el spec, sección "Bloqueo y códigos de motivo", para no dejarlo como comportamiento implícito.
 
+- **D-84 · `Sugerencia.maquinaId`.** Contexto: la recomendación decía qué ejercicio hacer y cuánto esperar, pero no en qué máquina reservar. Decisión: `Sugerencia` lleva `maquinaId: string | null` con la unidad elegida del ejercicio. Por qué: la Etapa 4 reserva un lugar en la cola de esa máquina y la Etapa 5 le indica al socio a qué máquina caminar. `maquinaId` es `null` solo cuando el ejercicio no tiene candidatas (`candidatos = []`); si hay candidatas, siempre es el `id` de una unidad usable.
+
+- **D-85 · Desempate de máquina.** Decisión: entre las candidatas usables del mismo ejercicio se elige (1) menor espera, (2) en empate la que aparece primero en `candidatos`, (3) en empate `id` ascendente (defensivo). Por qué: determinista y estable frente a cambios de orden de entrada que controla el llamador; no depende del orden de iteración de un `Map` ni del orden de la lista de máquinas del gimnasio.
+
+- **D-86 · Se valida también el `descanso` de ocupante y de cada miembro de cola.** Contexto: la corrección de implementación de T-055a detectó que `normalizarDescanso` en `src/api/rutinas.ts` **no recorta negativos** (`Number.isFinite(-5)` es `true`), así que un `descanso` negativo puede llegar a la base y, desde ahí, al motor. Decisión: además de `series`/`descanso` del ejercicio pendiente y `segundosEjecucionSerie`, se valida `descanso >= 0` del ocupante y de cada miembro de la cola; `series` y `seriesRestantes` de los actores **no** se validan (la spec no lo pide). Por qué: un `descanso` negativo produciría una espera menor que la real y rompería la garantía conservadora de §5. Es la única validación agregada respecto de la spec, y se registra aquí en lugar de dejarla implícita.
+
 ## 7. Plan de pruebas TDD
 
 Estructura del archivo `motor-espera.test.ts` (descripciones en español, estilo del repo):
@@ -240,15 +265,15 @@ Estructura del archivo `motor-espera.test.ts` (descripciones en español, estilo
 describe("calcularEspera", () => {
   describe("esMaquinaUsable", ...)                       // 13a–13d
   describe("validación de entrada", ...)                 // 14a–14c
-  describe("espera de un ejercicio", ...)                // 1, 2, 3, 4, 6, 16
-  describe("bloqueo y códigos de motivo", ...)           // 5, 15, 17
+  describe("espera de un ejercicio", ...)                // 1, 2, 3, 4, 6, 16, 20, 21, 22
+  describe("bloqueo y códigos de motivo", ...)           // 5, 15, 17, 23
   describe("selección del recomendado y del siguiente", ...) // 8, 9, 10, 11
   describe("forma del resultado", ...)                   // 7, 18
   describe("determinismo y re-ejecución", ...)           // 12, 19
 })
 ```
 
-Los valores numéricos se copian **idénticos** del spec (no se recalculan). Verificación de aritmética del spec realizada: **sin errores** — 210 (esc. 2), 840 (esc. 3), 360/0 (esc. 4), 210 (esc. 6), 360/60→300 (esc. 11), 210/210/210 (esc. 9), todos consistentes.
+Los valores numéricos se copian **idénticos** del spec (no se recalculan). Verificación de aritmética del spec realizada: **sin errores** — 210 (esc. 2), 840 (esc. 3), 360/0 (esc. 4), 210 (esc. 6), 360/60→300 (esc. 11), 210/210/210 (esc. 9), 0/0→`M1` (esc. 20), 210/0→`M2` (esc. 21), `null` (esc. 22); el esc. 23 no lleva aritmética, solo clasificación. Todos consistentes.
 
 | Escenario | Test (nombre `it`) | Valor esperado |
 |---|---|---|
@@ -271,6 +296,10 @@ Los valores numéricos se copian **idénticos** del spec (no se recalculan). Ver
 | 17 | "mezcla FDS + INACTIVA bloquea con SIN_MAQUINA_USABLE" | `SIN_MAQUINA_USABLE` |
 | 18 | "devuelve vacio sin ejercicios pendientes" | `vacio` |
 | 19 | "mismo input produce el mismo output" | salidas idénticas |
+| 20 | "elige la primera candidata cuando las esperas empatan" | espera 0, `maquinaId = M1` |
+| 21 | "elige la candidata de menor espera" | espera 0, `maquinaId = M2` |
+| 22 | "devuelve maquinaId null para candidatas vacías" | espera 0, `maquinaId = null` |
+| 23 | "no cuenta los ids ausentes en la clasificación del motivo" | `TODAS_INACTIVAS` y `SIN_MAQUINA_USABLE` |
 
 **Orden RED → GREEN** (cada paso escribe el test que falla y luego implementa lo mínimo para pasarlo):
 
@@ -278,24 +307,26 @@ Los valores numéricos se copian **idénticos** del spec (no se recalculan). Ver
 2. Validación (14a–14c) → implementar `validar` + variante `invalido`.
 3. Gimnasio vacío (1) → implementar el esqueleto `vacio`/`exito` + selección trivial.
 4. Fórmulas de ocupante y cola (2, 3) → implementar `esperaDeMaquina`.
-5. Candidatos (4, 6, 16) → mínimo sobre usables + candidatos vacíos + `OCUPADA` legada.
-6. Bloqueo y motivos (5, 15, 17) → clasificación de motivo + `bloqueados`/`sin_opciones`.
+5. Candidatos (4, 6, 16) y selección de máquina (20, 21, 22) → mínimo sobre usables + `maquinaId` + candidatos vacíos + `OCUPADA` legada.
+6. Bloqueo y motivos (5, 15, 17, 23) → clasificación de motivo (incluido el `id` colgante) + `bloqueados`/`sin_opciones`.
 7. Selección y desempate (8, 9, 10, 11) → comparator + `recomendado`/`siguienteEnOrden`/`ahorro`.
 8. Forma del resultado y determinismo (7, 18, 12, 19) → cierre de la unión y re-ejecución.
 
 ## 8. Plan de slices
 
-El cambio es un módulo puro pequeño + un archivo de test. El total estimado (~520 líneas autoradas) **excede las 400**, por lo que se divide en dos slices (dos commits; sin PRs, flujo del proyecto).
+El cambio es un módulo puro pequeño + un archivo de test + el cierre documental. El total estimado (~822 líneas autoradas) **excede las 400**, por lo que se divide en tres slices verticales (tres commits; sin PRs, flujo del proyecto). Cada slice entrega producción y pruebas propias y deja la suite verde; el reparto definitivo vive en `tasks.md`.
 
 | # | Slice | Archivos | LOC est. | Veredicto |
 |---|-------|----------|----------|-----------|
-| 1 | Módulo + tests de núcleo (predicado, validación, fórmulas, candidatos, bloqueo) | `motor-espera.ts` (nuevo, ~180) + `motor-espera.test.ts` (nuevo, ~170) | ~350 | ≤400 ✅ |
-| 2 | Tests de selección, ahorro, forma del resultado y determinismo | `motor-espera.test.ts` (ampliación, +~170) | ~170 | ≤400 ✅ |
+| 1 (T-055a) | Módulo + tests de núcleo (predicado, validación, fórmulas, candidatos, espera, `maquinaId` mínimo) | `motor-espera.ts` (nuevo, ~157) + `motor-espera.test.ts` (nuevo, ~225) | ~382 | ≤400 ✅ |
+| 2 (T-055b) | Selección de máquina, bloqueo con motivos, `id` colgante, comparador canónico, ahorro y determinismo + protocolo de mutación | `motor-espera.ts` (modificar, ~80) + `motor-espera.test.ts` (ampliación, ~250) | ~330 | ≤400 ✅ |
+| 3 (T-055c) | Cierre documental: D-75–D-86 y P-61–P-67 en `decisions.md`; verificación del spec | `openspec/decisions.md` (modificar), `openspec/changes/motor-espera/specs/motor-espera-asignacion/spec.md` (verificar) | ~110 | ≤400 ✅ |
 
-- **Slice 1** implementa el módulo completo (la función es total: devuelve la unión entera) junto con los escenarios 1, 2, 3, 4, 5, 6, 13a–13d, 14a–14c, 15, 16, 17. TDD estricto: tests RED → implementación GREEN dentro del slice.
-- **Slice 2** añade los escenarios 7, 8, 9, 10, 11, 12, 18, 19 (selección con desempate, ahorro, `sin_opciones`/`vacio`, determinismo). Es cobertura de aceptación sobre el código ya implementado en el slice 1; si durante su redacción aparece un refinamiento del comparator (por ejemplo, el orden del id lexicográfico), ese ajuste mínimo aterriza en este slice. No introduce código de producción nuevo salvo ese caso.
+- **Slice 1** implementa el módulo completo (la función es total: devuelve la unión entera) junto con los escenarios 1, 2, 3, 4, 6, 13a–13d, 14a–14c, 16, 17 y la guardia de orden. El tipo `Sugerencia` ya lleva `maquinaId` y el minimizador ingenuo devuelve la máquina que gana el mínimo (primer empate a favor del primero); el desempate explícito llega en el slice 2.
+- **Slice 2** añade la selección explícita de máquina (escenarios 20, 21, 22), el bloqueo y los motivos (5, 15, 17, 23), el `id` colgante, `sin_opciones` (7), el comparador canónico y la selección/ahorro (8, 9, 10, 11, 12, 18, 19). Los escenarios 9, 10, 11, 12 y 19 son **guardias**: se esperan verdes con la implementación mínima del slice 1 y, antes de cerrar el slice, se ejecuta el **protocolo de mutación** de `tasks.md` (romper una hipótesis por vez, ver rojo, restaurar y ver verde de nuevo).
+- **Slice 3** no toca código: registra las decisiones D-75–D-86 y los pendientes P-61–P-67 en `decisions.md`, y verifica que el spec ya refleja la eliminación de `SIN_MAQUINAS_ASOCIADAS` (aplicada en esta corrección, no diferida).
 
-**Presupuesto**: total ~520 LOC repartido en dos commits, cada uno ≤400. Riesgo de presupuesto: **bajo**. No hay chaining de PRs (el flujo del proyecto no usa PRs; un slice = un commit).
+**Presupuesto**: total ~822 LOC repartido en tres commits, cada uno ≤400. Slice más grande ~382 (18 líneas de margen). Riesgo de presupuesto: **bajo**. No hay chaining de PRs (el flujo del proyecto no usa PRs; un slice = un commit).
 
 ## 9. Riesgos y mitigaciones
 
@@ -304,7 +335,7 @@ El cambio es un módulo puro pequeño + un archivo de test. El total estimado (~
 | **Tensión `OCUPADA` (doble lectura)** | Media. `home-interno.ts` trata `OCUPADA` como no disponible; el motor la trata como usable si es legada. | Predicado propio `esMaquinaUsable` sin importar `home-interno.ts` (D-75); test 16 documenta la lectura del motor. |
 | **Aproximación conservadora sobre-estima la espera** | Baja (intencional). `real ≤ calculada`. | Documentado en §5; es seguro para la recomendación (nunca promete menos espera). |
 | **`orden = 0` por defecto genera empates frecuentes** | Alta (esperada). | Desempate de tres niveles (orden → posición → id); escenario 9 lo verifica. |
-| **Entradas de ocupante/cola no validadas** (`seriesRestantes`/`series` de cola fuera de rango) | Baja. La spec solo valida `series`/`descanso` del ejercicio pendiente y `segundosEjecucionSerie`. | No se añade validación no pedida (ponytail); la Etapa 4 deriva esos valores de sesiones reales y puede confiar en el motor o pre-validar. Se documenta como supuesto de entrada bien formada. |
+| **`series`/`seriesRestantes` de ocupante y cola no validados** | Baja. La spec no lo pide y la Etapa 4 los deriva de sesiones reales (`serieActual` entre 1 y las series del ejercicio). | No se agrega validación no pedida (ponytail). El `descanso` de los actores **sí** se valida (D-86), porque un negativo sí es alcanzable desde `src/api/rutinas.ts` y rompería la garantía conservadora. |
 | **`descanso` del ejercicio pendiente no participa del cálculo** | Informativa. | El `descanso` del pendiente se valida (defensa en profundidad) pero la espera depende del `descanso` del actor (D-82). Documentado para evitar que el implementador use el `descanso` equivocado. |
 | **Rendimiento O(Ejercicios × Máquinas × Cola)** | Bajo para volúmenes de check-in. | Fuera de alcance ahora; la función es pura y separable para optimizar en Etapa 5 (P-62). |
 
@@ -316,21 +347,22 @@ El cambio es un módulo puro pequeño + un archivo de test. El total estimado (~
 | Predicado de máquina usable (AC-302) | §3 (D-75), §4 | 13a–13d, 16 |
 | Espera del ocupante (AC-303) | §5 | 2 |
 | Duración de un miembro en cola (AC-304) | §5 | 3 |
-| Espera por máquina y por ejercicio (AC-305) | §4, §5 | 1, 4, 6 |
+| Espera por máquina y por ejercicio (AC-305) | §4, §5 | 1, 4, 6, 20, 21, 22 |
 | Validación de entrada (AC-306) | §3 (D-79, D-81), §4 | 14a–14c |
-| Bloqueo y códigos de motivo (AC-307) | §3 (D-77), §4 | 5, 15, 17, (6) |
+| Bloqueo y códigos de motivo (AC-307) | §3 (D-77), §4 | 5, 15, 17, 23, (6) |
 | Selección del recomendado (AC-308) | §4 (D-78) | 8, 9 |
 | Siguiente en orden (AC-309) | §4 (D-78) | 10, 9 |
 | Ahorro (AC-310) | §4 | 10, 11 |
 | Forma del resultado (AC-311) | §3 (D-81) | 7, 18, 1 |
 | Determinismo y re-ejecubilidad (AC-312) | §1, §4 | 19 |
 | Limitación declarada solo-espera (AC-313) | §1, §9 | — (no funcional, P-63) |
+| Selección de máquina `maquinaId` (AC-314) | §3 (D-84, D-85), §4 | 20, 21, 22 |
 
 ## 11. Numeración
 
-- Decisiones registradas en este diseño: **D-75 a D-83** (última previa: D-74).
+- Decisiones registradas en este diseño: **D-75 a D-86** (última previa: D-74).
 - Tareas: se reservan **T-055+** para la fase `sdd-tasks` (no se crean aquí).
-- Pendientes: **P-61…P-66** ya reservados en `proposal.md` para etapas posteriores; este diseño no los reabre ni los renumera.
+- Pendientes: **P-61…P-66** ya reservados en `proposal.md` para etapas posteriores, y **P-67** registrado en `decisions.md` (precondición de integración de la Etapa 4); este diseño no los reabre ni los renumera.
 
 ## Plan de rollback
 

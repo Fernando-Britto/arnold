@@ -157,6 +157,8 @@ donde `series` y `descanso` son los del ejercicio que ese miembro va a realizar.
 
 La espera de un ejercicio **MUST** ser el **mínimo**, sobre sus máquinas candidatas usables, del tiempo hasta que esa máquina se libere (tiempo del ocupante más la suma de la cola). Una máquina sin ocupante y sin cola tiene espera 0. Un ejercicio con **lista de candidatos vacía** **MUST** tener espera 0 y nunca espera (no es un bloqueo).
 
+**Selección de la máquina (`maquinaId`)**: cuando el ejercicio tiene al menos una candidata usable, su sugerencia **MUST** exponer en `maquinaId` el `id` de la máquina elegida. La elección entre las candidatas usables del **mismo ejercicio** **MUST** seguir este orden: (1) **menor espera**; (2) en empate, la que aparece **primero** en `candidatos`; (3) en empate, `id` ascendente (defensivo: la posición en la lista ya es única en una entrada bien formada). Un ejercicio con `candidatos` vacío **MUST** exponer `maquinaId = null`. Importa porque la Etapa 4 reserva un lugar en la cola de esa máquina y la Etapa 5 le indica al socio a qué máquina caminar.
+
 #### Scenario: Gimnasio vacío
 
 - GIVEN un único ejercicio `E1` con una máquina `M1` disponible, sin ocupante y sin cola
@@ -180,6 +182,46 @@ La espera de un ejercicio **MUST** ser el **mínimo**, sobre sus máquinas candi
 - `M1` (ocupante `seriesRestantes = 3`): `3 × 60 = 180` · `(3 − 1) × 90 = 180` · total = **360**
 - `M2` (disponible, sin ocupante ni cola): **0**
 - Espera de `E1` = `min(360, 0) =` **0** → gana la unidad libre
+
+#### Scenario: Dos unidades con la misma espera
+
+- GIVEN un ejercicio `E1` con `candidatos = [M1, M2]`, ambas `DISPONIBLE`, sin ocupante ni cola
+- WHEN se calcula la espera y se elige la máquina
+- THEN la espera es 0 y `maquinaId = M1`, porque el empate se resuelve por la primera posición en `candidatos`
+
+**Cálculo paso a paso** (segundosEjecucionSerie = 60, descanso = 90):
+
+- `M1`: `DISPONIBLE`, sin ocupante ni cola → espera de `M1` = **0**
+- `M2`: `DISPONIBLE`, sin ocupante ni cola → espera de `M2` = **0**
+- Espera de `E1` = `min(0, 0) =` **0**
+- Empate de espera → desempate por posición en `candidatos`: `M1` está en la posición 0 y `M2` en la 1 → `maquinaId =` **`M1`**
+- El tercer nivel (`id` ascendente) no se aplica: las posiciones ya son distintas (defensivo)
+
+#### Scenario: Dos unidades con esperas distintas
+
+- GIVEN un ejercicio `E1` con `candidatos = [M1, M2]`, donde `M1` tiene un ocupante con `seriesRestantes = 2` y `M2` está libre
+- WHEN se calcula la espera y se elige la máquina
+- THEN la espera es 0 y `maquinaId = M2`, porque `M2` es la de menor espera
+
+**Cálculo paso a paso** (segundosEjecucionSerie = 60, descanso = 90):
+
+- `M1` (ocupante `seriesRestantes = 2`): `2 × 60 = 120` · `(2 − 1) × 90 = 90` · total = **210**
+- `M2` (libre, sin ocupante ni cola): **0**
+- Espera de `E1` = `min(210, 0) =` **0** → la menor espera es `M2`; `maquinaId =` **`M2`**
+- No hay empate: el desempate por posición no se evalúa
+
+#### Scenario: Ejercicio sin máquinas
+
+- GIVEN un ejercicio `E1` (orden 2) con `candidatos = []` y un ejercicio `E2` (orden 1) cuya única máquina tiene un ocupante con `seriesRestantes = 2`
+- WHEN se calcula la espera y se elige la máquina
+- THEN `E1` tiene espera 0, no está bloqueado, es el recomendado y su `maquinaId` es `null`
+
+**Cálculo paso a paso** (segundosEjecucionSerie = 60, descanso = 90):
+
+- `E1` (orden 2, `candidatos = []`): no hay máquina que elegir → espera = **0** y `maquinaId =` **`null`**; no bloqueado
+- `E2` (orden 1): ocupante `seriesRestantes = 2` → `2 × 60 = 120` · `(2 − 1) × 90 = 90` → **210**; `maquinaId =` **`M2`**
+- Recomendado = `E1` (0, `maquinaId = null`) · Siguiente en orden = `E2` (210, `maquinaId = M2`)
+- Ahorro = `210 − 0 =` **210**
 
 #### Scenario: Ejercicio sin máquina asociada
 
@@ -226,10 +268,11 @@ El vocabulario de códigos es:
 
 | Código | Cuándo se emite | Resultado |
 |---|---|---|
-| `SIN_MAQUINAS_ASOCIADAS` | El ejercicio no tiene ninguna máquina candidata (lista vacía) | **No** es bloqueo: espera 0, nunca espera; sigue siendo candidato a recomendación |
 | `TODAS_FUERA_DE_SERVICIO` | Tiene ≥1 candidata y **todas** están en `FUERA_DE_SERVICIO` | Bloqueado; excluido de la recomendación |
 | `TODAS_INACTIVAS` | Tiene ≥1 candidata y **todas** están en `INACTIVA` | Bloqueado; excluido |
 | `SIN_MAQUINA_USABLE` | Tiene ≥1 candidata, ninguna usable, y las no usables son una **mezcla** de `FUERA_DE_SERVICIO` e `INACTIVA` (al menos una de cada) | Bloqueado; excluido |
+
+**Ejercicio sin máquinas candidatas**: un ejercicio con lista de candidatos vacía tiene espera 0, **no** se bloquea y sigue siendo candidato a la recomendación; su sugerencia lleva `maquinaId = null`. No existe un código de bloqueo para este caso: el vocabulario emitido es exactamente los tres códigos de la tabla.
 
 **Regla determinista para el caso mixto**: se inspecciona el conjunto de estados de las candidatas. Si todas son `FUERA_DE_SERVICIO` → `TODAS_FUERA_DE_SERVICIO`; si todas son `INACTIVA` → `TODAS_INACTIVAS`; si hay al menos una de cada (y ninguna usable) → `SIN_MAQUINA_USABLE`. La regla depende solo de los estados de las candidatas, por lo que es determinista.
 
@@ -274,6 +317,20 @@ El motor nunca lanza por un `id` colgante: esa situación es un supuesto de entr
 
 - `M1`: `FUERA_DE_SERVICIO` (no usable) · `M2`: `INACTIVA` (no usable) · hay al menos una de cada y ninguna usable → `SIN_MAQUINA_USABLE`
 - Bloqueados = `[E1 → SIN_MAQUINA_USABLE]`
+
+#### Scenario: Candidata con id ausente en la lista de máquinas
+
+- GIVEN `E1` con `candidatos = [MX (ausente), M2 (INACTIVA)]`, `E2` con `candidatos = [MY (ausente), MZ (ausente)]`, y `E3` con una máquina usable
+- WHEN se calcula
+- THEN `E1` queda bloqueado con `TODAS_INACTIVAS`, `E2` con `SIN_MAQUINA_USABLE`, y el resultado es de éxito con `E3` como recomendado
+
+**Razonamiento paso a paso**:
+
+- `E1`: `MX` no está en `maquinas` → se descarta, no es usable y **no aporta estado**; `M2` es `INACTIVA` → no usable. El único estado inspeccionable es `INACTIVA` → `TODAS_INACTIVAS`
+- `E2`: `MY` y `MZ` no están en `maquinas` → se descartan y no aportan estado. No queda ningún estado inspeccionable → fallback `SIN_MAQUINA_USABLE`
+- `E3`: máquina usable disponible, sin ocupante → espera **0**, `maquinaId` = esa máquina
+- Resultado = éxito · Recomendado = `E3` · Siguiente en orden = `E3` · Ahorro = `0 − 0 =` **0** · Bloqueados = `[E1 → TODAS_INACTIVAS, E2 → SIN_MAQUINA_USABLE]` (en orden de entrada)
+- Ningún `id` colgante lanza excepción
 
 ### Requirement: Selección del recomendado
 
@@ -345,7 +402,7 @@ El resultado **MUST** incluir el ahorro: `espera(siguienteEnOrden) − espera(re
 
 El motor **MUST** producir un resultado con tres variantes, a nivel semántico (la firma TypeScript final la define la fase de diseño):
 
-- **éxito**: lleva `recomendado` (identificador del ejercicio + su espera), `siguienteEnOrden` (identificador + su espera), `ahorro` (número ≥ 0) y `bloqueados` (lista de `{ ejercicioId, motivo }`, posiblemente vacía).
+- **éxito**: lleva `recomendado` (`{ ejercicioId, espera, maquinaId }`), `siguienteEnOrden` (`{ ejercicioId, espera, maquinaId }`), `ahorro` (número ≥ 0) y `bloqueados` (lista de `{ ejercicioId, motivo }`, posiblemente vacía). `maquinaId` es `null` solo cuando el ejercicio no tiene candidatas.
 - **sin_opciones**: todos los ejercicios pendientes están bloqueados; lleva la lista de `bloqueados` y **MUST NOT** lanzar una excepción.
 - **vacío**: no hay ejercicios pendientes; resultado vacío explícito.
 
@@ -403,6 +460,10 @@ El criterio de recomendación es **solo-espera**: menor tiempo de espera, sin in
 | 17 | Mezcla fuera de servicio + inactiva | Código mixto determinista | `SIN_MAQUINA_USABLE` |
 | 18 | Sin ejercicios pendientes | Resultado `vacío` | `vacío` |
 | 19 | Mismo input dos veces | Determinismo / re-ejecubilidad | salidas idénticas |
+| 20 | Dos unidades con la misma espera | Desempate de máquina por primera posición en `candidatos` | espera 0, `maquinaId = M1` |
+| 21 | Dos unidades con esperas distintas | Selección de máquina por menor espera | espera 0, `maquinaId = M2` |
+| 22 | Ejercicio sin máquinas (`candidatos = []`) | Espera 0, no bloqueo y `maquinaId = null` | espera 0, `maquinaId = null` |
+| 23 | Candidata con `id` ausente | El `id` colgante no aporta estado a la clasificación | `TODAS_INACTIVAS` y `SIN_MAQUINA_USABLE` |
 
 ## Acceptance Criteria
 
@@ -412,13 +473,14 @@ El criterio de recomendación es **solo-espera**: menor tiempo de espera, sin in
 - **AC-304**: La duración de un miembro en cola es `series × segundosEjecucionSerie + (series − 1) × descanso`, y la espera de una máquina suma ocupante + cola.
 - **AC-305**: La espera de un ejercicio es el mínimo sobre sus candidatas usables; candidatos vacíos → espera 0 sin bloqueo.
 - **AC-306**: La validación rechaza `series = 0`, `descanso < 0` y `segundosEjecucionSerie = 0` con un resultado de validación estructurado, sin excepción ni cálculo parcial.
-- **AC-307**: Un ejercicio sin máquina usable queda bloqueado con un código de la unión (`TODAS_FUERA_DE_SERVICIO`, `TODAS_INACTIVAS`, `SIN_MAQUINA_USABLE`), excluido de la recomendación; la lista vacía no bloquea.
+- **AC-307**: Un ejercicio sin máquina usable queda bloqueado con un código de la unión (`TODAS_FUERA_DE_SERVICIO`, `TODAS_INACTIVAS`, `SIN_MAQUINA_USABLE`), excluido de la recomendación; la lista vacía no bloquea y un `id` de candidata ausente en `maquinas` no lanza ni aporta estado a la clasificación.
 - **AC-308**: El recomendado es el ejercicio no bloqueado de menor espera, con desempate `orden → posición → id`.
 - **AC-309**: El resultado incluye el siguiente en orden (menor `orden` no bloqueado, desempate `posición → id`).
 - **AC-310**: El ahorro es `espera(siguienteEnOrden) − espera(recomendado)` y es ≥ 0; vale 0 cuando coinciden.
 - **AC-311**: El resultado tiene tres variantes: éxito (`recomendado`, `siguienteEnOrden`, `ahorro`, `bloqueados`), `sin_opciones` (todos bloqueados, sin throw) y `vacío` (sin pendientes).
 - **AC-312**: El motor es determinista: la misma entrada produce la misma salida, sin reloj ni aleatoriedad.
 - **AC-313**: La limitación "solo-espera" está documentada y referenciada a P-63.
+- **AC-314**: Cada sugerencia expone `maquinaId`: la candidata usable elegida del ejercicio (menor espera; en empate, la primera en `candidatos`; en empate, `id` ascendente) o `null` cuando `candidatos` está vacío.
 
 ## Trazabilidad
 
@@ -428,9 +490,10 @@ El criterio de recomendación es **solo-espera**: menor tiempo de espera, sin in
 | Predicado de máquina usable | 13a, 13b, 13c, 13d, 16 |
 | Espera del ocupante (fórmula conservadora) | 2 |
 | Duración de un miembro en cola | 3 |
-| Espera por máquina y por ejercicio | 1, 4, 6 |
+| Espera por máquina y por ejercicio | 1, 4, 6, 20, 21, 22 |
+| Selección de máquina (`maquinaId`, AC-314) | 20, 21, 22 |
 | Validación de entrada | 14a, 14b, 14c |
-| Bloqueo y códigos de motivo | 5, 15, 17, (6 como no-bloqueo) |
+| Bloqueo y códigos de motivo | 5, 15, 17, 23, (6 como no-bloqueo) |
 | Selección del recomendado | 8, 9 |
 | Siguiente en orden (baseline) | 10, 9 |
 | Ahorro | 10, 11 |
@@ -443,6 +506,7 @@ El criterio de recomendación es **solo-espera**: menor tiempo de espera, sin in
 - Integración con check-in, sesión de entrenamiento, `Home_Socio` o pantalla del socio (Etapas 4 y 5).
 - Persistencia del estado de ocupación (sesiones activas, ocupantes y colas reales): el motor solo los recibe por parámetro.
 - Reserva provisional con expiración (P-65), cálculo best-effort en check-in (P-64), salida de emergencia del flujo obligatorio (P-61).
+- La reserva de la sugerencia en la cola de la máquina y la exclusión de la reserva del propio socio al recalcular (check-in → inicio de rutina → tras cada ejercicio): Etapa 4 (P-67).
 - Parámetro `/configuracion`: `segundosEjecucionSerie` se parameteriza por inyección, no se expone.
 - Simulación comparativa para la tesis (P-62).
 - Cambios a `EstadoMaquina`, `Maquina`, `EjercicioEnRutina`, `EjercicioMaquina`, `SesionDeEntrenamiento`, el guardián de dominios puros ni el filtro de `home-interno.ts`.
@@ -452,4 +516,4 @@ El criterio de recomendación es **solo-espera**: menor tiempo de espera, sin in
 
 - Decisiones: **D-75+** (última registrada D-74).
 - Tareas: **T-055+** (última registrada T-054r).
-- Pendientes **P-61…P-66** pertenecen a etapas posteriores (ver `proposal.md`); esta etapa no los implementa.
+- Pendientes **P-61…P-67** pertenecen a etapas posteriores (ver `proposal.md` y `openspec/decisions.md`); esta etapa no los implementa. P-67 exige que la Etapa 4 excluya de las colas la reserva del propio socio al recalcular.
