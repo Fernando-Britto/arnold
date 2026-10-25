@@ -5,7 +5,7 @@ import {
   esErrorP2002,
   type MaquinaReader,
 } from "./maquina-repositorio";
-import type { EstadoAsignable, EstadoMaquina, TipoEquipamiento } from "./maquina";
+import type { EjercicioAsociado, EstadoAsignable, EstadoMaquina, TipoEquipamiento } from "./maquina";
 
 const maquinaBase: Maquina = {
   id: "c1234567890123456789012345",
@@ -18,7 +18,7 @@ const maquinaBase: Maquina = {
 };
 
 function mockReader(overrides: Partial<MaquinaReader> = {}): MaquinaReader {
-  return {
+  const reader = {
     maquina: {
       create: jest.fn().mockResolvedValue(maquinaBase),
       findUnique: jest.fn().mockResolvedValue(null),
@@ -27,10 +27,37 @@ function mockReader(overrides: Partial<MaquinaReader> = {}): MaquinaReader {
       delete: jest.fn().mockResolvedValue(maquinaBase),
       ...overrides.maquina,
     },
+    ejercicioMaquina: {
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      ...overrides.ejercicioMaquina,
+    },
+    ejercicio: {
+      findMany: jest.fn().mockResolvedValue([]),
+      ...overrides.ejercicio,
+    },
     $queryRaw: jest.fn().mockResolvedValue([]),
     ...overrides,
-  } as MaquinaReader;
+  } as unknown as MaquinaReader;
+
+  reader.$transaction = jest.fn(
+    async (fn: (tx: MaquinaReader) => Promise<unknown>) => fn(reader)
+  ) as unknown as MaquinaReader["$transaction"];
+
+  return reader;
 }
+
+function ejercicioAsociado(id: string, nombre: string, grupoMuscular = "Pecho"): EjercicioAsociado {
+  return { id, nombre, grupoMuscular };
+}
+
+const argsLecturaAsociados = {
+  where: { maquinaId: "m1" },
+  include: { ejercicio: { select: { id: true, nombre: true, grupoMuscular: true } } },
+  orderBy: { ejercicio: { nombre: "asc" } },
+};
 
 const datosValidos = {
   nombre: "Polea alta",
@@ -219,6 +246,124 @@ describe("MaquinaRepository", () => {
     it("rechaza valores no error", () => {
       expect(esErrorP2002(null)).toBe(false);
       expect(esErrorP2002("P2002")).toBe(false);
+    });
+  });
+});
+
+describe("MaquinaRepository — ejercicios asociados", () => {
+  const repo = new MaquinaRepository();
+
+  describe("contarEjerciciosAsociados", () => {
+    it("delega count con el filtro por maquinaId", async () => {
+      const reader = mockReader();
+      (reader.ejercicioMaquina.count as jest.Mock).mockResolvedValue(3);
+
+      const total = await repo.contarEjerciciosAsociados("m1", reader);
+
+      expect(total).toBe(3);
+      expect(reader.ejercicioMaquina.count).toHaveBeenCalledWith({
+        where: { maquinaId: "m1" },
+      });
+    });
+  });
+
+  describe("obtenerEjerciciosExistentes", () => {
+    it("consulta por id in y mapea los encontrados a un Set", async () => {
+      const reader = mockReader();
+      (reader.ejercicio.findMany as jest.Mock).mockResolvedValue([{ id: "e1" }, { id: "e3" }]);
+
+      const existentes = await repo.obtenerEjerciciosExistentes(["e1", "e2", "e3"], reader);
+
+      expect(reader.ejercicio.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ["e1", "e2", "e3"] } },
+        select: { id: true },
+      });
+      expect(existentes).toEqual(new Set(["e1", "e3"]));
+      expect(existentes.has("e2")).toBe(false);
+    });
+
+    it("con un arreglo vacío devuelve un Set vacío sin consultar", async () => {
+      const reader = mockReader();
+
+      const existentes = await repo.obtenerEjerciciosExistentes([], reader);
+
+      expect(existentes.size).toBe(0);
+      expect(reader.ejercicio.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getEjerciciosAsociados", () => {
+    it("incluye el ejercicio con id/nombre/grupoMuscular y ordena por nombre", async () => {
+      const reader = mockReader();
+      (reader.ejercicioMaquina.findMany as jest.Mock).mockResolvedValue([
+        { ejercicio: ejercicioAsociado("e1", "Abductores", "Piernas") },
+        { ejercicio: ejercicioAsociado("e2", "Press banca") },
+      ]);
+
+      const asociados = await repo.getEjerciciosAsociados("m1", reader);
+
+      expect(reader.ejercicioMaquina.findMany).toHaveBeenCalledWith(argsLecturaAsociados);
+      expect(asociados).toEqual([
+        ejercicioAsociado("e1", "Abductores", "Piernas"),
+        ejercicioAsociado("e2", "Press banca"),
+      ]);
+    });
+
+    it("devuelve [] cuando no hay filas", async () => {
+      const reader = mockReader();
+
+      await expect(repo.getEjerciciosAsociados("m1", reader)).resolves.toEqual([]);
+    });
+  });
+
+  describe("reemplazarEjerciciosAsociados", () => {
+    it("corre deleteMany → createMany → findMany en un solo $transaction", async () => {
+      const reader = mockReader();
+      (reader.ejercicioMaquina.findMany as jest.Mock).mockResolvedValue([
+        { ejercicio: ejercicioAsociado("e2", "Sentadilla", "Piernas") },
+      ]);
+
+      const asociados = await repo.reemplazarEjerciciosAsociados("m1", ["e1", "e2"], reader);
+
+      expect(reader.$transaction).toHaveBeenCalledTimes(1);
+      expect(reader.ejercicioMaquina.deleteMany).toHaveBeenCalledWith({
+        where: { maquinaId: "m1" },
+      });
+      expect(reader.ejercicioMaquina.createMany).toHaveBeenCalledWith({
+        data: [
+          { maquinaId: "m1", ejercicioId: "e1" },
+          { maquinaId: "m1", ejercicioId: "e2" },
+        ],
+      });
+      expect(reader.ejercicioMaquina.findMany).toHaveBeenCalledWith(argsLecturaAsociados);
+      expect(asociados).toEqual([ejercicioAsociado("e2", "Sentadilla", "Piernas")]);
+
+      const { deleteMany, createMany, findMany } =
+        reader.ejercicioMaquina as unknown as Record<string, jest.Mock>;
+      expect(deleteMany.mock.invocationCallOrder[0]).toBeLessThan(createMany.mock.invocationCallOrder[0]);
+      expect(createMany.mock.invocationCallOrder[0]).toBeLessThan(findMany.mock.invocationCallOrder[0]);
+    });
+
+    it("con [] borra sin llamar a createMany", async () => {
+      const reader = mockReader();
+
+      const asociados = await repo.reemplazarEjerciciosAsociados("m1", [], reader);
+
+      expect(asociados).toEqual([]);
+      expect(reader.ejercicioMaquina.deleteMany).toHaveBeenCalledWith({
+        where: { maquinaId: "m1" },
+      });
+      expect(reader.ejercicioMaquina.createMany).not.toHaveBeenCalled();
+      expect(reader.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it("propaga el error de la transacción", async () => {
+      const reader = mockReader();
+      (reader.ejercicioMaquina.deleteMany as jest.Mock).mockRejectedValue(new Error("TX_DOWN"));
+
+      await expect(
+        repo.reemplazarEjerciciosAsociados("m1", ["e1"], reader)
+      ).rejects.toThrow("TX_DOWN");
     });
   });
 });

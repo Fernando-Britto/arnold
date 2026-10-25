@@ -1,5 +1,10 @@
 import type { Maquina, Prisma } from "@prisma/client";
-import type { EstadoAsignable, EstadoMaquina, TipoEquipamiento } from "./maquina";
+import type {
+  EjercicioAsociado,
+  EstadoAsignable,
+  EstadoMaquina,
+  TipoEquipamiento,
+} from "./maquina";
 
 export interface MaquinaReader {
   maquina: {
@@ -15,6 +20,25 @@ export interface MaquinaReader {
     }): Promise<Maquina>;
     delete(args: { where: { id: string } }): Promise<Maquina>;
   };
+  ejercicioMaquina: {
+    count(args: { where: { maquinaId: string } }): Promise<number>;
+    findMany(args: {
+      where: { maquinaId: string };
+      include: { ejercicio: { select: { id: true; nombre: true; grupoMuscular: true } } };
+      orderBy: { ejercicio: { nombre: "asc" } };
+    }): Promise<Array<{ ejercicio: EjercicioAsociado }>>;
+    deleteMany(args: { where: { maquinaId: string } }): Promise<{ count: number }>;
+    createMany(args: {
+      data: Array<{ maquinaId: string; ejercicioId: string }>;
+    }): Promise<{ count: number }>;
+  };
+  ejercicio: {
+    findMany(args: {
+      where: { id: { in: string[] } };
+      select: { id: true };
+    }): Promise<Array<{ id: string }>>;
+  };
+  $transaction<T>(fn: (tx: MaquinaReader) => Promise<T>): Promise<T>;
   $queryRaw<T = unknown>(
     query: TemplateStringsArray | Prisma.Sql,
     ...values: unknown[]
@@ -104,6 +128,64 @@ export class MaquinaRepository {
   async delete(id: string, db?: MaquinaReader): Promise<Maquina> {
     const cliente = db ?? (await getPrisma());
     return cliente.maquina.delete({ where: { id } });
+  }
+
+  async contarEjerciciosAsociados(maquinaId: string, db?: MaquinaReader): Promise<number> {
+    const cliente = db ?? (await getPrisma());
+    return cliente.ejercicioMaquina.count({ where: { maquinaId } });
+  }
+
+  async obtenerEjerciciosExistentes(
+    ejercicioIds: string[],
+    db?: MaquinaReader
+  ): Promise<ReadonlySet<string>> {
+    if (ejercicioIds.length === 0) return new Set();
+    const cliente = db ?? (await getPrisma());
+    const filas = await cliente.ejercicio.findMany({
+      where: { id: { in: ejercicioIds } },
+      select: { id: true },
+    });
+    return new Set(filas.map((fila) => fila.id));
+  }
+
+  // Deliberately cannot distinguish "missing machine" from "empty set": the handler owns the 404.
+  async getEjerciciosAsociados(
+    maquinaId: string,
+    db?: MaquinaReader
+  ): Promise<EjercicioAsociado[]> {
+    const cliente = db ?? (await getPrisma());
+    return this.leerAsociados(cliente, maquinaId);
+  }
+
+  async reemplazarEjerciciosAsociados(
+    maquinaId: string,
+    ejercicioIds: string[],
+    db?: MaquinaReader
+  ): Promise<EjercicioAsociado[]> {
+    const cliente = db ?? (await getPrisma());
+    return cliente.$transaction(async (tx) => {
+      await tx.ejercicioMaquina.deleteMany({ where: { maquinaId } });
+      if (ejercicioIds.length > 0) {
+        await tx.ejercicioMaquina.createMany({
+          data: ejercicioIds.map((ejercicioId) => ({ maquinaId, ejercicioId })),
+        });
+      }
+      return this.leerAsociados(tx, maquinaId);
+    });
+  }
+
+  private async leerAsociados(
+    cliente: MaquinaReader,
+    maquinaId: string
+  ): Promise<EjercicioAsociado[]> {
+    const filas = await cliente.ejercicioMaquina.findMany({
+      where: { maquinaId },
+      include: {
+        ejercicio: { select: { id: true, nombre: true, grupoMuscular: true } },
+      },
+      orderBy: { ejercicio: { nombre: "asc" } },
+    });
+    return filas.map((fila) => fila.ejercicio);
   }
 
   async existeDuplicado(
