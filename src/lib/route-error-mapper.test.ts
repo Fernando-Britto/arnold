@@ -465,3 +465,42 @@ describe("mapErrorToResponse — máquinas: DELETE_BLOCKED_EJERCICIOS", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+describe("mapErrorToResponse — máquinas: VALIDATION_MAX_EJERCICIOS", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea el código explícito a 400", () => {
+    const conCodigo = Object.assign(
+      new Error("No se pueden asignar más de 100 ejercicios a una máquina"),
+      { code: "VALIDATION_MAX_EJERCICIOS" }
+    );
+
+    const res = mapErrorToResponse(conCodigo);
+
+    expect(res).toEqual({
+      code: "VALIDATION_MAX_EJERCICIOS",
+      message: "No se pueden asignar más de 100 ejercicios a una máquina",
+      status: 400,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('mapea el prefijo "VALIDATION_MAX_EJERCICIOS: ..." a 400 y quita el prefijo', () => {
+    const res = mapErrorToResponse(
+      new Error(
+        "VALIDATION_MAX_EJERCICIOS: No se pueden asignar más de 100 ejercicios a una máquina"
+      )
+    );
+
+    expect(res).toEqual({
+      code: "VALIDATION_MAX_EJERCICIOS",
+      message: "No se pueden asignar más de 100 ejercicios a una máquina",
+      status: 400,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+});

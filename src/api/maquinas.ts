@@ -7,10 +7,12 @@ import {
   validateMaquina,
   normalizeMaquina,
   puedeEliminar,
+  validarAsignacionEjercicios,
   type Maquina,
   type MaquinaInput,
   type EstadoMaquina,
   type TipoEquipamiento,
+  type EjercicioAsociado,
 } from "@/domains/maquina/maquina";
 import { maquinaRepository } from "@/domains/maquina/maquina-repositorio";
 import { throwIfNotOk } from "@/utils/api-error";
@@ -35,6 +37,30 @@ function definedFields(input: MaquinaInput): Partial<MaquinaInput> {
   if (input.tipoEquipamiento !== undefined) result.tipoEquipamiento = input.tipoEquipamiento;
   if (input.estado !== undefined) result.estado = input.estado;
   return result;
+}
+
+function parseAsignacionBody(body: unknown): string[] {
+  if (!esObjetoPlano(body)) {
+    throw codedError("VALIDATION_ERROR", "El cuerpo debe ser un objeto");
+  }
+
+  const { ejercicioIds } = body as { ejercicioIds?: unknown };
+
+  if (!Array.isArray(ejercicioIds)) {
+    throw codedError(
+      "VALIDATION_ERROR",
+      "El campo ejercicioIds debe ser un arreglo"
+    );
+  }
+
+  if (!ejercicioIds.every((id): id is string => typeof id === "string")) {
+    throw codedError(
+      "VALIDATION_ERROR",
+      "El campo ejercicioIds debe contener solo identificadores"
+    );
+  }
+
+  return ejercicioIds;
 }
 
 export async function handleMaquinaList(filters: {
@@ -123,6 +149,45 @@ export async function handleMaquinaUpdate(
   return maquinaRepository.update(id, normalized);
 }
 
+export async function handleMaquinaEjerciciosGet(
+  id: string
+): Promise<EjercicioAsociado[]> {
+  const maquina = await maquinaRepository.getById(id);
+
+  if (!maquina) {
+    throw codedError("NOT_FOUND", "Máquina no encontrada");
+  }
+
+  return maquinaRepository.getEjerciciosAsociados(id);
+}
+
+export async function handleMaquinaEjerciciosPut(
+  id: string,
+  body: unknown
+): Promise<EjercicioAsociado[]> {
+  const ejercicioIds = parseAsignacionBody(body);
+
+  const maquina = await maquinaRepository.getById(id);
+
+  if (!maquina) {
+    throw codedError("NOT_FOUND", "Máquina no encontrada");
+  }
+
+  const existentes = await maquinaRepository.obtenerEjerciciosExistentes(
+    ejercicioIds
+  );
+  const resultado = validarAsignacionEjercicios(ejercicioIds, existentes);
+
+  if (!resultado.ok) {
+    throw codedError(resultado.code, resultado.message);
+  }
+
+  return maquinaRepository.reemplazarEjerciciosAsociados(
+    id,
+    resultado.ejercicioIds
+  );
+}
+
 export async function handleMaquinaDelete(id: string): Promise<void> {
   const existing = await maquinaRepository.getById(id);
 
@@ -130,7 +195,8 @@ export async function handleMaquinaDelete(id: string): Promise<void> {
     throw codedError("NOT_FOUND", "Máquina no encontrada");
   }
 
-  const decision = puedeEliminar(existing, { ejerciciosAsociados: 0 });
+  const ejerciciosAsociados = await maquinaRepository.contarEjerciciosAsociados(id);
+  const decision = puedeEliminar(existing, { ejerciciosAsociados });
 
   if (!decision.permitido) {
     throw codedError(

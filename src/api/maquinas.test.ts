@@ -9,6 +9,8 @@ import {
   handleMaquinaGetById,
   handleMaquinaUpdate,
   handleMaquinaDelete,
+  handleMaquinaEjerciciosGet,
+  handleMaquinaEjerciciosPut,
   fetchMaquinasList,
   createMaquina,
   updateMaquina,
@@ -18,7 +20,11 @@ import { maquinaRepository } from "@/domains/maquina/maquina-repositorio";
 import * as maquinaDomain from "@/domains/maquina/maquina";
 import * as cacheCliente from "@/lib/cache-cliente";
 import { CLAVES, limpiarCache } from "@/lib/cache-cliente";
-import type { Maquina, MaquinaInput } from "@/domains/maquina/maquina";
+import type {
+  Maquina,
+  MaquinaInput,
+  EjercicioAsociado,
+} from "@/domains/maquina/maquina";
 
 jest.mock("@/domains/maquina/maquina-repositorio", () => ({
   maquinaRepository: {
@@ -27,6 +33,10 @@ jest.mock("@/domains/maquina/maquina-repositorio", () => ({
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    contarEjerciciosAsociados: jest.fn(),
+    obtenerEjerciciosExistentes: jest.fn(),
+    getEjerciciosAsociados: jest.fn(),
+    reemplazarEjerciciosAsociados: jest.fn(),
   },
 }));
 
@@ -239,18 +249,236 @@ describe("Maquina Business Logic", () => {
       });
     });
 
-    it("consulta puedeEliminar con 0 y borra", async () => {
+    it("consulta contarEjerciciosAsociados antes de decidir y borra", async () => {
       const existing = { ...mockMaquina };
       const puedeEliminarSpy = jest.spyOn(maquinaDomain, "puedeEliminar");
       (maquinaRepository.getById as jest.Mock).mockResolvedValue(existing);
+      (maquinaRepository.contarEjerciciosAsociados as jest.Mock).mockResolvedValue(0);
       (maquinaRepository.delete as jest.Mock).mockResolvedValue(existing);
 
       await handleMaquinaDelete("m1");
 
+      expect(maquinaRepository.contarEjerciciosAsociados).toHaveBeenCalledWith("m1");
       expect(puedeEliminarSpy).toHaveBeenCalledWith(existing, {
         ejerciciosAsociados: 0,
       });
       expect(maquinaRepository.delete).toHaveBeenCalledWith("m1");
+    });
+
+    it("lanza DELETE_BLOCKED_EJERCICIOS con el conteo real", async () => {
+      const existing = { ...mockMaquina };
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(existing);
+      (maquinaRepository.contarEjerciciosAsociados as jest.Mock).mockResolvedValue(3);
+
+      await expect(handleMaquinaDelete("m1")).rejects.toMatchObject({
+        code: "DELETE_BLOCKED_EJERCICIOS",
+        message: expect.stringContaining(
+          "No se puede eliminar: 3 ejercicios usan esta máquina"
+        ),
+      });
+      expect(maquinaRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it("borra cuando el conteo es 0", async () => {
+      const existing = { ...mockMaquina };
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(existing);
+      (maquinaRepository.contarEjerciciosAsociados as jest.Mock).mockResolvedValue(0);
+      (maquinaRepository.delete as jest.Mock).mockResolvedValue(existing);
+
+      await handleMaquinaDelete("m1");
+
+      expect(maquinaRepository.delete).toHaveBeenCalledWith("m1");
+    });
+  });
+
+  describe("handleMaquinaEjerciciosGet", () => {
+    const mockAsociado: EjercicioAsociado = {
+      id: "e1",
+      nombre: "Press de banca",
+      grupoMuscular: "Pecho",
+    };
+
+    it('lanza NOT_FOUND con "Máquina no encontrada"', async () => {
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(null);
+
+      await expect(handleMaquinaEjerciciosGet("no-existe")).rejects.toMatchObject({
+        code: "NOT_FOUND",
+        message: expect.stringContaining("Máquina no encontrada"),
+      });
+      expect(maquinaRepository.getEjerciciosAsociados).not.toHaveBeenCalled();
+    });
+
+    it("devuelve la lista asociada", async () => {
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(mockMaquina);
+      (maquinaRepository.getEjerciciosAsociados as jest.Mock).mockResolvedValue([
+        mockAsociado,
+      ]);
+
+      const result = await handleMaquinaEjerciciosGet("m1");
+
+      expect(result).toEqual([mockAsociado]);
+      expect(maquinaRepository.getEjerciciosAsociados).toHaveBeenCalledWith("m1");
+    });
+
+    it("devuelve [] cuando la máquina existe sin asociaciones", async () => {
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(mockMaquina);
+      (maquinaRepository.getEjerciciosAsociados as jest.Mock).mockResolvedValue([]);
+
+      await expect(handleMaquinaEjerciciosGet("m1")).resolves.toEqual([]);
+      expect(maquinaRepository.getEjerciciosAsociados).toHaveBeenCalledWith("m1");
+    });
+  });
+
+  describe("handleMaquinaEjerciciosPut", () => {
+    const mockAsociado: EjercicioAsociado = {
+      id: "e1",
+      nombre: "Press de banca",
+      grupoMuscular: "Pecho",
+    };
+
+    it("rechaza un cuerpo que no es objeto con VALIDATION_ERROR", async () => {
+      await expect(
+        handleMaquinaEjerciciosPut("m1", null)
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining("El cuerpo debe ser un objeto"),
+      });
+      await expect(
+        handleMaquinaEjerciciosPut("m1", [] as unknown)
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining("El cuerpo debe ser un objeto"),
+      });
+      expect(maquinaRepository.getById).not.toHaveBeenCalled();
+    });
+
+    it("rechaza ejercicioIds que no es arreglo", async () => {
+      await expect(
+        handleMaquinaEjerciciosPut("m1", {})
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining("El campo ejercicioIds debe ser un arreglo"),
+      });
+      await expect(
+        handleMaquinaEjerciciosPut("m1", { ejercicioIds: "e1" })
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining("El campo ejercicioIds debe ser un arreglo"),
+      });
+      expect(maquinaRepository.getById).not.toHaveBeenCalled();
+    });
+
+    it("rechaza elementos que no son string", async () => {
+      await expect(
+        handleMaquinaEjerciciosPut("m1", { ejercicioIds: ["e1", 2] })
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining(
+          "El campo ejercicioIds debe contener solo identificadores"
+        ),
+      });
+      expect(maquinaRepository.getById).not.toHaveBeenCalled();
+    });
+
+    it("lanza NOT_FOUND sin escribir cuando la máquina no existe", async () => {
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        handleMaquinaEjerciciosPut("no-existe", { ejercicioIds: ["e1"] })
+      ).rejects.toMatchObject({
+        code: "NOT_FOUND",
+        message: expect.stringContaining("Máquina no encontrada"),
+      });
+      expect(maquinaRepository.obtenerEjerciciosExistentes).not.toHaveBeenCalled();
+      expect(maquinaRepository.reemplazarEjerciciosAsociados).not.toHaveBeenCalled();
+    });
+
+    it("rechaza ids inexistentes con VALIDATION_ERROR", async () => {
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(mockMaquina);
+      (maquinaRepository.obtenerEjerciciosExistentes as jest.Mock).mockResolvedValue(
+        new Set(["e1"])
+      );
+
+      await expect(
+        handleMaquinaEjerciciosPut("m1", { ejercicioIds: ["e1", "e2"] })
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining("Uno o más ejercicios no existen"),
+      });
+      expect(maquinaRepository.reemplazarEjerciciosAsociados).not.toHaveBeenCalled();
+    });
+
+    it("rechaza duplicados con VALIDATION_ERROR", async () => {
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(mockMaquina);
+      (maquinaRepository.obtenerEjerciciosExistentes as jest.Mock).mockResolvedValue(
+        new Set(["e1"])
+      );
+
+      await expect(
+        handleMaquinaEjerciciosPut("m1", { ejercicioIds: ["e1", "e1"] })
+      ).rejects.toMatchObject({
+        code: "VALIDATION_ERROR",
+        message: expect.stringContaining("Hay ejercicios duplicados en la asignación"),
+      });
+      expect(maquinaRepository.reemplazarEjerciciosAsociados).not.toHaveBeenCalled();
+    });
+
+    it("rechaza 101 ids con VALIDATION_MAX_EJERCICIOS", async () => {
+      const ids = Array.from({ length: 101 }, (_, i) => `e${i}`);
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(mockMaquina);
+      (maquinaRepository.obtenerEjerciciosExistentes as jest.Mock).mockResolvedValue(
+        new Set(ids)
+      );
+
+      await expect(
+        handleMaquinaEjerciciosPut("m1", { ejercicioIds: ids })
+      ).rejects.toMatchObject({
+        code: "VALIDATION_MAX_EJERCICIOS",
+        message: expect.stringContaining("No se pueden asignar más de 100 ejercicios"),
+      });
+      expect(maquinaRepository.reemplazarEjerciciosAsociados).not.toHaveBeenCalled();
+    });
+
+    it("acepta [] y devuelve []", async () => {
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(mockMaquina);
+      (maquinaRepository.obtenerEjerciciosExistentes as jest.Mock).mockResolvedValue(
+        new Set()
+      );
+      (maquinaRepository.reemplazarEjerciciosAsociados as jest.Mock).mockResolvedValue(
+        []
+      );
+
+      await expect(
+        handleMaquinaEjerciciosPut("m1", { ejercicioIds: [] })
+      ).resolves.toEqual([]);
+      expect(maquinaRepository.reemplazarEjerciciosAsociados).toHaveBeenCalledWith(
+        "m1",
+        []
+      );
+    });
+
+    it("reemplaza y devuelve la lista nueva", async () => {
+      (maquinaRepository.getById as jest.Mock).mockResolvedValue(mockMaquina);
+      (maquinaRepository.obtenerEjerciciosExistentes as jest.Mock).mockResolvedValue(
+        new Set(["e1", "e2"])
+      );
+      (maquinaRepository.reemplazarEjerciciosAsociados as jest.Mock).mockResolvedValue(
+        [mockAsociado]
+      );
+
+      const result = await handleMaquinaEjerciciosPut("m1", {
+        ejercicioIds: ["e1", "e2"],
+      });
+
+      expect(result).toEqual([mockAsociado]);
+      expect(maquinaRepository.obtenerEjerciciosExistentes).toHaveBeenCalledWith([
+        "e1",
+        "e2",
+      ]);
+      expect(maquinaRepository.reemplazarEjerciciosAsociados).toHaveBeenCalledWith(
+        "m1",
+        ["e1", "e2"]
+      );
     });
   });
 });

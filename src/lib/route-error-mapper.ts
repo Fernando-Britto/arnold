@@ -54,6 +54,7 @@ function mensajeNotFound(message: string, resourceName: string): string {
  *
  * Supported error patterns (prefix: message):
  * - "Validación fallida: ..." or "VALIDATION_ERROR: ..." → 400 VALIDATION_ERROR
+ * - "VALIDATION_MAX_EJERCICIOS: ..." → 400 VALIDATION_MAX_EJERCICIOS (AC-205)
  * - "VALIDATION_DUPLICATE_DNI: ..." → 400 VALIDATION_DUPLICATE_DNI
  * - "VALIDATION_EMAIL_FORMAT: ..." → 400 VALIDATION_EMAIL_FORMAT
  * - "VALIDATION_REQUIRED: ..." → 400 VALIDATION_REQUIRED
@@ -109,6 +110,14 @@ export function mapErrorToResponse(
         code: "DELETE_BLOCKED_EJERCICIOS",
         message: stripCodePrefix(message),
         status: 409,
+      };
+    }
+    // Más de MAX_EJERCICIOS_POR_MAQUINA (100) en una asignación (AC-205).
+    if (code === "VALIDATION_MAX_EJERCICIOS") {
+      return {
+        code: "VALIDATION_MAX_EJERCICIOS",
+        message: stripCodePrefix(message),
+        status: 400,
       };
     }
     if (code === "ESTADO_NO_ASIGNABLE") {
@@ -201,11 +210,12 @@ export function mapErrorToResponse(
 
   // Extract specific error codes from message prefix (VALIDATION_XXX, MEMBERSHIP_XXX, NOT_FOUND, etc.)
   const validationCodeMatch = message.match(
-    /^(VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_EJERCICIOS|DELETE_BLOCKED_REFERENCES|ESTADO_NO_ASIGNABLE|DUPLICATE_NOMBRE_UBICACION|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|PAYMENT_ALREADY_ANNULLED|AMOUNT_CHANGED|DUPLICATE_EXERCISE|ASIGNACION_CONFLICTO|NOT_FOUND):\s*(.+)$/
+    /^(VALIDATION_MAX_EJERCICIOS|VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_EJERCICIOS|DELETE_BLOCKED_REFERENCES|ESTADO_NO_ASIGNABLE|DUPLICATE_NOMBRE_UBICACION|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|PAYMENT_ALREADY_ANNULLED|AMOUNT_CHANGED|DUPLICATE_EXERCISE|ASIGNACION_CONFLICTO|NOT_FOUND):\s*(.+)$/
   );
   if (validationCodeMatch) {
     const [, errorCode, errorMessage] = validationCodeMatch;
     let status = 400;
+    if (errorCode === "VALIDATION_MAX_EJERCICIOS") status = 400;
     if (errorCode === "DELETE_BLOCKED_ASSIGNED") status = 409;
     if (errorCode === "DELETE_BLOCKED_EJERCICIOS") status = 409;
     if (errorCode === "DELETE_BLOCKED_REFERENCES") status = 409;
