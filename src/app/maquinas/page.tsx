@@ -9,6 +9,7 @@ import { ApiError, handleApiError } from "@/utils/api-error";
 import type { Maquina } from "@/domains/maquina/maquina";
 import { MaquinaFormPanel } from "@/components/maquina-crud/maquina-form-panel";
 import { MaquinaList } from "@/components/maquina-crud/maquina-list";
+import { EjercicioAsignacionModal } from "@/components/maquina-crud/ejercicio-asignacion-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CrudPageLayout, ListPanelShell } from "@/components/layout/crud-page-layout";
 import { CrudActions } from "@/components/layout/crud-actions";
@@ -30,6 +31,8 @@ export function MaquinasPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
+  const [asignando, setAsignando] = useState<Maquina | null>(null);
+  const [ejerciciosVersion, setEjerciciosVersion] = useState(0);
 
   const closeModal = () => {
     setModalOpen(false);
@@ -91,6 +94,13 @@ export function MaquinasPage() {
     }
   };
 
+  const handleAsignar = (maquina: Maquina) => setAsignando(maquina);
+
+  const handleAsignacionGuardada = () => {
+    setEjerciciosVersion((version) => version + 1);
+    setAsignando(null);
+  };
+
   const handleDelete = () => {
     if (selectedId) setConfirmandoBorrado(true);
   };
@@ -136,6 +146,15 @@ export function MaquinasPage() {
   return (
     <>
       <h1 className="sr-only">Máquinas</h1>
+
+      {asignando && (
+        <EjercicioAsignacionModal
+          open
+          maquinaId={asignando.id}
+          onClose={() => setAsignando(null)}
+          onSaved={handleAsignacionGuardada}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmandoBorrado}
@@ -193,6 +212,8 @@ export function MaquinasPage() {
               maquinas={maquinas}
               selectedId={selectedId}
               onSelect={handleSelect}
+              onAsignar={handleAsignar}
+              refreshKey={ejerciciosVersion}
               searchTerm={searchTerm}
               isLoading={loading}
             />

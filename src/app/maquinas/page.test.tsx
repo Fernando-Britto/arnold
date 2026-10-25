@@ -20,11 +20,19 @@ const mockNotify = jest.fn();
 jest.mock("@/api/maquinas", () => ({
   fetchMaquinasList: jest.fn(),
   deleteMaquina: jest.fn(),
+  fetchMaquinaEjercicios: jest.fn(),
+  reemplazarEjerciciosMaquina: jest.fn(),
+}));
+
+jest.mock("@/api/ejercicios", () => ({
+  fetchEjerciciosBusqueda: jest.fn(),
 }));
 
 import * as maquinasApi from "@/api/maquinas";
+import * as ejerciciosApi from "@/api/ejercicios";
 
 const mockMaquinasApi = maquinasApi as jest.Mocked<typeof maquinasApi>;
+const mockEjerciciosApi = ejerciciosApi as jest.Mocked<typeof ejerciciosApi>;
 
 jest.mock("@/components/maquina-crud/maquina-form-panel", () => ({
   MaquinaFormPanel: ({
@@ -67,6 +75,9 @@ describe("MaquinasPage", () => {
     (useNotifications as jest.Mock).mockReturnValue({ notify: mockNotify, dismiss: jest.fn() });
     setupAuth("ADMINISTRADOR", true);
     mockMaquinasApi.fetchMaquinasList.mockResolvedValue([maquina1]);
+    mockMaquinasApi.fetchMaquinaEjercicios.mockResolvedValue([]);
+    mockMaquinasApi.reemplazarEjerciciosMaquina.mockResolvedValue([]);
+    mockEjerciciosApi.fetchEjerciciosBusqueda.mockResolvedValue([]);
   });
 
   it("renders the list and the Nueva máquina button for ADMIN", async () => {
@@ -143,6 +154,72 @@ describe("MaquinasPage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Eliminar" }));
     expect(await screen.findByText("No se puede eliminar: 2 ejercicios usan esta máquina")).toBeInTheDocument();
     expect(mockNotify).not.toHaveBeenCalledWith("success", expect.anything());
+  });
+
+  it("abre el modal de asignación desde la fila expandida y al guardar recarga la fila", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<MaquinasPage />);
+
+    await user.click(await screen.findByText("Polea alta"));
+    expect(
+      await screen.findByText("Esta máquina no tiene ejercicios asignados")
+    ).toBeInTheDocument();
+    expect(mockMaquinasApi.fetchMaquinaEjercicios).toHaveBeenCalledWith(maquina1.id);
+    expect(mockMaquinasApi.fetchMaquinaEjercicios).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: "Asignar ejercicios" }));
+    const dialog = await screen.findByRole("dialog", { name: "Asignar ejercicios" });
+    await waitFor(() =>
+      expect(mockMaquinasApi.fetchMaquinaEjercicios).toHaveBeenCalledTimes(2)
+    );
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Guardar" })).toBeEnabled()
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() =>
+      expect(mockMaquinasApi.reemplazarEjerciciosMaquina).toHaveBeenCalledWith(maquina1.id, [])
+    );
+    await waitFor(() =>
+      expect(mockNotify).toHaveBeenCalledWith("success", "Ejercicios asignados")
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Asignar ejercicios" })).not.toBeInTheDocument()
+    );
+    await waitFor(() =>
+      expect(mockMaquinasApi.fetchMaquinaEjercicios).toHaveBeenCalledTimes(3)
+    );
+
+    jest.useRealTimers();
+  });
+
+  it("un fallo al guardar mantiene abierto el modal de asignación", async () => {
+    jest.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    mockMaquinasApi.reemplazarEjerciciosMaquina.mockRejectedValue(
+      new ApiError(400, "No se pueden asignar más de 100 ejercicios", "VALIDATION_MAX_EJERCICIOS")
+    );
+    render(<MaquinasPage />);
+
+    await user.click(await screen.findByText("Polea alta"));
+    await user.click(
+      await screen.findByRole("button", { name: "Asignar ejercicios" })
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Asignar ejercicios" });
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Guardar" })).toBeEnabled()
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "No se pueden asignar más de 100 ejercicios"
+    );
+    expect(screen.getByRole("dialog", { name: "Asignar ejercicios" })).toBeInTheDocument();
+    expect(mockMaquinasApi.fetchMaquinaEjercicios).toHaveBeenCalledTimes(2);
+
+    jest.useRealTimers();
   });
 
   it("filters the list from the ActionBar search", async () => {

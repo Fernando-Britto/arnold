@@ -101,13 +101,13 @@ number (tests included).
 | T-054g Handlers de asignación + conteo real de baja | ✅ | Slice 3 · commit 2c | 297 | 2026-10-24 | 67 impl + 230 tests; AC-010/AC-011 del delta |
 | T-054h Ruta `GET`/`PUT /api/maquinas/[id]/ejercicios` | ✅ | Slice 4 · commit 2d | 379 | 2026-10-24 | 167 impl + 212 tests; `await params` (FX-06) |
 | T-054i Pruebas de permisos del path anidado | ✅ | Slice 4 · commit 2d | 16 | 2026-10-24 | Solo tests (matrix) |
-| T-054j Paginación opt-in en el repositorio de ejercicios | ⬜ | Slice 5 · commit 2e | ≈130 | — | |
-| T-054k Paginación en handler y ruta de ejercicios | ⬜ | Slice 5 · commit 2e | ≈100 | — | Corrige el cortocircuito |
-| T-054l Fetchers cliente de asignación y búsqueda | ⬜ | Slice 6 · commit 2f | ≈90 | — | |
-| T-054m Fila expandida de máquina | ⬜ | Slice 6 · commit 2f | ≈80 | — | |
-| T-054n Disclosure y detalle en el listado | ⬜ | Slice 6 · commit 2f | ≈70 | — | Restaura el chevron |
-| T-054o Modal accesible de asignación | ⬜ | Slice 7 · commit 2g | ≈250 | — | `useModalA11y` |
-| T-054p Cableado de `/maquinas` | ⬜ | Slice 7 · commit 2g | ≈120 | — | CP3 gate |
+| T-054j Paginación opt-in en el repositorio de ejercicios | ✅ | Slice 5 · commit 2e | 108 | 2026-10-25 | 15 impl + 93 tests |
+| T-054k Paginación en handler y ruta de ejercicios | ✅ | Slice 5 · commit 2e | 177 | 2026-10-25 | 49 impl + 128 tests |
+| T-054l Fetchers cliente de asignación y búsqueda | ✅ | Slice 6 · commit 2f | 256 | 2026-10-25 | 179 fetchers + 77 ajuste de tope temprano |
+| T-054m Fila expandida de máquina | ✅ | Slice 6 · commit 2f | 198 | 2026-10-25 | 100 impl + 98 tests |
+| T-054n Disclosure y detalle en el listado | ✅ | Slice 6 · commit 2f | 82 | 2026-10-25 | 20 impl + 62 tests; chevron restaurado |
+| T-054o Modal accesible de asignación | ✅ | Slice 7 · commit 2g | 394 | 2026-10-25 | 225 impl + 169 tests; `useModalA11y` |
+| T-054p Cableado de `/maquinas` | ✅ | Slice 7 · commit 2g | 98 | 2026-10-25 | 21 impl + 77 tests; `refreshKey` |
 | T-054q Cierre documental (D-74, P-57) | ⬜ | none (directo a `dev`) | ≈80 | — | Tras todos los slices |
 
 ---
@@ -422,24 +422,24 @@ number (tests included).
 
 #### T-054j · Paginación opt-in en el repositorio de ejercicios
 
-- **Status**: ⬜ · **Slice**: 5 de 7 · **PR**: commit 2e · **Est. LOC**: ≈130 (≈55 impl + ≈75 tests)
+- **Status**: ✅ · **Slice**: 5 de 7 · **PR**: commit 2e · **Est. LOC**: ≈130 (≈55 impl + ≈75 tests)
 - **Files**:
   - `src/domains/ejercicio/ejercicio-repositorio.ts` (modify)
   - `src/domains/ejercicio/ejercicio.test.ts` (modify — this is where the `getAll` suite lives, at lines 404-485)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — extend the existing `getAll` describe:
+  1. - [x] RED — extend the existing `getAll` describe:
      - `aplica take/skip en la ruta findMany cuando llega limit u offset`
      - `no aplica take/skip cuando no llega ninguno de los dos` (backwards compatibility)
      - `offset solo implica limit por defecto 20`
      - `agrega LIMIT/OFFSET a la búsqueda unaccent con el término todavía en $1`
      - `conserva el filtro muscleGroup en la ruta con búsqueda`
      - `conserva el _count de rutinas como enRutinas en ambas rutas`
-  2. - [ ] RED — confirm the paginated assertions fail (no `take`/`skip`, no `LIMIT`/`OFFSET`).
-  3. - [ ] GREEN — extend the options type to `{ muscleGroup?, search?, limit?, offset? }` and implement the opt-in
+  2. - [x] RED — confirm the paginated assertions fail (no `take`/`skip`, no `LIMIT`/`OFFSET`).
+  3. - [x] GREEN — extend the options type to `{ muscleGroup?, search?, limit?, offset? }` and implement the opt-in
      rule exactly as `design.md`: `paginar = limit !== undefined || offset !== undefined`, `take = limit ?? 20`,
      `skip = offset ?? 0`, spread only when paginating on `findMany`, and `Prisma.sql\`LIMIT ${take}\`` /
      `Prisma.sql\`OFFSET ${skip}\`` after `ORDER BY` on the raw path (never string-interpolated).
-  4. - [ ] REFACTOR — none; keep the two paths visually parallel.
+  4. - [x] REFACTOR — none; keep the two paths visually parallel.
 - **AC**: **AC-211**, delta **`ejercicios-crud` AC-008/AC-009**.
 - **Dependencies**: none.
 - **Verification**:
@@ -454,18 +454,18 @@ number (tests included).
 
 #### T-054k · Paginación en handler y ruta de ejercicios
 
-- **Status**: ⬜ · **Slice**: 5 de 7 · **PR**: commit 2e · **Est. LOC**: ≈100 (≈45 impl + ≈55 tests)
+- **Status**: ✅ · **Slice**: 5 de 7 · **PR**: commit 2e · **Est. LOC**: ≈100 (≈45 impl + ≈55 tests)
 - **Files**:
   - `src/api/ejercicios.ts` (modify)
   - `src/api/ejercicios.test.ts` (modify)
   - `src/app/api/ejercicios/route.ts` (modify)
   - `src/app/api/ejercicios/route.test.ts` (modify)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — `src/api/ejercicios.test.ts`:
+  1. - [x] RED — `src/api/ejercicios.test.ts`:
      - `handleEjercicioList > propaga limit/offset aunque no haya search ni muscleGroup` (today the short-circuit
        drops them — that is the bug this task fixes)
      - `handleEjercicioList > propaga search + muscleGroup + paginación juntos`
-  2. - [ ] RED — `src/app/api/ejercicios/route.test.ts`:
+  2. - [x] RED — `src/app/api/ejercicios/route.test.ts`:
      - `parsePaginacion > sin params devuelve { ok: true } sin limit ni offset`
      - `parsePaginacion > acepta limit=50 y offset=20`
      - `parsePaginacion > rechaza limit no numérico, 0, negativo y 51`
@@ -473,11 +473,11 @@ number (tests included).
      - `GET > responde 400 VALIDATION_ERROR con limit inválido`
      - `GET > responde 400 VALIDATION_ERROR con offset inválido`
      - `GET > pasa limit/offset al handler`
-  3. - [ ] GREEN — export `parsePaginacion(rawLimit, rawOffset)` exactly as `design.md` (regex `/^\d+$/`, `limit` in
+  3. - [x] GREEN — export `parsePaginacion(rawLimit, rawOffset)` exactly as `design.md` (regex `/^\d+$/`, `limit` in
      `[1, 50]`), read `searchParams.get("limit"|"offset")`, thread the values through
      `handleEjercicioListRequest` → `handleEjercicioList` → `getAll`, and remove the
      `if (search || muscleGroup) ... else getAll()` short-circuit.
-  4. - [ ] REFACTOR — keep `parsePaginacion` pure and exported (testable without `NextRequest`).
+  4. - [x] REFACTOR — keep `parsePaginacion` pure and exported (testable without `NextRequest`).
 - **AC**: **AC-211**, delta **`ejercicios-crud` AC-008/AC-009**.
 - **Dependencies**: T-054j (repository signature).
 - **Verification**:
@@ -494,52 +494,54 @@ number (tests included).
 
 #### T-054l · Fetchers cliente de asignación y búsqueda
 
-- **Status**: ⬜ · **Slice**: 6 de 7 · **PR**: commit 2f · **Est. LOC**: ≈90 (≈40 impl + ≈50 tests)
+- **Status**: ✅ · **Slice**: 6 de 7 · **PR**: commit 2f · **Est. LOC**: ≈90 (≈40 impl + ≈50 tests) · **Actual**: 256
 - **Files**:
   - `src/api/maquinas.ts` (modify)
   - `src/api/maquinas.test.ts` (modify)
   - `src/api/ejercicios.ts` (modify)
-  - `src/api/ejercicios.client.test.ts` (modify)
+  - `src/api/ejercicios.test.ts` (modify)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — `src/api/maquinas.test.ts`:
+  1. - [x] RED — `src/api/maquinas.test.ts`:
      - `fetchMaquinaEjercicios > hace GET a /api/maquinas/{id}/ejercicios`
      - `fetchMaquinaEjercicios > propaga el error con throwIfNotOk`
      - `reemplazarEjerciciosMaquina > hace PUT con { ejercicioIds }`
      - `reemplazarEjerciciosMaquina > invalida CLAVES.maquinas al terminar`
-  2. - [ ] RED — `src/api/ejercicios.client.test.ts`:
+  2. - [x] RED — `src/api/ejercicios.test.ts`:
      - `fetchEjerciciosBusqueda > arma la query con search, limit y offset`
      - `fetchEjerciciosBusqueda > no pasa por conCache` (two consecutive calls hit `fetch` twice)
-  3. - [ ] GREEN — implement `fetchMaquinaEjercicios(id)`, `reemplazarEjerciciosMaquina(id, ejercicioIds)` (calls
+  3. - [x] GREEN — implement `fetchMaquinaEjercicios(id)`, `reemplazarEjerciciosMaquina(id, ejercicioIds)` (calls
      `invalidarCache(CLAVES.maquinas)` after success) next to `fetchMaquinasList`, and `fetchEjerciciosBusqueda(params)`
      next to `fetchEjercicios` (no cache).
-  4. - [ ] REFACTOR — none; reuse `throwIfNotOk`.
+  4. - [x] REFACTOR — none; reuse `throwIfNotOk`.
 - **AC**: **AC-212** (data half), **AC-213**.
 - **Dependencies**: T-054h (endpoint), T-054k (pagination params).
+- **Note**: el ajuste de orden pide el chequeo temprano de duplicados/tope en `validarAsignacionPrevia`,
+  usado por `handleMaquinaEjerciciosPut` antes de `obtenerEjerciciosExistentes` (sin duplicar la validación del dominio).
 - **Verification**:
   ```bash
-  npm test -- src/api/maquinas.test.ts src/api/ejercicios.client.test.ts
+  npm test -- src/api/maquinas.test.ts src/api/ejercicios.test.ts
   npx tsc --noEmit
   npx eslint src/api
   ```
 
 #### T-054m · Fila expandida de máquina
 
-- **Status**: ⬜ · **Slice**: 6 de 7 · **PR**: commit 2f · **Est. LOC**: ≈80 (≈45 impl + ≈35 tests)
+- **Status**: ✅ · **Slice**: 6 de 7 · **PR**: commit 2f · **Est. LOC**: ≈80 (≈45 impl + ≈35 tests) · **Actual**: 198
 - **Files**:
   - `src/components/maquina-crud/maquina-expanded-row.tsx` (new)
   - `src/components/maquina-crud/maquina-expanded-row.test.tsx` (new)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — component tests (`fetchMaquinaEjercicios` mocked):
+  1. - [x] RED — component tests (`fetchMaquinaEjercicios` mocked):
      - `lista los ejercicios asociados con nombre y grupo muscular`
      - `muestra "Sin ejercicios asignados" cuando la lista está vacía`
      - `muestra el botón "Asignar ejercicios"`
      - `llama a onAsignar al hacer clic en el botón`
      - `muestra el error de carga cuando la petición falla`
-  2. - [ ] RED — confirm the module is missing.
-  3. - [ ] GREEN — implement `MaquinaExpandedRow({ maquinaId, onAsignar })`: `useEffect` + `fetchMaquinaEjercicios`,
+  2. - [x] RED — confirm the module is missing.
+  3. - [x] GREEN — implement `MaquinaExpandedRow({ maquinaId, onAsignar })`: `useEffect` + `fetchMaquinaEjercicios`,
      loading/empty/list states, muscle-group badges with the existing `TableStatusBadge` or a plain `<span>`, button
      `Asignar ejercicios`, `handleApiError` on failure.
-  4. - [ ] REFACTOR — keep the component read-only: it never saves; the modal owns the write.
+  4. - [x] REFACTOR — keep the component read-only: it never saves; the modal owns the write.
 - **AC**: **AC-212**.
 - **Dependencies**: T-054l (fetcher), T-054d (read endpoint via T-054h).
 - **Verification**:
@@ -551,22 +553,22 @@ number (tests included).
 
 #### T-054n · Disclosure y detalle en el listado
 
-- **Status**: ⬜ · **Slice**: 6 de 7 · **PR**: commit 2f · **Est. LOC**: ≈70 (≈30 impl + ≈40 tests)
+- **Status**: ✅ · **Slice**: 6 de 7 · **PR**: commit 2f · **Est. LOC**: ≈70 (≈30 impl + ≈40 tests) · **Actual**: 82
 - **Files**:
   - `src/components/maquina-crud/maquina-list.tsx` (modify)
   - `src/components/maquina-crud/maquina-list.test.tsx` (modify)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — replace the current "no disclosure indicator" assertion (added by `20fe186`) with:
+  1. - [x] RED — replace the current "no disclosure indicator" assertion (added by `20fe186`) with:
      - `dibuja el chevron de expansión en las filas`
      - `expande la fila seleccionada con MaquinaExpandedRow`
      - `vuelve a plegar al hacer clic de nuevo`
      - `pasa onAsignar a la fila expandida`
      - keep the existing estado/tipo/search/selection/empty tests green
-  2. - [ ] RED — confirm the new expectations fail (`data-disclosure-indicator` absent).
-  3. - [ ] GREEN — add `disclosure` to `TableHeader` (`maquina-list.tsx:142`) and `TableRow` (`:147`), wrap each row
+  2. - [x] RED — confirm the new expectations fail (`data-disclosure-indicator` absent).
+  3. - [x] GREEN — add `disclosure` to `TableHeader` (`maquina-list.tsx:142`) and `TableRow` (`:147`), wrap each row
      in `React.Fragment` and render `TableDetailRow` + `MaquinaExpandedRow` when `isSelected`, exactly as
      `src/components/ejercicio-crud/ejercicio-list.tsx:150-180`. Add the `onAsignar?: (maquina: Maquina) => void` prop.
-  4. - [ ] REFACTOR — none; `src/components/ui/table.tsx` is untouched.
+  4. - [x] REFACTOR — none; `src/components/ui/table.tsx` is untouched.
 - **AC**: **AC-212**.
 - **Dependencies**: T-054m.
 - **Verification**:
@@ -578,12 +580,12 @@ number (tests included).
 
 #### T-054o · Modal accesible de asignación
 
-- **Status**: ⬜ · **Slice**: 7 de 7 · **PR**: commit 2g · **Est. LOC**: ≈250 (≈140 impl + ≈110 tests)
+- **Status**: ✅ · **Slice**: 7 de 7 · **PR**: commit 2g · **Est. LOC**: 394 (225 impl + 169 tests)
 - **Files**:
   - `src/components/maquina-crud/ejercicio-asignacion-modal.tsx` (new)
   - `src/components/maquina-crud/ejercicio-asignacion-modal.test.tsx` (new)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — component tests (`fetchEjerciciosBusqueda`, `fetchMaquinaEjercicios`,
+  1. - [x] RED — component tests (`fetchEjerciciosBusqueda`, `fetchMaquinaEjercicios`,
      `reemplazarEjerciciosMaquina` and `useNotifications` mocked; `jest.useFakeTimers`):
      - `es un diálogo accesible: role="dialog", aria-labelledby y foco inicial dentro`
      - `Escape cierra y devuelve el foco al botón que lo abrió`
@@ -600,8 +602,8 @@ number (tests included).
      - `la selección se conserva al cambiar de página y al cambiar la búsqueda`
      - `la selección incluye los ya asignados que no están en la página visible`
      - `guardar hace un reemplazo total: conserva los seleccionados fuera de la página y quita los desmarcados`
-  2. - [ ] RED — confirm the module is missing.
-  3. - [ ] GREEN — implement with `useModalA11y<HTMLDivElement>(open, onClose)` (same signature as
+  2. - [x] RED — confirm the module is missing.
+  3. - [x] GREEN — implement with `useModalA11y<HTMLDivElement>(open, onClose)` (same signature as
      `src/app/maquinas/page.tsx:32`), a `useEffect` debounce of 300 ms, `fetchEjerciciosBusqueda({ search, limit: 50,
      offset })`, checkbox list of the visible page, "Seleccionar todo visible" scoped to the page, save via
      `reemplazarEjerciciosMaquina`, `notify("success", ...)` and `handleApiError` on failure. **Pagination has no total
@@ -609,7 +611,7 @@ number (tests included).
      clicking it fetches the next page with `offset += limit` and appends. Keep the selection in a `Set` that survives
      page and search changes and is seeded with the currently assigned exercises (including those not on the visible
      page). Save sends the full set as the replacement. `aria-labelledby` points at the modal title.
-  4. - [ ] REFACTOR — extract the debounce into a local `useDebouncedValue` inside the file only if the tests read
+  4. - [x] REFACTOR — extract the debounce into a local `useDebouncedValue` inside the file only if the tests read
      cleaner; do not create a shared hook for one consumer.
 - **AC**: **AC-213**, **AC-214**, **AC-205** (client-side error surface).
 - **Dependencies**: T-054l, T-054k.
@@ -624,22 +626,22 @@ number (tests included).
 
 #### T-054p · Cableado de `/maquinas`
 
-- **Status**: ⬜ · **Slice**: 7 de 7 · **PR**: commit 2g · **Est. LOC**: ≈120 (≈50 impl + ≈70 tests)
+- **Status**: ✅ · **Slice**: 7 de 7 · **PR**: commit 2g · **Est. LOC**: 98 (21 impl + 77 tests)
 - **Files**:
   - `src/app/maquinas/page.tsx` (modify)
   - `src/app/maquinas/page.test.tsx` (modify)
 - **TDD (RED → GREEN)**:
-  1. - [ ] RED — extend `page.test.tsx`:
+  1. - [x] RED — extend `page.test.tsx`:
      - `muestra la fila expandida al seleccionar una máquina`
      - `abre el modal de asignación desde "Asignar ejercicios"`
      - `al guardar cierra el modal, avisa el éxito y recarga la fila expandida`
      - `un fallo al guardar mantiene el modal abierto`
      - `el borrado sigue mostrando el 409 DELETE_BLOCKED_EJERCICIOS como aviso`
-  2. - [ ] RED — confirm the failures (no `onAsignar`, no modal).
-  3. - [ ] GREEN — add `asignando: Maquina | null` and a `version` counter; pass `onAsignar` to `MaquinaList`, render
+  2. - [x] RED — confirm the failures (no `onAsignar`, no modal).
+  3. - [x] GREEN — add `asignando: Maquina | null` and a `version` counter; pass `onAsignar` to `MaquinaList`, render
      `EjercicioAsignacionModal` when `asignando` is set, and on success bump `version` so the expanded row remounts
      (`key={\`${maquina.id}-${version}\`}`) and refetches. No new API call for the refresh.
-  4. - [ ] REFACTOR — keep the page state parallel to the existing `modalOpen`/`editing`/`confirmandoBorrado` shape.
+  4. - [x] REFACTOR — keep the page state parallel to the existing `modalOpen`/`editing`/`confirmandoBorrado` shape.
 - **AC**: **AC-212**, **AC-213**, **AC-214**, **AC-208** (UI surface of the 409).
 - **Dependencies**: T-054h, T-054n, T-054o.
 - **Verification**:

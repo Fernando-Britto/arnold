@@ -286,6 +286,8 @@ if (!resultado.ok) throw codedError(resultado.code, resultado.message);
 return maquinaRepository.reemplazarEjerciciosAsociados(id, resultado.ejercicioIds);
 ```
 
+**Early validation (refinement during apply):** the handler runs `validarAsignacionPrevia(ejercicioIds)` — duplicates then max, pure — **before** `obtenerEjerciciosExistentes`, so a duplicated or oversized body never reaches the database with a huge `id in (...)` array. `getById` still runs first, so a missing machine remains 404. The full `validarAsignacionEjercicios` runs after the lookup for the unknown-id check. Precedence stays duplicates → max → unknown.
+
 `parseAsignacionBody(body: unknown): string[]` (private in `src/api/maquinas.ts`, mirrors the existing `esObjetoPlano` pattern):
 - non-object body → `VALIDATION_ERROR` "El cuerpo debe ser un objeto".
 - `ejercicioIds` missing or not an array → `VALIDATION_ERROR` "El campo ejercicioIds debe ser un arreglo".
