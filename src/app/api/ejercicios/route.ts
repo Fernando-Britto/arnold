@@ -43,6 +43,36 @@ export async function handleEjercicioCreateRequest(
   }
 }
 
+export type Paginacion =
+  | { ok: true; limit?: number; offset?: number }
+  | { ok: false; message: string };
+
+/**
+ * Valida `limit`/`offset` de `GET /api/ejercicios`. Pura y exportada para testear sin
+ * NextRequest. Sin ninguno de los dos no hay paginación (compatibilidad con /ejercicios);
+ * con al menos uno, los faltantes caen a 20/0.
+ */
+export function parsePaginacion(
+  rawLimit: string | null,
+  rawOffset: string | null
+): Paginacion {
+  if (rawLimit === null && rawOffset === null) return { ok: true };
+
+  const limit =
+    rawLimit === null ? 20 : /^\d+$/.test(rawLimit) ? Number(rawLimit) : NaN;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+    return { ok: false, message: "El parámetro limit debe estar entre 1 y 50" };
+  }
+
+  const offset =
+    rawOffset === null ? 0 : /^\d+$/.test(rawOffset) ? Number(rawOffset) : NaN;
+  if (!Number.isInteger(offset) || offset < 0) {
+    return { ok: false, message: "El parámetro offset debe ser un número entero" };
+  }
+
+  return { ok: true, limit, offset };
+}
+
 /**
  * Core handler logic for GET /api/ejercicios
  * Exported for testing without NextRequest/NextResponse mocking
@@ -51,6 +81,8 @@ export async function handleEjercicioCreateRequest(
 export async function handleEjercicioListRequest(options?: {
   muscleGroup?: string;
   search?: string;
+  limit?: number;
+  offset?: number;
 }): Promise<ListSuccess | ListError> {
   try {
     const ejercicios = await handleEjercicioList(options);
@@ -107,10 +139,22 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const muscleGroup = searchParams.get("muscleGroup") || undefined;
   const search = searchParams.get("search") || undefined;
+  const paginacion = parsePaginacion(
+    searchParams.get("limit"),
+    searchParams.get("offset")
+  );
+  if (!paginacion.ok) {
+    return NextResponse.json(
+      { code: "VALIDATION_ERROR", message: paginacion.message },
+      { status: 400 }
+    );
+  }
 
   const result = await handleEjercicioListRequest({
     muscleGroup,
     search,
+    ...(paginacion.limit !== undefined && { limit: paginacion.limit }),
+    ...(paginacion.offset !== undefined && { offset: paginacion.offset }),
   });
 
   // If error response (has status and code properties)

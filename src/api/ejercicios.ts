@@ -23,13 +23,12 @@ export async function handleEjercicioCreate(data: EjercicioInput): Promise<Ejerc
 export async function handleEjercicioList(options?: {
   muscleGroup?: string;
   search?: string;
+  limit?: number;
+  offset?: number;
 }): Promise<EjercicioConUso[]> {
-  // Support combined filters (search + muscleGroup)
-  if (options?.search || options?.muscleGroup) {
-    return ejercicioRepository.getAll(options);
-  }
-
-  return ejercicioRepository.getAll();
+  // Se propagan SIEMPRE: el cortocircuito anterior descartaba limit/offset cuando
+  // sólo llegaba paginación, sin search ni muscleGroup.
+  return ejercicioRepository.getAll(options);
 }
 
 /**
@@ -68,6 +67,26 @@ export function fetchEjercicios(): Promise<EjercicioConUso[]> {
     await throwIfNotOk(response, "No se pudieron cargar los ejercicios");
     return response.json();
   });
+}
+
+/**
+ * Client-side API call: búsqueda paginada para el modal de asignación.
+ * Sin `conCache`: la búsqueda cambia en cada tecla y debe pegarle siempre al servidor.
+ */
+export async function fetchEjerciciosBusqueda(params: {
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<EjercicioConUso[]> {
+  const query = new URLSearchParams();
+  if (params.search) query.set("search", params.search);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
+
+  const suffix = query.toString();
+  const response = await fetch(`/api/ejercicios${suffix ? `?${suffix}` : ""}`);
+  await throwIfNotOk(response, "No se pudieron buscar los ejercicios");
+  return response.json();
 }
 
 /**

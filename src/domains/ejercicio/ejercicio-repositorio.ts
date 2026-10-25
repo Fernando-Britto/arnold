@@ -22,6 +22,8 @@ export interface EjercicioReader {
       orderBy?: { nombre: "asc" | "desc" };
       include?: { _count: { select: { rutinas: true } } };
       omit?: { instrucciones: true };
+      take?: number;
+      skip?: number;
     }): Promise<Ejercicio[]>;
     update(args: {
       where: { id: string };
@@ -120,15 +122,21 @@ export class EjercicioRepository {
    * Get all ejercicios with optional filtering. Cada fila lleva `enRutinas`: cuántas rutinas
    * la referencian (`_count`), para que la UI anticipe el 409 al borrar.
    * Supports combined filters: search + muscleGroup simultaneously
-   * @param options Optional filter options { muscleGroup?: string; search?: string }
+   *
+   * La paginación es **opt-in**: sin `limit` ni `offset` devuelve todo (la pantalla
+   * `/ejercicios` pagina en el cliente); con al menos uno, `limit` cae a 20 y `offset` a 0.
+   * @param options Optional filter options { muscleGroup?, search?, limit?, offset? }
    * @param db Cliente inyectado (opcional).
    * @returns Array of ejercicios (con su uso) matching filters
    */
   async getAll(
-    options?: { muscleGroup?: string; search?: string },
+    options?: { muscleGroup?: string; search?: string; limit?: number; offset?: number },
     db?: EjercicioReader
   ): Promise<EjercicioConUso[]> {
     const cliente = db ?? (await getPrisma());
+    const paginar = options?.limit !== undefined || options?.offset !== undefined;
+    const take = paginar ? (options?.limit ?? 20) : undefined;
+    const skip = paginar ? (options?.offset ?? 0) : undefined;
 
     if (options?.search) {
       // H12: `contains` + `insensitive` es el `ILIKE` de Postgres: pliega mayúsculas, pero NO
@@ -145,6 +153,10 @@ export class EjercicioRepository {
       const filtroGrupo = options.muscleGroup
         ? Prisma.sql`AND "grupoMuscular" = ${options.muscleGroup}`
         : Prisma.empty;
+      // Parámetros de Prisma (`$2`/`$3`), nunca concatenados: PostgreSQL acepta
+      // parámetros en LIMIT/OFFSET.
+      const limitSql = paginar ? Prisma.sql`LIMIT ${take}` : Prisma.empty;
+      const offsetSql = paginar ? Prisma.sql`OFFSET ${skip}` : Prisma.empty;
 
       return cliente.$queryRaw<EjercicioConUso[]>(Prisma.sql`
         SELECT ${columnas}, (
@@ -155,6 +167,8 @@ export class EjercicioRepository {
         WHERE unaccent("nombre") ILIKE unaccent(${patron})
         ${filtroGrupo}
         ORDER BY "nombre" ASC
+        ${limitSql}
+        ${offsetSql}
       `);
     }
 
@@ -170,6 +184,7 @@ export class EjercicioRepository {
       orderBy: { nombre: "asc" },
       include: { _count: { select: { rutinas: true } } },
       omit: { instrucciones: true },
+      ...(paginar ? { take, skip } : {}),
     })) as (Ejercicio & { _count: { rutinas: number } })[];
     return filas.map(({ _count, ...ejercicio }) => ({
       ...ejercicio,

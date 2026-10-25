@@ -489,6 +489,99 @@ describe("Ejercicio Domain Model", () => {
       expect(consulta.values).toEqual(["%triceps%", "Brazos"]);
     });
 
+    // T-054j: paginación opt-in. Con `limit`/`offset` el repositorio pagina; sin
+    // ninguno de los dos devuelve todo (la pantalla /ejercicios pagina en el cliente).
+    it("T-054j: aplica take/skip en findMany cuando llega limit u offset", async () => {
+      const { db, findMany } = dbFalsa();
+
+      await repository.getAll({ limit: 25, offset: 50 }, db);
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: {},
+        orderBy: { nombre: "asc" },
+        include: { _count: { select: { rutinas: true } } },
+        omit: { instrucciones: true },
+        take: 25,
+        skip: 50,
+      });
+    });
+
+    it("T-054j: offset solo implica limit por defecto 20", async () => {
+      const { db, findMany } = dbFalsa();
+
+      await repository.getAll({ offset: 10 }, db);
+
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 20, skip: 10 })
+      );
+    });
+
+    it("T-054j: limit solo implica offset por defecto 0", async () => {
+      const { db, findMany } = dbFalsa();
+
+      await repository.getAll({ limit: 5 }, db);
+
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 5, skip: 0 })
+      );
+    });
+
+    it("T-054j: no aplica take/skip cuando no llega ninguno de los dos", async () => {
+      const { db, findMany } = dbFalsa();
+
+      await repository.getAll({ muscleGroup: "Brazos" }, db);
+
+      const args = findMany.mock.calls[0][0] as Record<string, unknown>;
+      expect(args).not.toHaveProperty("take");
+      expect(args).not.toHaveProperty("skip");
+    });
+
+    it("T-054j: agrega LIMIT/OFFSET parametrizados a la búsqueda unaccent", async () => {
+      const { db, $queryRaw } = dbFalsa();
+
+      await repository.getAll({ search: "triceps", limit: 50, offset: 20 }, db);
+
+      const consulta = $queryRaw.mock.calls[0][0] as { sql: string; values: unknown[] };
+      expect(consulta.sql).toContain("LIMIT ?");
+      expect(consulta.sql).toContain("OFFSET ?");
+      // Nunca concatenado: los números viajan como parámetros, igual que el término.
+      expect(consulta.sql).not.toContain("LIMIT 50");
+      expect(consulta.values).toEqual(["%triceps%", 50, 20]);
+    });
+
+    it("T-054j: sin paginación el SQL crudo no lleva LIMIT/OFFSET", async () => {
+      const { db, $queryRaw } = dbFalsa();
+
+      await repository.getAll({ search: "triceps" }, db);
+
+      const consulta = $queryRaw.mock.calls[0][0] as { sql: string; values: unknown[] };
+      expect(consulta.sql).not.toMatch(/\bLIMIT\b/);
+      expect(consulta.sql).not.toMatch(/\bOFFSET\b/);
+      expect(consulta.values).toEqual(["%triceps%"]);
+    });
+
+    it("T-054j: conserva muscleGroup en la ruta con búsqueda y paginación", async () => {
+      const { db, $queryRaw } = dbFalsa();
+
+      await repository.getAll(
+        { search: "triceps", muscleGroup: "Brazos", limit: 10, offset: 0 },
+        db
+      );
+
+      const consulta = $queryRaw.mock.calls[0][0] as { sql: string; values: unknown[] };
+      expect(consulta.sql).toContain('"grupoMuscular" = ?');
+      expect(consulta.values).toEqual(["%triceps%", "Brazos", 10, 0]);
+    });
+
+    it("T-054j: conserva enRutinas en la ruta cruda paginada", async () => {
+      const { db, $queryRaw } = dbFalsa();
+      $queryRaw.mockResolvedValueOnce([{ id: "ej-1", enRutinas: 4 }]);
+
+      const list = await repository.getAll({ search: "press", limit: 10 }, db);
+
+      expect(list).toEqual([{ id: "ej-1", enRutinas: 4 }]);
+    });
+
      it("should reject invalid data on create", async () => {
        const invalidData = {
          nombre: "ab", // Too short

@@ -1,4 +1,4 @@
-import { handleEjercicioCreate, handleEjercicioUpdate, handleEjercicioDelete, handleEjercicioList } from "./ejercicios";
+import { handleEjercicioCreate, handleEjercicioUpdate, handleEjercicioDelete, handleEjercicioList, fetchEjerciciosBusqueda } from "./ejercicios";
 import { ejercicioRepository } from "@/domains/ejercicio/ejercicio-repositorio";
 import { sinCatalogo } from "../../tests/factories/ejercicio";
 
@@ -197,6 +197,34 @@ describe("Ejercicio API Routes", () => {
         muscleGroup: "Hombros",
       });
     });
+
+    // T-054k: el cortocircuito `if (search || muscleGroup)` descartaba la paginación
+    // cuando sólo llegaban limit/offset. Ahora las opciones se propagan siempre.
+    it("propaga limit/offset aunque no haya search ni muscleGroup", async () => {
+      mockRepository.getAll.mockResolvedValue([]);
+
+      await handleEjercicioList({ limit: 20, offset: 40 });
+
+      expect(mockRepository.getAll).toHaveBeenCalledWith({ limit: 20, offset: 40 });
+    });
+
+    it("propaga search + muscleGroup + paginación juntos", async () => {
+      mockRepository.getAll.mockResolvedValue([]);
+
+      await handleEjercicioList({
+        search: "Press",
+        muscleGroup: "Hombros",
+        limit: 50,
+        offset: 50,
+      });
+
+      expect(mockRepository.getAll).toHaveBeenCalledWith({
+        search: "Press",
+        muscleGroup: "Hombros",
+        limit: 50,
+        offset: 50,
+      });
+    });
    });
 
   describe("PUT /api/ejercicios/:id (update)", () => {
@@ -307,5 +335,63 @@ describe("Ejercicio API Routes", () => {
       expect(result1.id).toBe("1");
       expect(result2.id).toBe("2");
     });
+  });
+});
+
+describe("fetchEjerciciosBusqueda (lado cliente)", () => {
+  const fetchOriginal = global.fetch;
+
+  afterEach(() => {
+    global.fetch = fetchOriginal;
+  });
+
+  it("arma la query con search, limit y offset", async () => {
+    const filas = [{ id: "e1", nombre: "Press", grupoMuscular: "Pecho", enRutinas: 0 }];
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => filas,
+    }) as unknown as typeof fetch;
+
+    await expect(
+      fetchEjerciciosBusqueda({ search: "triceps", limit: 50, offset: 100 })
+    ).resolves.toEqual(filas);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/ejercicios?search=triceps&limit=50&offset=100"
+    );
+  });
+
+  it("no omite los parámetros ausentes", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    }) as unknown as typeof fetch;
+
+    await fetchEjerciciosBusqueda({ limit: 50 });
+
+    expect(global.fetch).toHaveBeenCalledWith("/api/ejercicios?limit=50");
+  });
+
+  it("no pasa por conCache: dos llamadas pegan al servidor dos veces", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [],
+    }) as unknown as typeof fetch;
+
+    await fetchEjerciciosBusqueda({ search: "press" });
+    await fetchEjerciciosBusqueda({ search: "press" });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("propaga el error con un texto en español", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({}),
+    }) as unknown as typeof fetch;
+
+    await expect(fetchEjerciciosBusqueda({ limit: 51 })).rejects.toThrow(
+      "No se pudieron buscar los ejercicios"
+    );
   });
 });
