@@ -103,6 +103,168 @@ describe("calcularEspera", () => {
       const errores = esperarInvalido(resultado);
       expect(errores.length).toBeGreaterThanOrEqual(1);
     });
+
+    it("rechaza un ocupante sin series restantes", () => {
+      const resultado = calcularEspera(
+        entrada({
+          ejercicios: [ejercicio({ id: "E1", candidatos: ["M1"] })],
+          maquinas: [
+            maquina({ id: "M1", ocupante: { seriesRestantes: 0, descanso: 90 } }),
+          ],
+        })
+      );
+
+      expect(esperarInvalido(resultado).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("rechaza un miembro de la cola sin series", () => {
+      const resultado = calcularEspera(
+        entrada({
+          ejercicios: [ejercicio({ id: "E1", candidatos: ["M1"] })],
+          maquinas: [maquina({ id: "M1", cola: [{ series: 0, descanso: 90 }] })],
+        })
+      );
+
+      expect(esperarInvalido(resultado).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("rechaza un orden NaN", () => {
+      const resultado = calcularEspera(
+        entrada({
+          ejercicios: [
+            ejercicio({ id: "E1", orden: Number.NaN, candidatos: ["M1"] }),
+          ],
+          maquinas: [maquina({ id: "M1" })],
+        })
+      );
+
+      expect(esperarInvalido(resultado).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("rechaza NaN en series o descanso del ejercicio", () => {
+      const seriesNan = calcularEspera(
+        entrada({
+          ejercicios: [
+            ejercicio({ id: "E1", series: Number.NaN, candidatos: ["M1"] }),
+          ],
+          maquinas: [maquina({ id: "M1" })],
+        })
+      );
+      expect(esperarInvalido(seriesNan).length).toBeGreaterThanOrEqual(1);
+
+      const descansoNan = calcularEspera(
+        entrada({
+          ejercicios: [
+            ejercicio({ id: "E1", descanso: Number.NaN, candidatos: ["M1"] }),
+          ],
+          maquinas: [maquina({ id: "M1" })],
+        })
+      );
+      expect(esperarInvalido(descansoNan).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("rechaza NaN en el ocupante o en la cola", () => {
+      const ocupanteNan = calcularEspera(
+        entrada({
+          ejercicios: [ejercicio({ id: "E1", candidatos: ["M1"] })],
+          maquinas: [
+            maquina({
+              id: "M1",
+              ocupante: { seriesRestantes: Number.NaN, descanso: 90 },
+            }),
+          ],
+        })
+      );
+      expect(esperarInvalido(ocupanteNan).length).toBeGreaterThanOrEqual(1);
+
+      const descansoOcupanteNan = calcularEspera(
+        entrada({
+          ejercicios: [ejercicio({ id: "E1", candidatos: ["M1"] })],
+          maquinas: [
+            maquina({
+              id: "M1",
+              ocupante: { seriesRestantes: 2, descanso: Number.NaN },
+            }),
+          ],
+        })
+      );
+      expect(esperarInvalido(descansoOcupanteNan).length).toBeGreaterThanOrEqual(1);
+
+      const colaNan = calcularEspera(
+        entrada({
+          ejercicios: [ejercicio({ id: "E1", candidatos: ["M1"] })],
+          maquinas: [
+            maquina({ id: "M1", cola: [{ series: Number.NaN, descanso: 90 }] }),
+          ],
+        })
+      );
+      expect(esperarInvalido(colaNan).length).toBeGreaterThanOrEqual(1);
+
+      const descansoColaNan = calcularEspera(
+        entrada({
+          ejercicios: [ejercicio({ id: "E1", candidatos: ["M1"] })],
+          maquinas: [
+            maquina({ id: "M1", cola: [{ series: 2, descanso: Number.NaN }] }),
+          ],
+        })
+      );
+      expect(esperarInvalido(descansoColaNan).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("rechaza NaN en segundosEjecucionSerie", () => {
+      const resultado = calcularEspera(
+        entrada({
+          ejercicios: [ejercicio({ id: "E1", candidatos: ["M1"] })],
+          maquinas: [maquina({ id: "M1" })],
+          parametros: { segundosEjecucionSerie: Number.NaN },
+        })
+      );
+
+      expect(esperarInvalido(resultado).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("rechaza Infinity en cualquier número de entrada", () => {
+      const casos = [
+        entrada({
+          ejercicios: [
+            ejercicio({ id: "E1", series: Infinity, candidatos: ["M1"] }),
+          ],
+          maquinas: [maquina({ id: "M1" })],
+        }),
+        entrada({
+          ejercicios: [
+            ejercicio({ id: "E1", descanso: Infinity, candidatos: ["M1"] }),
+          ],
+          maquinas: [maquina({ id: "M1" })],
+        }),
+        entrada({
+          ejercicios: [
+            ejercicio({ id: "E1", orden: Infinity, candidatos: ["M1"] }),
+          ],
+          maquinas: [maquina({ id: "M1" })],
+        }),
+        entrada({
+          ejercicios: [ejercicio({ id: "E1", candidatos: ["M1"] })],
+          maquinas: [
+            maquina({
+              id: "M1",
+              ocupante: { seriesRestantes: Infinity, descanso: 90 },
+            }),
+          ],
+        }),
+        entrada({
+          ejercicios: [ejercicio({ id: "E1", candidatos: ["M1"] })],
+          maquinas: [
+            maquina({ id: "M1", cola: [{ series: Infinity, descanso: 90 }] }),
+          ],
+        }),
+        entrada({ parametros: { segundosEjecucionSerie: Infinity } }),
+      ];
+
+      for (const caso of casos) {
+        expect(esperarInvalido(calcularEspera(caso)).length).toBeGreaterThanOrEqual(1);
+      }
+    });
   });
   describe("forma del resultado y espera base", () => {
     it("devuelve espera 0 y ahorro 0 en gimnasio vacío", () => {

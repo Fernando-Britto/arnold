@@ -66,45 +66,130 @@ export function esMaquinaUsable(estado: EstadoMaquina): boolean {
   return estado === "DISPONIBLE" || estado === "OCUPADA";
 }
 
+/** `Number.isFinite` primero: con NaN todas las comparaciones de rango dan `false` y pasarían. */
+function validarFinito(valor: number, errores: string[], mensaje: string): boolean {
+  if (Number.isFinite(valor)) return true;
+  errores.push(mensaje);
+  return false;
+}
+
 function validar(entrada: EntradaMotor): string[] {
   const errores: string[] = [];
 
   for (const pendiente of entrada.ejercicios) {
-    if (pendiente.series < 1) {
+    validarFinito(
+      pendiente.orden,
+      errores,
+      `El orden del ejercicio ${pendiente.id} debe ser un número finito`
+    );
+    if (
+      validarFinito(
+        pendiente.series,
+        errores,
+        `El ejercicio ${pendiente.id} debe tener un número finito de series`
+      ) &&
+      pendiente.series < 1
+    ) {
       errores.push(`El ejercicio ${pendiente.id} debe tener al menos una serie`);
     }
-    if (pendiente.descanso < 0) {
+    if (
+      validarFinito(
+        pendiente.descanso,
+        errores,
+        `El descanso del ejercicio ${pendiente.id} debe ser un número finito`
+      ) &&
+      pendiente.descanso < 0
+    ) {
       errores.push(`El descanso del ejercicio ${pendiente.id} no puede ser negativo`);
     }
   }
 
   for (const maquina of entrada.maquinas) {
-    if (maquina.ocupante && maquina.ocupante.descanso < 0) {
-      errores.push(`El descanso del ocupante de ${maquina.id} no puede ser negativo`);
+    const ocupante = maquina.ocupante;
+    if (ocupante) {
+      if (
+        validarFinito(
+          ocupante.seriesRestantes,
+          errores,
+          `El ocupante de ${maquina.id} debe tener un número finito de series restantes`
+        ) &&
+        ocupante.seriesRestantes < 1
+      ) {
+        errores.push(`El ocupante de ${maquina.id} debe tener al menos una serie restante`);
+      }
+      if (
+        validarFinito(
+          ocupante.descanso,
+          errores,
+          `El descanso del ocupante de ${maquina.id} debe ser un número finito`
+        ) &&
+        ocupante.descanso < 0
+      ) {
+        errores.push(`El descanso del ocupante de ${maquina.id} no puede ser negativo`);
+      }
     }
+
     for (const miembro of maquina.cola) {
-      if (miembro.descanso < 0) {
-        errores.push(`El descanso de un miembro de la cola de ${maquina.id} no puede ser negativo`);
+      if (
+        validarFinito(
+          miembro.series,
+          errores,
+          `Un miembro de la cola de ${maquina.id} debe tener un número finito de series`
+        ) &&
+        miembro.series < 1
+      ) {
+        errores.push(`Un miembro de la cola de ${maquina.id} debe tener al menos una serie`);
+      }
+      if (
+        validarFinito(
+          miembro.descanso,
+          errores,
+          `El descanso de un miembro de la cola de ${maquina.id} debe ser un número finito`
+        ) &&
+        miembro.descanso < 0
+      ) {
+        errores.push(
+          `El descanso de un miembro de la cola de ${maquina.id} no puede ser negativo`
+        );
       }
     }
   }
 
-  if (entrada.parametros.segundosEjecucionSerie <= 0) {
+  const segundos = entrada.parametros.segundosEjecucionSerie;
+  if (
+    validarFinito(
+      segundos,
+      errores,
+      "La duración de la serie debe ser un número finito"
+    ) &&
+    segundos <= 0
+  ) {
     errores.push("La duración de la serie debe ser mayor que cero");
   }
 
   return errores;
 }
 
+/** Series que le quedan al actor, incluido el descanso entre ellas. Vale para ocupante y cola. */
+function duracionDeEjercicio(
+  series: number,
+  descanso: number,
+  segundosPorSerie: number
+): number {
+  return series * segundosPorSerie + (series - 1) * descanso;
+}
+
 function esperaDeMaquina(maquina: MaquinaEnGimnasio, segundosPorSerie: number): number {
   let espera = 0;
   if (maquina.ocupante) {
-    espera +=
-      maquina.ocupante.seriesRestantes * segundosPorSerie +
-      (maquina.ocupante.seriesRestantes - 1) * maquina.ocupante.descanso;
+    espera += duracionDeEjercicio(
+      maquina.ocupante.seriesRestantes,
+      maquina.ocupante.descanso,
+      segundosPorSerie
+    );
   }
   for (const miembro of maquina.cola) {
-    espera += miembro.series * segundosPorSerie + (miembro.series - 1) * miembro.descanso;
+    espera += duracionDeEjercicio(miembro.series, miembro.descanso, segundosPorSerie);
   }
   return espera;
 }
