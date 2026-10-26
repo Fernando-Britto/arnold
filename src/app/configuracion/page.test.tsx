@@ -47,6 +47,9 @@ const configBase: Configuracion = {
   ofertaReactivacionActiva: false,
   diasSinAsistirParaOferta: 30,
   enfriamientoOfertaDias: 180,
+  segundosEjecucionSerie: 60,
+  minutosVencimientoReserva: 15,
+  minutosInactividadSesion: 30,
 };
 
 const asRol = (rol: string) => ({
@@ -67,9 +70,9 @@ describe("ConfiguracionPage", () => {
     mockFetchDispositivos.mockResolvedValue([]);
   });
 
-  it("renderiza los 11 campos una vez cargada", async () => {
+  it("renderiza los 14 campos una vez cargada", async () => {
     render(<ConfiguracionPage />);
-    await waitFor(() => expect(screen.getAllByTestId(/^campo-/)).toHaveLength(11));
+    await waitFor(() => expect(screen.getAllByTestId(/^campo-/)).toHaveLength(14));
   });
 
   it("agrupa los campos con sus títulos", async () => {
@@ -80,6 +83,7 @@ describe("ConfiguracionPage", () => {
     expect(screen.getByRole("heading", { name: "Cuotas" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Aforo" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Oferta de reactivación" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Motor de espera" })).toBeInTheDocument();
   });
 
   it("redirige a /login cuando no hay sesión", () => {
@@ -137,6 +141,45 @@ describe("ConfiguracionPage", () => {
     expect(mockGuardar).not.toHaveBeenCalled();
   });
 
+  it("valida en el cliente segundosEjecucionSerie = 0", async () => {
+    render(<ConfiguracionPage />);
+
+    const input = await screen.findByTestId("campo-segundosEjecucionSerie");
+    fireEvent.change(input, { target: { value: "0" } });
+    await guardar();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "segundosEjecucionSerie debe estar entre 1 y 3600"
+    );
+    expect(mockGuardar).not.toHaveBeenCalled();
+  });
+
+  it("valida en el cliente minutosInactividadSesion = 0", async () => {
+    render(<ConfiguracionPage />);
+
+    const input = await screen.findByTestId("campo-minutosInactividadSesion");
+    fireEvent.change(input, { target: { value: "0" } });
+    await guardar();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "minutosInactividadSesion debe estar entre 1 y 1440"
+    );
+    expect(mockGuardar).not.toHaveBeenCalled();
+  });
+
+  it("guarda minutosInactividadSesion = 45 y notifica el éxito", async () => {
+    mockGuardar.mockResolvedValueOnce({ ...configBase, minutosInactividadSesion: 45 });
+    render(<ConfiguracionPage />);
+
+    const input = await screen.findByTestId("campo-minutosInactividadSesion");
+    fireEvent.change(input, { target: { value: "45" } });
+    await guardar();
+
+    await waitFor(() => expect(mockGuardar).toHaveBeenCalledTimes(1));
+    expect(mockGuardar).toHaveBeenCalledWith({ minutosInactividadSesion: 45 });
+    expect(mockNotify).toHaveBeenCalledWith("success", "Configuración guardada.");
+  });
+
   it("un segundo guardado sin cambios es no-op tras actualizar la línea base", async () => {
     mockGuardar.mockResolvedValueOnce({ ...configBase, periodoGracia: 7 });
     render(<ConfiguracionPage />);
@@ -167,7 +210,7 @@ describe("ConfiguracionPage", () => {
   describe("Pestañas", () => {
     it("arranca en Parámetros con su formulario", async () => {
       render(<ConfiguracionPage />);
-      await waitFor(() => expect(screen.getAllByTestId(/^campo-/)).toHaveLength(11));
+      await waitFor(() => expect(screen.getAllByTestId(/^campo-/)).toHaveLength(14));
       expect(screen.getByRole("tab", { name: "Parámetros" })).toHaveAttribute("aria-selected", "true");
       expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "tab-parametros");
     });

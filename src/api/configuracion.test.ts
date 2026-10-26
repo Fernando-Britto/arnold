@@ -18,6 +18,9 @@ const config: Configuracion = {
   ofertaReactivacionActiva: false,
   diasSinAsistirParaOferta: 30,
   enfriamientoOfertaDias: 180,
+  segundosEjecucionSerie: 60,
+  minutosVencimientoReserva: 15,
+  minutosInactividadSesion: 30,
 };
 
 describe("fetchConfiguracion (fetch client)", () => {

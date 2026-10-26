@@ -41,6 +41,9 @@ describe("getConfiguracion", () => {
       diaLimitePago: 10,
       diaCorteAltaTardia: 20,
       antiPassbackMinutos: 60,
+      segundosEjecucionSerie: 60,
+      minutosVencimientoReserva: 15,
+      minutosInactividadSesion: 30,
     });
   });
 
@@ -57,10 +60,35 @@ describe("getConfiguracion", () => {
       diaLimitePago: 8,
       diaCorteAltaTardia: 25,
       antiPassbackMinutos: 30,
+      segundosEjecucionSerie: 90,
+      minutosVencimientoReserva: 30,
+      minutosInactividadSesion: 45,
     };
     const config = await getConfiguracion(lector(fila));
     expect(config).toEqual({ ...fila, descuentoReactivacion: 12.5 });
     expect(typeof config.descuentoReactivacion).toBe("number");
+  });
+
+  it("normaliza por campo los tres parámetros del motor", async () => {
+    const config = await getConfiguracion(
+      lector({
+        segundosEjecucionSerie: 90,
+        minutosVencimientoReserva: 30,
+        minutosInactividadSesion: 45,
+      })
+    );
+
+    expect(config.segundosEjecucionSerie).toBe(90);
+    expect(config.minutosVencimientoReserva).toBe(30);
+    expect(config.minutosInactividadSesion).toBe(45);
+  });
+
+  it("si faltan los tres parámetros del motor, usa 60, 15 y 30", async () => {
+    const config = await getConfiguracion(lector({}));
+
+    expect(config.segundosEjecucionSerie).toBe(60);
+    expect(config.minutosVencimientoReserva).toBe(15);
+    expect(config.minutosInactividadSesion).toBe(30);
   });
 
   it("si a la fila le falta un campo, ese campo usa su valor por defecto", async () => {
@@ -152,6 +180,26 @@ describe("actualizarConfiguracion", () => {
     expect(data.diaLimitePago).toBe(CONFIGURACION_POR_DEFECTO.diaLimitePago);
     expect(mockTx.configuracionDelSistema.update).not.toHaveBeenCalled();
     expect(r.ventanaAforoMinutos).toBe(120);
+  });
+
+  it("un cambio de los tres parámetros del motor deja antes/despues de los tres", async () => {
+    mockTx.configuracionDelSistema.findFirst.mockResolvedValue(filaBase);
+
+    await actualizarConfiguracion(
+      {
+        segundosEjecucionSerie: 90,
+        minutosVencimientoReserva: 30,
+        minutosInactividadSesion: 45,
+      },
+      "admin-1"
+    );
+
+    const audit = mockTx.registroDeAuditoria.create.mock.calls[0][0].data;
+    expect(JSON.parse(audit.detalles)).toEqual({
+      segundosEjecucionSerie: { antes: 60, despues: 90 },
+      minutosVencimientoReserva: { antes: 15, despues: 30 },
+      minutosInactividadSesion: { antes: 30, despues: 45 },
+    });
   });
 
   it("un cambio que no cambia nada no escribe auditoría ni update", async () => {

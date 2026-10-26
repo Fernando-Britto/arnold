@@ -42,6 +42,9 @@ const configFalsa = {
   diaLimitePago: 10,
   diaCorteAltaTardia: 20,
   antiPassbackMinutos: 60,
+  segundosEjecucionSerie: 60,
+  minutosVencimientoReserva: 15,
+  minutosInactividadSesion: 30,
 };
 
 const getReq = () => new NextRequest("http://localhost:3000/api/configuracion");

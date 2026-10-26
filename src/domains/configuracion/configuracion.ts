@@ -18,6 +18,9 @@ export const CAMPOS_CONFIGURACION = {
   ofertaReactivacionActiva: { tipo: "booleano" },
   diasSinAsistirParaOferta: { tipo: "entero", min: 7, max: 365 },
   enfriamientoOfertaDias: { tipo: "entero", min: 0, max: 730 },
+  segundosEjecucionSerie: { tipo: "entero", min: 1, max: 3600 },
+  minutosVencimientoReserva: { tipo: "entero", min: 0, max: 1440 },
+  minutosInactividadSesion: { tipo: "entero", min: 1, max: 1440 },
 } as const;
 
 export type CampoConfiguracion = keyof typeof CAMPOS_CONFIGURACION;
