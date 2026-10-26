@@ -16,7 +16,7 @@ Estado: **especificado** — Etapa 4, previo al diseño. No modifica código.
 | Change | `asignacion-integracion` (Etapa 4) |
 | Dependencias | `asignacion-ejercicio-persistencia`, `motor-espera-asignacion` (Etapa 3), `configuracion-sistema` (D-54), `SesionDeEntrenamiento` (D-44), `RutinaAsignada.activa` (RN-04) |
 | Consumidores | `member-access-check` (gancho de check-in), `asignacion-api` (lectura y decisión), Etapa 5 (pantalla del socio) |
-| Numeración AC | `AC-441…AC-454`. No colisiona con los rangos usados (`AC-001…`, `AC-201…`, `AC-301…`, `AC-401…`) |
+| Numeración AC | `AC-441…AC-455`. No colisiona con los rangos usados (`AC-001…`, `AC-201…`, `AC-301…`, `AC-401…`) |
 
 ## Relación con `motor-espera-asignacion`
 
@@ -32,8 +32,8 @@ La orquestación **MUST** construir una `EntradaMotor` completa y determinista a
 
 - **Ejercicios pendientes**: los de la rutina activa del socio (RN-04) que aún no completaron sus series de trabajo prescritas en la sesión en curso; en el check-in, todos los de la rutina activa. Cada uno con `id`, `orden`, `series` y `descanso` de `EjercicioEnRutina`, y `candidatos` con los `maquinaId` de `EjercicioMaquina`. Orden: `orden` ascendente, luego `id` ascendente. En el inicio de rutina y después de cada ejercicio, la orquestación **MUST** excluir de esta lista el ejercicio actual de la sesión (el que se está por comenzar o se acaba de completar); el repositorio devuelve todos los no completados y la orquestación aplica esa exclusión.
 - **Máquinas**: las que aparecen en la unión de candidatos de los ejercicios pendientes y existen en el catálogo. Cada una con `id`, `estado` leído de `Maquina.estado`, `ocupante` derivado y `cola` derivada. Una máquina referenciada que no existe se deja fuera; el motor ya define que un `id` colgante no lanza y no aporta estado.
-- **Parámetros**: `segundosEjecucionSerie` desde `getConfiguracion()` (default 60). La orquestación **MUST NOT** hardcodearlo.
-- **Reloj**: `ahora` recibido como parámetro para filtrar reservas vencidas y fijar `venceEn`.
+- **Parámetros**: `segundosEjecucionSerie` (default 60) y `minutosInactividadSesion` (default 30) desde `getConfiguracion()`. La orquestación **MUST NOT** hardcodearlos y **MUST** pasar `minutosInactividadSesion` al plan de lectura de ocupantes.
+- **Reloj**: `ahora` recibido como parámetro para filtrar reservas vencidas, fijar `venceEn` y calcular el corte de inactividad (`ahora − minutosInactividadSesion × 60 000 ms`). El repositorio **MUST NOT** leer el reloj.
 
 La orquestación **MUST NOT** agregar ejercicios bloqueados, ejercicios de otra rutina ni máquinas que no sean candidatas de un ejercicio pendiente. La `EntradaMotor` **MUST NOT** incluir las filas del propio socio como ocupante ni en cola (P-67).
 
@@ -58,6 +58,13 @@ La orquestación **MUST NOT** agregar ejercicios bloqueados, ejercicios de otra 
 - GIVEN una máquina `M9` que no es candidata de ningún ejercicio pendiente
 - WHEN se construye la entrada
 - THEN `M9` no aparece en `maquinas`
+
+#### Scenario: La ventana de inactividad viaja al plan de lectura
+
+- GIVEN `minutosInactividadSesion = 30` y `ahora = 2026-10-25T10:00:00Z`
+- WHEN la orquestación construye la entrada
+- THEN la lectura de ocupantes recibe `ahora` y `minutosInactividadSesion = 30`
+- AND el repositorio calcula el corte como `ahora − 30 minutos` sin leer el reloj
 
 ### Requirement: Tres momentos de cálculo
 
@@ -329,15 +336,15 @@ Esta fila es la que permite derivar la ocupación de la máquina (ver `asignacio
 
 ### Requirement: Parámetros de configuración
 
-La orquestación **MUST** leer `segundosEjecucionSerie` y `minutosVencimientoReserva` desde el lector único de configuración y **MUST NOT** hardcodear sus valores. Si la fila de configuración no existe, usa los defaults 60 y 15. Si un valor es inválido para el motor, el resultado es `invalido` y se aplica el tratamiento de `invalido` (log, sin cambios).
+La orquestación **MUST** leer `segundosEjecucionSerie`, `minutosVencimientoReserva` y `minutosInactividadSesion` desde el lector único de configuración y **MUST NOT** hardcodear sus valores. Si la fila de configuración no existe, usa los defaults 60, 15 y 30. Si un valor es inválido para el motor, el resultado es `invalido` y se aplica el tratamiento de `invalido` (log, sin cambios).
 
-Un cambio de `minutosVencimientoReserva` **MUST** afectar solo a las reservas creadas después del cambio; las existentes conservan su `venceEn`. Un cambio de `segundosEjecucionSerie` **MUST** afectar los cálculos siguientes.
+Un cambio de `minutosVencimientoReserva` **MUST** afectar solo a las reservas creadas después del cambio; las existentes conservan su `venceEn`. Un cambio de `segundosEjecucionSerie` **MUST** afectar los cálculos siguientes. Un cambio de `minutosInactividadSesion` **MUST** afectar las lecturas de ocupación siguientes, sin reescribir ninguna fila.
 
 #### Scenario: Defaults cuando no hay configuración
 
 - GIVEN una base sin fila de configuración
 - WHEN se calcula
-- THEN el motor recibe `segundosEjecucionSerie = 60` y la reserva vence a los 15 minutos
+- THEN el motor recibe `segundosEjecucionSerie = 60`, la reserva vence a los 15 minutos y la ocupación usa `minutosInactividadSesion = 30`
 
 #### Scenario: Configuración inválida se contiene
 
@@ -409,6 +416,7 @@ La orquestación **MUST** consumir `calcularEspera` y sus tipos sin cambios. **M
 | 29 | Doble check-in dentro de ventana | No cancela reserva | Reserva intacta |
 | 30 | Doble check-in fuera de ventana | Recalcula y reemplaza | Anterior `CANCELADA` |
 | 31 | Motor intacto | Sin delta ni edición | Guardián verde |
+| 32 | Ventana de inactividad | Parámetro inyectado al plan de lectura | `ahora` y `minutosInactividadSesion` propagados |
 
 ## Acceptance Criteria
 
@@ -423,15 +431,16 @@ La orquestación **MUST** consumir `calcularEspera` y sus tipos sin cambios. **M
 - **AC-449**: La sesión consume la reserva vigente como `ejercicioActualId`; sin reserva se comporta exactamente como hoy y los tests existentes de sesión quedan verdes sin cambios.
 - **AC-450**: Cada ejercicio iniciado tiene una fila `EN_CURSO` asociada a la sesión; al completar la última serie o finalizar la sesión pasa a `COMPLETADA`.
 - **AC-451**: El motor puro y sus tipos no se modifican; no existe delta de `motor-espera-asignacion`; el guardián de dominios puros sigue verde.
-- **AC-452**: `segundosEjecucionSerie` y `minutosVencimientoReserva` se leen del lector único con defaults 60/15; una configuración inválida se contiene como `invalido`.
+- **AC-452**: `segundosEjecucionSerie`, `minutosVencimientoReserva` y `minutosInactividadSesion` se leen del lector único con defaults 60/15/30; una configuración inválida se contiene como `invalido`.
 - **AC-453**: Dentro de la ventana anti-passback el check-in denegado no calcula ni cancela; fuera de la ventana el check-in permitido recalcula y reemplaza la reserva en una transacción.
 - **AC-454**: El cálculo del check-in tiene una espera máxima acotada (2 s iniciales); al agotarse no deja transacción abierta, reserva parcial ni lock retenido.
+- **AC-455**: La orquestación pasa `ahora` y `minutosInactividadSesion` (default 30) al plan de lectura de ocupantes; el repositorio calcula el corte desde esos valores y no lee el reloj.
 
 ## Trazabilidad
 
 | Requirement | Escenarios | AC |
 |---|---|---|
-| Construcción de `EntradaMotor` | 1, 2, 3 | AC-441 |
+| Construcción de `EntradaMotor` | 1, 2, 3, 32 | AC-441, AC-455 |
 | Tres momentos de cálculo | 4, 5, 6, 7 | AC-442 |
 | Persistencia de la reserva ganadora | 8, 9, 10 | AC-443 |
 | Decisión `ACEPTAR` / `ESPERAR` | 11, 12, 13 | AC-444 |
@@ -465,7 +474,8 @@ Nota semántica; el diseño fija tipos y firmas.
 | `ejercicios[]` | Ejercicios pendientes con `id`, `orden`, `series`, `descanso` y `candidatos` (`maquinaId[]`). |
 | `maquinas[]` | Máquinas candidatas con `id`, `estado`, `ocupante` (`seriesRestantes`, `descanso`) o `null`, y `cola` (`series`, `descanso`). |
 | `parametros.segundosEjecucionSerie` | Duración de una serie en segundos, desde configuración. |
-| `ahora` | Reloj inyectado para vencimiento y creación. |
+| `minutosInactividadSesion` | Ventana de actividad para que una sesión o fila `EN_CURSO` cuente como ocupante; desde configuración, default 30. |
+| `ahora` | Reloj inyectado para vencimiento, creación y corte de inactividad. |
 | Resultado del motor | `exito` (`recomendado`, `siguienteEnOrden`, `ahorro`, `bloqueados`), `sin_opciones`, `vacio` o `invalido`. |
 | Reserva persistida | `socioId`, `ejercicioId`, `maquinaId`, `estado`, `creadaEn`, `venceEn`, `esperaSegundos`, `ahorroSegundos`, `sesionId`. |
 | Decisión | `ACEPTAR` (idempotente) o `ESPERAR` (cancela y sigue rutina). |
@@ -474,4 +484,4 @@ Nota semántica; el diseño fija tipos y firmas.
 
 - Decisiones: **D-88+** (última registrada D-87).
 - Tareas: **T-056+** (última registrada T-055d).
-- Pendientes: **P-68+**; esta change cierra P-64, P-65, P-66, P-67 y abre P-68, P-69, P-70.
+- Pendientes: **P-68+**; esta change cierra P-64, P-65, P-66, P-67 y abre P-68, P-69, P-70 y P-71.

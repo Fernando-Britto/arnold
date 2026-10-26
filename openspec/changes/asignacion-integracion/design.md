@@ -3,7 +3,7 @@
 > Contrato de esta fase: solo diseño. No se modifica código, `prisma/`, `opencode.json` ni `decisions.md`.
 > El motor puro `src/domains/asignacion/motor-espera.ts` se consume **tal cual**: no se toca su código,
 > sus tipos, sus tests ni el guardián de dominios puros. No se agregan dependencias. No hay UI nueva:
-> `/configuracion` suma exactamente dos campos.
+> `/configuracion` suma exactamente tres campos.
 
 ## 1. Contexto y restricciones
 
@@ -55,7 +55,7 @@ model AsignacionDeEjercicio {
   id             String   @id @default(cuid())
   socio          Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
   socioId        String
-  ejercicio      Ejercicio @relation(fields: [ejercicioId], references: [id], onDelete: Restrict)
+  ejercicio      Ejercicio @relation(fields: [ejercicioId], references: [id], onDelete: Cascade)
   ejercicioId    String
   maquina        Maquina? @relation(fields: [maquinaId], references: [id], onDelete: SetNull)
   maquinaId      String?
@@ -81,7 +81,7 @@ Relaciones inversas a agregar: `Socio.asignacionesDeEjercicio`, `Ejercicio.asign
 |---|---|---|---|---|
 | `id` | `String` | No | `cuid()` | Igual que el resto del modelo. |
 | `socioId` | `String` | No | — | FK `Cascade`: al borrar el socio desaparecen sus reservas (dato personal). |
-| `ejercicioId` | `String` | No | — | FK `Restrict`: preserva la instantánea histórica; el borrado del ejercicio ya está bloqueado por `EjercicioEnRutina`/`RegistroDeProgreso` cuando hay uso real. |
+| `ejercicioId` | `String` | No | — | FK `Cascade`: el borrado del ejercicio ya está bloqueado por `EjercicioEnRutina`/`RegistroDeProgreso` cuando hay uso real; la cascada solo elimina asignaciones de ejercicios nunca ejecutados. |
 | `maquinaId` | `String?` | Sí | — | FK `SetNull`: el borrado de una máquina no rompe el historial ni la operación; una `RESERVADA` con máquina borrada deja de ser sugerencia vigente. |
 | `sesionId` | `String?` | Sí | — | FK `SetNull`: el historial sobrevive al borrado de la sesión, igual que `RegistroDeProgreso.sesion`. Se fija al pasar a `EN_CURSO`. |
 | `estado` | `EstadoAsignacion` | No | — | Cuatro valores persistidos. `VENCIDA` se deriva, nunca se escribe. |
@@ -147,7 +147,7 @@ CREATE TABLE "AsignacionDeEjercicio" (
 
     CONSTRAINT "AsignacionDeEjercicio_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "AsignacionDeEjercicio_socioId_fkey" FOREIGN KEY ("socioId") REFERENCES "Socio"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "AsignacionDeEjercicio_ejercicioId_fkey" FOREIGN KEY ("ejercicioId") REFERENCES "Ejercicio"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "AsignacionDeEjercicio_ejercicioId_fkey" FOREIGN KEY ("ejercicioId") REFERENCES "Ejercicio"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "AsignacionDeEjercicio_maquinaId_fkey" FOREIGN KEY ("maquinaId") REFERENCES "Maquina"("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "AsignacionDeEjercicio_sesionId_fkey" FOREIGN KEY ("sesionId") REFERENCES "SesionDeEntrenamiento"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
@@ -168,9 +168,11 @@ CREATE INDEX "AsignacionDeEjercicio_ejercicioId_idx" ON "AsignacionDeEjercicio"(
 -- Etapa 4: parámetros del motor de espera. Aditiva; las filas existentes reciben el default.
 ALTER TABLE "ConfiguracionDelSistema"
   ADD COLUMN "segundosEjecucionSerie" INTEGER NOT NULL DEFAULT 60,
-  ADD COLUMN "minutosVencimientoReserva" INTEGER NOT NULL DEFAULT 15;
+  ADD COLUMN "minutosVencimientoReserva" INTEGER NOT NULL DEFAULT 15,
+  ADD COLUMN "minutosInactividadSesion" INTEGER NOT NULL DEFAULT 30;
 
 -- Rollback manual (solo al revertir la etapa):
+-- ALTER TABLE "ConfiguracionDelSistema" DROP COLUMN IF EXISTS "minutosInactividadSesion";
 -- ALTER TABLE "ConfiguracionDelSistema" DROP COLUMN IF EXISTS "minutosVencimientoReserva";
 -- ALTER TABLE "ConfiguracionDelSistema" DROP COLUMN IF EXISTS "segundosEjecucionSerie";
 ```
@@ -189,7 +191,7 @@ ALTER TABLE "ConfiguracionDelSistema"
    Ese es el criterio honesto: la change no introduce diferencias.
 5. Prueba de fila existente (manual, una vez): levantar el contenedor, aplicar las migraciones **hasta la
    anterior** a `20261026120500`, insertar una fila de `ConfiguracionDelSistema`, aplicar la migración nueva
-   con `prisma migrate deploy` y comprobar que la fila conserva sus valores y recibe `60/15`. Se puede hacer
+   con `prisma migrate deploy` y comprobar que la fila conserva sus valores y recibe `60/15/30`. Se puede hacer
    moviendo temporalmente la carpeta nueva fuera de `prisma/migrations`, o con un `db execute` del `ALTER`
    sobre una copia. No se agrega seed.
 6. Fernando aplica en Supabase con `npx prisma migrate deploy` usando la conexión **directa** (las migraciones
@@ -373,6 +375,7 @@ export interface NuevaReserva {
 export interface LecturaEntrada {
   socioId: string;
   ahora: Date;
+  minutosInactividadSesion: number;
   excluirEjercicioIds: string[];
 }
 
@@ -527,7 +530,7 @@ sesionDeEntrenamiento.findMany({
     ejercicioActualId: { not: null },
   },
   select: {
-    id: true, socioId: true, ejercicioActualId: true,
+    id: true, socioId: true, ejercicioActualId: true, horaInicio: true,
     rutinaAsignada: { select: { rutina: { select: { ejercicios: {
       select: { ejercicioId: true, series: true, descanso: true },
     } } } } },
@@ -548,6 +551,23 @@ asignacionDeEjercicio.findMany({
   select: { id: true, socioId: true, sesionId: true, ejercicioId: true, maquinaId: true, creadaEn: true },
 });
 ```
+
+**Vigencia (D-105)**: con `corte = new Date(lectura.ahora.getTime() - lectura.minutosInactividadSesion * 60_000)`,
+se consultan los registros de actividad de todas las sesiones candidatas (unión de sesiones `EN_CURSO` y
+`sesionId` de las filas `EN_CURSO`) en una query sin filtro de tipo:
+
+```ts
+registroDeProgreso.findMany({
+  where: { sesionId: { in: idsDeSesiones } },
+  select: { sesionId: true, fecha: true },
+});
+```
+
+Para cada sesión, `ultimaActividad = max(fecha) ?? horaInicio`; para cada fila `EN_CURSO`,
+`ultimaActividad = max(fecha de su sesionId) ?? creadaEn`. Solo se conservan las fuentes con
+`ultimaActividad.getTime() >= corte.getTime()`: la comparación es inclusiva. El corte sale de `ahora` y del
+parámetro inyectados por la orquestación; el repositorio no lee el reloj. Una sesión vieja y una fresca pueden
+coexistir: la vieja se descarta y no aporta ocupante ni espera.
 
 Reglas:
 
@@ -608,8 +628,10 @@ que no resuelve a una rutina activa **no aporta** y se registra la anomalía. Un
 `venceEn > ahora`. `EN_CURSO` no es cola.
 
 **9. Configuración**: `leerConfiguracion()` delega en `getConfiguracion(cliente)` dentro de la misma
-transacción (o del cliente del puerto en la lectura sin lock) y devuelve `segundosEjecucionSerie` y
-`minutosVencimientoReserva` con defaults. La orquestación no hardcodea ninguno de los dos.
+transacción (o del cliente del puerto en la lectura sin lock) y devuelve `segundosEjecucionSerie`,
+`minutosVencimientoReserva` y `minutosInactividadSesion` con defaults. La orquestación no hardcodea ninguno
+de los tres. `minutosInactividadSesion` viaja en `LecturaEntrada` para que el repositorio calcule el corte de
+ocupación; el repositorio no lee el reloj.
 
 **10. Sugerencia vigente** (lectura de API y sesión): `findMany` con `take: 2`, `estado RESERVADA`,
 `venceEn > ahora`, `maquinaId not null`, `orderBy(creadaEn desc, id desc)`. Si vinieran dos, se devuelve la
@@ -703,9 +725,11 @@ export async function calcularYReservar(input, deps = {}) {
     }
 
     const trabajo = repositorio.enTransaccionBloqueada(async (tx) => {
+      const configuracion = await tx.leerConfiguracion();
       const leida = await tx.leerEntradaMotor({
         socioId: input.socioId,
         ahora: input.ahora,
+        minutosInactividadSesion: configuracion.minutosInactividadSesion,
         excluirEjercicioIds: input.excluirEjercicioIds ?? [],
       });
       if (!leida) return { tipo: "fallback", motivo: "SIN_RUTINA" } as const;
@@ -736,7 +760,7 @@ export async function calcularYReservar(input, deps = {}) {
       }
 
       const venceEn = new Date(
-        input.ahora.getTime() + leida.configuracion.minutosVencimientoReserva * 60_000
+        input.ahora.getTime() + configuracion.minutosVencimientoReserva * 60_000
       );
       await tx.cancelarReservasActivas(input.socioId, input.ahora);
       const reserva = await tx.crearReserva({
@@ -771,6 +795,9 @@ Reglas de esta función:
 
 - **Sin rutina activa**: una sola lectura barata (`tieneRutinaActiva`) y salida; no se abre transacción ni se
   invoca el motor. Es la condición que exige `member-access-check`.
+- **Ventana de inactividad**: el servicio lee la configuración antes de la lectura y pasa
+  `minutosInactividadSesion` junto con `ahora`; el repositorio calcula el corte con esos valores y nunca lee el
+  reloj.
 - **`sin_opciones`, `vacio` y `maquinaId null`**: fallback silencioso; cancelan la reserva activa anterior en
   la misma transacción y no crean fila. No se loguean como error (a lo sumo un `info`).
 - **`invalido`**: error de servidor logueado con `socioId`, `momento` y `errores`; **no** cancela ni crea nada.
@@ -850,8 +877,9 @@ usa `minutosVencimientoReserva`, es determinista con el `ahora` inyectado y no d
 
 ### Lectura informativa `siguienteEnOrden`
 
-`calcularSinReservar` llama a `leerEntradaMotor` (sin lock, solo lectura), invoca el motor y devuelve
-`r.siguienteEnOrden` con el nombre resuelto desde `leida.rutina.nombres`. Si el resultado no es `exito`, si el
+`calcularSinReservar` lee la configuración con el puerto, llama a `leerEntradaMotor` (sin lock, solo
+lectura) pasando `ahora` y `minutosInactividadSesion`, invoca el motor y devuelve `r.siguienteEnOrden` con
+el nombre resuelto desde `leida.rutina.nombres`. Si el resultado no es `exito`, si el
 motor devuelve `invalido` o si algo falla, devuelve `null` y loguea; **nunca** lanza y **nunca** escribe. El
 `EntradaLeida` ya excluye el ejercicio actual de una sesión EN_CURSO, así que la lectura no recomienda el
 ejercicio que el socio está haciendo.
@@ -1029,15 +1057,15 @@ progreso no cambia. **Los tests existentes de sesión quedan verdes sin edicione
 
 ## 10. Configuración
 
-Los dos parámetros siguen el patrón D-54 sin crear un segundo lector.
+Los tres parámetros siguen el patrón D-54 sin crear un segundo lector.
 
 | Capa | Archivo | Cambio exacto |
 |---|---|---|
-| Dominio | `src/domains/configuracion/configuracion.ts` | Agregar a `CAMPOS_CONFIGURACION`: `segundosEjecucionSerie: { tipo: "entero", min: 1, max: 3600 }` y `minutosVencimientoReserva: { tipo: "entero", min: 0, max: 1440 }`. El orden de las claves fija el de validación; van al final. |
-| Lector único | `src/lib/configuracion.ts` | Agregar a `Configuracion`: `segundosEjecucionSerie: number; minutosVencimientoReserva: number`. Agregar a `CONFIGURACION_POR_DEFECTO`: `60` y `15`. Agregar a `normalizarFila`: `fila?.segundosEjecucionSerie ?? d.segundosEjecucionSerie` y el equivalente para minutos. |
+| Dominio | `src/domains/configuracion/configuracion.ts` | Agregar a `CAMPOS_CONFIGURACION`: `segundosEjecucionSerie: { tipo: "entero", min: 1, max: 3600 }`, `minutosVencimientoReserva: { tipo: "entero", min: 0, max: 1440 }` y `minutosInactividadSesion: { tipo: "entero", min: 1, max: 1440 }`. El orden de las claves fija el de validación; van al final. |
+| Lector único | `src/lib/configuracion.ts` | Agregar a `Configuracion`: `segundosEjecucionSerie: number; minutosVencimientoReserva: number; minutosInactividadSesion: number`. Agregar a `CONFIGURACION_POR_DEFECTO`: `60`, `15` y `30`. Agregar a `normalizarFila`: `fila?.segundosEjecucionSerie ?? d.segundosEjecucionSerie` y los equivalentes para los otros dos. |
 | Auditoría | `src/lib/configuracion.ts` | Sin cambio: `actualizarConfiguracion` recorre `Object.keys(CONFIGURACION_POR_DEFECTO)` y ya audita cualquier campo nuevo con `antes`/`despues` en la misma transacción. |
 | API | `src/app/api/configuracion/route.ts` | Sin cambio: `validarCambiosConfiguracion` y el mapeo de errores ya cubren los campos nuevos. |
-| Panel | `src/app/configuracion/page.tsx` | Agregar el grupo `{ titulo: "Motor de espera", campos: ["segundosEjecucionSerie", "minutosVencimientoReserva"] }`, las etiquetas `"Duración de la serie (segundos)"` y `"Vencimiento de la reserva (minutos)"`, y los dos campos en `aFormulario` con `String(config.…)`. El render, la validación cliente y `handleApiError` se reutilizan. |
+| Panel | `src/app/configuracion/page.tsx` | Agregar el grupo `{ titulo: "Motor de espera", campos: ["segundosEjecucionSerie", "minutosVencimientoReserva", "minutosInactividadSesion"] }`, las etiquetas `"Duración de la serie (segundos)"`, `"Vencimiento de la reserva (minutos)"` e `"Inactividad de sesión (minutos)"`, y los tres campos en `aFormulario` con `String(config.…)`. El render, la validación cliente y `handleApiError` se reutilizan. |
 
 Rangos y mensajes del `PUT` (todos en español, sin mensajes nuevos):
 
@@ -1049,11 +1077,18 @@ Rangos y mensajes del `PUT` (todos en español, sin mensajes nuevos):
 | `minutosVencimientoReserva = -1` | `400 VALIDATION_ERROR` — "minutosVencimientoReserva debe estar entre 0 y 1440" |
 | `minutosVencimientoReserva = 1441` | `400 VALIDATION_ERROR` — mismo mensaje |
 | `minutosVencimientoReserva = NaN` / `Infinity` / string | `400 VALIDATION_ERROR` — "minutosVencimientoReserva debe ser un número" |
+| `minutosInactividadSesion = 0` | `400 VALIDATION_ERROR` — "minutosInactividadSesion debe estar entre 1 y 1440" |
+| `minutosInactividadSesion = -1` / `1441` | `400 VALIDATION_ERROR` — mismo mensaje |
+| `minutosInactividadSesion = 30.5` | `400 VALIDATION_ERROR` — "minutosInactividadSesion debe ser un número entero" |
+| `minutosInactividadSesion = NaN` / `Infinity` / string | `400 VALIDATION_ERROR` — "minutosInactividadSesion debe ser un número" |
 
 Defaults y semántica: `segundosEjecucionSerie = 60` (duración estimada de una serie, alimenta
-`parametros.segundosEjecucionSerie`) y `minutosVencimientoReserva = 15` (vigencia de una reserva nueva;
-`0` la hace nacer vencida). Un cambio de minutos afecta solo a reservas nuevas; un cambio de segundos afecta
-solo a cálculos posteriores. El panel muestra los rangos desde `CAMPOS_CONFIGURACION`; el cliente no envía un
+`parametros.segundosEjecucionSerie`), `minutosVencimientoReserva = 15` (vigencia de una reserva nueva; `0` la
+hace nacer vencida) y `minutosInactividadSesion = 30` (ventana de actividad para que una sesión o fila
+`EN_CURSO` cuente como ocupante). El rango `1–1440` de la inactividad se propone porque `0` haría que toda
+sesión quedara inactiva al instante y no tiene uso operativo. Un cambio de minutos de reserva afecta solo a
+reservas nuevas; un cambio de segundos afecta solo a cálculos posteriores; un cambio de inactividad afecta
+solo a lecturas posteriores. El panel muestra los rangos desde `CAMPOS_CONFIGURACION`; el cliente no envía un
 valor inválido.
 
 ## 11. API
@@ -1199,7 +1234,7 @@ no se convierte en 500: se degrada a `null` y se loguea.
 ## 12. Decisiones registradas (D-88+)
 
 Listas para pegar en `openspec/decisions.md`. Las D-88 a D-92 son decisiones de Fernando ya fijadas en la
-propuesta; las D-93 a D-104 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
+propuesta; las D-93 a D-106 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
 explícita al revisar el artefacto.
 
 ### Decisiones de Fernando (vinculantes)
@@ -1218,10 +1253,10 @@ explícita al revisar el artefacto.
 - **Por qué**: el vencimiento perezoso libera la cola sin job; el snapshot evita que un cambio de configuración reescriba reservas históricas.
 - **Dónde**: `AsignacionDeEjercicio.venceEn`, `src/domains/asignacion/orquestacion.ts`, spec `asignacion-orquestacion`.
 
-#### D-90 · Dos parámetros nuevos en `/configuracion`
-- **Origen**: Fernando (propuesta, decisión 3).
-- **Contexto**: el motor necesita la duración de serie y la vigencia de reserva sin hardcodearlas.
-- **Decisión**: `segundosEjecucionSerie` (entero, default 60, rango 1–3600) y `minutosVencimientoReserva` (entero, default 15, rango 0–1440), por el patrón D-54.
+#### D-90 · Tres parámetros nuevos en `/configuracion`
+- **Origen**: Fernando (propuesta, decisión 3; ampliada con la ventana de inactividad por la revisión externa).
+- **Contexto**: el motor necesita la duración de serie, la vigencia de reserva y la ventana de actividad de una sesión sin hardcodearlas.
+- **Decisión**: `segundosEjecucionSerie` (entero, default 60, rango 1–3600), `minutosVencimientoReserva` (entero, default 15, rango 0–1440) y `minutosInactividadSesion` (entero, default 30, rango 1–1440), por el patrón D-54.
 - **Por qué**: reutiliza lector único, validación, auditoría y panel ya probados; no crea un segundo lector.
 - **Dónde**: `src/domains/configuracion/configuracion.ts`, `src/lib/configuracion.ts`, `src/app/configuracion/page.tsx`.
 
@@ -1321,9 +1356,23 @@ explícita al revisar el artefacto.
 #### D-104 · Dos migraciones aditivas separadas
 - **Origen**: IA, adoptada.
 - **Contexto**: la migración de la tabla debe tener 0 `DROP`/`ALTER` (AC-413); la de configuración necesita `ALTER TABLE ADD COLUMN` (AC-504).
-- **Decisión**: `20261026120000_asignacion_ejercicio` (tipo + tabla + índices + FKs inline) y `20261026120500_asignacion_configuracion` (dos columnas con default).
+- **Decisión**: `20261026120000_asignacion_ejercicio` (tipo + tabla + índices + FKs inline) y `20261026120500_asignacion_configuracion` (tres columnas con default).
 - **Por qué**: cada archivo cumple su criterio de revisión sin mezclar una tabla nueva con un `ALTER` a una tabla existente.
 - **Dónde**: `prisma/migrations/`.
+
+#### D-105 · Corte de inactividad para ocupantes
+- **Origen**: IA, adoptada.
+- **Contexto**: una sesión abandonada en `EN_CURSO` bloquea una máquina para siempre; la base de desarrollo tiene sesiones `EN_CURSO` antiguas. La consulta de ocupantes tomaba toda sesión `EN_CURSO` con `ejercicioActualId`, sin corte de edad.
+- **Decisión**: una sesión o fila `AsignacionDeEjercicio` en `EN_CURSO` cuenta como ocupante solo si tuvo actividad en los últimos `minutosInactividadSesion` minutos (default 30). La actividad es el `RegistroDeProgreso` más reciente, con `horaInicio`/`creadaEn` como respaldo; la comparación es inclusiva (`>=`). `ahora` y el parámetro se inyectan al plan de lectura.
+- **Por qué**: libera máquinas de sesiones fantasma sin job de limpieza, conserva el determinismo con reloj inyectado y aplica la misma regla a las dos fuentes de ocupación.
+- **Dónde**: `leerEntradaMotor` (paso 7), `LecturaEntrada`, `src/domains/asignacion/orquestacion.ts`, spec `asignacion-ejercicio-persistencia`.
+
+#### D-106 · `ejercicioId` con `ON DELETE CASCADE`
+- **Origen**: IA, adoptada.
+- **Contexto**: con `Restrict`, un ejercicio con cualquier asignación se volvía indeletable y el mapeo P2003 existente producía el mensaje equivocado (`DELETE_BLOCKED_ASSIGNED`). El borrado de un ejercicio con uso real ya está bloqueado por `RegistroDeProgreso` y `EjercicioEnRutina`.
+- **Decisión**: la FK `AsignacionDeEjercicio.ejercicioId` usa `ON DELETE CASCADE` en Prisma y en la migración. Eliminar un ejercicio sin progreso ni filas de rutina elimina sus asignaciones y el ejercicio.
+- **Por qué**: la cascada solo alcanza asignaciones de ejercicios nunca ejecutados; evita el bloqueo artificial y el mensaje incorrecto sin perder historial de ejercicios usados.
+- **Dónde**: `prisma/schema.prisma`, migración `20261026120000_asignacion_ejercicio`, integración de persistencia (T-056c).
 
 ## 13. Plan de pruebas TDD
 
@@ -1331,19 +1380,19 @@ explícita al revisar el artefacto.
 
 | Archivo | Tipo | `describe` principales |
 |---|---|---|
-| `src/domains/asignacion/asignacion-repositorio.test.ts` | Unit (Prisma mockeado) | `rutina activa y candidatos` · `ejercicios pendientes` · `ocupantes` · `cola` · `P-67` · `vencimiento perezoso` · `sugerencia vigente` · `escrituras` |
+| `src/domains/asignacion/asignacion-repositorio.test.ts` | Unit (Prisma mockeado) | `rutina activa y candidatos` · `ejercicios pendientes` · `ocupantes` · `ocupantes frescos` · `cola` · `P-67` · `vencimiento perezoso` · `sugerencia vigente` · `escrituras` |
 | `src/domains/asignacion/orquestacion.test.ts` | Unit (puerto mockeado, motor real inyectable) | `cálculo y reserva` · `fallback` · `invalido` · `timeout` · `decisión` · `sin rutina` |
 | `src/domains/sesion/sesion-asignaciones.test.ts` | Unit (Prisma mockeado con los modelos nuevos) | `inicio consume reserva` · `avance consume reserva` · `completar ejecución` · `fin de sesión` · `sin reserva` |
 | `src/api/asignaciones.test.ts` | Unit (servicio/repositorio mockeados) | `GET sugerencia` · `POST decidir` · `propiedad y roles` · `404/409` · `degradación de siguienteEnOrden` |
 | `src/app/api/asignaciones/sugerencia/route.test.ts` | Unit | `401` · `403` · `delegación y ahora` |
 | `src/app/api/asignaciones/decidir/route.test.ts` | Unit | `401` · `403` · `body inválido` · `delegación` |
 | `src/api/acceso-asignacion.test.ts` | Unit (orquestación mockeada) | `check-in permitido` · `motor lanza` · `persistencia falla` · `denegado no dispara` · `una sola asistencia` |
-| `src/lib/configuracion.test.ts` | Unit | `defaults 60/15` · `normalización por campo` |
-| `src/domains/configuracion/configuracion.test.ts` | Unit | `rangos de los dos campos` · `enteros/finitos` |
+| `src/lib/configuracion.test.ts` | Unit | `defaults 60/15/30` · `normalización por campo` |
+| `src/domains/configuracion/configuracion.test.ts` | Unit | `rangos de los tres campos` · `enteros/finitos` |
 | `src/app/configuracion/page.test.tsx` | Componente | `grupo Motor de espera` · `validación cliente` · `handleApiError` |
 | `src/lib/authorization.test.ts` | Unit | `matriz /api/asignaciones` |
 | `src/lib/route-error-mapper.test.ts` | Unit | `SIN_SUGERENCIA` · `SIN_SUGERENCIA_VIGENTE` |
-| `tests/integration/asignacion-persistencia.integration.test.ts` | Integración (Docker) | `migración y FKs` · `ocupantes` · `cola` · `P-67` · `vencimiento` · `una activa` |
+| `tests/integration/asignacion-persistencia.integration.test.ts` | Integración (Docker) | `migración y FKs` · `ocupantes` · `ocupantes frescos` · `borrado en cascada` · `cola` · `P-67` · `vencimiento` · `una activa` |
 | `tests/integration/asignacion-concurrencia.integration.test.ts` | Integración (Docker) | `dos socios misma máquina` · `mismo socio` · `rollback` |
 | `tests/integration/configuracion-asignacion.integration.test.ts` | Integración (Docker) | `columnas y defaults` · `fila existente` (manual, ver §3) |
 
@@ -1384,6 +1433,16 @@ Los tests existentes de `src/domains/sesion/sesion-de-entrenamiento.test.ts`, `s
 | 25 Migración aditiva | `asignacion-persistencia.integration.test.ts` → "aplica migrate deploy desde cero" | tablas, índices y FKs presentes; 0 `DROP`/`ALTER` en el archivo |
 | 26 Sin `OCUPADA` | ídem → "reservar no cambia Maquina.estado" | `DISPONIBLE` antes y después |
 | 27 Sesión sin fila, máquina única | `asignacion-repositorio.test.ts` → "una candidata deriva ocupante; varias no" | `M1` ocupada / sin ocupante |
+| 28 Sesión inactiva 31 min | `asignacion-repositorio.test.ts` → "sesión con actividad de 31 min no ocupa con ventana 30" | sin ocupante |
+| 29 Sesión activa 29 min | ídem → "sesión con actividad de 29 min ocupa con ventana 30" | ocupante con `seriesRestantes` |
+| 30 Sesión sin registros fresca | ídem → "sin registros usa horaInicio fresca" | ocupante |
+| 31 Sesión sin registros vencida | ídem → "sin registros usa horaInicio vieja y no ocupa" | sin ocupante |
+| 32 Sesión vieja + fresca | ídem → "la sesión vieja no aporta si hay una fresca" | solo la fresca |
+| 33 Fila `EN_CURSO` inactiva | ídem → "fila EN_CURSO con actividad de 31 min no ocupa" | sin ocupante |
+| 34 Fila `EN_CURSO` activa | ídem → "fila EN_CURSO con actividad de 29 min ocupa" | ocupante |
+| 35 Fila `EN_CURSO` sin registros | ídem → "fila EN_CURSO sin registros usa creadaEn" | fresca ocupa; vieja no |
+| 36 Actividad en el corte | ídem → "actividad exactamente en el corte cuenta" | `>=` inclusivo |
+| 37 Borrado en cascada | `asignacion-persistencia.integration.test.ts` → "borrar ejercicio sin progreso ni rutina elimina asignaciones" | asignaciones y ejercicio eliminados |
 
 #### `asignacion-orquestacion`
 
@@ -1415,11 +1474,12 @@ Los tests existentes de `src/domains/sesion/sesion-de-entrenamiento.test.ts`, `s
 | 24 Consumo al avanzar | `sesion-asignaciones.test.ts` → "avanza consumiendo E2" | `EN_CURSO` + `sesionId` |
 | 25 Ejecución `EN_CURSO` | ídem → "crea fila con sesionId y máquina única" | fila `EN_CURSO` |
 | 26 Fin de sesión | ídem → "completa las EN_CURSO restantes" | todas `COMPLETADA` |
-| 27 Defaults | `orquestacion.test.ts` → "60/15 sin fila" | valores por defecto |
+| 27 Defaults | `orquestacion.test.ts` → "60/15/30 sin fila" | valores por defecto |
 | 28 Config inválida | ídem → "segundos=0 → invalido contenido" | `INVALIDO`; sin cambios |
 | 29 Doble check-in dentro de ventana | `acceso-asignacion.test.ts` → "denegado no cancela" | reserva intacta |
 | 30 Doble check-in fuera de ventana | `orquestacion.test.ts` → "recalcula y reemplaza" | anterior `CANCELADA` |
 | 31 Motor intacto | `dominios-puros.guard.test.ts` + `motor-espera.*.test.ts` | verdes sin edición |
+| 32 Ventana de inactividad | `orquestacion.test.ts` → "pasa ahora y minutosInactividadSesion al plan de lectura" | `30` y `ahora` inyectados |
 
 #### `asignacion-api`
 
@@ -1443,15 +1503,15 @@ Los tests existentes de `src/domains/sesion/sesion-de-entrenamiento.test.ts`, `s
 
 | Escenario | Test | Esperado |
 |---|---|---|
-| 1 Defaults sin fila | `configuracion.test.ts` | `60/15` y resta igual |
-| 2 Fila existente | integración + verificación manual §3 | `60/15`; resto intacto |
+| 1 Defaults sin fila | `configuracion.test.ts` | `60/15/30` y resta igual |
+| 2 Fila existente | integración + verificación manual §3 | `60/15/30`; resto intacto |
 | 3 Cambio parcial | `configuracion.test.ts` | solo cambia el enviado |
-| 4–5 Migración/rollback | integración + SQL comentado | columnas con default; rollback documentado |
-| 6–8 Consumo | `orquestacion.test.ts` | `venceEn` con 30; `segundos` en la entrada |
+| 4–5 Migración/rollback | integración + SQL comentado | tres columnas con default; rollback documentado |
+| 6–8, 27 Consumo | `orquestacion.test.ts` | `venceEn` con 30; `segundos` en la entrada; inactividad en la lectura |
 | 9–10 Lector | `configuracion.test.ts` | defaults; fila más reciente |
-| 11–16 PUT | `configuracion.test.ts` | 400 en 0, negativos, no entero, no finito, fuera de rango |
-| 17–19 Auditoría | `configuracion.test.ts` | `antes`/`despues`; sin cambios no audita |
-| 20–22 Panel | `page.test.tsx` | grupo, validación cliente, `handleApiError` |
+| 11–16, 23–25 PUT | `configuracion.test.ts` | 400 en 0, negativos, no entero, no finito, fuera de rango |
+| 17–19 Auditoría | `configuracion.test.ts` | `antes`/`despues` de los tres; sin cambios no audita |
+| 20–22, 26 Panel | `page.test.tsx` | grupo con tres campos, validación cliente, `handleApiError` |
 
 #### `member-access-check`
 
@@ -1476,7 +1536,7 @@ Los tests existentes de `src/domains/sesion/sesion-de-entrenamiento.test.ts`, `s
 1. **Configuración**: tests de defaults/rangos/panel RED → constantes, `Configuracion`, defaults, panel.
 2. **Migraciones**: `migrate deploy` RED (sin las carpetas) → SQL; integración de columnas/FKs.
 3. **Repositorio**: tests de lectura RED con Prisma mockeado → puerto + implementación; luego integración de
-   ocupantes/cola/vencimiento/P-67.
+   ocupantes frescos/cola/vencimiento/P-67 y borrado en cascada del ejercicio.
 4. **Orquestación**: tests de cálculo/fallback/inválido/timeout/decisión RED → servicio; luego integración de
    concurrencia.
 5. **API**: tests de handlers/rutas/matriz/error-mapper RED → `src/api/asignaciones.ts`, rutas, matriz.
@@ -1491,15 +1551,15 @@ superan el presupuesto.
 
 | Slice | Checkpoint | Contenido | LOC est. | Commit sugerido |
 |---|---|---|---|---|
-| S1 | CP1 | Schema + enum + relaciones, dos migraciones, configuración (dominio, lector, defaults, panel) y sus tests + integración de migración/config | ~235 | `feat(config): parámetros del motor de espera y migraciones aditivas` |
+| S1 | CP1 | Schema + enum + relaciones, dos migraciones, configuración (dominio, lector, defaults, panel) y sus tests + integración de migración/config | ~240 | `feat(config): parámetros del motor de espera y migraciones aditivas` |
 | S2 | CP2a | `asignacion-repositorio.ts` (puerto, DTO, lecturas de rutina/candidatos/sesión/pendientes/máquinas) + tests unitarios | ~370 | `feat(asignacion): repositorio de lectura del motor` |
-| S3 | CP2b | Armado de `EntradaMotor` (ocupantes, cola, P-67, vencimiento) en el repositorio + tests unitarios + integración de persistencia | ~370 | `feat(asignacion): entrada del motor, ocupantes y cola` |
+| S3 | CP2b | Armado de `EntradaMotor` (ocupantes frescos, cola, P-67, vencimiento, borrado en cascada) en el repositorio + tests unitarios + integración de persistencia | ~395 | `feat(asignacion): entrada del motor, ocupantes y cola` |
 | S4 | CP3 | `orquestacion.ts`: lock, transacción, cálculo, reserva, fallback, `invalido`, timeout, decisión + tests unitarios + integración de concurrencia | ~365 | `feat(asignacion): orquestación con lock global y fallback` |
 | S5 | CP4a | `src/api/asignaciones.ts`: handlers, DTO, propiedad/rol, mapeo 404/409, degradación de `siguienteEnOrden` + tests | ~275 | `feat(asignacion): handlers de sugerencia y decisión` |
 | S6 | CP4b | Rutas `/api/asignaciones/*`, matriz de permisos, `route-error-mapper` + tests de rutas/consistencia | ~195 | `feat(asignacion): endpoints y permisos de asignaciones` |
 | S7 | CP4c | Gancho en `evaluarYRegistrarAcceso`, adaptador de sesión, consumo/completado/recálculo + tests de best-effort y sesión | ~390 | `feat(asignacion): gancho de check-in e integración de sesión` |
 
-**Cortes declarados**: CP2 (S2+S3 ≈ 740) y CP4 (S5+S6+S7 ≈ 860) superan 400 y se parten. CP3 es un solo slice
+**Cortes declarados**: CP2 (S2+S3 ≈ 765) y CP4 (S5+S6+S7 ≈ 860) superan 400 y se parten. CP3 es un solo slice
 (~365). Si S7 supera 400 al implementarse, se parte en S7a (gancho de check-in + test) y S7b (adaptador de
 sesión + tests); el corte natural es el archivo `integracion-asignaciones.ts`.
 
@@ -1510,7 +1570,7 @@ sesión + tests); el corte natural es el archivo `integracion-asignaciones.ts`.
 | `prisma/schema.prisma` | Modificar: enum, modelo, cuatro relaciones inversas | S1 |
 | `prisma/migrations/20261026120000_asignacion_ejercicio/migration.sql` | Crear | S1 |
 | `prisma/migrations/20261026120500_asignacion_configuracion/migration.sql` | Crear | S1 |
-| `src/domains/configuracion/configuracion.ts` | Modificar: dos campos y rangos | S1 |
+| `src/domains/configuracion/configuracion.ts` | Modificar: tres campos y rangos | S1 |
 | `src/lib/configuracion.ts` | Modificar: interfaz, defaults, normalización | S1 |
 | `src/app/configuracion/page.tsx` | Modificar: grupo, etiquetas, formulario | S1 |
 | `src/domains/asignacion/asignacion-repositorio.ts` | Crear | S2/S3 |
@@ -1520,7 +1580,6 @@ sesión + tests); el corte natural es el archivo `integracion-asignaciones.ts`.
 | `src/app/api/asignaciones/decidir/route.ts` | Crear | S6 |
 | `src/lib/authorization.ts` | Modificar: entrada `/api/asignaciones` por rol | S6 |
 | `src/lib/route-error-mapper.ts` | Modificar: `SIN_SUGERENCIA`, `SIN_SUGERENCIA_VIGENTE` | S6 |
-| `src/domains/ejercicio/ejercicio-repositorio.ts` | Modificar: mensaje para la FK `AsignacionDeEjercicio` (Restrict) | S1 |
 | `src/api/acceso.ts` | Modificar: gancho best-effort | S7 |
 | `src/domains/sesion/integracion-asignaciones.ts` | Crear | S7 |
 | `src/domains/sesion/sesion-de-entrenamiento.ts` | Modificar: consumo, completado, recálculo | S7 |
@@ -1547,7 +1606,7 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 
 1. **CP1**: `npm run test:integration`. En el contenedor (`--keep`):
    `docker exec -it arnold-test-db psql -U arnold -d arnold_test -c '\d "AsignacionDeEjercicio"'` y
-   `... -c 'select "segundosEjecucionSerie", "minutosVencimientoReserva" from "ConfiguracionDelSistema"'`.
+   `... -c 'select "segundosEjecucionSerie", "minutosVencimientoReserva", "minutosInactividadSesion" from "ConfiguracionDelSistema"'`.
 2. **CP2/CP3**: el smoke es la suite de integración: aplica migraciones desde cero, arma la entrada, prueba
    P-67, vencimiento y concurrencia. No hay pantalla que mirar.
 3. **CP4**: con `npm run dev` y un socio del seed con rutina activa:
@@ -1570,7 +1629,7 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
   aceptable al revertir la etapa). Nunca borrar columnas con datos de otras tablas.
 - **S2–S7**: `git revert` de cada commit. La tabla y las columnas pueden quedarse; el código viejo no las lee.
 - **Rollback completo**: revertir los siete slices; ejecutar el SQL comentado de ambas migraciones. El motor
-  puro sigue funcionando para quien lo invoque manualmente; `/configuracion` pierde los dos campos pero el
+  puro sigue funcionando para quien lo invoque manualmente; `/configuracion` pierde los tres campos pero el
   lector devuelve defaults y el panel los omite con el patrón actual.
 - No hay feature flag: la migración es aditiva y el código degrada si el modelo no existe (D-103), lo que
   permite revertir el código sin tocar la base.
@@ -1585,9 +1644,11 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 | `$queryRaw` con un `SELECT` que devuelve `void` | Baja | `$queryRaw` sí acepta consultas con filas; la columna `void` no se usa. Se descartó `$executeRaw` porque el engine de Prisma rechaza las consultas que devuelven filas (`Execute returned results`). La puerta sigue siendo el test de concurrencia de S4 contra Docker. |
 | El pooler de Supabase (`connection_limit=1`) serializa y oculta la carrera | Media | La prueba de P-68 corre en Docker sin pooler; en producción el lock sigue siendo correcto aunque el pool serialice. |
 | Timeout: la query no se cancela instantáneamente al vencer la carrera externa | Baja | `timeout` de la transacción de Prisma aborta y libera el lock; la carrera externa (2250 ms) solo protege la respuesta. No se deja una transacción abierta. |
-| La FK `Restrict` de `Ejercicio` agrega un bloqueo de borrado no previsto | Media | Es intencional para preservar la instantánea; se agrega un mensaje específico en `mensajeBloqueoPorRelacion` y su test. No cambia el contrato `DELETE_BLOCKED_ASSIGNED`. |
+| La FK `Cascade` de `Ejercicio` podría borrar más de lo esperado | Baja | El borrado de un ejercicio con `RegistroDeProgreso` o `EjercicioEnRutina` sigue bloqueado por esas FKs; la cascada solo elimina asignaciones de ejercicios nunca ejecutados. Se cubre con un test de integración (T-056c). |
 | El orden de la cola no coincide con el orden real de commit si dos requests concurrentes traen `ahora` distintos | Baja | La garantía dura es que la segunda transacción ve la primera; el orden es `creadaEn, id`. En producción el reloj del servidor y el lock hacen que la diferencia sea despreciable; el test usa el mismo `ahora`. |
 | Crecimiento de la tabla por reservas abandonadas | Alta | Vencimiento perezoso; P-69 (limpieza batch) sigue abierto y no bloquea la operación. |
+| Sesiones `EN_CURSO` antiguas en la base de desarrollo bloquean máquinas | Media | D-105: solo cuentan como ocupantes las sesiones o filas `EN_CURSO` con actividad dentro de `minutosInactividadSesion` (default 30); la sesión vieja se ignora sin limpieza. |
+| Latencia del check-in sensible a la ventana acotada | Media | Peor caso ≈2,25 s (`TIMEOUT_CALCULO_MS + MARGEN_RESPUESTA_MS`, constantes únicas). P-71: revisar con mediciones reales en Etapa 5/despliegue y reconsiderar `after()` si P-28 (`waitUntil`) se verifica. |
 | `siguienteEnOrden` en cada GET agrega costo | Baja | Es una lectura acotada a los pendientes; si falla o excede, se degrada a `null` y no rompe la lectura de la sugerencia. |
 | `migrate diff` reporta el índice de expresión preexistente | Baja | Se captura la línea base antes de la change y se exige que la salida posterior no agregue diferencias; la migración se prueba desde cero en Docker. |
 | `0/0` en filas `EN_CURSO` por orden de rutina se confunde con una reserva de espera cero | Media | Limitación declarada; la simulación debe separar por origen operativo. Si se vuelve bloqueante, una columna `origen` se evalúa en otra etapa (no se agrega acá). |
@@ -1603,11 +1664,13 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 | Una reserva activa (AC-405) | §2, §5, §7 | `orquestacion.test.ts`, `asignacion-concurrencia.integration.test.ts` |
 | Vencimiento perezoso (AC-406) | §2, §6 | `asignacion-repositorio.test.ts`, integración |
 | Ocupación derivada (AC-407, AC-408) | §6 | `asignacion-repositorio.test.ts`, integración |
+| Ocupación vigente (AC-415) | §6, §7 | `asignacion-repositorio.test.ts`, integración, `orquestacion.test.ts` |
 | Cola derivada (AC-409) | §6 | `asignacion-repositorio.test.ts`, integración |
 | P-67 (AC-410) | §6 | test dedicado en unit e integración |
 | Lecturas deterministas (AC-411) | §6 | `asignacion-repositorio.test.ts` |
 | Concurrencia y lock (AC-412) | §5 | `asignacion-concurrencia.integration.test.ts` |
 | Migración aditiva (AC-413) | §3 | `npm run test:integration`, `migrate diff`, inspección SQL |
+| FK `ejercicioId` en cascada (AC-416) | §2, §3 | integración "borrar ejercicio sin progreso ni rutina elimina asignaciones" |
 | Sin `OCUPADA` (AC-414) | §2, §6 | integración "reservar no cambia Maquina.estado" |
 | Construcción de entrada (AC-441) | §6 | `asignacion-repositorio.test.ts` |
 | Tres momentos (AC-442) | §7, §8, §9 | `orquestacion.test.ts`, `acceso-asignacion.test.ts`, `sesion-asignaciones.test.ts` |
@@ -1625,9 +1688,10 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 | API GET/POST (AC-481, AC-482) | §11 | `asignaciones.test.ts`, route tests |
 | Matriz y propiedad (AC-483, AC-487, AC-488) | §11 | `authorization.test.ts`, `asignaciones.test.ts` |
 | Errores y contrato (AC-484, AC-485, AC-486, AC-489, AC-490) | §11 | `asignaciones.test.ts`, `route-error-mapper.test.ts` |
-| Config defaults/rangos/migración (AC-501–AC-504) | §10 | `configuracion.test.ts`, integración |
+| Config defaults/rangos/migración (AC-501–AC-504, AC-510) | §10 | `configuracion.test.ts`, integración |
 | Panel y auditoría (AC-505, AC-506) | §10 | `page.test.tsx`, `configuracion.test.ts` |
 | Consumo de parámetros (AC-507, AC-508) | §7, §10 | `orquestacion.test.ts` |
+| Reloj y ventana de inactividad (AC-455) | §6, §7 | `orquestacion.test.ts`, `asignacion-repositorio.test.ts` |
 | Suite verde (AC-509) | §13, §14 | `npm test`, `npm run test:integration`, `tsc`, `eslint` |
 | Gancho único y best-effort (AC-521, AC-522, AC-523) | §8 | `acceso-asignacion.test.ts` |
 | Condiciones de disparo (AC-524) | §8 | `acceso-asignacion.test.ts` |
@@ -1638,10 +1702,11 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 
 ### Numeración
 
-- Decisiones de esta change: **D-88 a D-104** (17). Última previa: D-87.
+- Decisiones de esta change: **D-88 a D-106** (19). Última previa: D-87.
 - Tareas: **T-056+** quedan reservadas para `sdd-tasks`; este diseño no asigna IDs de tarea.
 - Pendientes: **P-68** se cierra con el test de concurrencia; **P-69** sigue abierto (limpieza batch, fuera de
-  alcance); **P-70** se cierra con la integración de sesión. No se abren pendientes nuevos.
+  alcance); **P-70** se cierra con la integración de sesión; **P-71** se abre (latencia del check-in, Etapa 5 /
+  despliegue).
 - No hay colisiones: los rangos D/T/P están verificados contra `openspec/decisions.md` (última revisión).
 
 ### Preguntas abiertas

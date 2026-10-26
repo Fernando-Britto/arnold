@@ -271,4 +271,4 @@ Nota semántica; no hay cambios de esquema en esta capability.
 
 - Decisiones: **D-88+** (última registrada D-87).
 - Tareas: **T-056+** (última registrada T-055d).
-- Pendientes: **P-68+**; esta change cierra P-64, P-65, P-66, P-67 y abre P-68, P-69, P-70.
+- Pendientes: **P-68+**; esta change cierra P-64, P-65, P-66, P-67 y abre P-68, P-69, P-70 y P-71.

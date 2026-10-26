@@ -16,7 +16,7 @@ Estado: **especificado** — Etapa 4, previo al diseño. No modifica código ni 
 | Change | `asignacion-integracion` (Etapa 4) |
 | Dependencias | Etapa 1 (`maquinas-crud`, D-73), Etapa 2 (`maquina-ejercicio-assignment`, D-74), Etapa 3 (`motor-espera-asignacion`, D-75+), `RutinaAsignada.activa` (RN-04), `SesionDeEntrenamiento` (D-44) |
 | Consumidores | `asignacion-orquestacion` (construye `EntradaMotor` y escribe la reserva), `asignacion-api` (lee la sugerencia vigente), Etapa 5 (pantalla del socio y simulación) |
-| Numeración AC | `AC-401…AC-414`. No colisiona con `AC-001…AC-015`, `AC-201…AC-217` ni `AC-301…AC-314` |
+| Numeración AC | `AC-401…AC-416`. No colisiona con `AC-001…AC-015`, `AC-201…AC-217` ni `AC-301…AC-314` |
 
 ## Decisiones fijadas por esta spec
 
@@ -184,6 +184,8 @@ El ocupante de una máquina `M` **MUST** ser un socio que tiene una `SesionDeEnt
 
 Con cero o varias candidatas y sin fila, la sesión no identifica una máquina y **MUST NOT** aportar ocupante (limitación declarada; la orquestación crea la fila al iniciar cada ejercicio cuando la máquina es determinable).
 
+Toda fuente de ocupación **MUST** estar vigente. Una sesión `EN_CURSO` o una fila `AsignacionDeEjercicio` en `EN_CURSO` cuenta como ocupante solo si tuvo actividad dentro de los últimos `minutosInactividadSesion` minutos respecto de `ahora`. La actividad de la sesión es su `RegistroDeProgreso` más reciente o, si no tiene registros, su `horaInicio`; la actividad de la fila `EN_CURSO` es el `RegistroDeProgreso` más reciente de su `sesionId` o, si no tiene, su `creadaEn`. La comparación **MUST** ser inclusiva: actividad exactamente en el corte cuenta como actividad (`>=`). El corte **MUST** calcularse como `ahora − minutosInactividadSesion × 60 000 ms`; `ahora` y el parámetro **MUST** recibirse inyectados y el repositorio **MUST NOT** leer el reloj. Una sesión o fila inactiva **MUST NOT** ser ocupante ni aportar espera. Una sesión `EN_CURSO` antigua puede coexistir con una fresca: la antigua se ignora y la espera de la máquina sale solo de la fresca.
+
 `seriesRestantes` **MUST** calcularse como:
 
 ```
@@ -234,6 +236,61 @@ Si por una anomalía de datos existiera más de una fila `EN_CURSO` para la mism
 - WHEN se deriva la ocupación
 - THEN `M1` tiene a ese socio como ocupante con su `seriesRestantes` y su descanso
 - AND si el ejercicio tuviera dos o más candidatas, no aportaría ocupante
+
+#### Scenario: Sesión inactiva por encima de la ventana no ocupa
+
+- GIVEN una sesión `EN_CURSO` de otro socio cuya última actividad fue hace 31 minutos y `minutosInactividadSesion = 30`
+- WHEN se deriva la ocupación con `ahora` fijo
+- THEN la sesión no es ocupante y su máquina queda libre
+
+#### Scenario: Sesión con actividad dentro de la ventana ocupa
+
+- GIVEN una sesión `EN_CURSO` de otro socio cuya última actividad fue hace 29 minutos y `minutosInactividadSesion = 30`
+- WHEN se deriva la ocupación
+- THEN la sesión es ocupante con `seriesRestantes` calculado como siempre
+
+#### Scenario: Sesión sin registros usa horaInicio fresca
+
+- GIVEN una sesión `EN_CURSO` sin `RegistroDeProgreso` y con `horaInicio` hace 10 minutos
+- WHEN se deriva la ocupación con `minutosInactividadSesion = 30`
+- THEN la sesión es ocupante y su actividad es `horaInicio`
+
+#### Scenario: Sesión sin registros usa horaInicio vencida
+
+- GIVEN una sesión `EN_CURSO` sin `RegistroDeProgreso` y con `horaInicio` hace 31 minutos
+- WHEN se deriva la ocupación con `minutosInactividadSesion = 30`
+- THEN la sesión no es ocupante
+
+#### Scenario: Sesión vieja junto a una fresca
+
+- GIVEN una sesión `EN_CURSO` antigua sin actividad reciente sobre `M1` y otra sesión `EN_CURSO` fresca también sobre `M1`
+- WHEN se deriva la ocupación con `minutosInactividadSesion = 30`
+- THEN la sesión antigua se ignora
+- AND la fresca es el único ocupante y la espera de `M1` sale solo de ella
+
+#### Scenario: Fila EN_CURSO inactiva no ocupa
+
+- GIVEN una fila `AsignacionDeEjercicio` en `EN_CURSO` cuyo último `RegistroDeProgreso` de su `sesionId` fue hace 31 minutos y `minutosInactividadSesion = 30`
+- WHEN se deriva la ocupación
+- THEN la fila no aporta ocupante
+
+#### Scenario: Fila EN_CURSO con actividad reciente ocupa
+
+- GIVEN una fila `AsignacionDeEjercicio` en `EN_CURSO` cuyo último `RegistroDeProgreso` de su `sesionId` fue hace 29 minutos y `minutosInactividadSesion = 30`
+- WHEN se deriva la ocupación
+- THEN la fila es ocupante y `seriesRestantes` se calcula como siempre
+
+#### Scenario: Fila EN_CURSO sin registros usa creadaEn
+
+- GIVEN una fila `AsignacionDeEjercicio` en `EN_CURSO` sin `RegistroDeProgreso` en su `sesionId`, con `creadaEn` hace 10 minutos, y otra con `creadaEn` hace 31 minutos, con `minutosInactividadSesion = 30`
+- WHEN se deriva la ocupación
+- THEN la fila fresca es ocupante y la vieja no
+
+#### Scenario: Actividad exactamente en el corte cuenta
+
+- GIVEN una sesión `EN_CURSO` cuya última actividad fue exactamente hace 30 minutos y `minutosInactividadSesion = 30`
+- WHEN se deriva la ocupación
+- THEN la sesión es ocupante porque la comparación es inclusiva (`>=`)
 
 ### Requirement: Cola derivada de reservas de terceros
 
@@ -293,7 +350,7 @@ La capa de persistencia **MUST** exponer lecturas deterministas, sin invocar el 
 - **Ocupantes**: por máquina, según el requisito de ocupación derivada.
 - **Cola**: por máquina, según el requisito de cola derivada.
 
-Todas las lecturas **MUST** aceptar `ahora` cuando el vencimiento influya y **MUST** ser repetibles para el mismo estado y el mismo `ahora`.
+Todas las lecturas **MUST** aceptar `ahora` cuando el vencimiento influya y **MUST** ser repetibles para el mismo estado y el mismo `ahora`. Las lecturas de ocupantes **MUST** aceptar además `minutosInactividadSesion` y calcular el corte con ambos valores, sin leer el reloj.
 
 #### Scenario: Sugerencia vigente única
 
@@ -369,6 +426,13 @@ La migración **MUST** aplicarse limpiamente sobre la base efímera de Docker de
 - THEN la tabla `AsignacionDeEjercicio` desaparece
 - AND ninguna otra tabla ni fila se modifica
 
+#### Scenario: Borrado de ejercicio sin uso elimina sus asignaciones
+
+- GIVEN un ejercicio con una fila `AsignacionDeEjercicio` y sin `RegistroDeProgreso` ni `EjercicioEnRutina`
+- WHEN se elimina el ejercicio
+- THEN sus asignaciones se eliminan en cascada
+- AND el ejercicio desaparece sin error de clave foránea
+
 ### Requirement: Prohibición de escribir `OCUPADA`
 
 Ningún camino de esta capability **MUST** escribir `Maquina.estado = OCUPADA`. El estado de la máquina se lee del catálogo y la ocupación se deriva de las ejecuciones `EN_CURSO`. Esta regla es coherente con D-73 y con el motor de Etapa 3, que ya trata `OCUPADA` como estado usable y toma la ocupación real de la entrada.
@@ -411,6 +475,16 @@ Ningún camino de esta capability **MUST** escribir `Maquina.estado = OCUPADA`. 
 | 25 | Migración aditiva | Sin destrucción | 0 `DROP`/`ALTER`; aplica en Docker |
 | 26 | Sin `OCUPADA` | Ocupación derivada | `Maquina.estado` sin cambios |
 | 27 | Sesión sin fila, máquina única | Ocupación por candidata única | `M1` ocupada; con varias, sin ocupante |
+| 28 | Sesión inactiva 31 min | Corte de inactividad | No ocupa; máquina libre |
+| 29 | Sesión activa 29 min | Corte de inactividad | Ocupa con `seriesRestantes` normal |
+| 30 | Sesión sin registros fresca | Actividad de respaldo | `horaInicio` cuenta; ocupa |
+| 31 | Sesión sin registros vencida | Actividad de respaldo | `horaInicio` vieja; no ocupa |
+| 32 | Sesión vieja + fresca | Solo la fresca ocupa | La espera sale de la fresca |
+| 33 | Fila `EN_CURSO` inactiva | Actividad por `sesionId` | No ocupa |
+| 34 | Fila `EN_CURSO` activa | Actividad por `sesionId` | Ocupa |
+| 35 | Fila `EN_CURSO` sin registros | Respaldo `creadaEn` | Fresca ocupa; vieja no |
+| 36 | Actividad en el corte | Comparación inclusiva | `>=` cuenta como actividad |
+| 37 | Borrado en cascada | FK `ejercicioId` `CASCADE` | Asignaciones y ejercicio eliminados |
 
 ## Acceptance Criteria
 
@@ -428,6 +502,8 @@ Ningún camino de esta capability **MUST** escribir `Maquina.estado = OCUPADA`. 
 - **AC-412**: Cálculo y reserva corren en una transacción con `pg_advisory_xact_lock` de clave global; se garantiza una reserva activa por socio y orden de cola por creación; la prueba corre contra PostgreSQL en Docker.
 - **AC-413**: La migración es aditiva (`CREATE TABLE` + índices, 0 `DROP`/`ALTER`, rollback comentado) y aplica limpiamente en Docker.
 - **AC-414**: Ningún camino escribe `Maquina.estado = OCUPADA`; la ocupación es derivada.
+- **AC-415**: Una sesión o fila `EN_CURSO` es ocupante solo si su actividad (último `RegistroDeProgreso`, o `horaInicio`/`creadaEn` si no hay registros) es `>= ahora − minutosInactividadSesion × 60 000 ms`; `ahora` y el parámetro se inyectan y el repositorio no lee el reloj.
+- **AC-416**: La FK `AsignacionDeEjercicio.ejercicioId` usa `ON DELETE CASCADE`; un ejercicio sin `RegistroDeProgreso` ni `EjercicioEnRutina` se elimina junto con sus asignaciones, sin P2003.
 
 ## Trazabilidad
 
@@ -438,11 +514,12 @@ Ningún camino de esta capability **MUST** escribir `Maquina.estado = OCUPADA`. 
 | Una sola reserva activa por socio | 8, 9, 10 | AC-405 |
 | Vencimiento perezoso | 11, 17 | AC-406 |
 | Ocupación derivada | 12, 13, 14, 15, 27 | AC-407, AC-408 |
+| Ocupación vigente (inactividad) | 28, 29, 30, 31, 32, 33, 34, 35, 36 | AC-415 |
 | Cola derivada | 16, 17, 18 | AC-409 |
 | Exclusión del propio socio (P-67) | 19 | AC-410 |
 | Lecturas del repositorio | 20, 21 | AC-411 |
 | Concurrencia y transacción | 22, 23, 24 | AC-412 |
-| Migración aditiva | 25 | AC-413 |
+| Migración aditiva | 25, 37 | AC-413, AC-416 |
 | Prohibición de escribir `OCUPADA` | 26 | AC-414 |
 
 ## Fuera de alcance
@@ -465,17 +542,17 @@ Nota semántica; el DDL y los tipos son responsabilidad del diseño.
 | `socioId` | Socio dueño de la reserva o ejecución. |
 | `ejercicioId` | Ejercicio de la rutina activa al que se refiere la fila. |
 | `maquinaId` | Máquina reservada u ocupada. Obligatorio en `RESERVADA`; nullable en `EN_CURSO`, `COMPLETADA` y `CANCELADA` cuando el ejercicio no tiene máquinas candidatas. |
-| `sesionId` | Sesión que consume la reserva. Nulo hasta `EN_CURSO`. |
+| `sesionId` | Sesión que consume la reserva. Nulo hasta `EN_CURSO`. Vincula los `RegistroDeProgreso` que prueban actividad. |
 | `estado` | `RESERVADA | EN_CURSO | COMPLETADA | CANCELADA`. |
-| `creadaEn` | Instante de creación; clave de orden de la cola. |
+| `creadaEn` | Instante de creación; clave de orden de la cola y actividad de respaldo de una fila `EN_CURSO` sin registros. |
 | `venceEn` | Instante de vencimiento; `creadaEn + minutosVencimientoReserva`. |
 | `esperaSegundos` | Espera calculada por el motor para el ejercicio recomendado, en segundos, `>= 0`. |
 | `ahorroSegundos` | Ahorro calculado por el motor, en segundos, `>= 0`. |
 
-Invariantes semánticos: una `RESERVADA` por socio; `venceEn` inmutable; snapshots inmutables; `OCUPADA` nunca escrito.
+Invariantes semánticos: una `RESERVADA` por socio; `venceEn` inmutable; snapshots inmutables; `OCUPADA` nunca escrito; la ocupación exige actividad dentro de `minutosInactividadSesion`.
 
 ## Numeración
 
 - Decisiones: **D-88+** (última registrada D-87).
 - Tareas: **T-056+** (última registrada T-055d).
-- Pendientes: **P-68+**; esta change cierra P-64, P-65, P-66, P-67 y abre P-68, P-69, P-70. Esta spec no crea decisiones por sí misma: las decisiones de diseño se registran en la fase siguiente.
+- Pendientes: **P-68+**; esta change cierra P-64, P-65, P-66, P-67 y abre P-68, P-69, P-70 y P-71. Esta spec no crea decisiones por sí misma: las decisiones de diseño se registran en la fase siguiente.
