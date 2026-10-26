@@ -1307,7 +1307,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Resiliencia**: `pesosDeMusculos` **descarta** un término raro que aparezca en la base en lugar de lanzar, para que una fila mal cargada no deje sin pantalla al socio. La integridad la cuida un test contra el
   catálogo real (`tests/catalogo/musculos-catalogo.test.ts`), que falla si alguien regenera el catálogo con un término nuevo.
 - **Lo que viene** (partes siguientes de T-051): el volumen semanal por músculo calculado desde el historial (series de trabajo, sin calentamientos ni drop sets), el mapa corporal en SVG propio y el rediseño de Stats
-  con sus pestañas (Balance muscular, Fatiga y Fuerza) y el filtro de período.
+  con sus pestañas (Balance muscular, Fatiga y Fuerza) y el filtro de período. **El volumen, el mapa y el filtro de período salieron en D-107; quedan las pestañas Fatiga y Fuerza.**
 - **Alternativas descartadas**: sumar por el texto del catálogo (cuenta doble hombros y deltoides); inventar un grupo para lo que no se dibuja (el volumen mentiría); un secundario que pese lo mismo que el objetivo (un
   press de banca contaría igual para el tríceps que para el pecho); migrar los términos a una tabla de músculos (más estructura de la que hace falta mientras el catálogo no cambie).
 - **Verificado**: tests de los 18 músculos y sus nombres, de los 47 términos y de los que no se dibujan, del peso (objetivo, secundarios, repetidos, coincidencias, cardio, términos raros), del respaldo por grupo (cada
@@ -1443,6 +1443,37 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Decisión**: `Number.isFinite` sobre todos los números de la entrada **antes** de los rangos (`orden`, `series`, `descanso`, `seriesRestantes`, `segundosEjecucionSerie`); `seriesRestantes ≥ 1` y `series ≥ 1` en la cola; extraer `duracionDeEjercicio(series, descanso, segundosPorSerie)` y usarla en ambos casos. Quien arma la entrada **no** debe incluir como ocupante a un socio con 0 series restantes: eso significa que la máquina está libre.
 - **Por qué**: la espera negativa y el `NaN` rompen la garantía conservadora y la recomendación; la duplicación de la fórmula es un riesgo de divergencia.
 - **Dónde**: `src/domains/asignacion/motor-espera.ts`, `motor-espera.nucleo.test.ts`, escenarios 24–26 del spec.
+
+### D-107 · Balance muscular: volumen por músculo, mapa corporal y filtro de período (T-051 parte 2, inspirado en openGym)
+- **Origen**: Fernando (2026-10-23): "seguí con lo que falta de músculos". Sobre la taxonomía de D-71 se hace la parte que se ve: cuántas series de trabajo hizo el socio por músculo, con un mapa corporal. Idea
+  tomada de openGym como referencia (su "balance muscular" por series trabajadas y el filtro Semana, 30 días, 90 días y Todo); **no se copió código ni los dibujos** (AGPL-3.0).
+- **Dónde vive**: una tarjeta **"Balance muscular" dentro de "Mi progreso"**, debajo del título y antes de los ejercicios, y no una pantalla "Stats" nueva: no se duplica la navegación del portal y la tarjeta queda
+  donde el socio ya mira su evolución. Las 4 tarjetas de números, el heatmap de 12 meses y las pestañas Fatiga y Fuerza del rediseño de Stats quedan para una parte 3. Si la tarjeta falla, el resto de la página sigue.
+- **Períodos**: Semana, 30 días, 90 días y Todo. Son **los últimos N días contando hoy** (en hora del gimnasio), no la semana de calendario: así "semana" siempre cubre 7 días y se puede comparar con la anterior sin que
+  el lunes parezca vacío.
+- **Qué cuenta** (`balanceMuscularDelSocio`): una consulta agrupada cuenta las **series de trabajo por ejercicio** en el período, **sin calentamientos ni drop sets** (no son series de la rutina: D-62 y D-67), y otra trae
+  los músculos de esos ejercicios. El volumen sale de `volumenPorMusculo` (D-71: el objetivo cuenta 1 y cada secundario 0,4). El **cardio no suma** ni al volumen ni al total de series. "Series de trabajo" del
+  resumen son las **reales**; la lista por músculo usa las **ponderadas** (con un decimal), por eso la tarjeta aclara que un músculo que acompaña cuenta 0,4.
+- **Intensidad**: es **relativa al músculo más trabajado del período** (que vale 1) y se traduce a 5 niveles de color; no se compara con un objetivo de series semanales por músculo, porque Arnold no tiene una
+  recomendación de volumen y no corresponde inventarla. El "balance" es comparar músculos entre sí. Con el mismo volumen manda el orden del cuerpo, de la cabeza a los pies, para que el resultado sea estable.
+  Los músculos sin trabajar se listan aparte ("Sin trabajar en este período: …").
+- **API**: `GET /api/home-socio/musculos?periodo=semana|30d|90d|todo`, **solo el SOCIO y sobre sus propios datos**: la identidad sale del token y un `socioId` en la URL se ignora. Sin `periodo` usa la semana; uno que
+  no existe da 400 (`INVALID_PERIODO`). `Cache-Control: no-store`. **Endpoint propio** y no un campo más de `/api/home-socio/secciones`: ese payload lo piden todas las secciones y no deberían pagar el cálculo.
+  Cuelga de `/api/home-socio`, así que la matriz de roles ya cubre la ruta; la ruta repite la regla (solo SOCIO, como `secciones`).
+- **Mapa corporal**: SVG propio (no hay librería de gráficos). Un cuerpo esquemático de frente y de espalda con **18 zonas**, los pares espejados; los músculos que se ven de los dos lados (hombros, trapecios,
+  antebrazos) se colorean igual en las dos vistas. La **geometría es un dato puro y probado** (`mapa-corporal.ts`: todo cabe en el dibujo, cada músculo se dibuja, frente a la izquierda y espalda a la derecha) y el
+  componente solo dibuja. No pretende ser anatómico: deja ver de un vistazo qué zonas se trabajaron.
+- **Accesibilidad**: el color solo no alcanza. El mapa es una imagen con una descripción en palabras ("Más trabajados: Pecho 8 series, …"), cada zona trabajada dice sus series al pasar el mouse y la **lista por músculo
+  tiene todos los números**. Los botones de período usan `aria-pressed`.
+- **Carga y errores**: cada cambio de período pide los datos al servidor. Mientras llegan **no queda a la vista el balance de otro período**, y una respuesta que llega tarde de un período anterior **se ignora** (se
+  muestra solo el resultado de la clave actual). Un error 5xx muestra un texto propio, nunca el detalle del servidor (`handleApiError`), y se puede reintentar; un error no impide cambiar de período.
+- **Lo que no hace**: no sugiere cuántas series hacer, no compara un período contra el anterior y no muestra la evolución día a día; tampoco fatiga ni fuerza relativa (parte 3).
+- **Alternativas descartadas**: sumar el balance al payload de `secciones` (lo pagarían todas las páginas del portal); la semana de calendario (el lunes quedaría vacío); medirlo contra un volumen "recomendado" por
+  músculo (sin base en el proyecto); dibujar el mapa con una librería o copiar los trazos de openGym (dependencia de más, y AGPL-3.0).
+- **Verificado**: tests de los períodos (hora del gimnasio), del volumen ordenado y de los niveles, de la consulta (sin calentamientos ni drops, límite de fecha, cardio, ejercicio sin músculos, ejercicio borrado), de la
+  ruta (401, 403 para el staff, 404, 400, período por defecto, `socioId` ignorado, `no-store`, 500), del mapa (geometría, descripción, colores) y de la tarjeta (carga, resumen, lista, barras, períodos, respuesta tardía,
+  errores) y de su integración en la página. Pruebas de mutación: con la semana de 8 días, con los drops en la consulta, con el cardio en el total, sin ordenar, con el nivel redondeando hacia abajo, sin validar el
+  período, sin ignorar respuestas viejas, mostrando el período anterior y sin colorear el mapa, algún test falla. **No** se probó en el navegador: queda para Fernando, en especial cómo se ve el cuerpo esquemático.
 
 ---
 
