@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { useAuth } from "@/contexts/auth";
 import * as seccionesApi from "@/api/home-socio-secciones";
+import { fetchBalanceMuscular } from "@/api/balance-muscular";
 import type { HomeSocioSeccionesViewModel } from "@/api/home-socio-secciones";
 import { MiRutinaPage } from "./mi-rutina/page";
 import { MisEjerciciosPage } from "./mis-ejercicios/page";
@@ -18,8 +19,11 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/contexts/auth");
 jest.mock("@/api/home-socio-secciones", () => ({ fetchHomeSocioSeccionesData: jest.fn() }));
+// La tarjeta de balance muscular pide sus propios datos (T-051): acá se prueba su integración, no su lógica.
+jest.mock("@/api/balance-muscular", () => ({ fetchBalanceMuscular: jest.fn() }));
 
 const mockAuth = useAuth as jest.Mock;
+const mockBalance = fetchBalanceMuscular as jest.MockedFunction<typeof fetchBalanceMuscular>;
 const mockFetch = seccionesApi.fetchHomeSocioSeccionesData as jest.MockedFunction<
   typeof seccionesApi.fetchHomeSocioSeccionesData
 >;
@@ -74,6 +78,13 @@ describe("secciones del socio: páginas (T-039)", () => {
     jest.clearAllMocks();
     mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
     mockFetch.mockResolvedValue(VM);
+    mockBalance.mockReset().mockResolvedValue({
+      periodo: "semana",
+      desde: null,
+      totalSeries: 0,
+      musculos: [],
+      sinTrabajar: [],
+    });
   });
 
   it("cada página redirige a /login sin sesión", () => {
@@ -123,6 +134,37 @@ describe("secciones del socio: páginas (T-039)", () => {
     render(<ProgresoPage />);
     await waitForLoadingComplete();
     expect(screen.getByText(/todavía no registraste entrenamientos/i)).toBeInTheDocument();
+  });
+
+  it("Progreso: el balance muscular va debajo del título y antes de los ejercicios (T-051)", async () => {
+    mockBalance.mockResolvedValue({
+      periodo: "semana",
+      desde: "2026-10-09T03:00:00.000Z",
+      totalSeries: 4,
+      musculos: [{ musculo: "pecho", etiqueta: "Pecho", series: 4, intensidad: 1 }],
+      sinTrabajar: [],
+    });
+
+    render(<ProgresoPage />);
+    await waitForLoadingComplete();
+
+    expect(await screen.findByRole("heading", { name: "Balance muscular" })).toBeInTheDocument();
+    expect(mockBalance).toHaveBeenCalledWith("semana");
+    const titulo = screen.getByRole("heading", { name: "Mi progreso" });
+    const balance = screen.getByRole("heading", { name: "Balance muscular" });
+    const ejercicio = screen.getByTestId("progreso-ejercicio");
+    expect(titulo.compareDocumentPosition(balance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(balance.compareDocumentPosition(ejercicio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("Progreso: si el balance falla, el resto de la página sigue funcionando", async () => {
+    mockBalance.mockRejectedValue(new Error("boom"));
+
+    render(<ProgresoPage />);
+    await waitForLoadingComplete();
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByTestId("progreso-ejercicio")).toBeInTheDocument();
   });
 
   it("Mi membresía: datos y estado vacío", async () => {

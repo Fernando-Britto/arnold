@@ -11,6 +11,8 @@ import type { ProgresoEjercicioDTO } from "@/api/home-socio-secciones";
  */
 export interface ProgresoDetalleSectionProps {
   progreso: ProgresoEjercicioDTO[];
+  /** Contenido que va justo debajo del título, antes de los ejercicios (T-051: el balance muscular). */
+  extra?: React.ReactNode;
 }
 
 const kgFormatter = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
@@ -19,12 +21,14 @@ function formatFechaCorta(iso: string): string {
   return new Date(iso).toLocaleDateString("es-AR", { day: "numeric", month: "short" });
 }
 
-export function ProgresoDetalleSection({ progreso }: ProgresoDetalleSectionProps) {
+export function ProgresoDetalleSection({ progreso, extra }: ProgresoDetalleSectionProps) {
   return (
     <section aria-labelledby="progreso-titulo" className="flex flex-col gap-6">
       <h1 id="progreso-titulo" className="text-xl font-bold text-ink">
         Mi progreso
       </h1>
+
+      {extra}
 
       {progreso.length === 0 ? (
         <p className="text-sm text-ink-muted">Todavía no registraste entrenamientos.</p>
