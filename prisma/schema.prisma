@@ -89,6 +89,7 @@ model Socio {
   pagos         Pago[]  @relation("PagosDeSocio")
   auditoriaAcceso AuditoriaAcceso[]
   solicitudesHuella SolicitudDeHuella[]
+  asignacionesDeEjercicio AsignacionDeEjercicio[]
 
   @@index([dni])
   @@index([estadoCuota])
@@ -295,6 +296,7 @@ model Ejercicio {
   rutinas       EjercicioEnRutina[]
   registrosProgreso RegistroDeProgreso[]
   maquinas      EjercicioMaquina[]
+  asignaciones  AsignacionDeEjercicio[]
 
   @@index([grupoMuscular])
   @@index([equipamiento])
@@ -389,6 +391,7 @@ model Maquina {
 
   // Relaciones
   ejercicios    EjercicioMaquina[]
+  asignaciones  AsignacionDeEjercicio[]
 
   @@index([estado])
   @@index([tipoEquipamiento])
@@ -478,6 +481,7 @@ model SesionDeEntrenamiento {
 
   // Relaciones
   registrosProgreso   RegistroDeProgreso[]
+  asignaciones        AsignacionDeEjercicio[]
 
   @@index([socioId])
   @@index([rutinaAsignadaId])
@@ -707,6 +711,12 @@ model ConfiguracionDelSistema {
   enfriamientoOfertaDias Int     @default(180)
   /// Interruptor de la oferta de reactivación: apagada, el cobro es idéntico al de siempre (D-54)
   ofertaReactivacionActiva Boolean @default(false)
+  /// Duración estimada de una serie, en segundos, para el motor de espera (D-90)
+  segundosEjecucionSerie Int     @default(60)
+  /// Minutos que una reserva provisional espera antes de vencer (D-90)
+  minutosVencimientoReserva Int  @default(15)
+  /// Minutos de inactividad tras los cuales una sesión deja de ocupar su máquina (D-105)
+  minutosInactividadSesion Int   @default(30)
   updatedAt             DateTime @updatedAt
 }
 
@@ -763,4 +773,38 @@ model RefreshToken {
 
   @@index([usuarioId])
   @@index([expiresAt])
+}
+
+// ============================================================================
+// ASIGNACIÓN DE EJERCICIO (Etapa 4: reservas y ocupación del motor de espera)
+// ============================================================================
+
+/// `VENCIDA` no se persiste: se deriva de `RESERVADA` con `venceEn <= ahora` (D-96, D-105).
+enum EstadoAsignacion {
+  RESERVADA
+  EN_CURSO
+  COMPLETADA
+  CANCELADA
+}
+
+model AsignacionDeEjercicio {
+  id             String   @id @default(cuid())
+  socio          Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  socioId        String
+  ejercicio      Ejercicio @relation(fields: [ejercicioId], references: [id], onDelete: Cascade)
+  ejercicioId    String
+  maquina        Maquina? @relation(fields: [maquinaId], references: [id], onDelete: SetNull)
+  maquinaId      String?
+  sesion         SesionDeEntrenamiento? @relation(fields: [sesionId], references: [id], onDelete: SetNull)
+  sesionId       String?
+  estado         EstadoAsignacion
+  esperaSegundos Int
+  ahorroSegundos Int
+  creadaEn       DateTime
+  venceEn        DateTime
+
+  @@index([socioId, estado, venceEn])
+  @@index([maquinaId, estado, creadaEn])
+  @@index([sesionId])
+  @@index([ejercicioId])
 }
