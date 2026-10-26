@@ -1365,6 +1365,85 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **UI**: fila expandida de la máquina con carga diferida (loading, vacío y error con reintento) y modal accesible de asignación con búsqueda debounced sin tildes, página de 50, "Ver más" solo cuando la última página vino completa, y un `Set` de selección que persiste entre páginas y búsquedas, incluidos los ya asignados fuera de página ("N seleccionados"). Guardar hace el reemplazo total, avisa el éxito y refresca la fila.
 - **Verificado**: suite completa **243 suites / 3491 tests** en verde (`npm test`); migración **20/20** aplicada en Supabase el 2026-10-25; suite de integración corrida por Fernando; pantalla probada en el navegador por Fernando y aprobación del revisor externo.
 
+### D-75 · Predicado propio del motor
+- **Origen**: Fernando.
+- **Contexto**: `OCUPADA` tiene dos lecturas en el proyecto (`home-interno` la trata como no disponible; el motor, como usable si es un estado heredado).
+- **Decisión**: el motor define `esMaquinaUsable` (`DISPONIBLE` y `OCUPADA` usables; `FUERA_DE_SERVICIO` e `INACTIVA` no) y **no** reutiliza el filtro de `home-interno.ts`. Se exporta para el test dedicado (13a–13d).
+- **Por qué**: la ocupación real proviene del `ocupante` de la entrada, no del estado persistido.
+
+### D-76 · Unidades = filas de `Maquina`
+- **Origen**: Fernando.
+- **Contexto**: el esquema no tiene campo `unidades`/`cantidad`.
+- **Decisión**: cada unidad física es una fila distinta; el motor trabaja con candidatos por `Maquina.id` y trata dos unidades del mismo tipo como candidatos independientes.
+- **Por qué**: refleja el modelo de datos real (verificado en explore) y el escenario 4 lo asercciona.
+
+### D-77 · Motivos de bloqueo como códigos
+- **Origen**: Fernando; la eliminación del código muerto fue una propuesta de la IA aceptada en el diseño.
+- **Contexto**: dos estilos de "motivo" conviven (código en `oferta-reactivacion.ts`, texto en `progresion-ejercicio.ts`).
+- **Decisión**: literal union tipada (`MotivoBloqueo`), sin texto legible; el mapeo a mensajes queda en Etapa 4. Los tests aserccionan contra el código. **Desvío de spec registrado**: `SIN_MAQUINAS_ASOCIADAS` se elimina del union emitido porque jamás se emite (candidatos vacíos → espera 0, no bloqueo); mantener un código inalcanzable contradice la regla de no conservar código muerto. El vocabulario del spec quedó en los mismos tres códigos.
+- **Por qué**: los códigos estables mantienen el dominio libre de texto de usuario y el mapeo queda en la capa que lo necesita.
+
+### D-78 · Desempate determinista en tres niveles
+- **Origen**: Fernando.
+- **Contexto**: `orden` tiene `@default(0)`, lo que genera empates frecuentes.
+- **Decisión**: (a) menor `orden`, (b) posición en la lista de entrada, (c) `id` ascendente. Se implementa como **un único comparador** `compararPorOrdenPosicionId` reutilizado por "recomendado" (como desempate tras espera) y por "siguiente en orden" (como clave primaria), cumpliendo el requisito de "mismo criterio para ambos".
+- **Por qué**: garantiza determinismo total.
+
+### D-79 · Validación de entrada en dominio
+- **Origen**: Fernando.
+- **Contexto**: defensa en profundidad; el motor no confía en la base ni en capas superiores.
+- **Decisión**: `series ≥ 1`, `descanso ≥ 0`, `segundosEjecucionSerie > 0`, sin excepción, sin cálculo parcial y **antes** del control de lista vacía. La variante `invalido` del union lo materializa (D-81).
+- **Por qué**: mismo patrón que `maquina.ts`.
+
+### D-80 · Ubicación y forma del módulo
+- **Origen**: IA, aprobada.
+- **Contexto**: el módulo es pequeño y cohesivo, y el guardián de dominios puros escanea `src/domains/**`.
+- **Decisión**: `src/domains/asignacion/motor-espera.ts` como archivo único (tipos + función + predicado), cero imports de infraestructura.
+- **Por qué**: el guardián queda verde sin excepciones nuevas.
+
+### D-81 · Resultado como unión discriminada única con `invalido`
+- **Origen**: IA, aprobada.
+- **Contexto**: se necesitaba una función total que no lanzara y no devolviera dos formas de resultado distintas.
+- **Decisión**: `ResultadoMotor = invalido{errores} | exito | sin_opciones | vacio`.
+- **Por qué**: función total, sin flags sueltos, sin excepción, sin cálculo parcial.
+
+### D-82 · `descanso` per-actor
+- **Origen**: IA, aprobada.
+- **Contexto**: la spec refina `Ocupante` y `ColaMiembro` para llevar su propio `descanso` (a diferencia de explore/proposal, que solo llevaban `series`/`seriesRestantes`).
+- **Decisión**: el ocupante y cada miembro de cola llevan `descanso` propio; la fórmula usa el del actor, no el del ejercicio pendiente.
+- **Por qué**: cada actor está haciendo un ejercicio distinto con su propia prescripción; el `descanso` del ejercicio pendiente se valida pero **no** participa del cálculo de espera.
+
+### D-83 · Candidato ausente en `maquinas`
+- **Origen**: IA, aprobada.
+- **Contexto**: los `candidatos` de un ejercicio pueden apuntar a un `Maquina.id` que no vino en la entrada.
+- **Decisión**: un id de candidato que no está en `maquinas` se trata como no usable (no throw) y **no aporta estado** a la clasificación del motivo. Si todos los candidatos están ausentes, el motivo es `SIN_MAQUINA_USABLE` (fallback).
+- **Por qué**: regla total y determinista ante ids colgantes. La regla y sus dos consecuencias (`[idAusente, INACTIVA]` → `TODAS_INACTIVAS`; todos ausentes → `SIN_MAQUINA_USABLE`) quedaron reflejadas en el spec, sección "Bloqueo y códigos de motivo".
+
+### D-84 · `Sugerencia.maquinaId`
+- **Origen**: IA, aprobada.
+- **Contexto**: la recomendación decía qué ejercicio hacer y cuánto esperar, pero no en qué máquina reservar.
+- **Decisión**: `Sugerencia` lleva `maquinaId: string | null` con la unidad elegida del ejercicio.
+- **Por qué**: la Etapa 4 reserva un lugar en la cola de esa máquina y la Etapa 5 le indica al socio a qué máquina caminar. `maquinaId` es `null` solo cuando el ejercicio no tiene candidatas (`candidatos = []`); si hay candidatas, siempre es el `id` de una unidad usable.
+
+### D-85 · Desempate de máquina
+- **Origen**: IA, aprobada.
+- **Contexto**: un ejercicio puede tener varias unidades usables con la misma espera.
+- **Decisión**: entre las candidatas usables del mismo ejercicio se elige (1) menor espera, (2) en empate la que aparece primero en `candidatos`, (3) en empate `id` ascendente (defensivo).
+- **Por qué**: determinista y estable frente a cambios de orden de entrada que controla el llamador; no depende del orden de iteración de un `Map` ni del orden de la lista de máquinas del gimnasio.
+
+### D-86 · Se valida también el `descanso` de ocupante y de cada miembro de cola
+- **Origen**: IA, aprobada.
+- **Contexto**: la corrección de implementación de T-055a detectó que `normalizarDescanso` en `src/api/rutinas.ts` **no recorta negativos** (`Number.isFinite(-5)` es `true`), así que un `descanso` negativo puede llegar a la base y, desde ahí, al motor.
+- **Decisión**: además de `series`/`descanso` del ejercicio pendiente y `segundosEjecucionSerie`, se valida `descanso >= 0` del ocupante y de cada miembro de la cola; `series` y `seriesRestantes` de los actores **no** se validan (la spec no lo pide).
+- **Por qué**: un `descanso` negativo produciría una espera menor que la real y rompería la garantía conservadora. Es la única validación agregada respecto de la spec.
+
+### D-87 · Validación numérica estricta y `duracionDeEjercicio` única
+- **Origen**: IA, aprobada por Fernando (ajuste pedido por la revisión externa del código ya pusheado).
+- **Contexto**: un ocupante con `seriesRestantes = 0` producía espera negativa (`0×60 + (0−1)×descanso`); `NaN`/`Infinity` pasaban todos los controles porque las comparaciones de rango dan `false`; `orden` no se validaba; la fórmula de duración estaba duplicada entre ocupante y cola.
+- **Decisión**: `Number.isFinite` sobre todos los números de la entrada **antes** de los rangos (`orden`, `series`, `descanso`, `seriesRestantes`, `segundosEjecucionSerie`); `seriesRestantes ≥ 1` y `series ≥ 1` en la cola; extraer `duracionDeEjercicio(series, descanso, segundosPorSerie)` y usarla en ambos casos. Quien arma la entrada **no** debe incluir como ocupante a un socio con 0 series restantes: eso significa que la máquina está libre.
+- **Por qué**: la espera negativa y el `NaN` rompen la garantía conservadora y la recomendación; la duplicación de la fórmula es un riesgo de divergencia.
+- **Dónde**: `src/domains/asignacion/motor-espera.ts`, `motor-espera.nucleo.test.ts`, escenarios 24–26 del spec.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -1451,6 +1530,12 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-58 | El conteo `enMaquinas` en el listado de ejercicios quedó diferido (pregunta Q3 de la propuesta / open question del diseño) | Baja | El listado no muestra en cuántas máquinas está cada ejercicio; retomar cuando se pida esa columna |
 | P-59 | `MAX_EJERCICIOS_POR_MAQUINA` como parámetro en tiempo de ejecución de `/configuracion` quedó diferido; sigue siendo una constante dura | Baja | Pasarla a `/configuracion` si el negocio necesita ajustar el tope sin tocar código |
 | P-60 | Asignación automática o sugerida de ejercicios a máquinas a partir del equipamiento y el grupo muscular del ejercicio y del tipo/nombre de la máquina; el administrador revisa y confirma (la sugerencia preselecciona en el modal, nunca asigna en silencio) | Baja | Idea futura; requiere una heurística de matching y preselección en el modal. Registrar en "Ideas futuras" de `odd/tasks/maquina-ejercicios.md` |
+| P-61 | Salida de emergencia del flujo obligatorio: máquina rota durante la sesión o socio lesionado → reasignación por instructor. No es parte del motor puro; requiere estado de sesión y permisos de instructor | Media | Etapa 4 |
+| P-62 | Simulación comparativa para la tesis: espera promedio del motor frente a seguir el orden de rutina, con N socios y M máquinas | Baja | Posterior a la Etapa 5 |
+| P-63 | Documentación de la limitación del criterio "solo-espera" (sin orden fisiológico) para el informe de tesis. Limitación declarada; no se resuelve en esta iniciativa | Baja | Informe de tesis; referencia de AC-313 |
+| P-64 | El cálculo en check-in debe ser **best-effort**: nunca bloquea ni falla el registro de asistencia. Capa de servicio/API, no de dominio | Media | Etapa 4 |
+| P-65 | Reserva provisional con vencimiento configurable (propuesta: 15 minutos sin iniciar rutina libera el lugar en cola). Requiere estado de sesión y temporizador | Media | Etapa 4 |
+| P-66 | Evaluar la API de Next 16 para trabajo posterior a la respuesta, leyendo `node_modules/next/dist/docs` antes de proponerla | Baja | Etapa 4 |
 | P-67 | Etapa 4: quien arma la entrada del motor debe **excluir de las colas la reserva del propio socio** al recalcular (check-in → inicio de rutina → tras cada ejercicio); si no, el socio se espera a sí mismo. Requiere **test obligatorio** en la Etapa 4 | Media | Precondición de integración, no del motor puro |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
@@ -1546,6 +1631,7 @@ Origen: Dev 2.
 | Refresh token y revocación | Requeridos | Revocación **implementada** (T-027, D-34) y refresh con rotación y detección de reuso **implementado** (P-20, D-57) | D-34, D-57 |
 | Log de accesos denegados | Requerido | **Implementado** (T-029) con tres diferencias: acción nueva `ACCESS_DENIED`; solo se registra con sesión válida; en el login fallido el `motivo` es un código (`AUTH_INVALID`/`AUTH_DISABLED`) y se atribuye al usuario apuntado si existe | P-15, D-32 |
 | Estado de cuota en edición | — | Mapeo alineado con el enum de Prisma | D-27 |
+| Código de motivo `SIN_MAQUINAS_ASOCIADAS` | Listado como código de bloqueo | Eliminado del union emitido: los candidatos vacíos no se bloquean (regla que el spec ya conserva en prosa) | D-77; spec de `motor-espera-asignacion` |
 
 ---
 

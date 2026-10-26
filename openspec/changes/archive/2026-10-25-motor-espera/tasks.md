@@ -5,7 +5,7 @@
 > `openspec/config.yaml` (`strict_tdd: true`, comando `npm test`) y el estilo de
 > `openspec/changes/archive/2026-10-25-maquina-ejercicios/tasks.md` (estructura y columnas, no su tamaño).
 >
-> **Numeración**: tareas **T-055a–T-055c** (última registrada: T-054r), decisiones **D-75–D-86** (última: D-74),
+> **Numeración**: tareas **T-055a–T-055d** (última registrada: T-054r), decisiones **D-75–D-86** (última: D-74),
 > pendientes **P-61–P-67** (último: P-60). Verificado el 2026-10-25 contra `openspec/decisions.md` y
 > `openspec/sdd-tasks-tdd.md`; ninguna colisión.
 >
@@ -43,7 +43,7 @@
 8. **Idioma**: descripciones de `describe`/`it` en español, como el resto de la suite. Identificadores del dominio en
    español (`calcularEspera`, `esMaquinaUsable`), siguiendo la convención existente del proyecto.
 9. **Comentarios**: una línea, solo el porqué que el código no muestra. No se citan números D ni P dentro del código,
-   para que T-055c sea reversible sin dejar referencias colgadas.
+   para que T-055d sea reversible sin dejar referencias colgadas.
 
 ## Review Workload Forecast
 
@@ -51,12 +51,13 @@
 |---|---|
 | Estimated changed lines — T-055a | **≈382** (≈157 impl + ≈225 tests) |
 | Estimated changed lines — T-055b | **≈330** (≈80 impl + ≈250 tests) |
-| Estimated changed lines — T-055c | **≈110** (solo documentación) |
-| Estimated changed lines — total | **≈822** |
+| Estimated changed lines — T-055c | **≈247** (≈85 impl + ≈162 tests + spec) |
+| Estimated changed lines — T-055d | **≈110** (solo documentación) |
+| Estimated changed lines — total | **≈1179** |
 | Largest single slice | ≈382 (T-055a) — por debajo de 400 |
 | 400-line budget risk | **Low**: el slice más grande queda ≈18 líneas por debajo del tope y no cruza capas |
 | Chained PRs recommended | **No** (no hay PRs en este flujo: un slice = un commit) |
-| Suggested split | commit 3a → commit 3b → commit 3c sobre `feat/motor-espera` |
+| Suggested split | commit 3a → 3b → 3c (ya pusheados) + commit del ajuste (T-055c) + commit de cierre (T-055d) |
 | Delivery strategy | ask-on-risk (rebanado ya autorizado; sin PRs) |
 | Chain strategy | No aplica — sin PRs |
 
@@ -75,11 +76,11 @@ Medición real sobre el árbol, sin commits:
 
 | Archivo | Líneas |
 |---|---|
-| `src/domains/asignacion/motor-espera.ts` | 236 |
-| `src/domains/asignacion/motor-espera.nucleo.test.ts` | 227 |
+| `src/domains/asignacion/motor-espera.ts` | 321 |
+| `src/domains/asignacion/motor-espera.nucleo.test.ts` | 389 |
 | `src/domains/asignacion/motor-espera.bloqueo.test.ts` | 224 |
 | `src/domains/asignacion/motor-espera.seleccion.test.ts` | 161 |
-| **Total** | **848** |
+| **Total** | **1095** |
 
 El plan estimaba ≈382 + ≈330 = 712. La desviación (+136) está en las pruebas, que salieron 612 líneas frente a
 las ≈475 estimadas (los fixtures usan `toEqual` completos como contrato) y en la cabecera de helpers repetida en
@@ -88,9 +89,11 @@ los tres archivos.
 **Consecuencia**: con la suite partida en tres archivos, el corte que respeta el tope es por archivo (236 + 161 =
 397 en el primero; 227 y 224 en los otros dos). Verificar con `git diff --shortstat` antes de cada commit:
 
-1. `motor-espera.ts` + `motor-espera.seleccion.test.ts` (236 + 161 = 397);
-2. `motor-espera.nucleo.test.ts` (227);
-3. `motor-espera.bloqueo.test.ts` (224).
+1. `motor-espera.ts` + `motor-espera.seleccion.test.ts` (236 + 161 = 397, ya pusheado);
+2. `motor-espera.nucleo.test.ts` (227, ya pusheado);
+3. `motor-espera.bloqueo.test.ts` (224, ya pusheado);
+4. ajuste de validación: `motor-espera.ts` +85 y `nucleo.test.ts` +162 = **247**;
+5. cierre documental ≈110.
 
 Regla: si una unidad supera 400 líneas, se parte por comportamiento (no por archivo) y se verifica otra vez con
 `--shortstat`. No se parte en silencio.
@@ -109,7 +112,8 @@ Regla: si una unidad supera 400 líneas, se parte por comportamiento (no por arc
 |---|---|---|---|---|---|---|
 | **T-055a** | Núcleo del motor | `src/domains/asignacion/motor-espera.ts` (nuevo), `src/domains/asignacion/motor-espera.*.test.ts` (nuevo) | ≈382 | — | `npm test -- src/domains/asignacion`; `npm test -- src/domains/dominios-puros.guard.test.ts`; `npx tsc --noEmit`; `npx eslint src/domains/asignacion` | Revertir el commit: se borra la carpeta nueva; ningún otro archivo la referencia |
 | **T-055b** | Bloqueo y selección | `src/domains/asignacion/motor-espera.ts` (modificar), `src/domains/asignacion/motor-espera.*.test.ts` (modificar) | ≈330 | T-055a | Las mismas cuatro órdenes, más `npm test` completo | Revertir el commit: el motor vuelve al alcance de T-055a; no hay consumidores |
-| **T-055c** | Cierre documental | `openspec/decisions.md` (modificar), `openspec/changes/motor-espera/specs/motor-espera-asignacion/spec.md` (verificar) | ≈110 | T-055a, T-055b | `npm test`; `npx tsc --noEmit`; conteos `grep` de D-75–D-86, P-61–P-67 y `SIN_MAQUINAS_ASOCIADAS` | Revertir el commit: solo documentación; no hay efecto en ejecución |
+| **T-055c** | Ajuste de validación | `src/domains/asignacion/motor-espera.ts` (modificar), `src/domains/asignacion/motor-espera.nucleo.test.ts` (modificar), spec (modificar) | ≈247 | T-055a, T-055b | `npx jest src/domains/asignacion` (36); `npm test`; `npx tsc --noEmit`; `npx eslint src/domains/asignacion` | Revertir el commit: vuelven a pasar `NaN`/`Infinity` y el ocupante con 0 series |
+| **T-055d** | Cierre documental | `openspec/decisions.md` (modificar), `openspec/changes/motor-espera/specs/motor-espera-asignacion/spec.md` (verificar) | ≈110 | T-055c | `npm test`; `npx tsc --noEmit`; conteos `grep` de D-75–D-86, P-61–P-67 y `SIN_MAQUINAS_ASOCIADAS` | Revertir el commit: solo documentación; no hay efecto en ejecución |
 
 ## task_breakdown
 
@@ -362,7 +366,52 @@ suite completa y guardián verdes; `tsc` sin errores; `eslint src/domains/asigna
 comparador canónico) y ese estado queda verde por sí mismo porque T-055a se commiteó con su propia suite. No hay
 consumidores fuera de la carpeta.
 
-### T-055c · Cierre documental
+### T-055c · Ajuste de validación (post-revisión externa)
+
+**Objetivo**: cerrar tres huecos de validación detectados al revisar el código ya pusheado: un ocupante con
+`seriesRestantes = 0` producía una espera negativa, `NaN`/`Infinity` pasaban todos los controles de rango porque las
+comparaciones dan `false`, y `orden` no se validaba. Además, la fórmula de duración estaba duplicada entre ocupante y
+cola. No cambia la lógica de selección ni el contrato público.
+
+**Archivos**:
+- `src/domains/asignacion/motor-espera.ts` (modificar)
+- `src/domains/asignacion/motor-espera.nucleo.test.ts` (modificar)
+- `openspec/changes/motor-espera/specs/motor-espera-asignacion/spec.md` (modificar: escenarios 24–26 y AC-306)
+
+**TDD paso a paso** — primero las pruebas en `motor-espera.nucleo.test.ts`, dentro de `describe("validación de
+entrada")`, y se corre `npm test -- src/domains/asignacion` para ver el rojo. Rojo observado sobre la implementación
+previa: **`7 failed, 14 passed, 21 total`**.
+
+1. - [ ] **RED** `rechaza un ocupante sin series restantes` — ocupante `{ seriesRestantes: 0, descanso: 90 }`; antes
+   devolvía `exito` con espera **−90**.
+2. - [ ] **RED** `rechaza un miembro de la cola sin series` — cola `[{ series: 0, descanso: 90 }]`; antes restaba 90
+   a la espera de la máquina.
+3. - [ ] **RED** `rechaza un orden NaN` — `orden: Number.NaN`; antes `orden` no se validaba.
+4. - [ ] **RED** `rechaza NaN en series o descanso del ejercicio`.
+5. - [ ] **RED** `rechaza NaN en el ocupante o en la cola` (cuatro casos: `seriesRestantes`, `descanso` del ocupante,
+   `series` y `descanso` de la cola).
+6. - [ ] **RED** `rechaza NaN en segundosEjecucionSerie`.
+7. - [ ] **RED** `rechaza Infinity en cualquier número de entrada` (seis casos, incluido `orden`).
+8. - [ ] **GREEN** extraer `duracionDeEjercicio(series, descanso, segundosPorSerie)` y usarla para el ocupante y para
+   cada miembro de la cola.
+9. - [ ] **GREEN** validar con `Number.isFinite` **antes** de los rangos, en todos los campos numéricos, con mensajes
+   en el estilo existente (`El ocupante de M1 debe tener al menos una serie restante`, etc.).
+10. - [ ] **GREEN** `seriesRestantes >= 1` en el ocupante y `series >= 1` en la cola.
+
+**Verificación**:
+```bash
+npx jest src/domains/asignacion        # 36 tests: 21 núcleo + 9 bloqueo + 6 selección
+npx tsc --noEmit
+npx eslint src/domains/asignacion
+```
+
+**Punto de control**: 36 tests verdes; los 29 anteriores sin tocar; `tsc` y `eslint` limpios; el módulo no gana imports.
+El presupuesto del slice es ≈247 líneas (≈85 del módulo + ≈162 de pruebas), por debajo de 400.
+
+**Rollback**: revertir el commit; el motor vuelve a aceptar `NaN`, `Infinity` y ocupantes con 0 series restantes, y la
+fórmula queda duplicada.
+
+### T-055d · Cierre documental
 
 **Objetivo**: registrar en `openspec/decisions.md` las doce decisiones D-75–D-86 y los siete pendientes P-61–P-67, con
 la distinción de origen (Fernando o propuesta de la IA), y **verificar** que el spec ya refleja las desviaciones
@@ -441,7 +490,7 @@ después de T-055b para registrar lo efectivamente implementado.
    - No renumerar escenarios, AC ni requirements.
 7. - [ ] **Punto de control** — verificación de abajo con los conteos esperados, `npm test` y `tsc` verdes, y
    `git diff --stat` limitado a `decisions.md` (el spec solo se verifica).
-8. - [ ] **Fuera de esta tarea** — el registro de T-055a–T-055c en `openspec/sdd-tasks-tdd.md`, la actualización de
+8. - [ ] **Fuera de esta tarea** — el registro de T-055a–T-055d en `openspec/sdd-tasks-tdd.md`, la actualización de
    `PROJECT-STATUS.md` y la bitácora `odd/tasks/motor-espera.md` pertenecen a la fase `sdd-archive`, no a este change.
 
 **Implementación mínima**: no hay código. Se copia el formato de las entradas D-73/D-74 y de las filas P-57–P-60; no
@@ -480,7 +529,8 @@ allí. Seguro: no hay efecto en ejecución.
 |---|---|---|
 | T-055a | — | Crea el módulo y su suite desde cero |
 | T-055b | T-055a | Modifica el archivo del motor y amplía la misma suite |
-| T-055c | T-055a, T-055b | Registra lo efectivamente implementado y verificado |
+| T-055c | T-055a, T-055b | Ajusta la validación sobre el código ya pusheado |
+| T-055d | T-055c | Registra lo efectivamente implementado y verificado |
 
 Dependencias externas: ninguna. No hay Docker, base de datos, Prisma ni variables de entorno involucradas; todo se
 verifica con Jest sobre un módulo puro.
@@ -494,14 +544,14 @@ verifica con Jest sobre un módulo puro.
 | **AC-303** | Fórmula del ocupante | T-055a | `"calcula la espera de un ocupante (fórmula conservadora)"` (2), con la aserción D-82 |
 | **AC-304** | Fórmula de la cola y suma | T-055a | `"suma ocupante y cola de tres miembros"` (3) |
 | **AC-305** | Mínimo por candidata usable; candidatos vacíos sin bloqueo | T-055a (1, 4, 6) y T-055b (20, 21, 22) | `"devuelve espera 0 y ahorro 0 en gimnasio vacío"` (1), `"elige la unidad libre entre dos unidades del mismo tipo"` (4), `"trata candidatos vacíos como espera 0 sin bloqueo"` (6), `"elige la primera candidata cuando las esperas empatan"` (20), `"elige la candidata de menor espera"` (21), `"devuelve maquinaId null para candidatas vacías"` (22) |
-| **AC-306** | Validación estructurada, sin excepción ni cálculo parcial | T-055a | `"rechaza series = 0"` (14a), `"rechaza descanso negativo"` (14b), `"rechaza segundosEjecucionSerie = 0"` (14c), guardia de orden validación→vacío |
+| **AC-306** | Validación estructurada (incluye `NaN`/`Infinity`, `orden` y `seriesRestantes`), sin excepción ni cálculo parcial | T-055a, T-055c | `"rechaza series = 0"` (14a), `"rechaza descanso negativo"` (14b), `"rechaza segundosEjecucionSerie = 0"` (14c), guardia de orden validación→vacío |
 | **AC-307** | Bloqueo con código; lista vacía no bloquea; `id` colgante | T-055b (bloqueo y 23) y T-055a (no bloqueo) | `"bloquea con TODAS_FUERA_DE_SERVICIO..."` (5), `"bloquea con TODAS_INACTIVAS..."` (15), `"bloquea con SIN_MAQUINA_USABLE..."` (17), `"clasifica candidatas con id ausente"` (23, dos aserciones); `"trata candidatos vacíos como espera 0 sin bloqueo"` (6) |
 | **AC-308** | Recomendado de menor espera con desempate `orden → posición → id` | T-055b | `"desempata por menor orden ante esperas iguales"` (8), `"desempata por posición con orden = 0"` (9), `"calcula ahorro positivo"` (11) |
 | **AC-309** | Siguiente en orden (menor `orden`, desempate posición → id) | T-055b | `"ahorro 0 cuando recomendado y siguiente coinciden"` (10), `"desempata por posición con orden = 0"` (9), `"trata candidatos vacíos como espera 0 sin bloqueo"` (6, en T-055a) |
 | **AC-310** | `ahorro = espera(siguiente) − espera(recomendado)`, nunca negativo | T-055b | `"ahorro 0 cuando recomendado y siguiente coinciden"` (10), `"calcula ahorro positivo"` (11) |
 | **AC-311** | Tres variantes del resultado | T-055a (`exito`, `vacio`) y T-055b (`sin_opciones`) | `"devuelve espera 0 y ahorro 0 en gimnasio vacío"` (1), `"devuelve vacio sin ejercicios pendientes"` (18), `"devuelve sin_opciones cuando todos están bloqueados"` (7) |
 | **AC-312** | Determinismo y re-ejecubilidad | T-055b | `"mismo input produce el mismo output"` (19) |
-| **AC-313** | Limitación "solo espera" documentada y referida a P-63 | T-055c | Verificación documental: `P-63` presente en el spec (ya escrito) y en `decisions.md`; sin prueba de código |
+| **AC-313** | Limitación "solo espera" documentada y referida a P-63 | T-055d | Verificación documental: `P-63` presente en el spec (ya escrito) y en `decisions.md`; sin prueba de código |
 | **AC-314** | `maquinaId` = candidata usable elegida (menor espera → primera en `candidatos` → `id`) o `null` sin candidatas | T-055b | `"elige la primera candidata cuando las esperas empatan"` (20), `"elige la candidata de menor espera"` (21), `"devuelve maquinaId null para candidatas vacías"` (22) |
 
 Cobertura de escenarios: 1, 18 → T-055a; 2, 3 → T-055a; 4, 6, 16 → T-055a; 13a–13d, 14a–14c → T-055a; 5, 15, 17, 23 → T-055b;
@@ -555,7 +605,9 @@ cubiertos y todos los AC tienen al menos una tarea y una prueba (o verificación
 
 | Rango | Uso en este change | Último registrado | Colisión |
 |---|---|---|---|
-| T-055a, T-055b, T-055c | Tres slices verticales de esta etapa | T-054r | Ninguna |
+| T-055a, T-055b | Slices verticales originales | T-054r | Ninguna |
+| T-055c | Ajuste de validación post-revisión | T-055b | Ninguna |
+| T-055d | Cierre documental | T-055c | Ninguna |
 | D-75 – D-85 | Once decisiones del diseño (cinco de Fernando, seis propuestas de la IA) | D-74 | Ninguna |
 | P-61 – P-67 | Siete pendientes derivados de la propuesta (P-67 ya registrado por la corrección externa) | P-60 | Ninguna |
 

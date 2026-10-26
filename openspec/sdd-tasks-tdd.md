@@ -123,6 +123,10 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-054p ➕ Máquinas: cableado de `/maquinas` | ✅ | — (slice, direct to `dev`) | 98 | Slice 7b; modal + refresco de la fila expandida; D-74 |
 | T-054q ➕ Máquinas: filtro por grupo muscular y selección de visibles en el modal | ✅ | — (slice, direct to `dev`) | 287 | Slice 8; `muscleGroup` en `fetchEjerciciosBusqueda`, tope 100 con aviso, paginación reiniciada; D-74 |
 | T-054r ➕ Cierre documental | ✅ | — (directo a `dev`) | — | D-74 y P-57/P-58/P-59/P-60; migración 20/20; 243 suites / 3502 tests |
+| T-055a ➕ Motor de espera: núcleo | ✅ | — (direct to `dev`) | ≈382 | Pure domain engine plus tests: usable predicate, input validation, occupant/queue formulas, per-exercise wait and minimal `maquinaId`; D-75…D-83 |
+| T-055b ➕ Motor de espera: bloqueo y selección | ✅ | — (direct to `dev`) | ≈330 | Block reasons, chosen machine, canonical comparator, saving and determinism; D-85 |
+| T-055c ➕ Motor de espera: validación estricta | ✅ | — (direct to `dev`) | ≈247 | `Number.isFinite` before ranges, `seriesRestantes >= 1`, shared `duracionDeEjercicio`; D-87 |
+| T-055d ➕ Motor de espera: cierre documental | ✅ | — (direct to `dev`) | ≈110 | Archive of Etapa 3: decisions, pending items, task log and promoted spec |
 
 ## Scope changes during apply
 

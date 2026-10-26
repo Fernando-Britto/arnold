@@ -238,7 +238,14 @@ La espera de un ejercicio **MUST** ser el **mínimo**, sobre sus máquinas candi
 
 ### Requirement: Validación de entrada
 
-El motor **MUST** validar su entrada antes de calcular, con el mismo patrón que `src/domains/maquina/` (sin lanzar excepciones; devuelve un resultado de validación estructurado): `series ≥ 1`, `descanso ≥ 0`, `segundosEjecucionSerie > 0`. Una entrada inválida **MUST NOT** producir un cálculo parcial: se devuelve el error de validación y no se continúa. La validación es defensa en profundidad: el motor no confía en la base de datos ni en capas superiores.
+El motor **MUST** validar su entrada antes de calcular, con el mismo patrón que `src/domains/maquina/` (sin lanzar excepciones; devuelve un resultado de validación estructurado). Las reglas son:
+
+1. **Finitud de todos los números** (`Number.isFinite`): `orden`, `series` y `descanso` de cada ejercicio pendiente; `seriesRestantes` y `descanso` de cada ocupante; `series` y `descanso` de cada miembro de la cola; `segundosEjecucionSerie`. `NaN`, `Infinity` y `-Infinity` son inválidos. La finitud se controla **antes** que los rangos: con `NaN` toda comparación de rango da `false` y la entrada pasaría como válida.
+2. **Rangos**: `series ≥ 1` y `descanso ≥ 0` en cada ejercicio pendiente; `seriesRestantes ≥ 1` en el ocupante de cada máquina; `series ≥ 1` y `descanso ≥ 0` en cada miembro de la cola; `segundosEjecucionSerie > 0`.
+
+Una entrada inválida **MUST NOT** producir un cálculo parcial: se devuelve el error de validación y no se continúa. La validación es defensa en profundidad: el motor no confía en la base de datos ni en capas superiores.
+
+**Por qué `seriesRestantes ≥ 1`**: un ocupante con 0 series restantes produce una espera negativa (`0 × 60 + (0 − 1) × descanso = −descanso`). La convención es que **quien arma la entrada no debe incluir como ocupante a un socio que ya terminó**: 0 series restantes significa que la máquina está libre y no debe ocupar lugar en la espera. El motor no adivina esa intención: rechaza la entrada en lugar de calcular con un número imposible.
 
 **Orden de los controles**: la validación ocurre **antes** de comprobar si hay ejercicios pendientes. Una entrada con lista vacía y parámetros inválidos devuelve error de validación, no el resultado `vacío`.
 
@@ -259,6 +266,44 @@ El motor **MUST** validar su entrada antes de calcular, con el mismo patrón que
 - GIVEN una invocación con `segundosEjecucionSerie = 0`
 - WHEN se invoca el motor
 - THEN se devuelve un error de validación de dominio y no se calcula nada
+
+#### Scenario: Ocupante sin series restantes
+
+- GIVEN un ejercicio `E1` cuya única máquina `M1` tiene un ocupante con `seriesRestantes = 0`
+- WHEN se invoca el motor
+- THEN se devuelve un error de validación de dominio y no se calcula nada
+
+**Cálculo paso a paso** (por qué se rechaza; `segundosEjecucionSerie = 60`, `descanso = 90`):
+
+- Fórmula del ocupante con `seriesRestantes = 0`: `0 × 60 + (0 − 1) × 90 = 0 − 90 =` **−90**
+- Una espera negativa es imposible: el socio no puede esperar menos que cero
+- Convención: 0 series restantes significa que el ocupante **ya terminó** y la máquina está libre; ese socio no debe venir como ocupante en la entrada
+- Regla: `seriesRestantes ≥ 1`, si no → error de validación
+
+#### Scenario: Miembro de la cola sin series
+
+- GIVEN un ejercicio `E1` cuya única máquina `M1` tiene en la cola un miembro con `series = 0`
+- WHEN se invoca el motor
+- THEN se devuelve un error de validación de dominio y no se calcula nada
+
+**Cálculo paso a paso** (por qué se rechaza; `segundosEjecucionSerie = 60`, `descanso = 90`):
+
+- Duración del miembro con `series = 0`: `0 × 60 + (0 − 1) × 90 = 0 − 90 =` **−90**
+- Ese −90 se sumaría a la espera de la máquina, acortándola: la espera calculada sería **menor** que la real
+- Regla: `series ≥ 1` en cada miembro de la cola, si no → error de validación
+
+#### Scenario: Números no finitos (`NaN`, `Infinity`)
+
+- GIVEN una invocación con `NaN` o `Infinity` en cualquiera de los campos numéricos de la entrada (`orden`, `series`, `descanso`, `seriesRestantes`, `segundosEjecucionSerie`)
+- WHEN se invoca el motor
+- THEN se devuelve un error de validación de dominio y no se calcula nada
+
+**Cálculo paso a paso** (por qué hace falta el control explícito):
+
+- Con `series = NaN`: `NaN < 1` es `false` → la validación de rango actual lo dejaría pasar
+- Con `orden = NaN`: el desempate `a.orden - b.orden` da `NaN`, que no es `< 0` ni `> 0`, así que el recomendado queda decidido por el orden de iteración
+- Con `segundosEjecucionSerie = Infinity`: toda espera resulta `Infinity` y el ahorro `NaN`
+- Regla: `Number.isFinite` sobre cada campo **antes** de evaluar los rangos, si no → error de validación
 
 ### Requirement: Bloqueo y códigos de motivo
 
@@ -464,6 +509,9 @@ El criterio de recomendación es **solo-espera**: menor tiempo de espera, sin in
 | 21 | Dos unidades con esperas distintas | Selección de máquina por menor espera | espera 0, `maquinaId = M2` |
 | 22 | Ejercicio sin máquinas (`candidatos = []`) | Espera 0, no bloqueo y `maquinaId = null` | espera 0, `maquinaId = null` |
 | 23 | Candidata con `id` ausente | El `id` colgante no aporta estado a la clasificación | `TODAS_INACTIVAS` y `SIN_MAQUINA_USABLE` |
+| 24 | Ocupante sin series restantes (`seriesRestantes = 0`) | Sin esto la espera da −90 | error de validación |
+| 25 | Miembro de la cola sin series (`series = 0`) | Sin esto la espera se acorta en 90 | error de validación |
+| 26 | Números no finitos (`NaN`, `Infinity`) | `NaN` pasa los rangos y `Infinity` contamina la espera | error de validación |
 
 ## Acceptance Criteria
 
@@ -472,7 +520,7 @@ El criterio de recomendación es **solo-espera**: menor tiempo de espera, sin in
 - **AC-303**: La espera del ocupante es `seriesRestantes × segundosEjecucionSerie + (seriesRestantes − 1) × descanso` (conservadora: `real ≤ calculada`).
 - **AC-304**: La duración de un miembro en cola es `series × segundosEjecucionSerie + (series − 1) × descanso`, y la espera de una máquina suma ocupante + cola.
 - **AC-305**: La espera de un ejercicio es el mínimo sobre sus candidatas usables; candidatos vacíos → espera 0 sin bloqueo.
-- **AC-306**: La validación rechaza `series = 0`, `descanso < 0` y `segundosEjecucionSerie = 0` con un resultado de validación estructurado, sin excepción ni cálculo parcial.
+- **AC-306**: La validación rechaza `series = 0`, `descanso < 0`, `segundosEjecucionSerie = 0`, `seriesRestantes = 0` del ocupante, `series = 0` en la cola, y `NaN`/`Infinity` en cualquier campo numérico (incluido `orden`) con un resultado de validación estructurado, sin excepción ni cálculo parcial.
 - **AC-307**: Un ejercicio sin máquina usable queda bloqueado con un código de la unión (`TODAS_FUERA_DE_SERVICIO`, `TODAS_INACTIVAS`, `SIN_MAQUINA_USABLE`), excluido de la recomendación; la lista vacía no bloquea y un `id` de candidata ausente en `maquinas` no lanza ni aporta estado a la clasificación.
 - **AC-308**: El recomendado es el ejercicio no bloqueado de menor espera, con desempate `orden → posición → id`.
 - **AC-309**: El resultado incluye el siguiente en orden (menor `orden` no bloqueado, desempate `posición → id`).
@@ -492,7 +540,7 @@ El criterio de recomendación es **solo-espera**: menor tiempo de espera, sin in
 | Duración de un miembro en cola | 3 |
 | Espera por máquina y por ejercicio | 1, 4, 6, 20, 21, 22 |
 | Selección de máquina (`maquinaId`, AC-314) | 20, 21, 22 |
-| Validación de entrada | 14a, 14b, 14c |
+| Validación de entrada | 14a, 14b, 14c, 24, 25, 26 |
 | Bloqueo y códigos de motivo | 5, 15, 17, 23, (6 como no-bloqueo) |
 | Selección del recomendado | 8, 9 |
 | Siguiente en orden (baseline) | 10, 9 |
