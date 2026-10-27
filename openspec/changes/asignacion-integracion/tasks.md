@@ -9,7 +9,7 @@
 > `npm test`) y el estilo de `openspec/changes/archive/2026-10-25-motor-espera/tasks.md`
 > (estructura, campos por tarea, verificación, rollback y forecast; no su tamaño).
 >
-> **Numeración**: tareas **T-056a–T-056g** (última registrada: T-055d), decisiones **D-88–D-106**
+> **Numeración**: tareas **T-056a–T-056g** (última registrada: T-055d), decisiones **D-88–D-107**
 > (última: D-87), pendientes **P-68–P-71** (último: P-67). Verificado el 2026-10-26 contra
 > `openspec/decisions.md`: no hay colisiones.
 >
@@ -58,10 +58,10 @@
 | Estimated changed lines — T-056a (CP1) | ≈240 estimado · **428 medidos**, por eso se parte en T-056a1 + T-056a2 (ver cortes) |
 | Estimated changed lines — T-056b (CP2a) | ≈370 (puerto/DTO + lecturas base + tests) |
 | Estimated changed lines — T-056c (CP2b) | ≈395 (ocupantes frescos + cola + P-67 + vencimiento + escrituras + lock + integración + cascada) |
-| Estimated changed lines — T-056d (CP3) | ≈365 (orquestación + timeout + decisión + concurrencia) |
-| Estimated changed lines — T-056e (CP4a) | ≈275 (handlers + tests) |
-| Estimated changed lines — T-056f (CP4b) | ≈195 (rutas + matriz + error mapper + tests) |
-| Estimated changed lines — T-056g (CP4c) | ≈390 (gancho + adaptador de sesión + tests) |
+| Estimated changed lines — T-056d (CP3) | **≈1.100** recalculado (3,0× sobre ≈365) — se parte en d1 + d2 + d3 |
+| Estimated changed lines — T-056e (CP4a) | **≈825** recalculado (3,0× sobre ≈275) — se parte en e1 + e2 |
+| Estimated changed lines — T-056f (CP4b) | **≈585** recalculado (3,0× sobre ≈195) — se parte en f1 + f2 |
+| Estimated changed lines — T-056g (CP4c) | **≈1.170** recalculado (3,0× sobre ≈390) — se parte en g1 + g2 + g3 |
 | Estimated changed lines — total | **≈2230** |
 | Largest single slice (declarada) | ≈395 (T-056c) y ≈390 (T-056g) — por debajo de 400 |
 | 400-line budget risk | **Medium**: T-056c y T-056g rozan el tope y las pruebas de integración son pesadas; T-056c aplica su corte declarado T-056c1/T-056c2 si el diff supera 400 |
@@ -79,6 +79,27 @@ Chain strategy: no aplica (sin PRs: un slice = un commit en feat/asignacion-inte
 
 No se requiere decisión previa al apply: el rebanado está autorizado por el diseño y el usuario. El
 riesgo es de tamaño, no de alcance; se controla con `git diff --shortstat` y los cortes declarados.
+
+### Estimaciones corregidas con la medición de CP2
+
+CP2 (T-056b + T-056c) se estimó en ≈740 líneas y midió **2.327** (3,1×). La desviación no es ruido: el puerto
+con DTOs, los dobles de Prisma y los tests de integración pesan mucho más que la estimación original. Con esa
+relación se recalcularon las tareas restantes antes de escribirlas.
+
+| Tarea | Estimado original | Recalculado (3,0×) | Corte propuesto por responsabilidad | Archivos |
+|---|---|---|---|---|
+| T-056d | ≈365 | ≈1.100 | **d1** cálculo + reserva + fallback + `invalido` + timeout (≈340 de código, ≈360 de tests) · **d2** decisión ACEPTAR/ESPERAR (≈180 + ≈200) · **d3** concurrencia en Docker (≈120, ya escrito en CP2) | `orquestacion-calculo.ts`, `orquestacion-decision.ts`, `+ .test.ts` |
+| T-056e | ≈275 | ≈825 | **e1** handler de sugerencia (≈140 + ≈180) · **e2** handler de decisión + contratos compartidos (≈120 + ≈150) | `src/api/asignaciones.ts` partido por handler |
+| T-056f | ≈195 | ≈585 | **f1** rutas + `route-error-mapper` (≈120 + ≈150) · **f2** matriz RBAC + consistencia (≈60 + ≈180) | `src/app/api/asignaciones/**/route.ts`, `authorization.ts` |
+| T-056g | ≈390 | ≈1.170 | **g1** gancho best-effort en `evaluarYRegistrarAcceso` + tests (≈90 + ≈200) · **g2** adaptador de sesión + tests (≈180 + ≈300) · **g3** cableado del adaptador en las rutas de sesión (≈80 + ≈120) | `integracion-asignaciones.ts`, `sesion-asignaciones.ts` |
+
+**Regla de escritura (obligatoria desde CP3)**: medir con `wc -l` cada archivo nuevo apenas se crea. Si un
+archivo va a superar **≈350 líneas**, se parte por responsabilidad **antes** de seguir escribiendo; no se
+parte después. Los cortes de la tabla son el punto de partida, no una autorización para pasarse.
+
+**Presupuesto de commit**: con estas cifras ningún commit puede superar 400 líneas, así que cada sub-tarea
+(d1, d2, e1, e2, f1, f2, g1, g2, g3) es **un commit**. Si alguna supera 450 en la medición, se reporta antes
+de partirla otra vez.
 
 ### Cortes declarados si un slice supera 400 líneas
 
@@ -1439,7 +1460,7 @@ Se abre P-71; P-28 sigue abierto por infraestructura de despliegue, no por esta 
 |---|---|---|---|
 | T-056a – T-056g | Siete slices verticales (CP1, CP2a, CP2b, CP3, CP4a, CP4b, CP4c) | T-055d | Ninguna |
 | D-88 – D-92 | Decisiones vinculantes de Fernando (cinco) | D-87 | Ninguna |
-| D-93 – D-106 | Decisiones propuestas por la IA y adoptadas en el diseño (catorce) | D-92 | Ninguna |
+| D-93 – D-107 | Decisiones propuestas por la IA y adoptadas en el diseño (quince) | D-92 | Ninguna |
 | P-68 – P-71 | Cuatro pendientes de la etapa: P-68 y P-70 se cierran; P-69 sigue abierto y P-71 se abre | P-67 | Ninguna |
 
 Verificado el 2026-10-26 contra `openspec/decisions.md` (última decisión D-87; último pendiente P-67) y

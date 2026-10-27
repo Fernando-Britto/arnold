@@ -575,8 +575,10 @@ Reglas:
   la fila. Si hay más de una fila para la misma sesión, se usa la de `creadaEn` más reciente y se registra la
   anomalía en el log.
 - Si no hay fila, el ocupante solo se deriva cuando `ejercicioActualId` tiene **exactamente una** máquina
-  candidata. Con cero o varias, la sesión no aporta ocupante. **Limitación declarada**, tal como fija el spec;
-  la orquestación crea la fila al iniciar cada ejercicio cuando la máquina es determinable.
+  candidata, leída de `EjercicioMaquina` para el ejercicio del ocupante (nunca de los pendientes del consultante:
+  el ejercicio que hace otro socio normalmente no está entre ellos — defecto detectado en la integración de CP2).
+  Con cero o varias, la sesión no aporta ocupante. **Limitación declarada**, tal como fija el spec; la orquestación
+  crea la fila al iniciar cada ejercicio cuando la máquina es determinable.
 - La prescripción (`series`, `descanso`) sale de la rutina de **esa sesión** (`rutinaAsignada.rutina`), que es
   la que el socio está ejecutando, aunque la asignación se haya desactivado después. Decisión D-101.
 - `seriesRestantes` se calcula con la fórmula del spec. Se consultan todas las series de trabajo de las
@@ -1234,7 +1236,7 @@ no se convierte en 500: se degrada a `null` y se loguea.
 ## 12. Decisiones registradas (D-88+)
 
 Listas para pegar en `openspec/decisions.md`. Las D-88 a D-92 son decisiones de Fernando ya fijadas en la
-propuesta; las D-93 a D-106 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
+propuesta; las D-93 a D-107 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
 explícita al revisar el artefacto.
 
 ### Decisiones de Fernando (vinculantes)
@@ -1374,13 +1376,31 @@ explícita al revisar el artefacto.
 - **Por qué**: la cascada solo alcanza asignaciones de ejercicios nunca ejecutados; evita el bloqueo artificial y el mensaje incorrecto sin perder historial de ejercicios usados.
 - **Dónde**: `prisma/schema.prisma`, migración `20261026120000_asignacion_ejercicio`, integración de persistencia (T-056c).
 
+#### D-107 · La consulta del advisory lock devuelve un entero, no `void`
+- **Origen**: IA, adoptada tras el fallo de la suite de integración de CP2.
+- **Contexto**: `SELECT pg_advisory_xact_lock($1::bigint)` con `$queryRaw` falla en Prisma 6.19 con
+  `Failed to deserialize column of type 'void'`. Los tests unitarios no podían verlo porque mockean el cliente;
+  lo destapó la integración contra Postgres real.
+- **Decisión**: la sentencia es
+  `SELECT 1 AS ok FROM (SELECT pg_advisory_xact_lock(${clave}::bigint)) AS t`. Sigue siendo
+  `pg_advisory_xact_lock` dentro de la misma transacción interactiva, tomado antes de leer, y sigue usando
+  `$queryRaw` (nunca `$executeRaw`, que rechaza consultas con filas).
+- **Por qué**: el lock es un efecto de la función; su valor de retorno es irrelevante. Envolverlo en una
+  subconsulta permite proyectar un entero que Prisma sí deserializa, sin cambiar el alcance ni el momento del lock.
+- **Dónde**: `src/domains/asignacion/asignacion-repositorio.ts` (`enTransaccionBloqueada`); el contrato queda
+  fijado por el test unitario "la consulta del lock pide una columna soportada" y por los dos tests de integración
+  (concurrencia y liberación del lock al fallar).
+
 ## 13. Plan de pruebas TDD
 
 ### Archivos y estructura
 
 | Archivo | Tipo | `describe` principales |
 |---|---|---|
-| `src/domains/asignacion/asignacion-repositorio.test.ts` | Unit (Prisma mockeado) | `rutina activa y candidatos` · `ejercicios pendientes` · `ocupantes` · `ocupantes frescos` · `cola` · `P-67` · `vencimiento perezoso` · `sugerencia vigente` · `escrituras` |
+| `src/domains/asignacion/asignacion-repositorio.lecturas.test.ts` | Unit (Prisma mockeado) | `lecturas base` · `guarda de capacidad y puente usuario-socio` |
+| `src/domains/asignacion/asignacion-repositorio.ocupantes.test.ts` | Unit | `ocupantes` (incluye vigencia D-105) |
+| `src/domains/asignacion/asignacion-repositorio.cola.test.ts` | Unit | `cola y vencimiento` · `P-67` |
+| `src/domains/asignacion/asignacion-repositorio.escrituras.test.ts` | Unit | `escrituras y advisory lock` (incluye la forma de la consulta del lock, D-107) |
 | `src/domains/asignacion/orquestacion.test.ts` | Unit (puerto mockeado, motor real inyectable) | `cálculo y reserva` · `fallback` · `invalido` · `timeout` · `decisión` · `sin rutina` |
 | `src/domains/sesion/sesion-asignaciones.test.ts` | Unit (Prisma mockeado con los modelos nuevos) | `inicio consume reserva` · `avance consume reserva` · `completar ejecución` · `fin de sesión` · `sin reserva` |
 | `src/api/asignaciones.test.ts` | Unit (servicio/repositorio mockeados) | `GET sugerencia` · `POST decidir` · `propiedad y roles` · `404/409` · `degradación de siguienteEnOrden` |
@@ -1407,17 +1427,17 @@ Los tests existentes de `src/domains/sesion/sesion-de-entrenamiento.test.ts`, `s
 | Escenario | Test | Esperado |
 |---|---|---|
 | 1 Check-in con rutina | `orquestacion.test.ts` → "persiste la instantánea del motor y vence a 15 min" | `RESERVADA`, `esperaSegundos=120`, `ahorroSegundos=60`, `venceEn=creadaEn+15m`, `sesionId=null`, máquina sin cambio |
-| 2 Snapshot inmutable | `asignacion-repositorio.test.ts` → "la sugerencia vigente no recalcula espera ni ahorro" | mismos valores tras cambiar el estado del gimnasio |
+| 2 Snapshot inmutable | `asignacion-repositorio.*.test.ts` → "la sugerencia vigente no recalcula espera ni ahorro" | mismos valores tras cambiar el estado del gimnasio |
 | 3 Sin máquina candidata | `orquestacion.test.ts` → "recomendación sin máquina no crea fila" | sin `create`; cancela la anterior si existía |
 | 4 Cambio de configuración | `orquestacion.test.ts` → "venceEn no cambia retroactivamente" | reserva vieja conserva su fecha; la nueva usa el valor nuevo |
 | 5 `RESERVADA → EN_CURSO` | `sesion-asignaciones.test.ts` → "iniciar sesión consume la reserva" | `estado=EN_CURSO`, `sesionId` fijado, una sola fila |
-| 6 Transición inválida | `asignacion-repositorio.test.ts` → "updateMany con guard no toca una fila COMPLETADA" | `count=0`; fila sigue `COMPLETADA` |
-| 7 `VENCIDA` no persistida | `asignacion-repositorio.test.ts` → "vencida se ignora sin reescribir estado" | fila sigue `RESERVADA`; no es sugerencia |
+| 6 Transición inválida | `asignacion-repositorio.*.test.ts` → "updateMany con guard no toca una fila COMPLETADA" | `count=0`; fila sigue `COMPLETADA` |
+| 7 `VENCIDA` no persistida | `asignacion-repositorio.*.test.ts` → "vencida se ignora sin reescribir estado" | fila sigue `RESERVADA`; no es sugerencia |
 | 8 Recálculo reemplaza | `orquestacion.test.ts` → "cancela la anterior y crea la nueva" | una `CANCELADA`, una `RESERVADA` |
 | 9 Fallo no destruye | `orquestacion.test.ts` → "invalido/error no cancela la reserva" | anterior intacta; sin filas nuevas |
 | 10 Ejecución + reserva | `sesion-asignaciones.test.ts` → "EN_CURSO y RESERVADA coexisten" | dos filas, estados distintos |
-| 11 Vencimiento en el límite | `asignacion-repositorio.test.ts` → "venceEn == ahora está vencida; 1 s antes vigente" | inclusivo en `<=` |
-| 12 Calentamiento/drop set | `asignacion-repositorio.test.ts` → "seriesRestantes ignora CALENTAMIENTO y DROP_SET" | `3−1=2` |
+| 11 Vencimiento en el límite | `asignacion-repositorio.*.test.ts` → "venceEn == ahora está vencida; 1 s antes vigente" | inclusivo en `<=` |
+| 12 Calentamiento/drop set | `asignacion-repositorio.*.test.ts` → "seriesRestantes ignora CALENTAMIENTO y DROP_SET" | `3−1=2` |
 | 13 Cero restantes | ídem → "ocupante con 0 restantes no ocupa" | no aparece en `maquinas[].ocupante` |
 | 14 Fuera de rango | ídem → "numeroSerie 3 con prescripción 2 no descuenta" | `seriesRestantes=0` |
 | 15 Descanso del ocupante | ídem → "descanso sale del EjercicioEnRutina del ocupante" | `90`, no el del consultante |
@@ -1432,8 +1452,8 @@ Los tests existentes de `src/domains/sesion/sesion-de-entrenamiento.test.ts`, `s
 | 24 Fallo transaccional | ídem → "cancelar y lanzar revierte" | la reserva anterior sigue `RESERVADA` |
 | 25 Migración aditiva | `asignacion-persistencia.integration.test.ts` → "aplica migrate deploy desde cero" | tablas, índices y FKs presentes; 0 `DROP`/`ALTER` en el archivo |
 | 26 Sin `OCUPADA` | ídem → "reservar no cambia Maquina.estado" | `DISPONIBLE` antes y después |
-| 27 Sesión sin fila, máquina única | `asignacion-repositorio.test.ts` → "una candidata deriva ocupante; varias no" | `M1` ocupada / sin ocupante |
-| 28 Sesión inactiva 31 min | `asignacion-repositorio.test.ts` → "sesión con actividad de 31 min no ocupa con ventana 30" | sin ocupante |
+| 27 Sesión sin fila, máquina única | `asignacion-repositorio.*.test.ts` → "una candidata deriva ocupante; varias no" | `M1` ocupada / sin ocupante |
+| 28 Sesión inactiva 31 min | `asignacion-repositorio.*.test.ts` → "sesión con actividad de 31 min no ocupa con ventana 30" | sin ocupante |
 | 29 Sesión activa 29 min | ídem → "sesión con actividad de 29 min ocupa con ventana 30" | ocupante con `seriesRestantes` |
 | 30 Sesión sin registros fresca | ídem → "sin registros usa horaInicio fresca" | ocupante |
 | 31 Sesión sin registros vencida | ídem → "sin registros usa horaInicio vieja y no ocupa" | sin ocupante |
@@ -1448,7 +1468,7 @@ Los tests existentes de `src/domains/sesion/sesion-de-entrenamiento.test.ts`, `s
 
 | Escenario | Test | Esperado |
 |---|---|---|
-| 1 Entrada completa | `asignacion-repositorio.test.ts` → "arma ejercicios, máquinas, ocupante y cola" | `EntradaMotor` válida; `segundosEjecucionSerie` de configuración |
+| 1 Entrada completa | `asignacion-repositorio.*.test.ts` → "arma ejercicios, máquinas, ocupante y cola" | `EntradaMotor` válida; `segundosEjecucionSerie` de configuración |
 | 2 Sin rutina activa | `orquestacion.test.ts` → "no abre transacción ni invoca el motor" | `SIN_RUTINA`; sin escrituras |
 | 3 Máquinas no candidatas | ídem → "M9 fuera de maquinas" | `M9` ausente |
 | 4 Check-in permitido | `acceso-asignacion.test.ts` → "dispara una vez" | `calcularEnCheckIn` llamado una vez |
@@ -1595,8 +1615,8 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 | Slice | Comandos |
 |---|---|
 | S1 | `npx prisma generate` · `npx prisma validate` · `npx jest src/lib/configuracion.test.ts src/domains/configuracion/configuracion.test.ts src/app/configuracion/page.test.tsx` · `npm run test:integration` |
-| S2 | `npx jest src/domains/asignacion/asignacion-repositorio.test.ts` |
-| S3 | `npx jest src/domains/asignacion/asignacion-repositorio.test.ts` · `npm run test:integration` |
+| S2 | `npx jest src/domains/asignacion` |
+| S3 | `npx jest src/domains/asignacion` · `npm run test:integration` |
 | S4 | `npx jest src/domains/asignacion/orquestacion.test.ts` · `npm run test:integration` |
 | S5 | `npx jest src/api/asignaciones.test.ts` |
 | S6 | `npx jest src/app/api/asignaciones src/lib/authorization.test.ts src/lib/route-error-mapper.test.ts` |
@@ -1660,19 +1680,19 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 | Requisito / AC | Sección | Test |
 |---|---|---|
 | Registro persistente (AC-401, AC-402) | §2, §7 | `orquestacion.test.ts` (snapshot/vence), integración de persistencia |
-| Máquina de estados (AC-403, AC-404) | §2, §4, §9 | `asignacion-repositorio.test.ts`, `sesion-asignaciones.test.ts` |
+| Máquina de estados (AC-403, AC-404) | §2, §4, §9 | `asignacion-repositorio.*.test.ts`, `sesion-asignaciones.test.ts` |
 | Una reserva activa (AC-405) | §2, §5, §7 | `orquestacion.test.ts`, `asignacion-concurrencia.integration.test.ts` |
-| Vencimiento perezoso (AC-406) | §2, §6 | `asignacion-repositorio.test.ts`, integración |
-| Ocupación derivada (AC-407, AC-408) | §6 | `asignacion-repositorio.test.ts`, integración |
-| Ocupación vigente (AC-415) | §6, §7 | `asignacion-repositorio.test.ts`, integración, `orquestacion.test.ts` |
-| Cola derivada (AC-409) | §6 | `asignacion-repositorio.test.ts`, integración |
+| Vencimiento perezoso (AC-406) | §2, §6 | `asignacion-repositorio.*.test.ts`, integración |
+| Ocupación derivada (AC-407, AC-408) | §6 | `asignacion-repositorio.*.test.ts`, integración |
+| Ocupación vigente (AC-415) | §6, §7 | `asignacion-repositorio.*.test.ts`, integración, `orquestacion.test.ts` |
+| Cola derivada (AC-409) | §6 | `asignacion-repositorio.*.test.ts`, integración |
 | P-67 (AC-410) | §6 | test dedicado en unit e integración |
-| Lecturas deterministas (AC-411) | §6 | `asignacion-repositorio.test.ts` |
+| Lecturas deterministas (AC-411) | §6 | `asignacion-repositorio.*.test.ts` |
 | Concurrencia y lock (AC-412) | §5 | `asignacion-concurrencia.integration.test.ts` |
 | Migración aditiva (AC-413) | §3 | `npm run test:integration`, `migrate diff`, inspección SQL |
 | FK `ejercicioId` en cascada (AC-416) | §2, §3 | integración "borrar ejercicio sin progreso ni rutina elimina asignaciones" |
 | Sin `OCUPADA` (AC-414) | §2, §6 | integración "reservar no cambia Maquina.estado" |
-| Construcción de entrada (AC-441) | §6 | `asignacion-repositorio.test.ts` |
+| Construcción de entrada (AC-441) | §6 | `asignacion-repositorio.*.test.ts` |
 | Tres momentos (AC-442) | §7, §8, §9 | `orquestacion.test.ts`, `acceso-asignacion.test.ts`, `sesion-asignaciones.test.ts` |
 | Persistencia y fallback (AC-443, AC-445) | §7 | `orquestacion.test.ts` |
 | Decisión obligatoria (AC-444) | §7, §11 | `orquestacion.test.ts`, `asignaciones.test.ts` |
@@ -1691,7 +1711,7 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 | Config defaults/rangos/migración (AC-501–AC-504, AC-510) | §10 | `configuracion.test.ts`, integración |
 | Panel y auditoría (AC-505, AC-506) | §10 | `page.test.tsx`, `configuracion.test.ts` |
 | Consumo de parámetros (AC-507, AC-508) | §7, §10 | `orquestacion.test.ts` |
-| Reloj y ventana de inactividad (AC-455) | §6, §7 | `orquestacion.test.ts`, `asignacion-repositorio.test.ts` |
+| Reloj y ventana de inactividad (AC-455) | §6, §7 | `orquestacion.test.ts`, `asignacion-repositorio.*.test.ts` |
 | Suite verde (AC-509) | §13, §14 | `npm test`, `npm run test:integration`, `tsc`, `eslint` |
 | Gancho único y best-effort (AC-521, AC-522, AC-523) | §8 | `acceso-asignacion.test.ts` |
 | Condiciones de disparo (AC-524) | §8 | `acceso-asignacion.test.ts` |
@@ -1702,7 +1722,7 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 
 ### Numeración
 
-- Decisiones de esta change: **D-88 a D-106** (19). Última previa: D-87.
+- Decisiones de esta change: **D-88 a D-107** (20). Última previa: D-87.
 - Tareas: **T-056+** quedan reservadas para `sdd-tasks`; este diseño no asigna IDs de tarea.
 - Pendientes: **P-68** se cierra con el test de concurrencia; **P-69** sigue abierto (limpieza batch, fuera de
   alcance); **P-70** se cierra con la integración de sesión; **P-71** se abre (latencia del check-in, Etapa 5 /
