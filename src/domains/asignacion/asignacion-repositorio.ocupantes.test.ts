@@ -72,6 +72,33 @@ describe("AsignacionRepository: ocupantes y cola", () => {
       expect(resultado?.entrada.maquinas.every((m) => m.ocupante === null)).toBe(true);
     });
 
+    it("sin candidatas en EjercicioMaquina no aporta ocupante", async () => {
+      const db = crearDb();
+      db.rutinaAsignada.findFirst.mockResolvedValue(rutinaE1(2));
+      db.ejercicioMaquina.findMany.mockImplementation(
+        (args: { where: { ejercicioId: { in: string[] } } }) =>
+          Promise.resolve(
+            args.where.ejercicioId.in.includes("E2")
+              ? []
+              : [{ ejercicioId: "E1", maquinaId: "M1" }]
+          )
+      );
+      db.maquina.findMany.mockResolvedValue([{ id: "M1", estado: "DISPONIBLE" }]);
+      db.sesionDeEntrenamiento.findMany.mockResolvedValue([
+        sesionOcupante({
+          ejercicioActualId: "E2",
+          rutinaAsignada: {
+            rutina: { ejercicios: [{ ejercicioId: "E2", series: 3, descanso: 90 }] },
+          },
+        }),
+      ]);
+      progreso(db, [], [{ sesionId: "s-otro", fecha: minutos(5) }]);
+
+      const resultado = await repo(db).leerEntradaMotor(lectura);
+
+      expect(resultado?.entrada.maquinas[0].ocupante).toBeNull();
+    });
+
     it("una fila EN_CURSO con la máquina y ejercicio actuales fija el ocupante", async () => {
       const db = preparar(3, ["M1", "M2"], { M1: "DISPONIBLE", M2: "DISPONIBLE" });
       db.sesionDeEntrenamiento.findMany.mockResolvedValue([sesionOcupante()]);

@@ -1236,7 +1236,7 @@ no se convierte en 500: se degrada a `null` y se loguea.
 ## 12. Decisiones registradas (D-88+)
 
 Listas para pegar en `openspec/decisions.md`. Las D-88 a D-92 son decisiones de Fernando ya fijadas en la
-propuesta; las D-93 a D-107 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
+propuesta; las D-93 a D-108 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
 explícita al revisar el artefacto.
 
 ### Decisiones de Fernando (vinculantes)
@@ -1390,6 +1390,15 @@ explícita al revisar el artefacto.
 - **Dónde**: `src/domains/asignacion/asignacion-repositorio.ts` (`enTransaccionBloqueada`); el contrato queda
   fijado por el test unitario "la consulta del lock pide una columna soportada" y por los dos tests de integración
   (concurrencia y liberación del lock al fallar).
+
+#### D-108 · Ocupante sin fila `EN_CURSO`: solo se asigna a una máquina si es la única candidata
+- **Origen**: revisión de CP2, adoptada.
+- **Contexto**: D-97 declara la regla, pero la consecuencia quedó solo en su línea "Dónde". Una sesión `EN_CURSO` sin fila `EN_CURSO` no dice qué máquina está usando (por ejemplo, el socio avanzó por orden de rutina sin pasar por una reserva aceptada).
+- **Decisión**: si el ejercicio actual tiene exactamente una candidata en `EjercicioMaquina`, esa máquina se marca ocupada. Con 0 o con 2+ candidatas, el ocupante no se asigna a ninguna máquina y esa sesión no aporta ocupación.
+- **Consecuencia**: el motor puede ver libre una máquina que en realidad está ocupada y subestimar la espera. Es un límite conocido, no un defecto; el error va hacia "menos espera".
+- **Por qué**: asignar a la máquina equivocada inventaría esperas falsas sobre una máquina libre; sin dato real no se adivina.
+- **Mitigación pendiente**: evaluar en T-056g que el adaptador de sesión registre una fila `EN_CURSO` con `maquinaId` siempre que la máquina sea conocida.
+- **Dónde**: `aplicarOcupantes` (`asignacion-ocupacion.ts`), spec de persistencia, D-97.
 
 ## 13. Plan de pruebas TDD
 
@@ -1722,7 +1731,7 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 
 ### Numeración
 
-- Decisiones de esta change: **D-88 a D-107** (20). Última previa: D-87.
+- Decisiones de esta change: **D-88 a D-108** (21). Última previa: D-87.
 - Tareas: **T-056+** quedan reservadas para `sdd-tasks`; este diseño no asigna IDs de tarea.
 - Pendientes: **P-68** se cierra con el test de concurrencia; **P-69** sigue abierto (limpieza batch, fuera de
   alcance); **P-70** se cierra con la integración de sesión; **P-71** se abre (latencia del check-in, Etapa 5 /

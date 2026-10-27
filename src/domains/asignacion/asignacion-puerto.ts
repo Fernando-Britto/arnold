@@ -137,7 +137,6 @@ export interface AsignacionDb extends ConfiguracionReader {
   ): Promise<R>;
 }
 
-
 export type CargadorDb = () => Promise<AsignacionDb>;
 
 export async function getPrisma(): Promise<AsignacionDb> {

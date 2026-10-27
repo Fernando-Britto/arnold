@@ -105,6 +105,4 @@ export class AsignacionEscrituras {
       select: { id: true },
     });
   }
-
-  /** Transacción con advisory lock global: serializa lectura, cálculo y escritura (design §5). */
 }

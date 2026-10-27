@@ -58,10 +58,6 @@ interface FilaSugerencia {
   maquina: { nombre: string } | null;
 }
 
-
-
-
-
 interface FilaUltimaAsignacion {
   estado: EstadoAsignacionPersistido;
   creadaEn: Date;
