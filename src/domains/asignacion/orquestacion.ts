@@ -1,4 +1,8 @@
-import type { AsignacionPort } from "./asignacion-puerto";
+import type {
+  AsignacionPort,
+  AsignacionTx,
+  SugerenciaVigenteLeida,
+} from "./asignacion-puerto";
 import { asignacionRepository } from "./asignacion-repositorio";
 import { calcularEspera } from "./motor-espera";
 
@@ -27,6 +31,18 @@ export type ResultadoOrquestacion =
     }
   | { tipo: "fallback"; motivo: "SIN_RUTINA" | "SIN_OPCIONES" | "VACIO" | "SIN_MAQUINA" }
   | { tipo: "contenido"; motivo: "INVALIDO" | "ERROR" | "TIMEOUT" };
+
+export type ResultadoDecision =
+  | { tipo: "aceptada"; reserva: SugerenciaVigenteLeida }
+  | { tipo: "esperada" }
+  | { tipo: "sin_sugerencia"; motivo: "NUNCA_EXISTIO" | "YA_NO_VIGENTE" }
+  | { tipo: "contenido"; motivo: "ERROR" | "TIMEOUT" };
+
+export interface DecidirSugerenciaInput {
+  socioId: string;
+  accion: "ACEPTAR" | "ESPERAR";
+  ahora: Date;
+}
 
 export interface DepsOrquestacion {
   repositorio: AsignacionPort;
@@ -180,4 +196,75 @@ async function calcularSeguro(
     return { tipo: "contenido", motivo: "TIMEOUT" };
   }
   return salida;
+}
+
+/** Sugerencia vigente del socio (lectura de API y de sesión). */
+export async function reservaVigente(
+  input: { socioId: string; ahora: Date },
+  deps: Partial<DepsOrquestacion> = {}
+): Promise<SugerenciaVigenteLeida | null> {
+  const { repositorio } = resolverDeps(deps);
+  return repositorio.leerSugerenciaVigente(input.socioId, input.ahora);
+}
+
+/** Regla 404 vs 409 (D-102): sin vigente, decide el historial del socio. */
+async function sinSugerencia(
+  tx: AsignacionTx,
+  input: { socioId: string; ahora: Date },
+  minutosVentana: number
+): Promise<ResultadoDecision> {
+  const ultima = await tx.leerUltimaAsignacion(input.socioId);
+  if (!ultima) return { tipo: "sin_sugerencia", motivo: "NUNCA_EXISTIO" };
+  if (ultima.estado === "RESERVADA") return { tipo: "sin_sugerencia", motivo: "YA_NO_VIGENTE" };
+
+  const desde = input.ahora.getTime() - minutosEnMs(minutosVentana);
+  if (ultima.estado === "CANCELADA" && ultima.creadaEn.getTime() >= desde) {
+    return { tipo: "sin_sugerencia", motivo: "YA_NO_VIGENTE" };
+  }
+  return { tipo: "sin_sugerencia", motivo: "NUNCA_EXISTIO" };
+}
+
+/**
+ * Aplica la decisión obligatoria bajo el mismo lock que el cálculo. ACEPTAR no escribe;
+ * ESPERAR usa el `cancelarReserva` guardado, así que una reserva que venció entre la lectura
+ * y la escritura no se cancela por error. Nunca lanza.
+ */
+export async function decidirSugerencia(
+  input: DecidirSugerenciaInput,
+  deps: Partial<DepsOrquestacion> = {}
+): Promise<ResultadoDecision> {
+  const { repositorio } = resolverDeps(deps);
+
+  try {
+    const trabajo = repositorio.enTransaccionBloqueada(
+      async (tx): Promise<ResultadoDecision> => {
+        const vigente = await tx.leerSugerenciaVigente(input.socioId, input.ahora);
+        if (!vigente) {
+          const configuracion = await tx.leerConfiguracion();
+          return sinSugerencia(tx, input, configuracion.minutosVencimientoReserva);
+        }
+        if (input.accion === "ACEPTAR") return { tipo: "aceptada", reserva: vigente };
+
+        const cancelada = await tx.cancelarReserva(vigente.id, input.ahora);
+        return cancelada
+          ? { tipo: "esperada" }
+          : { tipo: "sin_sugerencia", motivo: "YA_NO_VIGENTE" };
+      },
+      { maxWait: MAX_WAIT_TRANSACCION_MS, timeout: TIMEOUT_CALCULO_MS }
+    );
+
+    const salida = await conTimeout(trabajo, TIMEOUT_CALCULO_MS + MARGEN_RESPUESTA_MS);
+    if (salida === TIMEOUT) {
+      logError("timeout", {
+        socioId: input.socioId,
+        accion: input.accion,
+        timeoutMs: TIMEOUT_CALCULO_MS + MARGEN_RESPUESTA_MS,
+      });
+      return { tipo: "contenido", motivo: "TIMEOUT" };
+    }
+    return salida;
+  } catch (error) {
+    logError("error", { socioId: input.socioId, accion: input.accion, error });
+    return { tipo: "contenido", motivo: "ERROR" };
+  }
 }

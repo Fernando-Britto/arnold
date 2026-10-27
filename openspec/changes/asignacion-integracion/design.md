@@ -687,7 +687,9 @@ export async function calcularSinReservar(
 export type ResultadoDecision =
   | { tipo: "aceptada"; reserva: SugerenciaVigenteLeida }
   | { tipo: "esperada" }
-  | { tipo: "sin_sugerencia"; motivo: "NUNCA_EXISTIO" | "YA_NO_VIGENTE" };
+  | { tipo: "sin_sugerencia"; motivo: "NUNCA_EXISTIO" | "YA_NO_VIGENTE" }
+  // Error contenido del servidor: la API lo mapea a 500 SERVER_ERROR (AC-484), nunca a 404/409.
+  | { tipo: "contenido"; motivo: "ERROR" | "TIMEOUT" };
 
 export async function decidirSugerencia(
   input: { socioId: string; accion: "ACEPTAR" | "ESPERAR"; ahora: Date },
