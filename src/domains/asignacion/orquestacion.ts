@@ -268,3 +268,92 @@ export async function decidirSugerencia(
     return { tipo: "contenido", motivo: "ERROR" };
   }
 }
+
+export interface SugerenciaSinReserva {
+  ejercicioId: string;
+  ejercicioNombre: string;
+  maquinaId: string | null;
+  esperaSegundos: number;
+}
+
+/**
+ * Siguiente ejercicio en orden de rutina, para la lectura informativa de la API.
+ * Sin lock y sin escritura: si el motor no puede decidir, degrada a `null`.
+ */
+export async function calcularSinReservar(
+  input: { socioId: string; ahora: Date },
+  deps: Partial<DepsOrquestacion> = {}
+): Promise<SugerenciaSinReserva | null> {
+  const { repositorio, motor } = resolverDeps(deps);
+
+  try {
+    if (!(await repositorio.tieneRutinaActiva(input.socioId))) return null;
+
+    const configuracion = await repositorio.leerConfiguracion();
+    const leida = await repositorio.leerEntradaMotor({
+      socioId: input.socioId,
+      ahora: input.ahora,
+      minutosInactividadSesion: configuracion.minutosInactividadSesion,
+      excluirEjercicioIds: [],
+    });
+    if (!leida) return null;
+
+    const resultado = motor(leida.entrada);
+    if (resultado.tipo !== "exito") return null;
+
+    const siguiente = resultado.siguienteEnOrden;
+    const ejercicio = leida.rutina.ejercicios.find(
+      (candidato) => candidato.ejercicioId === siguiente.ejercicioId
+    );
+    return {
+      ejercicioId: siguiente.ejercicioId,
+      ejercicioNombre: ejercicio?.nombre ?? "",
+      maquinaId: siguiente.maquinaId,
+      esperaSegundos: siguiente.espera,
+    };
+  } catch (error) {
+    logError("error", {
+      socioId: input.socioId,
+      contexto: "calcularSinReservar",
+      error,
+    });
+    return null;
+  }
+}
+
+/** Gancho de check-in: best-effort, nunca lanza (P-64). */
+export async function calcularEnCheckIn(
+  input: { socioId: string; ahora: Date },
+  deps: Partial<DepsOrquestacion> = {}
+): Promise<void> {
+  try {
+    await calcularYReservar({ ...input, momento: "CHECK_IN" }, deps);
+  } catch (error) {
+    // `calcularYReservar` ya contiene lo suyo; esta red cubre fallos al resolver dependencias.
+    logError("error", { socioId: input.socioId, momento: "CHECK_IN", error });
+  }
+}
+
+export async function tieneRutinaActiva(
+  socioId: string,
+  deps: Partial<DepsOrquestacion> = {}
+): Promise<boolean> {
+  const { repositorio } = resolverDeps(deps);
+  return repositorio.tieneRutinaActiva(socioId);
+}
+
+export async function resolverSocioDeUsuario(
+  usuarioId: string,
+  deps: Partial<DepsOrquestacion> = {}
+): Promise<string | null> {
+  const { repositorio } = resolverDeps(deps);
+  return repositorio.resolverSocioPorUsuario(usuarioId);
+}
+
+export async function existeSocio(
+  socioId: string,
+  deps: Partial<DepsOrquestacion> = {}
+): Promise<boolean> {
+  const { repositorio } = resolverDeps(deps);
+  return repositorio.existeSocio(socioId);
+}

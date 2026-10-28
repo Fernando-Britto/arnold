@@ -61,6 +61,10 @@ export interface OpcionesPuerto {
   sugerencia?: SugerenciaVigenteLeida | null;
   ultima?: UltimaAsignacionLeida | null;
   cancelarReservaResultado?: boolean;
+  socioDeUsuario?: string | null;
+  socioExiste?: boolean;
+  /** Hace fallar la lectura de la entrada fuera de una transacción. */
+  errorLectura?: boolean;
 }
 
 export interface PuertoFalso {
@@ -75,6 +79,8 @@ export interface PuertoFalso {
   leerUltimaAsignacion: jest.Mock;
   enTransaccionBloqueada: jest.Mock;
   tieneRutinaActiva: jest.Mock;
+  resolverSocioPorUsuario: jest.Mock;
+  existeSocio: jest.Mock;
 }
 
 export function sugerencia(
@@ -109,6 +115,7 @@ export function crearPuerto(opciones: OpcionesPuerto = {}): PuertoFalso {
   });
   const leerEntradaMotor = jest.fn(async () => {
     llamadas.push("leerEntradaMotor");
+    if (opciones.errorLectura) throw new Error("lectura rota");
     return "entrada" in opciones
       ? opciones.entrada
       : entradaLeida(opciones.configuracion?.segundosEjecucionSerie);
@@ -116,6 +123,8 @@ export function crearPuerto(opciones: OpcionesPuerto = {}): PuertoFalso {
   const leerConfiguracion = jest.fn(async () => ({ ...CONFIGURACION, ...opciones.configuracion }));
   const leerSugerenciaVigente = jest.fn(async () => opciones.sugerencia ?? null);
   const leerUltimaAsignacion = jest.fn(async () => opciones.ultima ?? null);
+  const resolverSocioPorUsuario = jest.fn(async () => opciones.socioDeUsuario ?? null);
+  const existeSocio = jest.fn(async () => opciones.socioExiste ?? true);
   const cancelarReserva = jest.fn(async () => {
     llamadas.push("cancelarReserva");
     return opciones.cancelarReservaResultado ?? true;
@@ -145,6 +154,10 @@ export function crearPuerto(opciones: OpcionesPuerto = {}): PuertoFalso {
     tieneRutinaActiva,
     enTransaccionBloqueada,
     leerSugerenciaVigente,
+    leerConfiguracion,
+    leerEntradaMotor,
+    resolverSocioPorUsuario,
+    existeSocio,
   } as unknown as AsignacionPort;
 
   return {
@@ -159,5 +172,7 @@ export function crearPuerto(opciones: OpcionesPuerto = {}): PuertoFalso {
     leerUltimaAsignacion,
     enTransaccionBloqueada,
     tieneRutinaActiva,
+    resolverSocioPorUsuario,
+    existeSocio,
   };
 }
