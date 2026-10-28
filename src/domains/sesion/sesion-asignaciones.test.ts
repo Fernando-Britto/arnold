@@ -7,123 +7,26 @@
  */
 import { iniciarSesion } from "./sesion-de-entrenamiento";
 import { calcularYReservar } from "@/domains/asignacion/orquestacion";
+import {
+  configurarDobles,
+  mocks,
+} from "../../../tests/factories/sesion-asignaciones-dobles";
 
-jest.mock("@/lib/db", () => {
-  const prisma = {
-    socio: { findUnique: jest.fn() },
-    rutinaAsignada: { findUnique: jest.fn() },
-    sesionDeEntrenamiento: {
-      create: jest.fn(),
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      updateMany: jest.fn(),
-    },
-    registroDeProgreso: { create: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() },
-    reglaDeProgresion: { findFirst: jest.fn() },
-    asignacionDeEjercicio: { findFirst: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
-    ejercicioMaquina: { findMany: jest.fn() },
-    $transaction: jest.fn(),
-  };
-  // `tx` es OTRO objeto: comparte los dobles de lectura y de creación (para no reescribir las
-  // aserciones existentes) pero tiene su propio `updateMany` de la reserva, que es justo lo que
-  // debe probarse dentro de la transacción.
-  const tx = {
-    sesionDeEntrenamiento: prisma.sesionDeEntrenamiento,
-    asignacionDeEjercicio: {
-      findFirst: prisma.asignacionDeEjercicio.findFirst,
-      create: prisma.asignacionDeEjercicio.create,
-      updateMany: jest.fn(),
-    },
-    ejercicioMaquina: prisma.ejercicioMaquina,
-  };
-  prisma.$transaction.mockImplementation((ops: unknown) =>
-    typeof ops === "function" ? Promise.resolve(ops(tx)) : Promise.all([])
-  );
-  (prisma as unknown as { __tx: typeof tx }).__tx = tx;
-  return { prisma };
-});
+// El factory de `jest.mock` se iza por encima de los imports: la única forma de reusar el doble
+// compartido es requerirlo dentro del factory.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock("@/lib/db", () => require("../../../tests/factories/sesion-asignaciones-dobles").crearModuloDb());
 jest.mock("@/domains/asignacion/orquestacion");
 
 const mockCalcular = calcularYReservar as jest.MockedFunction<typeof calcularYReservar>;
 
 const AHORA = new Date("2026-10-25T10:00:00.000Z");
 
-interface PrismaFalso {
-  socio: { findUnique: jest.Mock };
-  rutinaAsignada: { findUnique: jest.Mock };
-  sesionDeEntrenamiento: {
-    create: jest.Mock;
-    findFirst: jest.Mock;
-    findUnique: jest.Mock;
-    update: jest.Mock;
-    updateMany: jest.Mock;
-  };
-  registroDeProgreso: { create: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock };
-  reglaDeProgresion: { findFirst: jest.Mock };
-  asignacionDeEjercicio: { findFirst: jest.Mock; updateMany: jest.Mock; create: jest.Mock };
-  ejercicioMaquina: { findMany: jest.Mock };
-  $transaction: jest.Mock;
-  __tx: TxFalso;
-}
-
-interface TxFalso {
-  sesionDeEntrenamiento: { updateMany: jest.Mock; create: jest.Mock };
-  asignacionDeEjercicio: { findFirst: jest.Mock; updateMany: jest.Mock; create: jest.Mock };
-  ejercicioMaquina: { findMany: jest.Mock };
-}
-
-async function mocks(): Promise<PrismaFalso> {
-  const { prisma } = await import("@/lib/db");
-  return prisma as unknown as PrismaFalso;
-}
-
-/** Rutina activa de dos ejercicios; E1 es el primero por orden. */
-function asignacion() {
-  return {
-    id: "ra-1",
-    socioId: "socio-1",
-    activa: true,
-    rutina: {
-      ejercicios: [
-        {
-          ejercicioId: "E1",
-          series: 2,
-          repeticiones: 10,
-          descanso: 90,
-          orden: 1,
-          ejercicio: { id: "E1", nombre: "Sentadilla" },
-        },
-        {
-          ejercicioId: "E2",
-          series: 1,
-          repeticiones: 10,
-          descanso: 60,
-          orden: 2,
-          ejercicio: { id: "E2", nombre: "Press banca" },
-        },
-      ],
-    },
-  };
-}
-
 beforeEach(async () => {
   const prisma = await mocks();
   jest.clearAllMocks();
   mockCalcular.mockResolvedValue({ tipo: "fallback", motivo: "SIN_OPCIONES" });
-
-  prisma.socio.findUnique.mockResolvedValue({ id: "socio-1" });
-  prisma.rutinaAsignada.findUnique.mockResolvedValue(asignacion());
-  prisma.sesionDeEntrenamiento.updateMany.mockResolvedValue({ count: 0 });
-  prisma.sesionDeEntrenamiento.create.mockResolvedValue({ id: "s-1" });
-  prisma.registroDeProgreso.findMany.mockResolvedValue([]);
-  prisma.registroDeProgreso.findFirst.mockResolvedValue(null);
-  prisma.reglaDeProgresion.findFirst.mockResolvedValue(null);
-  prisma.asignacionDeEjercicio.findFirst.mockResolvedValue(null);
-  prisma.asignacionDeEjercicio.updateMany.mockResolvedValue({ count: 1 });
-  prisma.__tx.asignacionDeEjercicio.updateMany.mockResolvedValue({ count: 1 });
-  prisma.asignacionDeEjercicio.create.mockResolvedValue({ id: "a-nueva" });
-  prisma.ejercicioMaquina.findMany.mockResolvedValue([{ maquinaId: "M1" }]);
+  configurarDobles(prisma);
 });
 
 const iniciar = () =>
@@ -269,6 +172,40 @@ describe("iniciarSesion: la reserva se consume dentro de la transacción", () =>
 
     await iniciar();
 
+    expect(prisma.__tx.asignacionDeEjercicio.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.asignacionDeEjercicio.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("iniciarSesion: la reserva ya no se puede consumir", () => {
+  it("con count 0 pasa al primer ejercicio y crea su fila EN_CURSO", async () => {
+    const prisma = await mocks();
+    prisma.asignacionDeEjercicio.findFirst.mockResolvedValue({
+      id: "a-1",
+      ejercicioId: "E2",
+      maquinaId: "M2",
+    });
+    prisma.__tx.asignacionDeEjercicio.updateMany.mockResolvedValue({ count: 0 });
+
+    await iniciar();
+
+    expect(prisma.sesionDeEntrenamiento.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ ejercicioActualId: "E2", serieActual: 1 }),
+    });
+    expect(prisma.sesionDeEntrenamiento.update).toHaveBeenCalledWith({
+      where: { id: "s-1" },
+      data: { ejercicioActualId: "E1", serieActual: 1 },
+    });
+    expect(prisma.asignacionDeEjercicio.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        ejercicioId: "E1",
+        maquinaId: "M1",
+        estado: "EN_CURSO",
+        esperaSegundos: 0,
+        ahorroSegundos: 0,
+      }),
+    });
+    // La reserva no se toca más allá del intento guardado: sigue como estaba.
     expect(prisma.__tx.asignacionDeEjercicio.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.asignacionDeEjercicio.updateMany).not.toHaveBeenCalled();
   });
