@@ -99,6 +99,14 @@ la relación observada en CP3 sugiere que el número real estará más cerca de 
 Los cortes por archivo ya declarados (e1/e2, f1/f2, g1/g2/g3) siguen vigentes; se miden con `wc -l`
 al crear cada archivo y se parte antes de pasar de ≈350 líneas.
 
+### Lección: los tests de concurrencia se verifican con mutación
+
+Un test de concurrencia que pasa **no prueba** que el lock exista. En CP3 el escenario "dos check-in
+sobre la misma máquina" pasaba también sin el advisory lock, por timing. Antes de dar por bueno un
+test de lock o de atomicidad, se comenta la sentencia del lock y se verifica que **falla**; recién
+después se restaura. La mutación de CP4 dejó tres fallos: serialización de transacciones, dos
+check-in sobre M1 y dos recálculos del mismo socio.
+
 ### Estimaciones corregidas con la medición de CP2
 
 CP2 (T-056b + T-056c) se estimó en ≈740 líneas y midió **2.327** (3,1×). La desviación no es ruido: el puerto
@@ -813,6 +821,11 @@ queda sin llamante y la tabla permanece. El check-in y la sesión todavía no lo
 
 ### T-056e · Handlers HTTP de sugerencia y decisión (CP4a)
 
+> **Partición**: **e1** (GET, pasos 1–4) ✅ **completo** — `handleObtenerSugerencia` con 13 tests.
+> **e2** (POST, pasos 5–7) en curso — `handleDecidirSugerencia`. El GET vive en
+> `src/api/asignaciones.ts`; los tests se separaron por verbo (`asignaciones.test.ts` y
+> `asignaciones.post.test.ts`) para no pasar el tope de un archivo.
+
 **Objetivo**: crear `src/api/asignaciones.ts` con `handleObtenerSugerencia` y
 `handleDecidirSugerencia`, los DTO y la regla fina de propiedad/rol, usando la orquestación y el mapeo de
 errores compartido. No conoce `NextRequest`; no importa Prisma; no escribe en el `GET`.
@@ -882,14 +895,18 @@ errores compartido. No conoce `NextRequest`; no importa Prisma; no escribe en el
      `"body con accion ausente devuelve 400"`.
    - `"rol distinto de SOCIO recibe 403 FORBIDDEN"`.
    - `"el socio sale de la sesión; el body no puede elegir socio"`.
-   - `"un fallo de persistencia devuelve 500 SERVER_ERROR sin detalles"` → `decidirSugerencia` rechaza
-     con un mensaje interno; el body no lo expone.
+   - `"un fallo de persistencia devuelve 500 SERVER_ERROR sin detalles"` cubre **tres** formas de
+    entrada, todas → 500 con mensaje genérico y sin exponer detalles internos (D-109):
+    (a) `decidirSugerencia` resuelve `{ tipo: "contenido", motivo: "ERROR" }`;
+    (b) `decidirSugerencia` rechaza con un mensaje interno;
+    (c) `decidirSugerencia` resuelve `{ tipo: "contenido", motivo: "TIMEOUT" }`.
    - `"siguienteEnOrden se calcula después de la decisión y se degrada a null si falla"`.
    - `"la respuesta no expone estado, sesionId ni datos internos"` → `sugerencia` no tiene `estado` ni
      `sesionId`; los timestamps son ISO 8601 y los ausentes son `null` explícito.
 6. - [ ] **GREEN — POST.** Implementar el body estricto (solo `accion`, exactamente `"ACEPTAR"` o
    `"ESPERAR"`), el socio desde la sesión, la delegación en `decidirSugerencia` y el mapeo 404/409
-   (D-102). El fallo de `calcularSinReservar` no rompe el 200.
+   (D-102). El handler mapea `contenido` (ERROR/TIMEOUT) a 500 y **no** lo confunde con 404/409
+   (D-109). El fallo de `calcularSinReservar` no rompe el 200.
 7. - [ ] **REFACTOR / cierre.** Verificar que `src/api/asignaciones.ts` no importe Prisma, no use `any`,
    no exponga `estado`/`sesionId` y que los DTO tengan timestamps ISO 8601.
 
