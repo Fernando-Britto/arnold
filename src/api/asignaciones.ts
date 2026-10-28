@@ -1,6 +1,7 @@
 import type { SugerenciaVigenteLeida } from "@/domains/asignacion/asignacion-puerto";
 import {
   calcularSinReservar,
+  decidirSugerencia,
   existeSocio,
   reservaVigente,
   resolverSocioDeUsuario,
@@ -37,6 +38,18 @@ export interface SiguienteDTO {
   ejercicioNombre: string;
   maquinaId: string | null;
   esperaSegundos: number;
+}
+
+export interface SolicitudDecision {
+  actor: ActorAsignaciones;
+  body: unknown;
+  ahora: Date;
+}
+
+export interface RespuestaDecision {
+  accion: "ACEPTAR" | "ESPERAR";
+  sugerencia: SugerenciaDTO | null;
+  siguienteEnOrden: SiguienteDTO | null;
 }
 
 export interface RespuestaSugerencia {
@@ -143,6 +156,67 @@ export async function handleObtenerSugerencia(
         sugerencia: vigente ? aSugerenciaDTO(vigente) : null,
         siguienteEnOrden: siguiente,
         calculadoEn: ahora.toISOString(),
+      },
+    };
+  } catch (err) {
+    const mapped = mapErrorToResponse(err, { resourceName: "Socio" });
+    return { status: mapped.status, body: { code: mapped.code, message: mapped.message } };
+  }
+}
+
+/** Body estricto: objeto plano con `accion` y nada más. */
+function leerAccion(body: unknown): "ACEPTAR" | "ESPERAR" | null {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return null;
+  const claves = Object.keys(body);
+  if (claves.length !== 1 || claves[0] !== "accion") return null;
+  const accion = (body as { accion?: unknown }).accion;
+  return accion === "ACEPTAR" || accion === "ESPERAR" ? accion : null;
+}
+
+function mensajeValidacion(): ErrorBody {
+  return {
+    code: "VALIDATION_ERROR",
+    message: "La solicitud no es válida: solo se acepta accion (ACEPTAR o ESPERAR)",
+  };
+}
+
+/**
+ * `POST /api/asignaciones/decidir`. Solo el SOCIO decide, y siempre sobre lo propio:
+ * el socio sale de la sesión y el body no puede elegirlo.
+ */
+export async function handleDecidirSugerencia(
+  solicitud: SolicitudDecision
+): Promise<ResultadoHandler<RespuestaDecision>> {
+  const { actor, body, ahora } = solicitud;
+
+  const accion = leerAccion(body);
+  if (!accion) return { status: 400, body: mensajeValidacion() };
+
+  if (actor.rol !== "SOCIO") return error(403, "FORBIDDEN", MENSAJE_FORBIDDEN);
+
+  try {
+    const socioId = await resolverSocioDeUsuario(actor.usuarioId);
+    if (!socioId) return error(404, "NOT_FOUND", MENSAJE_SOCIO_NO_ENCONTRADO);
+
+    const decision = await decidirSugerencia({ socioId, accion, ahora });
+
+    if (decision.tipo === "sin_sugerencia") {
+      return decision.motivo === "NUNCA_EXISTIO"
+        ? error(404, "SIN_SUGERENCIA", "No hay una sugerencia vigente")
+        : error(409, "SIN_SUGERENCIA_VIGENTE", "La sugerencia ya no está vigente; vuelva a consultar");
+    }
+
+    if (decision.tipo === "contenido") {
+      return error(500, "SERVER_ERROR", "No se pudo procesar la solicitud");
+    }
+
+    const siguiente = await siguienteSeguro(socioId, ahora);
+    return {
+      status: 200,
+      body: {
+        accion,
+        sugerencia: decision.tipo === "aceptada" ? aSugerenciaDTO(decision.reserva) : null,
+        siguienteEnOrden: siguiente,
       },
     };
   } catch (err) {
