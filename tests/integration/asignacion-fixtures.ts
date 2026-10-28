@@ -126,6 +126,54 @@ export async function crearEscenario(opciones: {
   };
 }
 
+/** Agrega un ejercicio más a la rutina del escenario (con sus máquinas) y lo registra para limpiar. */
+export async function agregarEjercicioARutina(
+  escenario: Escenario,
+  opciones: { nombre: string; maquinas: number; series?: number; descanso?: number; orden: number }
+): Promise<{ ejercicioId: string; maquinaIds: string[] }> {
+  const n = ++secuencia;
+  const ejercicio = await prisma.ejercicio.create({
+    data: {
+      nombre: `${opciones.nombre} ${n}`,
+      grupoMuscular: "Pecho",
+      equipamiento: "MAQUINA_GUIADA",
+    },
+    select: { id: true },
+  });
+  registrar("ejercicios", ejercicio.id);
+
+  const maquinaIds: string[] = [];
+  for (let i = 0; i < opciones.maquinas; i += 1) {
+    const maquina = await prisma.maquina.create({
+      data: {
+        nombre: `Maquina ${n}-${i}`,
+        ubicacion: "Sala principal",
+        tipoEquipamiento: "MAQUINA_GUIADA",
+        estado: "DISPONIBLE",
+      },
+      select: { id: true },
+    });
+    maquinaIds.push(maquina.id);
+    registrar("maquinas", maquina.id);
+    await prisma.ejercicioMaquina.create({
+      data: { ejercicioId: ejercicio.id, maquinaId: maquina.id },
+    });
+  }
+
+  await prisma.ejercicioEnRutina.create({
+    data: {
+      rutinaId: escenario.rutinaId,
+      ejercicioId: ejercicio.id,
+      series: opciones.series ?? 3,
+      repeticiones: 10,
+      descanso: opciones.descanso ?? 90,
+      orden: opciones.orden,
+    },
+  });
+
+  return { ejercicioId: ejercicio.id, maquinaIds };
+}
+
 export async function crearSesionEnCurso(
   escenario: Escenario,
   opciones: { horaInicio: Date }
