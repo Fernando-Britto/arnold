@@ -9,6 +9,7 @@ import {
   type SugerenciaSinReserva,
 } from "@/domains/asignacion/orquestacion";
 import { mapErrorToResponse } from "@/lib/route-error-mapper";
+import { timeoutsDeEntorno } from "@/lib/asignacion-timeouts";
 
 export interface ActorAsignaciones {
   usuarioId: string;
@@ -198,7 +199,10 @@ export async function handleDecidirSugerencia(
     const socioId = await resolverSocioDeUsuario(actor.usuarioId);
     if (!socioId) return error(404, "NOT_FOUND", MENSAJE_SOCIO_NO_ENCONTRADO);
 
-    const decision = await decidirSugerencia({ socioId, accion, ahora });
+    const decision = await decidirSugerencia(
+      { socioId, accion, ahora },
+      { timeouts: timeoutsDeEntorno() }
+    );
 
     if (decision.tipo === "sin_sugerencia") {
       // Los mensajes viven en `route-error-mapper`: acá solo viaja el código (D-102).

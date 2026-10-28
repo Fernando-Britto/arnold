@@ -102,3 +102,39 @@ describe("calcularYReservar", () => {
     expect(resultado).toEqual(expect.objectContaining({ venceEn: DIEZ_QUINCE }));
   });
 });
+
+describe("calcularYReservar: timeouts configurables (D-110)", () => {
+  it("usa los timeouts recibidos en la transacción y en la carrera externa", async () => {
+    jest.useFakeTimers();
+    const puerto = crearPuerto({ nuncaResuelve: true });
+    const error = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const promesa = calcularYReservar(
+        { socioId: "socio-1", ahora: AHORA, momento: "CHECK_IN" },
+        {
+          repositorio: puerto.repositorio,
+          motor: () => exito(),
+          timeouts: { calculoMs: 5000, maxWaitMs: 700 },
+        }
+      );
+
+      // Deja correr los awaits previos (gate de rutina) sin llegar al timeout.
+      await jest.advanceTimersByTimeAsync(1);
+      expect(puerto.enTransaccionBloqueada).toHaveBeenCalledWith(expect.any(Function), {
+        maxWait: 700,
+        timeout: 5000,
+      });
+
+      // La carrera externa vence en calculoMs + MARGEN_RESPUESTA_MS (5250), no en 2250.
+      await jest.advanceTimersByTimeAsync(2249);
+      await expect(Promise.race([promesa, Promise.resolve("sigue")])).resolves.toBe("sigue");
+
+      await jest.advanceTimersByTimeAsync(3001);
+      await expect(promesa).resolves.toEqual({ tipo: "contenido", motivo: "TIMEOUT" });
+    } finally {
+      error.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+});

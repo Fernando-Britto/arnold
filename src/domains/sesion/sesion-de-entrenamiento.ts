@@ -41,6 +41,7 @@ const REGISTROS_PARA_ULTIMA_VEZ = 50;
 export const RIR_MIN = 0;
 export const RIR_MAX = 5;
 
+import type { TimeoutsAsignacion } from "@/lib/asignacion-timeouts";
 import {
   completarEjecucionParaSesion,
   completarEjecucionesDeSesion,
@@ -57,6 +58,8 @@ export interface IniciarSesionInput {
   rutinaAsignadaId: string;
   /** Inyectable en tests; en producción es `new Date()`. */
   ahora?: Date;
+  /** Timeouts del recálculo (D-110); por defecto, los históricos. */
+  timeouts?: TimeoutsAsignacion;
 }
 
 export interface RegistrarSerieInput {
@@ -75,6 +78,8 @@ export interface RegistrarSerieInput {
   drops?: DropDeSerie[];
   /** Inyectable en tests; en producción es `new Date()`. */
   ahora?: Date;
+  /** Timeouts del recálculo (D-110); por defecto, los históricos. */
+  timeouts?: TimeoutsAsignacion;
 }
 
 /** Un drop set: la carga reducida y las repeticiones que hizo con ella. */
@@ -332,6 +337,7 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
       ahora,
       momento: "INICIO_RUTINA",
       excluirEjercicioIds: [],
+      ...(input.timeouts ? { timeouts: input.timeouts } : {}),
     });
   }
 
@@ -476,6 +482,8 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
   // D-103: sin los modelos nuevos, esta función se comporta exactamente como siempre.
   const tieneAsignaciones = esClienteConAsignaciones(prisma);
   let socioDeLaSesion = "";
+  // Design §9: el recálculo se dispara al COMPLETAR un ejercicio, no en cada serie.
+  let completoEjercicio = false;
 
   const resultado = await prisma.$transaction(async (tx) => {
     // SE-2: la lectura y revalidación de la sesión van DENTRO de la transacción. Si se
@@ -539,6 +547,7 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
     let siguienteSerie: number | null = numeroSerie + 1;
     let siguientePorOrden = false;
     if (numeroSerie >= actual.series) {
+      completoEjercicio = true;
       siguienteEjercicioId = null;
       siguienteSerie = null;
 
@@ -653,12 +662,13 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
     return { registro, sesion: sesionActualizada, drops: dropsGuardados };
   });
 
-  if (tipo !== "CALENTAMIENTO" && tieneAsignaciones) {
+  if (completoEjercicio && tieneAsignaciones) {
     await recalcularTrasSesion({
       socioId: socioDeLaSesion,
       ahora,
       momento: "POST_EJERCICIO",
       excluirEjercicioIds: [input.ejercicioId],
+      ...(input.timeouts ? { timeouts: input.timeouts } : {}),
     });
   }
 

@@ -127,6 +127,25 @@ describe("registrarSerie: última serie con reserva del siguiente", () => {
   });
 });
 
+describe("registrarSerie: solo recalcula al completar el ejercicio", () => {
+  it("una serie intermedia no recalcula, no lee la reserva ni crea filas", async () => {
+    const prisma = await mocks();
+    // E1 tiene 2 series: la serie 1 es intermedia.
+    prisma.sesionDeEntrenamiento.findUnique.mockResolvedValue(sesion({ serieActual: 1 }));
+
+    await registrarSerie(serie());
+
+    expect(mockCalcular).not.toHaveBeenCalled();
+    expect(prisma.asignacionDeEjercicio.findFirst).not.toHaveBeenCalled();
+    expect(prisma.__tx.asignacionDeEjercicio.updateMany).not.toHaveBeenCalled();
+    expect(prisma.asignacionDeEjercicio.create).not.toHaveBeenCalled();
+    expect(prisma.sesionDeEntrenamiento.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ serieActual: 1 }),
+      data: { ejercicioActualId: "E1", serieActual: 2 },
+    });
+  });
+});
+
 describe("registrarSerie: calentamiento, convivencia y fallback", () => {
   it("un calentamiento no consume reserva ni recalcula", async () => {
     const prisma = await mocks();

@@ -88,7 +88,10 @@ describe("gancho de check-in: disparo permitido", () => {
     await evaluarYRegistrarAcceso(prisma as unknown as PrismaLike, socio(), ENTRADA);
 
     expect(mockCalcular).toHaveBeenCalledTimes(1);
-    expect(mockCalcular).toHaveBeenCalledWith({ socioId: "socio-1", ahora: AHORA });
+    expect(mockCalcular).toHaveBeenCalledWith(
+      expect.objectContaining({ socioId: "socio-1", ahora: AHORA }),
+      expect.objectContaining({ timeouts: expect.anything() })
+    );
   });
 
   it("el gancho usa el mismo ahora de la asistencia", async () => {
@@ -99,7 +102,10 @@ describe("gancho de check-in: disparo permitido", () => {
     expect(prisma.asistencia.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ fechaHora: AHORA }),
     });
-    expect(mockCalcular).toHaveBeenCalledWith({ socioId: "socio-1", ahora: AHORA });
+    expect(mockCalcular).toHaveBeenCalledWith(
+      expect.objectContaining({ socioId: "socio-1", ahora: AHORA }),
+      expect.objectContaining({ timeouts: expect.anything() })
+    );
   });
 
   it("evaluarYRegistrarAcceso dispara el cálculo una sola vez", async () => {

@@ -3,12 +3,22 @@ import type {
   AsignacionTx,
   SugerenciaVigenteLeida,
 } from "./asignacion-puerto";
+import type { TimeoutsAsignacion } from "@/lib/asignacion-timeouts";
+import {
+  MAX_WAIT_POR_DEFECTO,
+  TIMEOUT_CALCULO_POR_DEFECTO,
+} from "@/lib/asignacion-timeouts";
 import { asignacionRepository } from "./asignacion-repositorio";
 import { calcularEspera } from "./motor-espera";
 
-export const TIMEOUT_CALCULO_MS = 2000;
+export const TIMEOUT_CALCULO_MS = TIMEOUT_CALCULO_POR_DEFECTO;
 export const MARGEN_RESPUESTA_MS = 250;
-const MAX_WAIT_TRANSACCION_MS = 1000;
+
+/** Valores por defecto: los mismos de siempre, para que los llamantes no cambien. */
+const TIMEOUTS_POR_DEFECTO: TimeoutsAsignacion = {
+  calculoMs: TIMEOUT_CALCULO_POR_DEFECTO,
+  maxWaitMs: MAX_WAIT_POR_DEFECTO,
+};
 
 export type MomentoCalculo = "CHECK_IN" | "INICIO_RUTINA" | "POST_EJERCICIO";
 
@@ -47,6 +57,8 @@ export interface DecidirSugerenciaInput {
 export interface DepsOrquestacion {
   repositorio: AsignacionPort;
   motor: typeof calcularEspera;
+  /** Configurables por entorno (D-110). Por defecto, los valores históricos. */
+  timeouts: TimeoutsAsignacion;
 }
 
 const TIMEOUT = Symbol("timeout");
@@ -55,6 +67,7 @@ function resolverDeps(deps: Partial<DepsOrquestacion>): DepsOrquestacion {
   return {
     repositorio: deps.repositorio ?? asignacionRepository,
     motor: deps.motor ?? calcularEspera,
+    timeouts: deps.timeouts ?? TIMEOUTS_POR_DEFECTO,
   };
 }
 
@@ -89,10 +102,10 @@ export async function calcularYReservar(
   input: CalcularYReservarInput,
   deps: Partial<DepsOrquestacion> = {}
 ): Promise<ResultadoOrquestacion> {
-  const { repositorio, motor } = resolverDeps(deps);
+  const { repositorio, motor, timeouts } = resolverDeps(deps);
 
   try {
-    return await calcularSeguro(input, repositorio, motor);
+    return await calcularSeguro(input, repositorio, motor, timeouts);
   } catch (error) {
     logError("error", { socioId: input.socioId, momento: input.momento, error });
     return { tipo: "contenido", motivo: "ERROR" };
@@ -102,7 +115,8 @@ export async function calcularYReservar(
 async function calcularSeguro(
   input: CalcularYReservarInput,
   repositorio: AsignacionPort,
-  motor: typeof calcularEspera
+  motor: typeof calcularEspera,
+  timeouts: TimeoutsAsignacion
 ): Promise<ResultadoOrquestacion> {
   if (!(await repositorio.tieneRutinaActiva(input.socioId))) {
     return { tipo: "fallback", motivo: "SIN_RUTINA" };
@@ -183,15 +197,15 @@ async function calcularSeguro(
         venceEn,
       };
     },
-    { maxWait: MAX_WAIT_TRANSACCION_MS, timeout: TIMEOUT_CALCULO_MS }
+    { maxWait: timeouts.maxWaitMs, timeout: timeouts.calculoMs }
   );
 
-  const salida = await conTimeout(trabajo, TIMEOUT_CALCULO_MS + MARGEN_RESPUESTA_MS);
+  const salida = await conTimeout(trabajo, timeouts.calculoMs + MARGEN_RESPUESTA_MS);
   if (salida === TIMEOUT) {
     logError("timeout", {
       socioId: input.socioId,
       momento: input.momento,
-      timeoutMs: TIMEOUT_CALCULO_MS + MARGEN_RESPUESTA_MS,
+      timeoutMs: timeouts.calculoMs + MARGEN_RESPUESTA_MS,
     });
     return { tipo: "contenido", motivo: "TIMEOUT" };
   }
@@ -233,7 +247,7 @@ export async function decidirSugerencia(
   input: DecidirSugerenciaInput,
   deps: Partial<DepsOrquestacion> = {}
 ): Promise<ResultadoDecision> {
-  const { repositorio } = resolverDeps(deps);
+  const { repositorio, timeouts } = resolverDeps(deps);
 
   try {
     const trabajo = repositorio.enTransaccionBloqueada(
@@ -250,15 +264,15 @@ export async function decidirSugerencia(
           ? { tipo: "esperada" }
           : { tipo: "sin_sugerencia", motivo: "YA_NO_VIGENTE" };
       },
-      { maxWait: MAX_WAIT_TRANSACCION_MS, timeout: TIMEOUT_CALCULO_MS }
+      { maxWait: timeouts.maxWaitMs, timeout: timeouts.calculoMs }
     );
 
-    const salida = await conTimeout(trabajo, TIMEOUT_CALCULO_MS + MARGEN_RESPUESTA_MS);
+    const salida = await conTimeout(trabajo, timeouts.calculoMs + MARGEN_RESPUESTA_MS);
     if (salida === TIMEOUT) {
       logError("timeout", {
         socioId: input.socioId,
         accion: input.accion,
-        timeoutMs: TIMEOUT_CALCULO_MS + MARGEN_RESPUESTA_MS,
+        timeoutMs: timeouts.calculoMs + MARGEN_RESPUESTA_MS,
       });
       return { tipo: "contenido", motivo: "TIMEOUT" };
     }

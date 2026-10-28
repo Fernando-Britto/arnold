@@ -6,6 +6,8 @@
  * sesión se comporta como siempre.
  */
 
+import type { TimeoutsAsignacion } from "@/lib/asignacion-timeouts";
+
 interface AsignacionDeEjercicioApi {
   findFirst(args: unknown): Promise<unknown>;
   updateMany(args: unknown): Promise<{ count: number }>;
@@ -87,6 +89,7 @@ export async function recalcularTrasSesion(input: {
   ahora: Date;
   momento: "INICIO_RUTINA" | "POST_EJERCICIO";
   excluirEjercicioIds: string[];
+  timeouts?: TimeoutsAsignacion;
 }): Promise<void> {
   try {
     const { calcularYReservar } = await import("@/domains/asignacion/orquestacion");
@@ -95,6 +98,7 @@ export async function recalcularTrasSesion(input: {
       ahora: input.ahora,
       momento: input.momento,
       excluirEjercicioIds: input.excluirEjercicioIds,
+      ...(input.timeouts ? { timeouts: input.timeouts } : {}),
     });
   } catch (error) {
     console.error("[ASIGNACION][sesion]", {

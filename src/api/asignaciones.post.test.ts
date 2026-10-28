@@ -108,11 +108,10 @@ describe("handleDecidirSugerencia: body y rol", () => {
     await handleDecidirSugerencia(solicitud({ accion: "ACEPTAR" }));
 
     expect(mockResolverSocio).toHaveBeenCalledWith("usuario-1");
-    expect(mockDecidir).toHaveBeenCalledWith({
-      socioId: "socio-1",
-      accion: "ACEPTAR",
-      ahora: AHORA,
-    });
+    expect(mockDecidir).toHaveBeenCalledWith(
+      expect.objectContaining({ socioId: "socio-1", accion: "ACEPTAR", ahora: AHORA }),
+      expect.objectContaining({ timeouts: expect.anything() })
+    );
   });
 });
 

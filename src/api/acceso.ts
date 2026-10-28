@@ -243,7 +243,8 @@ async function dispararCalculoDeAsignacion(input: {
 }): Promise<void> {
   try {
     const { calcularEnCheckIn } = await import("@/domains/asignacion/orquestacion");
-    await calcularEnCheckIn(input);
+    const { timeoutsDeEntorno } = await import("@/lib/asignacion-timeouts");
+    await calcularEnCheckIn(input, { timeouts: timeoutsDeEntorno() });
   } catch (error) {
     // Best-effort (P-64): la asistencia ya está registrada y la respuesta no cambia.
     console.error("[ASIGNACION][check-in]", {

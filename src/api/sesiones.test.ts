@@ -50,7 +50,7 @@ describe("handlers de sesiones", () => {
     const r = await handleIniciarSesion(input);
 
     expect(r).toEqual({ sesion: { id: "s1" }, ejercicios: [] });
-    expect(mockIniciar).toHaveBeenCalledWith(input);
+    expect(mockIniciar).toHaveBeenCalledWith(expect.objectContaining(input));
   });
 
   it("handleRegistrarSerie delega en registrarSerie", async () => {
@@ -60,7 +60,7 @@ describe("handlers de sesiones", () => {
     const r = await handleRegistrarSerie(input);
 
     expect(r).toEqual({ registro: { id: "r1" }, sesion: { id: "s1" } });
-    expect(mockRegistrar).toHaveBeenCalledWith(input);
+    expect(mockRegistrar).toHaveBeenCalledWith(expect.objectContaining(input));
   });
 
   it("handleFinalizarSesion delega en finalizarSesion", async () => {

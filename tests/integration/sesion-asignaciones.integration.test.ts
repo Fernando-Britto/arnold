@@ -58,7 +58,7 @@ describe("Flujo de sesión con asignaciones contra Postgres real", () => {
   });
 
   it("check-in, inicio, avance por orden y fin de sesión", async () => {
-    const escenario = await crearEscenario({ nombre: "Silvia", maquinas: 1, series: 1 });
+    const escenario = await crearEscenario({ nombre: "Silvia", maquinas: 1, series: 2 });
     const segundo = await agregarEjercicioARutina(escenario, {
       nombre: "Remo",
       maquinas: 1,
@@ -106,13 +106,38 @@ describe("Flujo de sesión con asignaciones contra Postgres real", () => {
     expect(enCursoDeLaSesion).toHaveLength(1);
     expect(enCursoDeLaSesion[0].ejercicioId).toBe(reserva.ejercicioId);
 
-    // c) última serie (el ejercicio tiene una) → completa y avanza
+    // c) serie intermedia: no debe tocar las filas del socio ni crear reservas
+    const antesDeLaSerie = await prisma.asignacionDeEjercicio.findMany({
+      where: { socioId: escenario.socioId },
+      orderBy: { id: "asc" },
+      select: { id: true, estado: true },
+    });
     await registrarSerie({
       sesionId,
       ejercicioId: reserva.ejercicioId,
       carga: 40,
       repeticiones: 10,
       ahora: minutos(2),
+    });
+    const despuesDeLaSerie = await prisma.asignacionDeEjercicio.findMany({
+      where: { socioId: escenario.socioId },
+      orderBy: { id: "asc" },
+      select: { id: true, estado: true },
+    });
+    expect(despuesDeLaSerie).toEqual(antesDeLaSerie);
+    expect(
+      await prisma.asignacionDeEjercicio.count({
+        where: { socioId: escenario.socioId, estado: "CANCELADA" },
+      })
+    ).toBe(0);
+
+    // c bis) última serie del ejercicio → completa y avanza
+    await registrarSerie({
+      sesionId,
+      ejercicioId: reserva.ejercicioId,
+      carga: 40,
+      repeticiones: 10,
+      ahora: minutos(3),
     });
 
     const completada = await prisma.asignacionDeEjercicio.findFirstOrThrow({
@@ -128,7 +153,7 @@ describe("Flujo de sesión con asignaciones contra Postgres real", () => {
     expect(avanzada.ejercicioActualId).toBe(esperadoSiguiente);
 
     // d) fin de sesión → ninguna fila EN_CURSO
-    await finalizarSesion({ sesionId, ahora: minutos(3) });
+    await finalizarSesion({ sesionId, ahora: minutos(4) });
     const enCursoAlFinal = await prisma.asignacionDeEjercicio.count({
       where: { sesionId, estado: "EN_CURSO" },
     });
