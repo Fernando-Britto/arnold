@@ -201,9 +201,9 @@ export async function handleDecidirSugerencia(
     const decision = await decidirSugerencia({ socioId, accion, ahora });
 
     if (decision.tipo === "sin_sugerencia") {
-      return decision.motivo === "NUNCA_EXISTIO"
-        ? error(404, "SIN_SUGERENCIA", "No hay una sugerencia vigente")
-        : error(409, "SIN_SUGERENCIA_VIGENTE", "La sugerencia ya no está vigente; vuelva a consultar");
+      // Los mensajes viven en `route-error-mapper`: acá solo viaja el código (D-102).
+      const codigo = decision.motivo === "NUNCA_EXISTIO" ? "SIN_SUGERENCIA" : "SIN_SUGERENCIA_VIGENTE";
+      throw Object.assign(new Error(codigo), { code: codigo });
     }
 
     if (decision.tipo === "contenido") {
