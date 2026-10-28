@@ -41,6 +41,14 @@ const REGISTROS_PARA_ULTIMA_VEZ = 50;
 export const RIR_MIN = 0;
 export const RIR_MAX = 5;
 
+import {
+  consumirReservaParaSesion,
+  crearEjecucionParaSesion,
+  esClienteConAsignaciones,
+  leerReservaVigenteParaSesion,
+  maquinaUnicaDe,
+} from "./integracion-asignaciones";
+
 export interface IniciarSesionInput {
   socioId: string;
   rutinaAsignadaId: string;
@@ -239,6 +247,17 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
   const primero = ejercicios[0] ?? null;
   const ahora = input.ahora ?? new Date();
 
+  // D-103: sin los modelos nuevos no se toca nada y la sesión se comporta como siempre.
+  const tieneAsignaciones = esClienteConAsignaciones(prisma);
+  const reserva = tieneAsignaciones
+    ? await leerReservaVigenteParaSesion(prisma, input.socioId, ahora)
+    : null;
+  const reservaDeLaRutina =
+    reserva && ejercicios.some((ejercicio) => ejercicio.ejercicioId === reserva.ejercicioId)
+      ? reserva
+      : null;
+  const ejercicioInicialId = reservaDeLaRutina?.ejercicioId ?? primero?.ejercicioId ?? null;
+
   // SE-1/SE-3: una sesión nueva cuando ya hay una EN_CURSO deja la anterior en ABANDONADA
   // (con horaFin). Así `ABANDONADA` tiene un disparador real y se mantiene el invariante
   // "a lo sumo una EN_CURSO por socio". El abandono y la creación van en UNA transacción.
@@ -258,11 +277,54 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
         rutinaAsignadaId: input.rutinaAsignadaId,
         estadoDeFinalizacion: "EN_CURSO",
         horaInicio: ahora,
-        ejercicioActualId: primero ? primero.ejercicioId : null,
-        serieActual: primero ? 1 : null,
+        ejercicioActualId: ejercicioInicialId,
+        serieActual: ejercicioInicialId ? 1 : null,
       },
     });
   });
+
+  if (tieneAsignaciones && reservaDeLaRutina) {
+    const sesionId = (sesion as { id: string }).id;
+    const consumida = await consumirReservaParaSesion(
+      prisma as Parameters<typeof consumirReservaParaSesion>[0],
+      reservaDeLaRutina.id,
+      sesionId,
+      ahora
+    );
+    if (!consumida) {
+      await prisma.sesionDeEntrenamiento.update({
+        where: { id: sesionId },
+        data: { ejercicioActualId: primero ? primero.ejercicioId : null, serieActual: primero ? 1 : null },
+      });
+    }
+  } else if (tieneAsignaciones && primero) {
+    await crearEjecucionParaSesion(prisma as Parameters<typeof crearEjecucionParaSesion>[0], {
+      socioId: input.socioId,
+      sesionId: (sesion as { id: string }).id,
+      ejercicioId: primero.ejercicioId,
+      maquinaId: await maquinaUnicaDe(prisma as Parameters<typeof maquinaUnicaDe>[0], primero.ejercicioId),
+      ahora,
+    });
+  }
+
+  if (tieneAsignaciones) {
+    try {
+      const { calcularYReservar } = await import("@/domains/asignacion/orquestacion");
+      await calcularYReservar({
+        socioId: input.socioId,
+        ahora,
+        momento: "INICIO_RUTINA",
+        excluirEjercicioIds: [],
+      });
+    } catch (error) {
+      // Best-effort: la sesión ya está creada y no se revierte por el recálculo.
+      console.error("[ASIGNACION][sesion]", {
+        socioId: input.socioId,
+        tipo: "error-no-contenido",
+        error,
+      });
+    }
+  }
 
   const { ultimasVeces, sugerencias, records } = await seguimientoDeEjercicios({
     socioId: input.socioId,
