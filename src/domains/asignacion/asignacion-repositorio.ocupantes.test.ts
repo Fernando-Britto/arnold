@@ -128,6 +128,55 @@ describe("AsignacionRepository: ocupantes y cola", () => {
       expect(m2?.ocupante).toEqual({ seriesRestantes: 2, descanso: 90 });
     });
 
+    /**
+     * Una fila EN_CURSO con `maquinaId: null` (la que crea el inicio de sesión cuando no hay
+     * máquina determinable) queda fuera de la consulta por `maquinaId: { not: null }`, así que la
+     * sesión se comporta como "sin fila": manda la regla de D-108.
+     */
+    function filasEnCurso(db: DbFalso, fila: { maquinaId: string | null }) {
+      db.asignacionDeEjercicio.findMany.mockImplementation(
+        (args: { where: { estado?: string; maquinaId?: { not: null } } }) => {
+          if (args.where.estado !== "EN_CURSO") return Promise.resolve([]);
+          // Fiel a Prisma: `maquinaId: { not: null }` descarta la fila sin máquina.
+          if (args.where.maquinaId && fila.maquinaId === null) return Promise.resolve([]);
+          return Promise.resolve([
+            {
+              id: "a-9",
+              socioId: "socio-2",
+              sesionId: "s-otro",
+              ejercicioId: "E1",
+              maquinaId: fila.maquinaId,
+              creadaEn: minutos(6),
+            },
+          ]);
+        }
+      );
+    }
+
+    it("fila EN_CURSO con maquinaId null y dos candidatas deja la máquina libre", async () => {
+      const db = preparar(3, ["M1", "M2"], { M1: "DISPONIBLE", M2: "DISPONIBLE" });
+      db.sesionDeEntrenamiento.findMany.mockResolvedValue([sesionOcupante()]);
+      filasEnCurso(db, { maquinaId: null });
+      progreso(db, [], [{ sesionId: "s-otro", fecha: minutos(5) }]);
+
+      const resultado = await repo(db).leerEntradaMotor(lectura);
+
+      expect(resultado?.entrada.maquinas.every((maquina) => maquina.ocupante === null)).toBe(true);
+    });
+
+    it("fila EN_CURSO con maquinaId null y una sola candidata sí ocupa", async () => {
+      const db = preparar(3, ["M1"], { M1: "DISPONIBLE" });
+      db.sesionDeEntrenamiento.findMany.mockResolvedValue([sesionOcupante()]);
+      filasEnCurso(db, { maquinaId: null });
+      progreso(db, [{ sesionId: "s-otro", ejercicioId: "E1", numeroSerie: 1 }], [
+        { sesionId: "s-otro", fecha: minutos(5) },
+      ]);
+
+      const resultado = await repo(db).leerEntradaMotor(lectura);
+
+      expect(resultado?.entrada.maquinas[0].ocupante).toEqual({ seriesRestantes: 2, descanso: 90 });
+    });
+
     it("seriesRestantes ignora CALENTAMIENTO y DROP_SET", async () => {
       const db = preparar(3, ["M1"], { M1: "DISPONIBLE" });
       db.sesionDeEntrenamiento.findMany.mockResolvedValue([sesionOcupante()]);
