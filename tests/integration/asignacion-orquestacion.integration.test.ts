@@ -1,7 +1,55 @@
 import { prisma } from "@/lib/db";
 import { asignacionRepository } from "@/domains/asignacion/asignacion-repositorio";
+import type { AsignacionPort } from "@/domains/asignacion/asignacion-puerto";
 import { calcularYReservar } from "@/domains/asignacion/orquestacion";
 import { AHORA, crearEscenario, limpiar } from "./asignacion-fixtures";
+
+/** Barrera de dos participantes con tope: si el otro no llega, sigue. */
+function barreraDeDos(topeMs: number) {
+  let llegados = 0;
+  let liberar: () => void = () => {};
+  const ambos = new Promise<void>((resolve) => {
+    liberar = resolve;
+  });
+  return {
+    async esperar(): Promise<void> {
+      llegados += 1;
+      if (llegados >= 2) {
+        liberar();
+        return;
+      }
+      await Promise.race([ambos, new Promise<void>((resolve) => setTimeout(resolve, topeMs))]);
+    },
+  };
+}
+
+/** Envuelve el puerto para que `leerEntradaMotor` pase por la barrera. Sin lock, las dos leen juntas. */
+function conBarreraDeLectura(barrera: { esperar: () => Promise<void> }): AsignacionPort {
+  const interceptar = (objeto: object) =>
+    new Proxy(objeto, {
+      get(objetivo, propiedad) {
+        const original = Reflect.get(objetivo, propiedad, objetivo);
+        if (propiedad === "leerEntradaMotor" && typeof original === "function") {
+          return async (lectura: unknown) => {
+            await barrera.esperar();
+            return (original as (l: unknown) => Promise<unknown>).call(objetivo, lectura);
+          };
+        }
+        return typeof original === "function" ? original.bind(objetivo) : original;
+      },
+    });
+
+  return new Proxy(asignacionRepository, {
+    get(objetivo, propiedad) {
+      if (propiedad === "enTransaccionBloqueada") {
+        return (fn: (tx: object) => Promise<unknown>, opciones?: { maxWait?: number; timeout?: number }) =>
+          objetivo.enTransaccionBloqueada((tx) => fn(interceptar(tx)), opciones);
+      }
+      const original = Reflect.get(objetivo, propiedad, objetivo);
+      return typeof original === "function" ? original.bind(objetivo) : original;
+    },
+  }) as unknown as AsignacionPort;
+}
 
 describe("Orquestación contra Postgres real", () => {
   beforeAll(async () => {
@@ -22,6 +70,7 @@ describe("Orquestación contra Postgres real", () => {
   it("dos check-in concurrentes sobre M1: una reserva por socio y una sola espera > 0", async () => {
     const a = await crearEscenario({ nombre: "Quique", maquinas: 1 });
     const b = await crearEscenario({ nombre: "Rita", maquinas: 1 });
+    const repositorio = conBarreraDeLectura(barreraDeDos(300));
 
     // Los dos ejercicios compiten por la MISMA máquina: se quita la propia de B y se asocia la de A.
     await prisma.ejercicioMaquina.deleteMany({ where: { maquinaId: b.maquinaIds[0] } });
@@ -30,8 +79,8 @@ describe("Orquestación contra Postgres real", () => {
     });
 
     const [primera, segunda] = await Promise.all([
-      calcularYReservar({ socioId: a.socioId, ahora: AHORA, momento: "CHECK_IN" }),
-      calcularYReservar({ socioId: b.socioId, ahora: AHORA, momento: "CHECK_IN" }),
+      calcularYReservar({ socioId: a.socioId, ahora: AHORA, momento: "CHECK_IN" }, { repositorio }),
+      calcularYReservar({ socioId: b.socioId, ahora: AHORA, momento: "CHECK_IN" }, { repositorio }),
     ]);
 
     expect(primera.tipo).toBe("reservada");

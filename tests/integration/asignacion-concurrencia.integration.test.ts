@@ -64,6 +64,40 @@ describe("AsignacionRepository: concurrencia contra Postgres real", () => {
     expect(filas[0].maquinaId).not.toBe(filas[1].maquinaId);
   });
 
+  it("una transacción espera a que la otra libere el advisory lock", async () => {
+    let liberarA: () => void = () => {};
+    const aPuedeSalir = new Promise<void>((resolve) => {
+      liberarA = resolve;
+    });
+    let avisarQueAEntro: () => void = () => {};
+    const aEntro = new Promise<void>((resolve) => {
+      avisarQueAEntro = resolve;
+    });
+    let bEjecuto = false;
+
+    const transaccionA = asignacionRepository.enTransaccionBloqueada(async () => {
+      avisarQueAEntro();
+      await aPuedeSalir;
+      return "A";
+    });
+
+    await aEntro;
+
+    const transaccionB = asignacionRepository.enTransaccionBloqueada(async () => {
+      bEjecuto = true;
+      return "B";
+    });
+
+    // Con lock, B no puede entrar mientras A está adentro. Sin lock, corre de inmediato.
+    await new Promise((resolver) => setTimeout(resolver, 250));
+    expect(bEjecuto).toBe(false);
+
+    liberarA();
+    await expect(transaccionA).resolves.toBe("A");
+    await expect(transaccionB).resolves.toBe("B");
+    expect(bEjecuto).toBe(true);
+  }, 15_000);
+
   it("el advisory lock se libera cuando la transacción falla", async () => {
     await expect(
       asignacionRepository.enTransaccionBloqueada(async () => {
