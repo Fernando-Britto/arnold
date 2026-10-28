@@ -9,7 +9,7 @@
 > `npm test`) y el estilo de `openspec/changes/archive/2026-10-25-motor-espera/tasks.md`
 > (estructura, campos por tarea, verificación, rollback y forecast; no su tamaño).
 >
-> **Numeración**: tareas **T-056a–T-056g** (última registrada: T-055d), decisiones **D-88–D-109**
+> **Numeración**: tareas **T-056a–T-056g** (última registrada: T-055d), decisiones **D-88–D-110**
 > (última: D-87), pendientes **P-68–P-71** (último: P-67). Verificado el 2026-10-26 contra
 > `openspec/decisions.md`: no hay colisiones.
 >
@@ -92,7 +92,7 @@ g3b (`finalizarSesion`). La suite quedó en **262 suites / 3.717 tests** y la in
 1. **Smokes manuales**: el de CP4b (curl de `/api/asignaciones/*` con los cuatro roles) y el de CP4c
    (check-in + sesión) quedan escritos en este archivo para que los corra Fernando con `npm run dev`.
 2. **`sdd-verify`** sobre el change completo, si se quiere un informe previo al archivo.
-3. **Archivar** el change (`sdd-archive`) y registrar D-88…D-109 en `openspec/decisions.md`.
+3. **Archivar** el change (`sdd-archive`) y registrar D-88…D-110 en `openspec/decisions.md`.
 4. **Merge**: `feat/asignacion-integracion` → `dev`, y `dev` → `main` cuando la integración esté
    corrida en el entorno real.
 
@@ -114,6 +114,15 @@ la relación observada en CP3 sugiere que el número real estará más cerca de 
 
 Los cortes por archivo ya declarados (e1/e2, f1/f2, g1/g2/g3) siguen vigentes; se miden con `wc -l`
 al crear cada archivo y se parte antes de pasar de ≈350 líneas.
+
+### Lección: el smoke manual contra la BD real encontró lo que los tests no veían
+
+Dos defectos aparecieron solo al correr el flujo a mano: `registrarSerie` recalculaba en **cada**
+serie en lugar de al completar el ejercicio (dejaba reservas `CANCELADA` de más), y el tope de 2 s del
+cálculo se quedaba corto contra una base remota, así que el check-in no creaba reserva. Los tests
+unitarios y de integración no podían verlo: el primero dependía de un `ahora`/serie que los fixtures
+no ejercitaban, y el segundo es una condición de latencia del entorno. Lección: el smoke manual sobre
+la base real sigue siendo una puerta propia (D-110 salió de ahí).
 
 ### Lección: los tests con Prisma falso no ejecutan el SQL real
 
@@ -1539,7 +1548,7 @@ Se abre P-71; P-28 sigue abierto por infraestructura de despliegue, no por esta 
 |---|---|---|---|
 | T-056a – T-056g | Siete slices verticales (CP1, CP2a, CP2b, CP3, CP4a, CP4b, CP4c) | T-055d | Ninguna |
 | D-88 – D-92 | Decisiones vinculantes de Fernando (cinco) | D-87 | Ninguna |
-| D-93 – D-109 | Decisiones propuestas por la IA y adoptadas en el diseño (diecisiete) | D-92 | Ninguna |
+| D-93 – D-110 | Decisiones propuestas por la IA y adoptadas en el diseño (dieciocho) | D-92 | Ninguna |
 | P-68 – P-71 | Cuatro pendientes de la etapa: P-68 y P-70 se cierran; P-69 sigue abierto y P-71 se abre | P-67 | Ninguna |
 
 Verificado el 2026-10-26 contra `openspec/decisions.md` (última decisión D-87; último pendiente P-67) y

@@ -1241,7 +1241,7 @@ no se convierte en 500: se degrada a `null` y se loguea.
 ## 12. Decisiones registradas (D-88+)
 
 Listas para pegar en `openspec/decisions.md`. Las D-88 a D-92 son decisiones de Fernando ya fijadas en la
-propuesta; las D-93 a D-109 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
+propuesta; las D-93 a D-110 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
 explícita al revisar el artefacto.
 
 ### Decisiones de Fernando (vinculantes)
@@ -1324,6 +1324,7 @@ explícita al revisar el artefacto.
 - **Decisión**: `TIMEOUT_CALCULO_MS = 2000` como `timeout` de la transacción interactiva, `maxWait = 1000`, y carrera externa a 2250 ms como red de seguridad.
 - **Por qué**: el cálculo normal es rápido; 2 s acota la peor latencia sin dejar la transacción abierta ni el lock retenido (Prisma aborta al vencer).
 - **Dónde**: `src/domains/asignacion/orquestacion.ts`, `asignacion-repositorio.ts`, `member-access-check`.
+- **Ver D-110**: el tope es configurable por entorno.
 
 #### D-99 · Matriz de permisos de `/api/asignaciones`
 - **Origen**: IA, adoptada.
@@ -1412,6 +1413,14 @@ explícita al revisar el artefacto.
 - **Por qué**: es el mismo patrón que `ResultadoOrquestacion`; la excepción no atraviesa capas.
 - **Alternativa descartada**: que `decidirSugerencia` lance y el handler mapee.
 - **Dónde**: `orquestacion.ts`, §7 de este diseño, spec `asignacion-api`.
+
+#### D-110 · Tope del cálculo configurable por entorno
+- **Origen**: IA, adoptada tras el smoke manual.
+- **Contexto**: contra una base remota (Supabase) desde una máquina local, el cálculo del check-in supera los 2000 ms, el motor devuelve `TIMEOUT` y no se crea reserva; subiendo el tope a 20 s a mano todo el flujo funciona.
+- **Decisión**: `ASIGNACION_TIMEOUT_CALCULO_MS` (entero, 500–30000, por defecto 2000) y `ASIGNACION_MAX_WAIT_TRANSACCION_MS` (mismo criterio, por defecto 1000). Los lee `src/lib/asignacion-timeouts.ts` y llegan a la orquestación por parámetro; el dominio nunca lee `process.env`.
+- **Por qué**: en producción, con la base cerca, el valor por defecto alcanza; en desarrollo o demos con base remota, no. Un valor inválido cae al default sin lanzar: la configuración nunca rompe el check-in.
+- **Alternativa descartada**: fijar un tope mayor para todos (alarga la espera del check-in en el caso normal) y mover el cálculo a `after` (D-98: no verificado en Vercel).
+- **Dónde**: `src/lib/asignacion-timeouts.ts`, `orquestacion.ts` (`DepsOrquestacion.timeouts`), `src/api/{acceso,sesiones,asignaciones}.ts`, `.env.example`.
 
 ## 13. Plan de pruebas TDD
 
@@ -1696,6 +1705,7 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 | `0/0` en filas `EN_CURSO` por orden de rutina se confunde con una reserva de espera cero | Media | Limitación declarada; la simulación debe separar por origen operativo. Si se vuelve bloqueante, una columna `origen` se evalúa en otra etapa (no se agrega acá). |
 | Un futuro feature usa otro advisory lock y colisiona con la clave | Baja | `880000001` queda reservado para esta instalación; cualquier otro lock debe usar otra clave y documentarla. |
 | Latencia del recálculo tras la última serie | Baja | Solo se recalcula al completar un ejercicio (no en cada serie), con timeout de 2 s; un fallo no rompe la sesión. |
+| BD remota en desarrollo supera 2 s | Media | Configurar `ASIGNACION_TIMEOUT_CALCULO_MS` (D-110); el valor por defecto es el de producción. |
 
 ### Trazabilidad
 
@@ -1744,7 +1754,7 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 
 ### Numeración
 
-- Decisiones de esta change: **D-88 a D-109** (22). Última previa: D-87.
+- Decisiones de esta change: **D-88 a D-110** (23). Última previa: D-87.
 - Tareas: **T-056+** quedan reservadas para `sdd-tasks`; este diseño no asigna IDs de tarea.
 - Pendientes: **P-68** se cierra con el test de concurrencia; **P-69** sigue abierto (limpieza batch, fuera de
   alcance); **P-70** se cierra con la integración de sesión; **P-71** se abre (latencia del check-in, Etapa 5 /
