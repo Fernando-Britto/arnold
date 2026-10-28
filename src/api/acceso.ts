@@ -219,6 +219,10 @@ export async function evaluarYRegistrarAcceso(
     });
   });
 
+  if (permitido) {
+    await dispararCalculoDeAsignacion({ socioId: socio.id, ahora });
+  }
+
   return {
     resultado: decision.resultado,
     ...(decision.motivo ? { motivo: decision.motivo } : {}),
@@ -229,6 +233,25 @@ export async function evaluarYRegistrarAcceso(
     },
     estadoCuota,
   };
+}
+
+/** Cálculo best-effort de la asignación (T-056g). El import dinámico evita arrastrar la capa de
+ * datos al bundle del navegador; la orquestación ya contiene sus propios errores. */
+async function dispararCalculoDeAsignacion(input: {
+  socioId: string;
+  ahora: Date;
+}): Promise<void> {
+  try {
+    const { calcularEnCheckIn } = await import("@/domains/asignacion/orquestacion");
+    await calcularEnCheckIn(input);
+  } catch (error) {
+    // Best-effort (P-64): la asistencia ya está registrada y la respuesta no cambia.
+    console.error("[ASIGNACION][check-in]", {
+      socioId: input.socioId,
+      tipo: "error-no-contenido",
+      error,
+    });
+  }
 }
 
 /**
