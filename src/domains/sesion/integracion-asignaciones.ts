@@ -85,6 +85,7 @@ export async function maquinaUnicaDe(
 export async function recalcularTrasSesion(input: {
   socioId: string;
   ahora: Date;
+  momento: "INICIO_RUTINA" | "POST_EJERCICIO";
   excluirEjercicioIds: string[];
 }): Promise<void> {
   try {
@@ -92,7 +93,7 @@ export async function recalcularTrasSesion(input: {
     await calcularYReservar({
       socioId: input.socioId,
       ahora: input.ahora,
-      momento: "INICIO_RUTINA",
+      momento: input.momento,
       excluirEjercicioIds: input.excluirEjercicioIds,
     });
   } catch (error) {
@@ -102,6 +103,19 @@ export async function recalcularTrasSesion(input: {
       error,
     });
   }
+}
+
+/** Marca `COMPLETADA` la ejecución del ejercicio terminado (solo toca `EN_CURSO`). */
+export async function completarEjecucionParaSesion(
+  tx: ClienteConAsignaciones,
+  sesionId: string,
+  ejercicioId: string
+): Promise<number> {
+  const { count } = await tx.asignacionDeEjercicio.updateMany({
+    where: { sesionId, ejercicioId, estado: "EN_CURSO" },
+    data: { estado: "COMPLETADA" },
+  });
+  return count;
 }
 
 /** Fila `EN_CURSO` del ejercicio que arranca sin reserva. Snapshot 0/0 (D-108). */

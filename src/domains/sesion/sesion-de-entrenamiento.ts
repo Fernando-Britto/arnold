@@ -42,6 +42,7 @@ export const RIR_MIN = 0;
 export const RIR_MAX = 5;
 
 import {
+  completarEjecucionParaSesion,
   consumirReservaParaSesion,
   crearEjecucionParaSesion,
   esClienteConAsignaciones,
@@ -325,7 +326,12 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
   });
 
   if (tieneAsignaciones) {
-    await recalcularTrasSesion({ socioId: input.socioId, ahora, excluirEjercicioIds: [] });
+    await recalcularTrasSesion({
+      socioId: input.socioId,
+      ahora,
+      momento: "INICIO_RUTINA",
+      excluirEjercicioIds: [],
+    });
   }
 
   const { ultimasVeces, sugerencias, records } = await seguimientoDeEjercicios({
@@ -463,8 +469,14 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
     throw new Error("VALIDATION_ERROR: El drop set se agrega a una serie, no se registra solo");
   }
   const drops = validarDrops(input.drops, tipo);
+  // Mismo criterio que `iniciarSesion`: manda el `ahora` inyectado.
+  const ahora = input.ahora ?? new Date();
 
-  return prisma.$transaction(async (tx) => {
+  // D-103: sin los modelos nuevos, esta función se comporta exactamente como siempre.
+  const tieneAsignaciones = esClienteConAsignaciones(prisma);
+  let socioDeLaSesion = "";
+
+  const resultado = await prisma.$transaction(async (tx) => {
     // SE-2: la lectura y revalidación de la sesión van DENTRO de la transacción. Si se
     // leyera afuera, un doble envío concurrente podría calcular el mismo `numeroSerie`
     // a partir del mismo `serieActual` y perder el avance.
@@ -490,6 +502,7 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
       throw new Error("VALIDATION_ERROR: El ejercicio no es el actual de la sesión");
     }
 
+    socioDeLaSesion = sesion.socioId;
     const ejercicios = sesion.rutinaAsignada.rutina.ejercicios;
     const idxActual = ejercicios.findIndex((e) => e.ejercicioId === sesion.ejercicioActualId);
     if (idxActual < 0) {
@@ -523,14 +536,41 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
 
     let siguienteEjercicioId: string | null = sesion.ejercicioActualId;
     let siguienteSerie: number | null = numeroSerie + 1;
+    let siguientePorOrden = false;
     if (numeroSerie >= actual.series) {
-      const siguiente = ejercicios[idxActual + 1];
-      if (siguiente) {
-        siguienteEjercicioId = siguiente.ejercicioId;
-        siguienteSerie = 1;
-      } else {
-        siguienteEjercicioId = null;
-        siguienteSerie = null;
+      siguienteEjercicioId = null;
+      siguienteSerie = null;
+
+      // Design §9: la reserva se lee y se consume DENTRO de esta transacción.
+      if (tieneAsignaciones) {
+        const cliente = tx as unknown as Parameters<typeof consumirReservaParaSesion>[0];
+        const reserva = await leerReservaVigenteParaSesion(cliente, sesion.socioId, ahora);
+        const reservaDeLaRutina =
+          reserva && ejercicios.some((e) => e.ejercicioId === reserva.ejercicioId)
+            ? reserva
+            : null;
+
+        if (reservaDeLaRutina) {
+          const consumida = await consumirReservaParaSesion(
+            cliente,
+            reservaDeLaRutina.id,
+            sesion.id,
+            ahora
+          );
+          if (consumida) {
+            siguienteEjercicioId = reservaDeLaRutina.ejercicioId;
+            siguienteSerie = 1;
+          }
+        }
+      }
+
+      if (siguienteEjercicioId === null) {
+        const siguiente = ejercicios[idxActual + 1];
+        if (siguiente) {
+          siguienteEjercicioId = siguiente.ejercicioId;
+          siguienteSerie = 1;
+          siguientePorOrden = true;
+        }
       }
     }
 
@@ -553,6 +593,21 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
       throw new Error(
         "VALIDATION_ERROR: La sesión fue modificada por un registro concurrente; recargá e intentá de nuevo"
       );
+    }
+
+    if (tieneAsignaciones && numeroSerie >= actual.series) {
+      const cliente = tx as unknown as Parameters<typeof completarEjecucionParaSesion>[0];
+      await completarEjecucionParaSesion(cliente, sesion.id, input.ejercicioId);
+
+      if (siguientePorOrden && siguienteEjercicioId) {
+        await crearEjecucionParaSesion(cliente, {
+          socioId: sesion.socioId,
+          sesionId: sesion.id,
+          ejercicioId: siguienteEjercicioId,
+          maquinaId: await maquinaUnicaDe(cliente, siguienteEjercicioId),
+          ahora,
+        });
+      }
     }
 
     const registro = await tx.registroDeProgreso.create({
@@ -596,6 +651,17 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
     });
     return { registro, sesion: sesionActualizada, drops: dropsGuardados };
   });
+
+  if (tipo !== "CALENTAMIENTO" && tieneAsignaciones) {
+    await recalcularTrasSesion({
+      socioId: socioDeLaSesion,
+      ahora,
+      momento: "POST_EJERCICIO",
+      excluirEjercicioIds: [input.ejercicioId],
+    });
+  }
+
+  return resultado;
 }
 
 /**
