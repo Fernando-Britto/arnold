@@ -55,7 +55,8 @@ async function leerCandidatosDeOcupantes(
       sesiones
         .filter((sesion) => {
           const fila = filaPorSesion.get(sesion.id);
-          return !fila || fila.ejercicioId !== sesion.ejercicioActualId;
+          // Una fila sin máquina cuenta como "sin fila" también acá (D-108).
+          return !fila || fila.ejercicioId !== sesion.ejercicioActualId || fila.maquinaId === null;
         })
         .map((sesion) => sesion.ejercicioActualId)
         .filter((id): id is string => id !== null)
@@ -204,7 +205,9 @@ export async function aplicarOcupantes(
     if (!prescripcion) continue;
 
     const fila = filaPorSesion.get(sesion.id);
-    const filaVigente = fila && fila.ejercicioId === ejercicioId ? fila : undefined;
+    // Una fila sin máquina equivale a "sin fila": manda la candidata única (D-108).
+    const filaVigente =
+      fila && fila.ejercicioId === ejercicioId && fila.maquinaId !== null ? fila : undefined;
     const candidatas = filaVigente
       ? []
       : candidatosPorEjercicio.get(ejercicioId) ?? [];

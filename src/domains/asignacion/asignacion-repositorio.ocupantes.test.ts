@@ -177,6 +177,36 @@ describe("AsignacionRepository: ocupantes y cola", () => {
       expect(resultado?.entrada.maquinas[0].ocupante).toEqual({ seriesRestantes: 2, descanso: 90 });
     });
 
+    it("una fila sin máquina que llegara al código no pierde la candidata única", async () => {
+      const db = preparar(3, ["M1"], { M1: "DISPONIBLE" });
+      db.sesionDeEntrenamiento.findMany.mockResolvedValue([sesionOcupante()]);
+      // Doble infiel a propósito: ignora el filtro `maquinaId: { not: null }` de la consulta.
+      db.asignacionDeEjercicio.findMany.mockImplementation(
+        (args: { where: { estado?: string } }) =>
+          Promise.resolve(
+            args.where.estado === "EN_CURSO"
+              ? [
+                  {
+                    id: "a-9",
+                    socioId: "socio-2",
+                    sesionId: "s-otro",
+                    ejercicioId: "E1",
+                    maquinaId: null,
+                    creadaEn: minutos(6),
+                  },
+                ]
+              : []
+          )
+      );
+      progreso(db, [{ sesionId: "s-otro", ejercicioId: "E1", numeroSerie: 1 }], [
+        { sesionId: "s-otro", fecha: minutos(5) },
+      ]);
+
+      const resultado = await repo(db).leerEntradaMotor(lectura);
+
+      expect(resultado?.entrada.maquinas[0].ocupante).toEqual({ seriesRestantes: 2, descanso: 90 });
+    });
+
     it("seriesRestantes ignora CALENTAMIENTO y DROP_SET", async () => {
       const db = preparar(3, ["M1"], { M1: "DISPONIBLE" });
       db.sesionDeEntrenamiento.findMany.mockResolvedValue([sesionOcupante()]);
