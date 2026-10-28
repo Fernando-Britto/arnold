@@ -80,6 +80,22 @@ Chain strategy: no aplica (sin PRs: un slice = un commit en feat/asignacion-inte
 No se requiere decisión previa al apply: el rebanado está autorizado por el diseño y el usuario. El
 riesgo es de tamaño, no de alcance; se controla con `git diff --shortstat` y los cortes declarados.
 
+### Estado de CP4 (cerrado) y lo que queda
+
+CP4 se entregó en nueve commits: e1 (GET), e2 (POST), f1 (matriz + mapper), f2 (rutas), g1 (gancho de
+check-in), g2 (adaptador + inicio), g2b (consumo dentro de la transacción), g3a (`registrarSerie`) y
+g3b (`finalizarSesion`). La suite quedó en **262 suites / 3.717 tests** y la integración en
+**9 suites / 54 tests**, con el flujo de sesión real contra Postgres.
+
+**Pendientes al cerrar CP4** (ninguno es código de esta change):
+
+1. **Smokes manuales**: el de CP4b (curl de `/api/asignaciones/*` con los cuatro roles) y el de CP4c
+   (check-in + sesión) quedan escritos en este archivo para que los corra Fernando con `npm run dev`.
+2. **`sdd-verify`** sobre el change completo, si se quiere un informe previo al archivo.
+3. **Archivar** el change (`sdd-archive`) y registrar D-88…D-109 en `openspec/decisions.md`.
+4. **Merge**: `feat/asignacion-integracion` → `dev`, y `dev` → `main` cuando la integración esté
+   corrida en el entorno real.
+
 ### Estado de CP3 y estimaciones para CP4
 
 CP3 se entregó en cinco commits: d1a (camino feliz, 318 líneas), d1b (fallback/inválido/errores,
@@ -98,6 +114,14 @@ la relación observada en CP3 sugiere que el número real estará más cerca de 
 
 Los cortes por archivo ya declarados (e1/e2, f1/f2, g1/g2/g3) siguen vigentes; se miden con `wc -l`
 al crear cada archivo y se parte antes de pasar de ≈350 líneas.
+
+### Lección: los tests con Prisma falso no ejecutan el SQL real
+
+Un adaptador que escribe en base no está probado hasta que corre contra Postgres. En CP2 el doble
+escondió que `SELECT pg_advisory_xact_lock(...)` devolvía una columna `void` que Prisma no sabe
+deserializar; en CP4 el flujo de sesión (check-in → inicio → avance → fin) nunca había ejecutado su SQL
+real. Regla: cada adaptador nuevo que escribe necesita **al menos un flujo contra Postgres** en
+`tests/integration/`, aunque tenga unitarios completos.
 
 ### Lección: los tests de concurrencia se verifican con mutación
 
@@ -822,8 +846,8 @@ queda sin llamante y la tabla permanece. El check-in y la sesión todavía no lo
 ### T-056e · Handlers HTTP de sugerencia y decisión (CP4a)
 
 > **Partición**: **e1** (GET, pasos 1–4) ✅ **completo** — `handleObtenerSugerencia` con 13 tests.
-> **e2** (POST, pasos 5–7) en curso — `handleDecidirSugerencia`. El GET vive en
-> `src/api/asignaciones.ts`; los tests se separaron por verbo (`asignaciones.test.ts` y
+> **e2** (POST, pasos 5–7) ✅ **completo** — `handleDecidirSugerencia` con 17 tests, incluidas las tres
+> formas de D-109. Los tests se separaron por verbo (`asignaciones.test.ts` y
 > `asignaciones.post.test.ts`) para no pasar el tope de un archivo.
 
 **Objetivo**: crear `src/api/asignaciones.ts` con `handleObtenerSugerencia` y
@@ -932,7 +956,13 @@ los 200/400/403/404/409/500 y los DTO exactos. El smoke HTTP es el CP4b/CP4c.
 **Rollback**: revertir el commit. El handler y su test desaparecen; ninguna ruta lo importa todavía. La
 orquestación y el repositorio quedan intactos.
 
-### T-056f · Rutas `/api/asignaciones/*`, matriz RBAC y error mapper (CP4b)
+### T-056f · Rutas `/api/asignaciones/*`, matriz RBAC y error mapper (CP4b) — ✅ **completo**
+
+> **Partición**: **f1** ✅ matriz (SOCIO GET+POST, INSTRUCTOR GET, ADMINISTRADOR GET explícito que
+> recorta el comodín, RECEPCIONISTA sin entrada) + `SIN_SUGERENCIA` (404) y
+> `SIN_SUGERENCIA_VIGENTE` (409) en el mapper. **f2** ✅ rutas `sugerencia` (GET) y `decidir` (POST)
+> con 401/403, `readJsonBody` y propagación literal del status/body. Consistencia matriz↔handlers verde
+> sin `EXCEPCIONES` nuevas.
 
 **Objetivo**: exponer los dos handlers como rutas de Next con sesión, parseo y envelope HTTP; agregar la
 entrada `/api/asignaciones` a la matriz de permisos con la forma exacta de D-99; y agregar al
@@ -1054,7 +1084,14 @@ curl -s -H "Authorization: Bearer $TOKEN_ADMIN" \
 **Rollback**: revertir el commit. Las rutas desaparecen; la matriz y el mapper vuelven al estado previo;
 el handler de T-056e queda sin ruta. No hay cambios de datos.
 
-### T-056g · Gancho de check-in y adaptador de sesión (CP4c)
+### T-056g · Gancho de check-in y adaptador de sesión (CP4c) — ✅ **completo**
+
+> **Partición**: **g1** ✅ gancho best-effort en `evaluarYRegistrarAcceso` (10 tests). **g2** ✅
+> adaptador `integracion-asignaciones.ts` + `iniciarSesion` (9 tests). **g2b** ✅ consumo de la reserva
+> dentro de la transacción del inicio. **g3a** ✅ `registrarSerie` (6 tests: consume la reserva, avanza
+> por orden, completa la ejecución, calentamiento sin efectos, D-103). **g3b** ✅ `finalizarSesion`
+> (3 tests: cierra sesión y ejecuciones en una transacción, idempotente, D-103). Flujo real contra
+> Postgres en `sesion-asignaciones.integration.test.ts` (3 casos).
 
 **Objetivo**: disparar el cálculo best-effort desde `evaluarYRegistrarAcceso` después de la transacción
 de asistencia, y conectar la sesión con las asignaciones mediante
