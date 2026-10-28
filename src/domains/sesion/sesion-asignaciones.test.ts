@@ -25,9 +25,22 @@ jest.mock("@/lib/db", () => {
     ejercicioMaquina: { findMany: jest.fn() },
     $transaction: jest.fn(),
   };
+  // `tx` es OTRO objeto: comparte los dobles de lectura y de creación (para no reescribir las
+  // aserciones existentes) pero tiene su propio `updateMany` de la reserva, que es justo lo que
+  // debe probarse dentro de la transacción.
+  const tx = {
+    sesionDeEntrenamiento: prisma.sesionDeEntrenamiento,
+    asignacionDeEjercicio: {
+      findFirst: prisma.asignacionDeEjercicio.findFirst,
+      create: prisma.asignacionDeEjercicio.create,
+      updateMany: jest.fn(),
+    },
+    ejercicioMaquina: prisma.ejercicioMaquina,
+  };
   prisma.$transaction.mockImplementation((ops: unknown) =>
-    typeof ops === "function" ? Promise.resolve(ops(prisma)) : Promise.all([])
+    typeof ops === "function" ? Promise.resolve(ops(tx)) : Promise.all([])
   );
+  (prisma as unknown as { __tx: typeof tx }).__tx = tx;
   return { prisma };
 });
 jest.mock("@/domains/asignacion/orquestacion");
@@ -51,6 +64,13 @@ interface PrismaFalso {
   asignacionDeEjercicio: { findFirst: jest.Mock; updateMany: jest.Mock; create: jest.Mock };
   ejercicioMaquina: { findMany: jest.Mock };
   $transaction: jest.Mock;
+  __tx: TxFalso;
+}
+
+interface TxFalso {
+  sesionDeEntrenamiento: { updateMany: jest.Mock; create: jest.Mock };
+  asignacionDeEjercicio: { findFirst: jest.Mock; updateMany: jest.Mock; create: jest.Mock };
+  ejercicioMaquina: { findMany: jest.Mock };
 }
 
 async function mocks(): Promise<PrismaFalso> {
@@ -101,6 +121,7 @@ beforeEach(async () => {
   prisma.reglaDeProgresion.findFirst.mockResolvedValue(null);
   prisma.asignacionDeEjercicio.findFirst.mockResolvedValue(null);
   prisma.asignacionDeEjercicio.updateMany.mockResolvedValue({ count: 1 });
+  prisma.__tx.asignacionDeEjercicio.updateMany.mockResolvedValue({ count: 1 });
   prisma.asignacionDeEjercicio.create.mockResolvedValue({ id: "a-nueva" });
   prisma.ejercicioMaquina.findMany.mockResolvedValue([{ maquinaId: "M1" }]);
 });
@@ -122,7 +143,7 @@ describe("iniciarSesion con asignaciones", () => {
     expect(prisma.sesionDeEntrenamiento.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ ejercicioActualId: "E2", serieActual: 1 }),
     });
-    expect(prisma.asignacionDeEjercicio.updateMany).toHaveBeenCalledWith({
+    expect(prisma.__tx.asignacionDeEjercicio.updateMany).toHaveBeenCalledWith({
       where: { id: "a-1", estado: "RESERVADA", venceEn: { gt: AHORA } },
       data: { estado: "EN_CURSO", sesionId: "s-1" },
     });
@@ -177,7 +198,7 @@ describe("iniciarSesion: reservas que no aplican y fallback", () => {
         where: expect.objectContaining({ estado: "RESERVADA", venceEn: { gt: AHORA } }),
       })
     );
-    expect(prisma.asignacionDeEjercicio.updateMany).not.toHaveBeenCalled();
+    expect(prisma.__tx.asignacionDeEjercicio.updateMany).not.toHaveBeenCalled();
     expect(prisma.sesionDeEntrenamiento.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ ejercicioActualId: "E1" }),
     });
@@ -193,7 +214,7 @@ describe("iniciarSesion: reservas que no aplican y fallback", () => {
 
     await iniciar();
 
-    expect(prisma.asignacionDeEjercicio.updateMany).not.toHaveBeenCalled();
+    expect(prisma.__tx.asignacionDeEjercicio.updateMany).not.toHaveBeenCalled();
     expect(prisma.sesionDeEntrenamiento.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ ejercicioActualId: "E1", serieActual: 1 }),
     });
@@ -234,5 +255,21 @@ describe("iniciarSesion: reservas que no aplican y fallback", () => {
       cliente.asignacionDeEjercicio = asignacionOriginal;
       cliente.ejercicioMaquina = maquinaOriginal;
     }
+  });
+});
+
+describe("iniciarSesion: la reserva se consume dentro de la transacción", () => {
+  it("el consumo de la reserva corre sobre tx y no sobre el cliente raíz", async () => {
+    const prisma = await mocks();
+    prisma.asignacionDeEjercicio.findFirst.mockResolvedValue({
+      id: "a-1",
+      ejercicioId: "E2",
+      maquinaId: "M2",
+    });
+
+    await iniciar();
+
+    expect(prisma.__tx.asignacionDeEjercicio.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.asignacionDeEjercicio.updateMany).not.toHaveBeenCalled();
   });
 });

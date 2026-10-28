@@ -47,6 +47,7 @@ import {
   esClienteConAsignaciones,
   leerReservaVigenteParaSesion,
   maquinaUnicaDe,
+  recalcularTrasSesion,
 } from "./integracion-asignaciones";
 
 export interface IniciarSesionInput {
@@ -271,7 +272,7 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
       data: { estadoDeFinalizacion: "ABANDONADA", horaFin: ahora },
     });
 
-    return tx.sesionDeEntrenamiento.create({
+    const creada = await tx.sesionDeEntrenamiento.create({
       data: {
         socioId: input.socioId,
         rutinaAsignadaId: input.rutinaAsignadaId,
@@ -281,49 +282,50 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
         serieActual: ejercicioInicialId ? 1 : null,
       },
     });
+    const sesionId = (creada as { id: string }).id;
+    const cliente = tx as unknown as Parameters<typeof consumirReservaParaSesion>[0];
+
+    if (tieneAsignaciones && reservaDeLaRutina) {
+      // Consumo y fallback, dentro de la misma transacción que crea la sesión (design §9).
+      const consumida = await consumirReservaParaSesion(
+        cliente,
+        reservaDeLaRutina.id,
+        sesionId,
+        ahora
+      );
+      if (!consumida) {
+        await tx.sesionDeEntrenamiento.update({
+          where: { id: sesionId },
+          data: {
+            ejercicioActualId: primero ? primero.ejercicioId : null,
+            serieActual: primero ? 1 : null,
+          },
+        });
+        if (primero) {
+          await crearEjecucionParaSesion(cliente, {
+            socioId: input.socioId,
+            sesionId,
+            ejercicioId: primero.ejercicioId,
+            maquinaId: await maquinaUnicaDe(cliente, primero.ejercicioId),
+            ahora,
+          });
+        }
+      }
+    } else if (tieneAsignaciones && primero) {
+      await crearEjecucionParaSesion(cliente, {
+        socioId: input.socioId,
+        sesionId,
+        ejercicioId: primero.ejercicioId,
+        maquinaId: await maquinaUnicaDe(cliente, primero.ejercicioId),
+        ahora,
+      });
+    }
+
+    return creada;
   });
 
-  if (tieneAsignaciones && reservaDeLaRutina) {
-    const sesionId = (sesion as { id: string }).id;
-    const consumida = await consumirReservaParaSesion(
-      prisma as Parameters<typeof consumirReservaParaSesion>[0],
-      reservaDeLaRutina.id,
-      sesionId,
-      ahora
-    );
-    if (!consumida) {
-      await prisma.sesionDeEntrenamiento.update({
-        where: { id: sesionId },
-        data: { ejercicioActualId: primero ? primero.ejercicioId : null, serieActual: primero ? 1 : null },
-      });
-    }
-  } else if (tieneAsignaciones && primero) {
-    await crearEjecucionParaSesion(prisma as Parameters<typeof crearEjecucionParaSesion>[0], {
-      socioId: input.socioId,
-      sesionId: (sesion as { id: string }).id,
-      ejercicioId: primero.ejercicioId,
-      maquinaId: await maquinaUnicaDe(prisma as Parameters<typeof maquinaUnicaDe>[0], primero.ejercicioId),
-      ahora,
-    });
-  }
-
   if (tieneAsignaciones) {
-    try {
-      const { calcularYReservar } = await import("@/domains/asignacion/orquestacion");
-      await calcularYReservar({
-        socioId: input.socioId,
-        ahora,
-        momento: "INICIO_RUTINA",
-        excluirEjercicioIds: [],
-      });
-    } catch (error) {
-      // Best-effort: la sesión ya está creada y no se revierte por el recálculo.
-      console.error("[ASIGNACION][sesion]", {
-        socioId: input.socioId,
-        tipo: "error-no-contenido",
-        error,
-      });
-    }
+    await recalcularTrasSesion({ socioId: input.socioId, ahora, excluirEjercicioIds: [] });
   }
 
   const { ultimasVeces, sugerencias, records } = await seguimientoDeEjercicios({

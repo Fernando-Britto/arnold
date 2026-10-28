@@ -78,6 +78,32 @@ export async function maquinaUnicaDe(
   return filas.length === 1 ? filas[0].maquinaId : null;
 }
 
+/**
+ * Recálculo posterior a un cambio de sesión. Best-effort: cualquier fallo se loguea y no revierte
+ * nada. La orquestación entra por `import()` dinámico para no arrastrar la capa de datos.
+ */
+export async function recalcularTrasSesion(input: {
+  socioId: string;
+  ahora: Date;
+  excluirEjercicioIds: string[];
+}): Promise<void> {
+  try {
+    const { calcularYReservar } = await import("@/domains/asignacion/orquestacion");
+    await calcularYReservar({
+      socioId: input.socioId,
+      ahora: input.ahora,
+      momento: "INICIO_RUTINA",
+      excluirEjercicioIds: input.excluirEjercicioIds,
+    });
+  } catch (error) {
+    console.error("[ASIGNACION][sesion]", {
+      socioId: input.socioId,
+      tipo: "error-no-contenido",
+      error,
+    });
+  }
+}
+
 /** Fila `EN_CURSO` del ejercicio que arranca sin reserva. Snapshot 0/0 (D-108). */
 export async function crearEjecucionParaSesion(
   tx: ClienteConAsignaciones,
