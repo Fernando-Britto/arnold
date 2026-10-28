@@ -9,7 +9,7 @@
 > `npm test`) y el estilo de `openspec/changes/archive/2026-10-25-motor-espera/tasks.md`
 > (estructura, campos por tarea, verificación, rollback y forecast; no su tamaño).
 >
-> **Numeración**: tareas **T-056a–T-056g** (última registrada: T-055d), decisiones **D-88–D-108**
+> **Numeración**: tareas **T-056a–T-056g** (última registrada: T-055d), decisiones **D-88–D-109**
 > (última: D-87), pendientes **P-68–P-71** (último: P-67). Verificado el 2026-10-26 contra
 > `openspec/decisions.md`: no hay colisiones.
 >
@@ -80,6 +80,25 @@ Chain strategy: no aplica (sin PRs: un slice = un commit en feat/asignacion-inte
 No se requiere decisión previa al apply: el rebanado está autorizado por el diseño y el usuario. El
 riesgo es de tamaño, no de alcance; se controla con `git diff --shortstat` y los cortes declarados.
 
+### Estado de CP3 y estimaciones para CP4
+
+CP3 se entregó en cinco commits: d1a (camino feliz, 318 líneas), d1b (fallback/inválido/errores,
+375), d2a (decisión, 263), d2b (consultas y pasarelas, ≈300) y d3 (concurrencia en Postgres, 95).
+Total ≈1.350 líneas frente a las ≈1.100 estimadas: **1,2×** sobre el recálculo, no el 3× de CP2. La
+integración quedó en **8 suites / 50 tests**.
+
+Para CP4 se mantiene la estimación recalculada al 3× como **cota superior** (CP2 la justificó), pero
+la relación observada en CP3 sugiere que el número real estará más cerca de 2×:
+
+| Tarea | Original | Cota 3× | Esperado ≈2× |
+|---|---|---|---|
+| T-056e | ≈275 | ≈825 | ≈550 |
+| T-056f | ≈195 | ≈585 | ≈390 |
+| T-056g | ≈390 | ≈1.170 | ≈780 |
+
+Los cortes por archivo ya declarados (e1/e2, f1/f2, g1/g2/g3) siguen vigentes; se miden con `wc -l`
+al crear cada archivo y se parte antes de pasar de ≈350 líneas.
+
 ### Estimaciones corregidas con la medición de CP2
 
 CP2 (T-056b + T-056c) se estimó en ≈740 líneas y midió **2.327** (3,1×). La desviación no es ruido: el puerto
@@ -132,7 +151,7 @@ no se renumera el resto del plan.
 | **T-056a** | Esquema, migraciones, configuración y panel | CP1 | `prisma/schema.prisma` (modificado), `prisma/migrations/20261026120000_asignacion_ejercicio/migration.sql` (nuevo), `prisma/migrations/20261026120500_asignacion_configuracion/migration.sql` (nuevo), `src/domains/configuracion/configuracion.ts` (modificado), `src/lib/configuracion.ts` (modificado), `src/app/configuracion/page.tsx` (modificado), tests de configuración/panel (modificados), `tests/integration/configuracion-asignacion.integration.test.ts` (nuevo) | ≈240 | — | `npm test -- <tests>`; `npm run test:integration`; `npx tsc --noEmit`; `npx eslint <archivos>`; `npx prisma migrate diff` | Revertir el commit; rollback SQL comentado si la migración se aplicó |
 | **T-056b** | Repositorio: puerto, DTO y lecturas base | CP2a | `src/domains/asignacion/asignacion-repositorio.ts` (nuevo), `src/domains/asignacion/asignacion-repositorio.test.ts` (nuevo) | ≈370 | T-056a | `npm test -- src/domains/asignacion/asignacion-repositorio.test.ts`; `npx tsc --noEmit`; `npx eslint <archivo>`; guardianes | Revertir el commit; el archivo y su test desaparecen; nada los importa |
 | **T-056c** | Entrada del motor, ocupantes frescos, cola, P-67, vencimiento, escrituras y lock | CP2b | `src/domains/asignacion/asignacion-repositorio.ts` (modificado), `src/domains/asignacion/asignacion-repositorio.test.ts` (modificado), `tests/integration/asignacion-persistencia.integration.test.ts` (nuevo) | ≈395 | T-056b | `npm test -- src/domains/asignacion/asignacion-repositorio.test.ts`; `npm run test:integration`; `npx tsc --noEmit`; `npx eslint <archivos>` | Revertir el commit; la tabla y las columnas quedan; el código viejo no las lee |
-| **T-056d** | Orquestación: lock, transacción, cálculo, reserva, fallback, timeout, decisión y concurrencia | CP3 | `src/domains/asignacion/orquestacion.ts` (nuevo), `src/domains/asignacion/orquestacion.test.ts` (nuevo), `tests/integration/asignacion-concurrencia.integration.test.ts` (nuevo) | ≈365 | T-056c | `npm test -- src/domains/asignacion/orquestacion.test.ts`; `npm run test:integration`; `npx tsc --noEmit`; `npx eslint <archivos>` | Revertir el commit; el servicio desaparece; el repositorio queda sin llamante |
+| **T-056d** | Orquestación: lock, transacción, cálculo, reserva, fallback, timeout, decisión y concurrencia | CP3 | `src/domains/asignacion/orquestacion.ts` (nuevo), `src/domains/asignacion/orquestacion.test.ts` (nuevo), `tests/integration/asignacion-orquestacion.integration.test.ts` (nuevo; el de lock de CP2 es `asignacion-concurrencia.integration.test.ts`) | ≈365 | T-056c | `npm test -- src/domains/asignacion/orquestacion.test.ts`; `npm run test:integration`; `npx tsc --noEmit`; `npx eslint <archivos>` | Revertir el commit; el servicio desaparece; el repositorio queda sin llamante |
 | **T-056e** | Handlers HTTP de sugerencia y decisión | CP4a | `src/api/asignaciones.ts` (nuevo), `src/api/asignaciones.test.ts` (nuevo) | ≈275 | T-056d | `npm test -- src/api/asignaciones.test.ts`; `npx tsc --noEmit`; `npx eslint <archivos>` | Revertir el commit; el handler desaparece; ninguna ruta lo importa todavía |
 | **T-056f** | Rutas `/api/asignaciones/*`, matriz RBAC y error mapper | CP4b | `src/app/api/asignaciones/sugerencia/route.ts` (nuevo), `src/app/api/asignaciones/decidir/route.ts` (nuevo), `src/app/api/asignaciones/sugerencia/route.test.ts` (nuevo), `src/app/api/asignaciones/decidir/route.test.ts` (nuevo), `src/lib/authorization.ts` (modificado), `src/lib/authorization.test.ts` (modificado), `src/lib/route-error-mapper.ts` (modificado), `src/lib/route-error-mapper.test.ts` (modificado) | ≈195 | T-056e | `npm test -- src/app/api/asignaciones src/lib/authorization.test.ts src/lib/route-error-mapper.test.ts src/lib/authorization-consistency.test.ts`; `npx tsc --noEmit`; `npx eslint <archivos>` | Revertir el commit; rutas, matriz y mapper vuelven al estado previo |
 | **T-056g** | Gancho de check-in y adaptador de sesión | CP4c | `src/api/acceso.ts` (modificado), `src/api/acceso-asignacion.test.ts` (nuevo), `src/domains/sesion/integracion-asignaciones.ts` (nuevo), `src/domains/sesion/sesion-de-entrenamiento.ts` (modificado), `src/domains/sesion/sesion-asignaciones.test.ts` (nuevo) | ≈390 | T-056f | `npm test -- src/api/acceso-asignacion.test.ts src/domains/sesion/sesion-asignaciones.test.ts`; `npm test`; `npm run test:integration`; `npx tsc --noEmit`; `npx eslint <archivos>` | Revertir el commit; el gancho y el adaptador desaparecen; la sesión y el check-in vuelven al comportamiento actual |
@@ -631,7 +650,13 @@ filas si los tests limpiaron sus datos.
 **Rollback**: revertir el commit. La tabla y las columnas quedan; el código viejo no las lee. El
 repositorio vuelve a T-056b y la orquestación todavía no existe (llega en T-056d).
 
-### T-056d · Orquestación: lock, transacción, cálculo, reserva, fallback, timeout, decisión y concurrencia (CP3)
+### T-056d · Orquestación: lock, transacción, cálculo, reserva, fallback, timeout, decisión y concurrencia (CP3) — ✅ **completo**
+
+> Estado: T-056d1a (camino feliz), T-056d1b (fallback, inválido, errores y timeout), T-056d2a
+> (`decidirSugerencia` y `reservaVigente`), T-056d2b (`calcularSinReservar`, `calcularEnCheckIn` y
+> pasarelas) y T-056d3 (concurrencia contra Postgres) están implementados y verdes. La prueba de
+> concurrencia vive en `asignacion-orquestacion.integration.test.ts`; el archivo de CP2
+> (`asignacion-concurrencia.integration.test.ts`) cubre el lock y su liberación, sin duplicarse.
 
 **Objetivo**: crear `src/domains/asignacion/orquestacion.ts` con `calcularYReservar`,
 `calcularSinReservar`, `decidirSugerencia`, `reservaVigente`, `calcularEnCheckIn`,
@@ -642,7 +667,7 @@ a `Date.now()` y no importa Prisma. La prueba de concurrencia corre contra Docke
 **Archivos**:
 - `src/domains/asignacion/orquestacion.ts` (nuevo).
 - `src/domains/asignacion/orquestacion.test.ts` (nuevo).
-- `tests/integration/asignacion-concurrencia.integration.test.ts` (nuevo).
+- `tests/integration/asignacion-orquestacion.integration.test.ts` (nuevo; el de lock de CP2 es `asignacion-concurrencia.integration.test.ts`).
 - `src/domains/asignacion/asignacion-repositorio.ts` (read-only desde este slice; se consume su puerto).
 - `src/domains/asignacion/motor-espera.ts` (read-only).
 
@@ -1460,7 +1485,7 @@ Se abre P-71; P-28 sigue abierto por infraestructura de despliegue, no por esta 
 |---|---|---|---|
 | T-056a – T-056g | Siete slices verticales (CP1, CP2a, CP2b, CP3, CP4a, CP4b, CP4c) | T-055d | Ninguna |
 | D-88 – D-92 | Decisiones vinculantes de Fernando (cinco) | D-87 | Ninguna |
-| D-93 – D-108 | Decisiones propuestas por la IA y adoptadas en el diseño (dieciséis) | D-92 | Ninguna |
+| D-93 – D-109 | Decisiones propuestas por la IA y adoptadas en el diseño (diecisiete) | D-92 | Ninguna |
 | P-68 – P-71 | Cuatro pendientes de la etapa: P-68 y P-70 se cierran; P-69 sigue abierto y P-71 se abre | P-67 | Ninguna |
 
 Verificado el 2026-10-26 contra `openspec/decisions.md` (última decisión D-87; último pendiente P-67) y

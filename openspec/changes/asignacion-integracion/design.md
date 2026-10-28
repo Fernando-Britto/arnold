@@ -718,6 +718,9 @@ export async function existeSocio(
 ): Promise<boolean>;
 ```
 
+`existeSocio` es la adición mínima que exige AC-481 en la API (distinguir 404 por socio inexistente
+de 404 por falta de sugerencia); por eso figura en §11 y no en el listado original de este apartado.
+
 ### Cálculo + reserva (forma exacta)
 
 ```ts
@@ -1238,7 +1241,7 @@ no se convierte en 500: se degrada a `null` y se loguea.
 ## 12. Decisiones registradas (D-88+)
 
 Listas para pegar en `openspec/decisions.md`. Las D-88 a D-92 son decisiones de Fernando ya fijadas en la
-propuesta; las D-93 a D-108 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
+propuesta; las D-93 a D-109 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
 explícita al revisar el artefacto.
 
 ### Decisiones de Fernando (vinculantes)
@@ -1346,7 +1349,7 @@ explícita al revisar el artefacto.
 #### D-102 · Regla determinista 404 vs 409 en `decidir`
 - **Origen**: IA, adoptada.
 - **Contexto**: el spec distingue "nunca existió" de "venció o se canceló entre la lectura y la decisión", pero el `POST` no recibe el id de la reserva.
-- **Decisión**: sin sugerencia vigente, se mira la última fila del socio por `creadaEn desc`. `RESERVADA` (vencida o sin máquina) → `409 SIN_SUGERENCIA_VIGENTE`; `CANCELADA` creada dentro de `minutosVencimientoReserva` → `409`; cualquier otro caso → `404 SIN_SUGERENCIA`.
+- **Decisión**: sin sugerencia vigente, se mira la última fila del socio por `creadaEn desc`. `RESERVADA` (vencida o sin máquina) → `409 SIN_SUGERENCIA_VIGENTE`; `CANCELADA` creada dentro de `minutosVencimientoReserva` (ventana inclusiva: `creadaEn >= ahora − ventana`, igual que D-105) → `409`; cualquier otro caso → `404 SIN_SUGERENCIA`.
 - **Por qué**: es determinista con el `ahora` inyectado, acota el 409 a una ventana y evita un 409 eterno tras un `ESPERAR` antiguo.
 - **Dónde**: `decidirSugerencia`, `src/api/asignaciones.ts`, `asignacion-api`.
 
@@ -1401,6 +1404,14 @@ explícita al revisar el artefacto.
 - **Por qué**: asignar a la máquina equivocada inventaría esperas falsas sobre una máquina libre; sin dato real no se adivina.
 - **Mitigación pendiente**: evaluar en T-056g que el adaptador de sesión registre una fila `EN_CURSO` con `maquinaId` siempre que la máquina sea conocida.
 - **Dónde**: `aplicarOcupantes` (`asignacion-ocupacion.ts`), spec de persistencia, D-97.
+
+#### D-109 · `decidirSugerencia` devuelve `contenido` ante ERROR o TIMEOUT
+- **Origen**: CP3, adoptada.
+- **Contexto**: el spec de API exige que un fallo de persistencia en `POST` devuelva 500 `SERVER_ERROR` (AC-484); sin una variante de error, la única salida era `sin_sugerencia` (404/409), que miente sobre la causa.
+- **Decisión**: `ResultadoDecision` incluye `{ tipo: "contenido"; motivo: "ERROR" | "TIMEOUT" }`; la función no lanza y el handler lo mapea a 500.
+- **Por qué**: es el mismo patrón que `ResultadoOrquestacion`; la excepción no atraviesa capas.
+- **Alternativa descartada**: que `decidirSugerencia` lance y el handler mapee.
+- **Dónde**: `orquestacion.ts`, §7 de este diseño, spec `asignacion-api`.
 
 ## 13. Plan de pruebas TDD
 
@@ -1733,7 +1744,7 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 
 ### Numeración
 
-- Decisiones de esta change: **D-88 a D-108** (21). Última previa: D-87.
+- Decisiones de esta change: **D-88 a D-109** (22). Última previa: D-87.
 - Tareas: **T-056+** quedan reservadas para `sdd-tasks`; este diseño no asigna IDs de tarea.
 - Pendientes: **P-68** se cierra con el test de concurrencia; **P-69** sigue abierto (limpieza batch, fuera de
   alcance); **P-70** se cierra con la integración de sesión; **P-71** se abre (latencia del check-in, Etapa 5 /
