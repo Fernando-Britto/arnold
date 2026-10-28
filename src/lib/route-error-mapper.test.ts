@@ -504,3 +504,60 @@ describe("mapErrorToResponse — máquinas: VALIDATION_MAX_EJERCICIOS", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+describe("mapErrorToResponse — códigos de asignaciones (D-102)", () => {
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("mapea SIN_SUGERENCIA a 404 con mensaje en español", () => {
+    const res = mapErrorToResponse(
+      Object.assign(new Error("SIN_SUGERENCIA: No hay una sugerencia vigente"), {
+        code: "SIN_SUGERENCIA",
+      })
+    );
+
+    expect(res).toEqual({
+      code: "SIN_SUGERENCIA",
+      message: "No hay una sugerencia vigente",
+      status: 404,
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mapea el prefijo SIN_SUGERENCIA sin code", () => {
+    const res = mapErrorToResponse(new Error("SIN_SUGERENCIA: No hay una sugerencia vigente"));
+
+    expect(res).toEqual({
+      code: "SIN_SUGERENCIA",
+      message: "No hay una sugerencia vigente",
+      status: 404,
+    });
+  });
+
+  it("mapea SIN_SUGERENCIA_VIGENTE a 409 con mensaje en español", () => {
+    const res = mapErrorToResponse(
+      Object.assign(new Error("SIN_SUGERENCIA_VIGENTE: La sugerencia ya no está vigente; vuelva a consultar"), {
+        code: "SIN_SUGERENCIA_VIGENTE",
+      })
+    );
+
+    expect(res).toEqual({
+      code: "SIN_SUGERENCIA_VIGENTE",
+      message: "La sugerencia ya no está vigente; vuelva a consultar",
+      status: 409,
+    });
+  });
+
+  it("no filtra el detalle interno en el 500", () => {
+    const res = mapErrorToResponse(new Error("conexión perdida: host interno"));
+
+    expect(res).toEqual({
+      code: "SERVER_ERROR",
+      message: "No se pudo procesar la solicitud",
+      status: 500,
+    });
+  });
+});

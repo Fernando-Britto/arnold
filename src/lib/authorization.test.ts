@@ -330,3 +330,38 @@ describe("Authorization Matrix", () => {
     });
   });
 });
+
+describe("Matriz /api/asignaciones (D-99)", () => {
+  it("SOCIO tiene GET y POST en /api/asignaciones", () => {
+    expect(hasRouteAccess("SOCIO", "/api/asignaciones/sugerencia", "GET")).toEqual({
+      allowed: true,
+      basePath: "/api/asignaciones",
+    });
+    expect(hasRouteAccess("SOCIO", "/api/asignaciones/decidir", "POST").allowed).toBe(true);
+  });
+
+  it("ADMINISTRADOR e INSTRUCTOR solo tienen GET", () => {
+    expect(hasRouteAccess("ADMINISTRADOR", "/api/asignaciones/sugerencia", "GET").allowed).toBe(true);
+    expect(hasRouteAccess("ADMINISTRADOR", "/api/asignaciones/decidir", "POST").allowed).toBe(false);
+    expect(hasRouteAccess("INSTRUCTOR", "/api/asignaciones/sugerencia", "GET").allowed).toBe(true);
+    expect(hasRouteAccess("INSTRUCTOR", "/api/asignaciones/decidir", "POST").allowed).toBe(false);
+  });
+
+  it("RECEPCIONISTA no tiene acceso", () => {
+    expect(hasRouteAccess("RECEPCIONISTA", "/api/asignaciones/sugerencia", "GET").allowed).toBe(false);
+    expect(hasRouteAccess("RECEPCIONISTA", "/api/asignaciones/decidir", "POST").allowed).toBe(false);
+  });
+
+  it("la entrada explícita de ADMINISTRADOR recorta el comodín para POST", () => {
+    expect(hasRouteAccess("ADMINISTRADOR", "/api/asignaciones/decidir", "POST")).toEqual({
+      allowed: false,
+      basePath: "/api/asignaciones",
+    });
+  });
+
+  it("la entrada de SOCIO no habilita otros métodos", () => {
+    for (const metodo of ["PUT", "PATCH", "DELETE"] as const) {
+      expect(hasRouteAccess("SOCIO", "/api/asignaciones/sugerencia", metodo).allowed).toBe(false);
+    }
+  });
+});
