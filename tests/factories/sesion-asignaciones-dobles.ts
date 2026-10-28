@@ -6,7 +6,12 @@
  */
 
 export interface TxFalso {
-  sesionDeEntrenamiento: { updateMany: jest.Mock; create: jest.Mock };
+  sesionDeEntrenamiento: {
+    updateMany: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    findUnique: jest.Mock;
+  };
   registroDeProgreso: { create: jest.Mock };
   asignacionDeEjercicio: { findFirst: jest.Mock; updateMany: jest.Mock; create: jest.Mock };
   ejercicioMaquina: { findMany: jest.Mock };
@@ -49,7 +54,7 @@ export function crearModuloDb() {
     $transaction: jest.fn(),
   };
   const tx: TxFalso = {
-    sesionDeEntrenamiento: prisma.sesionDeEntrenamiento,
+    sesionDeEntrenamiento: { ...prisma.sesionDeEntrenamiento, update: jest.fn() },
     registroDeProgreso: prisma.registroDeProgreso,
     asignacionDeEjercicio: {
       findFirst: prisma.asignacionDeEjercicio.findFirst,

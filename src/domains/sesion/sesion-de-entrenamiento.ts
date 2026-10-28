@@ -43,6 +43,7 @@ export const RIR_MAX = 5;
 
 import {
   completarEjecucionParaSesion,
+  completarEjecucionesDeSesion,
   consumirReservaParaSesion,
   crearEjecucionParaSesion,
   esClienteConAsignaciones,
@@ -717,13 +718,29 @@ export async function finalizarSesion(input: FinalizarSesionInput) {
   }
 
   const completo = (sesion as { serieActual: number | null }).serieActual === null;
+  const datos = {
+    horaFin: input.ahora ?? new Date(),
+    estadoDeFinalizacion: completo ? "COMPLETADA" : "INCOMPLETA",
+  } as const;
 
-  return prisma.sesionDeEntrenamiento.update({
-    where: { id: input.sesionId },
-    data: {
-      horaFin: input.ahora ?? new Date(),
-      estadoDeFinalizacion: completo ? "COMPLETADA" : "INCOMPLETA",
-    },
+  // D-103: sin los modelos nuevos, fin de sesión es exactamente lo de siempre.
+  // `Boolean(...)` evita que TypeScript estreche `prisma` al tipo de la guarda (rompería `$transaction`).
+  const tieneAsignaciones = Boolean(esClienteConAsignaciones(prisma));
+  if (!tieneAsignaciones) {
+    return prisma.sesionDeEntrenamiento.update({ where: { id: input.sesionId }, data: datos });
+  }
+
+  // Design §9: la sesión y sus ejecuciones se cierran en UNA transacción.
+  return prisma.$transaction(async (tx) => {
+    const actualizada = await tx.sesionDeEntrenamiento.update({
+      where: { id: input.sesionId },
+      data: datos,
+    });
+    await completarEjecucionesDeSesion(
+      tx as unknown as Parameters<typeof completarEjecucionesDeSesion>[0],
+      input.sesionId
+    );
+    return actualizada;
   });
 }
 

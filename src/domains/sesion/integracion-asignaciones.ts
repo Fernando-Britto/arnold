@@ -118,6 +118,18 @@ export async function completarEjecucionParaSesion(
   return count;
 }
 
+/** `COMPLETADA` para todas las filas `EN_CURSO` de la sesión (fin de sesión). */
+export async function completarEjecucionesDeSesion(
+  tx: ClienteConAsignaciones,
+  sesionId: string
+): Promise<number> {
+  const { count } = await tx.asignacionDeEjercicio.updateMany({
+    where: { sesionId, estado: "EN_CURSO" },
+    data: { estado: "COMPLETADA" },
+  });
+  return count;
+}
+
 /** Fila `EN_CURSO` del ejercicio que arranca sin reserva. Snapshot 0/0 (D-108). */
 export async function crearEjecucionParaSesion(
   tx: ClienteConAsignaciones,

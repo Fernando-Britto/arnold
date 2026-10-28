@@ -192,7 +192,7 @@ describe("iniciarSesion: la reserva ya no se puede consumir", () => {
     expect(prisma.sesionDeEntrenamiento.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ ejercicioActualId: "E2", serieActual: 1 }),
     });
-    expect(prisma.sesionDeEntrenamiento.update).toHaveBeenCalledWith({
+    expect(prisma.__tx.sesionDeEntrenamiento.update).toHaveBeenCalledWith({
       where: { id: "s-1" },
       data: { ejercicioActualId: "E1", serieActual: 1 },
     });
