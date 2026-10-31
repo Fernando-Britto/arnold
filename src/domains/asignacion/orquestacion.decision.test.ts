@@ -1,4 +1,5 @@
 import { decidirSugerencia, reservaVigente } from "./orquestacion";
+import * as motorEspera from "./motor-espera";
 import {
   AHORA,
   crearPuerto,
@@ -121,5 +122,28 @@ describe("reservaVigente", () => {
     const puerto = crearPuerto({ sugerencia: null });
 
     expect(await reservaVigente({ socioId: "socio-1", ahora: AHORA }, deps(puerto))).toBeNull();
+  });
+});
+
+describe("reservaVigente: instantánea inmutable y sin motor (AC-402 / AC-411)", () => {
+  it("devuelve los 120/60 guardados aunque cambie el gimnasio, sin invocar el motor", async () => {
+    const puerto = crearPuerto({
+      sugerencia: sugerencia({ esperaSegundos: 120, ahorroSegundos: 60 }),
+    });
+    const motor = jest.spyOn(motorEspera, "calcularEspera");
+
+    try {
+      const primera = await reservaVigente({ socioId: "socio-1", ahora: AHORA }, deps(puerto));
+
+      // El gimnasio cambia entre lecturas: la fila persistida no se recalcula.
+      puerto.cancelarReservasActivas.mockResolvedValue(99);
+      const segunda = await reservaVigente({ socioId: "socio-1", ahora: AHORA }, deps(puerto));
+
+      expect(primera).toMatchObject({ esperaSegundos: 120, ahorroSegundos: 60 });
+      expect(segunda).toEqual(primera);
+      expect(motor).not.toHaveBeenCalled();
+    } finally {
+      motor.mockRestore();
+    }
   });
 });

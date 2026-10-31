@@ -15,10 +15,9 @@ compuertas de tipos, lint del change, tests unitarios y build están verdes. **L
 integración no pudo ejecutarse en esta sesión** (Docker no accesible desde el usuario), aunque sí se
 corrió dos veces en la pasada anterior con 9 suites / 54 tests en verde.
 
-Las observaciones son de cobertura, no de comportamiento: la ventana anti-passback "fuera de
-alcance" (AC-453/AC-525), la inmutabilidad de la instantánea al leer (AC-402), las lecturas sin motor
-(AC-411) y la identidad de fila entre GET/POST/sesión (AC-486) no tienen un test que las asevere
-como tales, aunque el código las cumple.
+Las observaciones son de cobertura, no de comportamiento. **Actualizado el 2026-10-25**: los
+hallazgos medios 1 (AC-453/AC-525) y 2 (AC-402/AC-411) quedaron cerrados con tests nuevos (ver
+"Seguimiento"); el medio 3 (compuerta de integración sin Docker) y los bajos 4–7 siguen abiertos.
 
 ## Compuertas
 
@@ -81,7 +80,7 @@ test propio) · ❌ sin cobertura.
 | AC | Test(s) | Estado |
 |---|---|---|
 | AC-401 | `configuracion-asignacion.integration` → "aplica las dos migraciones desde cero y crea la tabla con sus índices y FKs"; `asignacion-persistencia.integration` → "persiste RESERVADA con snapshot y no cambia Maquina.estado" | ✅ |
-| AC-402 | `escrituras` → "crearReserva escribe el snapshot y venceEn exactos"; `asignacion-persistencia.integration` → "persiste RESERVADA con snapshot…" | 🟡 la inmutabilidad al leer no tiene test propio |
+| AC-402 | `escrituras` → "crearReserva escribe el snapshot y venceEn exactos"; `asignacion-persistencia.integration` → "persiste RESERVADA con snapshot…"; `orquestacion.decision` → "devuelve los 120/60 guardados aunque cambie el gimnasio, sin invocar el motor" | ✅ |
 | AC-403 | `asignacion-persistencia.integration` → "vencimiento perezoso: … sigue RESERVADA"; `configuracion-asignacion.integration` → `CREATE TYPE "EstadoAsignacion"` | 🟡 se verifica el tipo, no que el enum tenga exactamente 4 valores |
 | AC-404 | `escrituras` → "consumirReserva usa updateMany con guard", "cancelarReserva usa updateMany con guard", "completarEjecucion solo toca EN_CURSO"; `asignacion-persistencia.integration` → "completarEjecucion no toca una fila ya COMPLETADA" | ✅ |
 | AC-405 | `orquestacion` → "cancela la reserva anterior antes de crear la nueva en la misma transacción"; `asignacion-persistencia.integration` → "una sola reserva activa por socio…"; `asignacion-orquestacion.integration` → "dos recálculos… una sola reserva activa"; `sesion-asignaciones.avance` → "tras avanzar conviven una fila EN_CURSO y la reserva consumida" | ✅ |
@@ -90,7 +89,7 @@ test propio) · ❌ sin cobertura.
 | AC-408 | `ocupantes` → "seriesRestantes ignora CALENTAMIENTO y DROP_SET", "ocupante con 0 restantes no ocupa"; `asignacion-persistencia.integration` → "ocupante real…" | ✅ |
 | AC-409 | `cola` → "cola ordenada por creadaEn e id…", "solo lee reservas no vencidas y de otros socios", "una reserva no resoluble a rutina activa no aporta y loguea" | ✅ |
 | AC-410 | `cola` → "P-67: las consultas de ocupantes y cola excluyen al socio actual"; `asignacion-persistencia.integration` → "P-67: la cola ajena aparece y la propia no" | ✅ |
-| AC-411 | `lecturas` → "las lecturas son repetibles con el mismo ahora" | 🟡 no hay test que pruebe que NO se invoca el motor |
+| AC-411 | `lecturas` → "las lecturas son repetibles con el mismo ahora"; `orquestacion.decision` → "devuelve los 120/60 guardados aunque cambie el gimnasio, sin invocar el motor" (espía sobre `calcularEspera`) | ✅ |
 | AC-412 | `escrituras` → "enTransaccionBloqueada toma pg_advisory_xact_lock…", "enTransaccionBloqueada pasa maxWait 1000 y timeout 2000"; `asignacion-concurrencia.integration` → "una transacción espera a que la otra libere el advisory lock", "el advisory lock se libera cuando la transacción falla" | ✅ |
 | AC-413 | `configuracion-asignacion.integration` → "la migración de la tabla es aditiva…", "la migración de configuración es aditiva…" | ✅ |
 | AC-414 | `asignacion-persistencia.integration` → "persiste RESERVADA con snapshot y no cambia Maquina.estado" | ✅ |
@@ -113,7 +112,7 @@ test propio) · ❌ sin cobertura.
 | AC-450 | `sesion-asignaciones` → "sin reserva y con una sola candidata crea la ejecución EN_CURSO…"; `avance` → "consume la reserva, avanza a E2 y completa la ejecución de E1", "la última serie del último ejercicio no crea fila…"; `fin` → "completa las EN_CURSO restantes en la misma transacción…"; `sesion-asignaciones.integration` → flujo completo | ✅ |
 | AC-451 | rutas protegidas vacías (arriba); guardián verde | ✅ |
 | AC-452 | `lecturas` → "usa segundosEjecucionSerie de la configuración, no un literal"; `configuracion.test` → 25 tests; `lib/configuracion.test` → 22; `page.test` → 15; `orquestacion.fallback` → "segundosEjecucionSerie = 0 se contiene como invalido" | ✅ |
-| AC-453 | `acceso-asignacion` → "un check-in denegado por anti-passback no dispara" | 🟡 falta el caso "fuera de la ventana, el check-in permitido recalcula y reemplaza la reserva" |
+| AC-453 | `acceso-asignacion` → "un check-in denegado por anti-passback no dispara"; `acceso-asignacion.ventana` → "fuera de la ventana, el segundo check-in es permitido y vuelve a disparar el cálculo", "dentro de la ventana, el segundo check-in es denegado y no dispara el cálculo"; el reemplazo `CANCELADA` + `RESERVADA` está cubierto por capas: `asignacion-orquestacion.integration` → "dos recálculos del mismo socio dejan una sola reserva activa" y `orquestacion` → "cancela la reserva anterior antes de crear la nueva en la misma transacción" | ✅ |
 | AC-454 | `orquestacion.fallback` → "un timeout devuelve contenido TIMEOUT y no lanza"; `orquestacion` → "usa los timeouts recibidos en la transacción y en la carrera externa"; `asignacion-concurrencia.integration` → "el advisory lock se libera cuando la transacción falla" | ✅ |
 | AC-455 | `orquestacion` → "pasa ahora y minutosInactividadSesion al plan de lectura"; `ocupantes` → frescura D-105 | ✅ |
 
@@ -155,7 +154,7 @@ test propio) · ❌ sin cobertura.
 | AC-522 | `acceso-asignacion` → "si el motor lanza, la asistencia queda registrada…", "si la persistencia de la reserva falla…" | ✅ |
 | AC-523 | `acceso-asignacion` → los dos anteriores + "el log del gancho no incluye DNI ni PIN"; `orquestacion.fallback` → inválido y timeout contenidos | ✅ |
 | AC-524 | `acceso-asignacion` → "un check-in denegado no dispara el cálculo"; `orquestacion.fallback` → "sin rutina activa no abre transacción ni invoca el motor" | ✅ |
-| AC-525 | `acceso-asignacion` → "un check-in denegado por anti-passback no dispara" | 🟡 falta "fuera de la ventana recalcula y reemplaza" |
+| AC-525 | `acceso-asignacion` → "un check-in denegado por anti-passback no dispara"; `acceso-asignacion.ventana` → "fuera de la ventana, el segundo check-in es permitido y vuelve a disparar el cálculo" (dos disparos con su `ahora`), "dentro de la ventana… no dispara" | ✅ |
 | AC-526 | `acceso-asignacion` → "el gancho usa el mismo ahora de la asistencia" | ✅ |
 | AC-527 | `acceso-asignacion` → "registra exactamente una Asistencia y una AuditoriaAcceso por intento" | ✅ |
 | AC-528 | `acceso-asignacion` → "el log del gancho no incluye DNI ni PIN" (claves exactas `error`, `socioId`, `tipo`) | ✅ |
@@ -218,7 +217,8 @@ Ninguno.
 Ninguno.
 
 ### Medios
-1. **AC-453 / AC-525 — ventana anti-passback fuera del bloqueo.** No hay test del camino "fuera de
+1. ~~**AC-453 / AC-525 — ventana anti-passback fuera del bloqueo.**~~ **Cerrado el 2026-10-25** (ver
+   Seguimiento). No hay test del camino "fuera de
    la ventana, el check-in permitido recalcula y **reemplaza** la reserva anterior". Evidencia: en
    `src/api/acceso-asignacion.test.ts` los tests 7 y 8 solo cubren el caso denegado; el flujo de
    reemplazo está en `cancelarReservasActivas` + `crearReserva` de `calcularYReservar`
@@ -226,9 +226,11 @@ Ninguno.
    *Propuesta*: un test en `acceso-asignacion.test.ts` con dos `evaluarYRegistrarAcceso` separados
    por más de la ventana, que verifique que la primera reserva queda `CANCELADA` y la segunda
    `RESERVADA`.
-2. **AC-402 — la instantánea no se recalcula al leer.** El código no recalcula (solo `select`), pero
+2. ~~**AC-402 — la instantánea no se recalcula al leer.**~~ **Cerrado el 2026-10-25** (ver
+   Seguimiento). El código no recalcula (solo `select`), pero
    no hay test que lo asevere. *Propuesta*: test de `leerSugerenciaVigente` que devuelva `120/60`
-   guardados aunque el estado de otra máquina cambie.
+   guardados aunque el estado de otra máquina cambie. *(Implementado: `orquestacion.decision` →
+   "devuelve los 120/60 guardados aunque cambie el gimnasio, sin invocar el motor".)*
 3. **Compuerta de integración no ejecutada en esta sesión.** Docker no responde para el usuario
    actual (`docker ps` → exit 1). No es un defecto del change, pero deja la compuerta sin evidencia
    fresca. *Propuesta*: correr `npm run test:integration` con Docker accesible antes de archivar.
@@ -251,3 +253,25 @@ Ninguno.
 de cobertura de tests y de una compuerta no ejecutada por el entorno, no de comportamiento. Antes de
 archivar conviene: (a) correr la integración con Docker, (b) agregar los dos tests propuestos en los
 hallazgos 1 y 2.
+
+## Seguimiento
+
+**2026-10-25 — cierre de los hallazgos medios 1 y 2.**
+
+- **Cerrado (medio 1, AC-453 / AC-525)**: nuevo `src/api/acceso-asignacion.ventana.test.ts` con dos
+  casos sobre la ventana anti-passback real (asistencia previa filtrada como la consulta real):
+  fuera de la ventana (61 min) el segundo check-in es `PERMITIDO` y el gancho dispara dos veces, cada
+  una con su `ahora`; dentro (30 min) es `DENEGADO` y no dispara. El reemplazo
+  `CANCELADA` + `RESERVADA` se considera **cubierto por capas** con
+  `asignacion-orquestacion.integration` → "dos recálculos del mismo socio dejan una sola reserva
+  activa" y `orquestacion` → "cancela la reserva anterior antes de crear la nueva en la misma
+  transacción".
+- **Cerrado (medio 2, AC-402 / AC-411)**: nuevo test en `orquestacion.decision.test.ts` que verifica
+  que `reservaVigente` devuelve los `120/60` persistidos aunque cambie el estado del doble, con un
+  espía sobre `calcularEspera` que confirma que el motor no se invoca.
+- **Sigue abierto (medio 3)**: la compuerta `npm run test:integration` no se pudo ejecutar en esta
+  sesión (Docker no accesible); queda a cargo del usuario antes de archivar.
+- **Bajos 4–7**: aceptados como están (AC-403 enum por tipo/DDL, AC-486 identidad encadenada,
+  AC-521 rutas de ingreso, AC-509 arrastra el medio 3).
+
+Veredicto sin cambios: **APROBADO CON OBSERVACIONES**.
