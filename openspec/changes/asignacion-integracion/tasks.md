@@ -122,7 +122,10 @@ serie en lugar de al completar el ejercicio (dejaba reservas `CANCELADA` de más
 cálculo se quedaba corto contra una base remota, así que el check-in no creaba reserva. Los tests
 unitarios y de integración no podían verlo: el primero dependía de un `ahora`/serie que los fixtures
 no ejercitaban, y el segundo es una condición de latencia del entorno. Lección: el smoke manual sobre
-la base real sigue siendo una puerta propia (D-110 salió de ahí).
+la base real sigue siendo una puerta propia (D-110 salió de ahí). Un test que solo verifica que un
+argumento existe (`expect.anything()`) no prueba que llegue al lugar correcto: el cableado de timeouts de
+D-110 estaba mal (los pasaba dentro del input en vez de en `deps`) y el smoke lo detectó — `timeoutMs:
+2250` con la variable en 15000.
 
 ### Lección: los tests con Prisma falso no ejecutan el SQL real
 
