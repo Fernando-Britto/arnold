@@ -35,8 +35,12 @@ const solicitud = (body: unknown, rol: "SOCIO" | "ADMINISTRADOR" = "SOCIO") => (
   ahora: AHORA,
 });
 
+let envPrevio: string | undefined;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  envPrevio = process.env.ASIGNACION_TIMEOUT_CALCULO_MS;
+  process.env.ASIGNACION_TIMEOUT_CALCULO_MS = "7000";
   mockResolverSocio.mockResolvedValue("socio-1");
   mockDecidir.mockResolvedValue({ tipo: "aceptada", reserva: RESERVA });
   mockCalcularSinReservar.mockResolvedValue({
@@ -45,6 +49,11 @@ beforeEach(() => {
     maquinaId: "M2",
     esperaSegundos: 60,
   });
+});
+
+afterEach(() => {
+  if (envPrevio === undefined) delete process.env.ASIGNACION_TIMEOUT_CALCULO_MS;
+  else process.env.ASIGNACION_TIMEOUT_CALCULO_MS = envPrevio;
 });
 
 describe("handleDecidirSugerencia: body y rol", () => {
@@ -110,7 +119,7 @@ describe("handleDecidirSugerencia: body y rol", () => {
     expect(mockResolverSocio).toHaveBeenCalledWith("usuario-1");
     expect(mockDecidir).toHaveBeenCalledWith(
       expect.objectContaining({ socioId: "socio-1", accion: "ACEPTAR", ahora: AHORA }),
-      expect.objectContaining({ timeouts: expect.anything() })
+      { timeouts: { calculoMs: 7000, maxWaitMs: 1000 } }
     );
   });
 });

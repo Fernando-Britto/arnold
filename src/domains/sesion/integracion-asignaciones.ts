@@ -93,13 +93,18 @@ export async function recalcularTrasSesion(input: {
 }): Promise<void> {
   try {
     const { calcularYReservar } = await import("@/domains/asignacion/orquestacion");
-    await calcularYReservar({
+    // Los timeouts van como DEPENDENCIAS (2.º argumento), no dentro del input (D-110).
+    const solicitud = {
       socioId: input.socioId,
       ahora: input.ahora,
       momento: input.momento,
       excluirEjercicioIds: input.excluirEjercicioIds,
-      ...(input.timeouts ? { timeouts: input.timeouts } : {}),
-    });
+    };
+    if (input.timeouts) {
+      await calcularYReservar(solicitud, { timeouts: input.timeouts });
+    } else {
+      await calcularYReservar(solicitud);
+    }
   } catch (error) {
     console.error("[ASIGNACION][sesion]", {
       socioId: input.socioId,

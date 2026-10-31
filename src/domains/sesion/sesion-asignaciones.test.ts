@@ -6,6 +6,7 @@
  * el camino D-103.
  */
 import { iniciarSesion } from "./sesion-de-entrenamiento";
+import { recalcularTrasSesion } from "./integracion-asignaciones";
 import { calcularYReservar } from "@/domains/asignacion/orquestacion";
 import {
   configurarDobles,
@@ -208,5 +209,49 @@ describe("iniciarSesion: la reserva ya no se puede consumir", () => {
     // La reserva no se toca más allá del intento guardado: sigue como estaba.
     expect(prisma.__tx.asignacionDeEjercicio.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.asignacionDeEjercicio.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("recalcularTrasSesion: los timeouts van por deps (D-110)", () => {
+  const TIMEOUTS = { calculoMs: 7000, maxWaitMs: 3000 };
+
+  it("pasa el objeto de timeouts como SEGUNDO argumento", async () => {
+    await recalcularTrasSesion({
+      socioId: "socio-1",
+      ahora: AHORA,
+      momento: "INICIO_RUTINA",
+      excluirEjercicioIds: [],
+      timeouts: TIMEOUTS,
+    });
+
+    expect(mockCalcular).toHaveBeenCalledWith(
+      { socioId: "socio-1", ahora: AHORA, momento: "INICIO_RUTINA", excluirEjercicioIds: [] },
+      { timeouts: TIMEOUTS }
+    );
+  });
+
+  it("sin timeouts llama con un solo argumento", async () => {
+    await recalcularTrasSesion({
+      socioId: "socio-1",
+      ahora: AHORA,
+      momento: "POST_EJERCICIO",
+      excluirEjercicioIds: ["E1"],
+    });
+
+    expect(mockCalcular).toHaveBeenCalledTimes(1);
+    expect(mockCalcular.mock.calls[0]).toHaveLength(1);
+  });
+
+  it("iniciarSesion propaga los timeouts hasta la orquestación", async () => {
+    await iniciarSesion({
+      socioId: "socio-1",
+      rutinaAsignadaId: "ra-1",
+      ahora: AHORA,
+      timeouts: { calculoMs: 7000, maxWaitMs: 3000 },
+    });
+
+    expect(mockCalcular).toHaveBeenCalledWith(expect.any(Object), {
+      timeouts: { calculoMs: 7000, maxWaitMs: 3000 },
+    });
   });
 });

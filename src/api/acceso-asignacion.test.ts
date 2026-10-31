@@ -76,9 +76,18 @@ const ENTRADA: EvaluarAccesoInput = {
   ahora: AHORA,
 };
 
+let envPrevio: string | undefined;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  envPrevio = process.env.ASIGNACION_TIMEOUT_CALCULO_MS;
+  process.env.ASIGNACION_TIMEOUT_CALCULO_MS = "7000";
   mockCalcular.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  if (envPrevio === undefined) delete process.env.ASIGNACION_TIMEOUT_CALCULO_MS;
+  else process.env.ASIGNACION_TIMEOUT_CALCULO_MS = envPrevio;
 });
 
 describe("gancho de check-in: disparo permitido", () => {
@@ -90,7 +99,7 @@ describe("gancho de check-in: disparo permitido", () => {
     expect(mockCalcular).toHaveBeenCalledTimes(1);
     expect(mockCalcular).toHaveBeenCalledWith(
       expect.objectContaining({ socioId: "socio-1", ahora: AHORA }),
-      expect.objectContaining({ timeouts: expect.anything() })
+      { timeouts: { calculoMs: 7000, maxWaitMs: 1000 } }
     );
   });
 
@@ -104,7 +113,7 @@ describe("gancho de check-in: disparo permitido", () => {
     });
     expect(mockCalcular).toHaveBeenCalledWith(
       expect.objectContaining({ socioId: "socio-1", ahora: AHORA }),
-      expect.objectContaining({ timeouts: expect.anything() })
+      { timeouts: { calculoMs: 7000, maxWaitMs: 1000 } }
     );
   });
 

@@ -207,3 +207,16 @@ describe("registrarSerie: calentamiento, convivencia y fallback", () => {
     }
   });
 });
+
+describe("registrarSerie: timeouts hasta la orquestación (D-110)", () => {
+  it("propaga los timeouts recibidos al recálculo", async () => {
+    const prisma = await mocks();
+    prisma.sesionDeEntrenamiento.findUnique.mockResolvedValue(sesion());
+
+    await registrarSerie(serie({ timeouts: { calculoMs: 7000, maxWaitMs: 3000 } }));
+
+    expect(mockCalcular).toHaveBeenCalledWith(expect.any(Object), {
+      timeouts: { calculoMs: 7000, maxWaitMs: 3000 },
+    });
+  });
+});
