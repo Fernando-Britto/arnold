@@ -76,12 +76,13 @@ configuración. Sin pantallas, sin reasignación de instructor y sin cambios al 
 | `asignacion-ejercicio-persistencia` | **Creada** | Promovido byte a byte a `openspec/specs/asignacion-ejercicio-persistencia/spec.md` (558 líneas). |
 | `asignacion-orquestacion` | **Creada** | Promovido byte a byte a `openspec/specs/asignacion-orquestacion/spec.md` (487 líneas). |
 | `asignacion-api` | **Creada** | Promovido byte a byte a `openspec/specs/asignacion-api/spec.md` (333 líneas). |
-| `configuracion-sistema` | **Delta sin promover** | El change trae un delta (`ADDED` + `MODIFIED`) sobre una capability existente en `openspec/specs/configuracion-sistema/spec.md`. No se sobreescribió: requiere merge de requirements, no copia. |
-| `member-access-check` | **Delta sin promover** | Ídem: delta sobre `openspec/specs/member-access-check/spec.md`. |
+| `configuracion-sistema` | **Actualizado** | Requirements **fusionados el 2026-10-31** sobre `openspec/specs/configuracion-sistema/spec.md`, conservando el resto del spec intacto. **ADDED**: "Parámetros del motor de espera", "Migración aditiva de los parámetros", "Consumo de los parámetros por la orquestación". **MODIFIED** (reemplazados en su lugar): "Lector único", "API de configuración", "Auditoría de cambios", "Pantalla `/configuracion`". |
+| `member-access-check` | **Actualizado** | Requirements **fusionados el 2026-10-31** sobre `openspec/specs/member-access-check/spec.md`, conservando el resto del spec intacto. **ADDED** (9): "Punto único de gancho en el check-in", "La asistencia nunca falla por el cálculo", "Condiciones de disparo del cálculo", "Segundo check-in y anti-passback", "Reloj inyectado", "Sin registros duplicados ni cambios en la auditoría de acceso", "Registro de fallos del gancho", "Espera acotada y respuesta del check-in", "Compatibilidad con el flujo actual". Sin `MODIFIED`. |
 
 Los tres specs promovidos conservan requirements, escenarios y AC tal como estaban en el change; las
-copias se verificaron con `diff -q` (salida vacía). Los dos deltas quedan en
-`openspec/changes/archive/2026-10-31-asignacion-integracion/specs/` a la espera de su merge.
+copias se verificaron con `diff -q` (salida vacía). Los dos specs con requirements fusionados se
+editaron en `openspec/specs/` el 2026-10-31; las copias originales quedan en
+`openspec/changes/archive/2026-10-31-asignacion-integracion/specs/` como registro histórico.
 
 ## Resultados de verificación
 
@@ -119,8 +120,8 @@ Del `tasks.md` del change:
    ejercicios": el seed **no** crea `EjercicioMaquina`, así que sin ese paso el motor devuelve
    `sin_opciones` y el check-in no deja reserva.
 4. Mergear `feat/asignacion-integracion` → `dev`, y `dev` → `main` cuando la verificación esté cerrada.
-5. Mergear los dos specs delta (`configuracion-sistema`, `member-access-check`) en
-   `openspec/specs/` cuando se decida el texto final de cada capability.
+5. Los dos specs (`configuracion-sistema`, `member-access-check`) ya están fusionados en
+   `openspec/specs/` (2026-10-31).
 
 ## Qué NO se verificó
 
