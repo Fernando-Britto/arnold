@@ -1,4 +1,4 @@
-# Asignación — Integración del motor de espera (T-056a..T-056g, D-88..D-110)
+# Asignación — Integración del motor de espera (T-056a..T-056g, D-88..D-111 sin D-107)
 
 ## Objetivo
 
@@ -28,7 +28,7 @@ Sin pantallas nuevas, sin seed y sin cambios a `motor-espera.ts`.
 - **De Fernando (D-88..D-92)**: disparo del cálculo en tres momentos (check-in, inicio de rutina y al
   completar cada ejercicio); reserva con vencimiento configurable (15 min); tres parámetros nuevos en
   `/configuracion`; solo socios con rutina activa; flujo `ACEPTAR`/`ESPERAR` obligatorio.
-- **Propuestas de la IA adoptadas (D-93..D-110)**: tabla propia con cuatro estados; instantánea inmutable
+- **Propuestas de la IA adoptadas (D-93..D-111, sin D-107)**: tabla propia con cuatro estados; instantánea inmutable
   (`esperaSegundos`/`ahorroSegundos`); advisory lock global; una reserva activa por socio; ocupación
   derivada de sesiones y filas `EN_CURSO`; timeout de 2 s; matriz de permisos explícita; rechazo de
   `after()` (P-66); ocupante con la rutina de su sesión; 404 `SIN_SUGERENCIA` vs 409

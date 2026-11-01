@@ -3,7 +3,7 @@
 - **Change**: `asignacion-integracion` (Etapa 4 de "asignación dinámica de ejercicios")
 - **Rama**: `feat/asignacion-integracion`
 - **Fecha**: 2026-10-25
-- **Alcance verificado**: 5 specs del change (61 AC), 23 decisiones (D-88…D-110), restricciones de capa, migraciones y seed.
+- **Alcance verificado**: 5 specs del change (61 AC), 23 decisiones (D-88…D-111, sin D-107, que pertenece a balance muscular), restricciones de capa, migraciones y seed.
 - **Veredicto**: **APROBADO CON OBSERVACIONES**
 
 ## Resumen
@@ -161,7 +161,7 @@ test propio) · ❌ sin cobertura.
 | AC-529 | `orquestacion.fallback` → "un timeout devuelve contenido TIMEOUT y no lanza"; `orquestacion` → timeouts recibidos | ✅ |
 | AC-530 | `src/api/acceso.test.ts` sin cambios (diff vacío); `asignaciones.post`/`asignaciones.test` verdes | ✅ |
 
-## Cumplimiento del diseño (D-88…D-110)
+## Cumplimiento del diseño (D-88…D-111, sin D-107, que pertenece a balance muscular)
 
 | Decisión | Evidencia | Estado |
 |---|---|---|
@@ -184,7 +184,7 @@ test propio) · ❌ sin cobertura.
 | D-104 · Dos migraciones aditivas | `prisma/migrations/2026102612*` | ✅ |
 | D-105 · Corte de inactividad | `asignacion-ocupacion.ts:59` (fila sin máquina) y cálculo del corte con `lectura.ahora` | ✅ |
 | D-106 · `CASCADE` en `ejercicioId` | `prisma/schema.prisma` (modelo) + migración; `asignacion-persistencia.integration` | ✅ |
-| D-107 · Lock devuelve entero | `asignacion-repositorio.ts:116-118` (`SELECT 1 AS ok FROM (…) AS t`) | ✅ |
+| D-111 · Lock devuelve entero | `asignacion-repositorio.ts:116-118` (`SELECT 1 AS ok FROM (…) AS t`) | ✅ |
 | D-108 · Sin fila: solo candidata única | `asignacion-ocupacion.ts:59,209-215`; `ocupantes` tests 5,6,7 | ✅ (limitación declarada) |
 | D-109 · `contenido` ante ERROR/TIMEOUT | `orquestacion.ts` (`ResultadoDecision`), `asignaciones.ts:213`; `decision` test 8; `asignaciones.post` tests 15-17 | ✅ |
 | D-110 · Tope configurable | `lib/asignacion-timeouts.ts`, `orquestacion.ts:61,70`; `integracion-asignaciones.ts:96` (`deps`) | ✅ |

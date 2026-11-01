@@ -24,7 +24,7 @@ configuración. Sin pantallas, sin reasignación de instructor y sin cambios al 
   `asignacion-repositorio`). Arma `EntradaMotor` desde la rutina activa; ocupantes derivados de
   sesiones y filas `EN_CURSO` con corte de inactividad (D-105) y `seriesRestantes` filtrando
   `CALENTAMIENTO` y `DROP_SET`; cola de `RESERVADA` no vencidas de otros socios (P-67); escrituras con
-  guard y `enTransaccionBloqueada` con `pg_advisory_xact_lock` global (D-95, D-107).
+  guard y `enTransaccionBloqueada` con `pg_advisory_xact_lock` global (D-95, D-111).
 - **T-056d — Orquestación (CP3)**. `calcularYReservar` (camino feliz, fallback `SIN_RUTINA`/
   `SIN_OPCIONES`/`VACIO`/`SIN_MAQUINA`, `invalido` y errores contenidos, timeout con carrera externa),
   `decidirSugerencia` (`ACEPTAR` idempotente, `ESPERAR` con guard, 404/409 según D-102),
@@ -47,17 +47,20 @@ configuración. Sin pantallas, sin reasignación de instructor y sin cambios al 
 
 ## Decisiones
 
-- **D-88…D-110 (23 decisiones)** registradas en `openspec/decisions.md` §1, después de D-87, con el
+- **D-88…D-111 (23 decisiones, sin D-107, que pertenece a balance muscular)** registradas en `openspec/decisions.md` §1, después de D-87, con el
   mismo formato que D-75…D-87.
   - **De Fernando (D-88…D-92)**: disparo del cálculo en tres momentos; vencimiento a los 15 min
     configurable; tres parámetros en `/configuracion`; solo socios con rutina activa; flujo
     `ACEPTAR`/`ESPERAR`.
-  - **Propuestas de la IA adoptadas (D-93…D-110)**: tabla y cuatro estados; instantánea inmutable;
+  - **Propuestas de la IA adoptadas (D-93…D-111, sin D-107)**: tabla y cuatro estados; instantánea inmutable;
     advisory lock global; una reserva activa por socio; ocupación derivada; timeout de 2 s; matriz de
     permisos; rechazo de `after()`; ocupante con la rutina de su sesión; 404 vs 409; guarda de
     capacidad; dos migraciones; corte de inactividad; `CASCADE` en `ejercicioId`; consulta del lock que
     devuelve un entero; límite multi-máquina de D-108; `contenido` en `decidirSugerencia`; tope
     configurable por entorno.
+
+> **Nota**: D-107 original renumerada a D-111 el 2026-10-31 por colisión con el D-107 de balance
+> muscular (dev). Los mensajes de commits viejos que dicen D-107 no se corrigen.
 
 ## Literales de los pendientes
 
@@ -89,7 +92,7 @@ editaron en `openspec/specs/` el 2026-10-31; las copias originales quedan en
 Del `verify-report.md` (APROBADO CON OBSERVACIONES):
 
 - **61 AC** de los cinco specs: 56 ✅ cubiertos, 5 🟡 parciales/aceptados como bajos, 0 sin cobertura.
-- **23 decisiones** D-88…D-110 verificadas en el código, sin desviaciones de comportamiento.
+- **23 decisiones** D-88…D-111 (sin D-107, que pertenece a balance muscular) verificadas en el código, sin desviaciones de comportamiento.
 - `npx tsc --noEmit` limpio; `npm test` **264 suites / 3731 tests**; `npm run build` compilado en
   11,2 s / 49 páginas; `npx eslint .` con solo el error preexistente **P-57**.
 - Suite de integración: **9 suites / 54 tests**, ejecutada por Fernando el 2026-10-31 con resultado OK.

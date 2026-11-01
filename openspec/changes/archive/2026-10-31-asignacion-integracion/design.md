@@ -1241,7 +1241,7 @@ no se convierte en 500: se degrada a `null` y se loguea.
 ## 12. Decisiones registradas (D-88+)
 
 Listas para pegar en `openspec/decisions.md`. Las D-88 a D-92 son decisiones de Fernando ya fijadas en la
-propuesta; las D-93 a D-110 son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
+propuesta; las D-93 a D-111 (sin D-107) son propuestas de la IA adoptadas por este diseño y sujetas a su aprobación
 explícita al revisar el artefacto.
 
 ### Decisiones de Fernando (vinculantes)
@@ -1382,7 +1382,7 @@ explícita al revisar el artefacto.
 - **Por qué**: la cascada solo alcanza asignaciones de ejercicios nunca ejecutados; evita el bloqueo artificial y el mensaje incorrecto sin perder historial de ejercicios usados.
 - **Dónde**: `prisma/schema.prisma`, migración `20261026120000_asignacion_ejercicio`, integración de persistencia (T-056c).
 
-#### D-107 · La consulta del advisory lock devuelve un entero, no `void`
+#### D-111 · La consulta del advisory lock devuelve un entero, no `void`
 - **Origen**: IA, adoptada tras el fallo de la suite de integración de CP2.
 - **Contexto**: `SELECT pg_advisory_xact_lock($1::bigint)` con `$queryRaw` falla en Prisma 6.19 con
   `Failed to deserialize column of type 'void'`. Los tests unitarios no podían verlo porque mockean el cliente;
@@ -1431,7 +1431,7 @@ explícita al revisar el artefacto.
 | `src/domains/asignacion/asignacion-repositorio.lecturas.test.ts` | Unit (Prisma mockeado) | `lecturas base` · `guarda de capacidad y puente usuario-socio` |
 | `src/domains/asignacion/asignacion-repositorio.ocupantes.test.ts` | Unit | `ocupantes` (incluye vigencia D-105) |
 | `src/domains/asignacion/asignacion-repositorio.cola.test.ts` | Unit | `cola y vencimiento` · `P-67` |
-| `src/domains/asignacion/asignacion-repositorio.escrituras.test.ts` | Unit | `escrituras y advisory lock` (incluye la forma de la consulta del lock, D-107) |
+| `src/domains/asignacion/asignacion-repositorio.escrituras.test.ts` | Unit | `escrituras y advisory lock` (incluye la forma de la consulta del lock, D-111) |
 | `src/domains/asignacion/orquestacion.test.ts` | Unit (puerto mockeado, motor real inyectable) | `cálculo y reserva` · `fallback` · `invalido` · `timeout` · `decisión` · `sin rutina` |
 | `src/domains/sesion/sesion-asignaciones.test.ts` | Unit (Prisma mockeado con los modelos nuevos) | `inicio consume reserva` · `avance consume reserva` · `completar ejecución` · `fin de sesión` · `sin reserva` |
 | `src/api/asignaciones.test.ts` | Unit (servicio/repositorio mockeados) | `GET sugerencia` · `POST decidir` · `propiedad y roles` · `404/409` · `degradación de siguienteEnOrden` |
@@ -1754,7 +1754,7 @@ Todas: `npx tsc --noEmit` y `npx eslint <archivos del slice>` sin errores nuevos
 
 ### Numeración
 
-- Decisiones de esta change: **D-88 a D-110** (23). Última previa: D-87.
+- Decisiones de esta change: **D-88 a D-111** (23, sin D-107, que pertenece a balance muscular). Última previa: D-87.
 - Tareas: **T-056+** quedan reservadas para `sdd-tasks`; este diseño no asigna IDs de tarea.
 - Pendientes: **P-68** se cierra con el test de concurrencia; **P-69** sigue abierto (limpieza batch, fuera de
   alcance); **P-70** se cierra con la integración de sesión; **P-71** se abre (latencia del check-in, Etapa 5 /

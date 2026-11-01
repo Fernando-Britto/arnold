@@ -1582,21 +1582,6 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Por qué**: la cascada solo alcanza asignaciones de ejercicios nunca ejecutados; evita el bloqueo artificial y el mensaje incorrecto sin perder historial de ejercicios usados.
 - **Dónde**: `prisma/schema.prisma`, migración `20261026120000_asignacion_ejercicio`, integración de persistencia (T-056c).
 
-### D-107 · La consulta del advisory lock devuelve un entero, no `void`
-- **Origen**: IA, adoptada tras el fallo de la suite de integración de CP2.
-- **Contexto**: `SELECT pg_advisory_xact_lock($1::bigint)` con `$queryRaw` falla en Prisma 6.19 con
-  `Failed to deserialize column of type 'void'`. Los tests unitarios no podían verlo porque mockean el cliente;
-  lo destapó la integración contra Postgres real.
-- **Decisión**: la sentencia es
-  `SELECT 1 AS ok FROM (SELECT pg_advisory_xact_lock(${clave}::bigint)) AS t`. Sigue siendo
-  `pg_advisory_xact_lock` dentro de la misma transacción interactiva, tomado antes de leer, y sigue usando
-  `$queryRaw` (nunca `$executeRaw`, que rechaza consultas con filas).
-- **Por qué**: el lock es un efecto de la función; su valor de retorno es irrelevante. Envolverlo en una
-  subconsulta permite proyectar un entero que Prisma sí deserializa, sin cambiar el alcance ni el momento del lock.
-- **Dónde**: `src/domains/asignacion/asignacion-repositorio.ts` (`enTransaccionBloqueada`); el contrato queda
-  fijado por el test unitario "la consulta del lock pide una columna soportada" y por los dos tests de integración
-  (concurrencia y liberación del lock al fallar).
-
 ### D-108 · Ocupante sin fila `EN_CURSO`: solo se asigna a una máquina si es la única candidata
 - **Origen**: revisión de CP2, adoptada.
 - **Contexto**: D-97 declara la regla, pero la consecuencia quedó solo en su línea "Dónde". Una sesión `EN_CURSO` sin fila `EN_CURSO` no dice qué máquina está usando (por ejemplo, el socio avanzó por orden de rutina sin pasar por una reserva aceptada).
@@ -1621,6 +1606,21 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Por qué**: en producción, con la base cerca, el valor por defecto alcanza; en desarrollo o demos con base remota, no. Un valor inválido cae al default sin lanzar: la configuración nunca rompe el check-in.
 - **Alternativa descartada**: fijar un tope mayor para todos (alarga la espera del check-in en el caso normal) y mover el cálculo a `after` (D-98: no verificado en Vercel).
 - **Dónde**: `src/lib/asignacion-timeouts.ts`, `orquestacion.ts` (`DepsOrquestacion.timeouts`), `src/api/{acceso,sesiones,asignaciones}.ts`, `.env.example`.
+
+### D-111 · La consulta del advisory lock devuelve un entero, no `void`
+- **Origen**: IA, adoptada tras el fallo de la suite de integración de CP2.
+- **Contexto**: `SELECT pg_advisory_xact_lock($1::bigint)` con `$queryRaw` falla en Prisma 6.19 con
+  `Failed to deserialize column of type 'void'`. Los tests unitarios no podían verlo porque mockean el cliente;
+  lo destapó la integración contra Postgres real.
+- **Decisión**: la sentencia es
+  `SELECT 1 AS ok FROM (SELECT pg_advisory_xact_lock(${clave}::bigint)) AS t`. Sigue siendo
+  `pg_advisory_xact_lock` dentro de la misma transacción interactiva, tomado antes de leer, y sigue usando
+  `$queryRaw` (nunca `$executeRaw`, que rechaza consultas con filas).
+- **Por qué**: el lock es un efecto de la función; su valor de retorno es irrelevante. Envolverlo en una
+  subconsulta permite proyectar un entero que Prisma sí deserializa, sin cambiar el alcance ni el momento del lock.
+- **Dónde**: `src/domains/asignacion/asignacion-repositorio.ts` (`enTransaccionBloqueada`); el contrato queda
+  fijado por el test unitario "la consulta del lock pide una columna soportada" y por los dos tests de integración
+  (concurrencia y liberación del lock al fallar).
 
 ---
 

@@ -5,7 +5,7 @@
 Que el Administrador vea y cambie los parámetros del gimnasio desde la aplicación, con un único lugar de lectura y un registro de cada cambio (D-54).
 Hoy la tabla `ConfiguracionDelSistema` se lee y se escribe desde un único punto (`src/lib/configuracion.ts`), y un test guardián impide que otro archivo la toque.
 
-Estado: **implementado** (T-043a a T-043c, D-54). El lector único, la API y la pantalla están en `dev` y verificados.
+Estado: **implementado** (T-043a a T-043c, D-54; T-056a, parámetros del motor de espera). El lector único, la API y la pantalla están en `dev` y verificados.
 
 ## Requirements
 
