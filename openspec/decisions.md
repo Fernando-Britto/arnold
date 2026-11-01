@@ -1,6 +1,6 @@
 # Registro de decisiones — ARNOLD MVP Core
 
-**Actualizado**: 2026-10-21 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
+**Actualizado**: 2026-10-31 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
 
 Este documento registra **por qué** el proyecto se desvió del plan original durante `sdd-apply`, qué
 alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace; acá queda el *porqué*.
@@ -1446,6 +1446,184 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 
 ---
 
+### D-88 · El cálculo se dispara en el check-in y en dos momentos más
+- **Origen**: Fernando (propuesta, decisión 1).
+- **Contexto**: el motor de Etapa 3 no tenía llamante; el check-in es el único evento compartido entre recepción y puerta.
+- **Decisión**: la reserva provisional se crea en el check-in permitido, con rutina activa, y se recalcula al iniciar rutina y al completar cada ejercicio.
+- **Por qué**: anclar en `evaluarYRegistrarAcceso` evita duplicar lógica entre rutas; los tres momentos cubren la operación completa.
+- **Dónde**: `src/api/acceso.ts`, `src/domains/asignacion/orquestacion.ts`, `src/domains/sesion/sesion-de-entrenamiento.ts`.
+
+### D-89 · La reserva vence a los 15 minutos, configurable
+- **Origen**: Fernando (propuesta, decisión 2).
+- **Contexto**: sin vencimiento, un socio que hace check-in y se va bloquea la cola.
+- **Decisión**: `venceEn = creadaEn + minutosVencimientoReserva × 60 000 ms`, con 15 por defecto y `0` como vencimiento inmediato. `venceEn` es inmutable.
+- **Por qué**: el vencimiento perezoso libera la cola sin job; el snapshot evita que un cambio de configuración reescriba reservas históricas.
+- **Dónde**: `AsignacionDeEjercicio.venceEn`, `src/domains/asignacion/orquestacion.ts`, spec `asignacion-orquestacion`.
+
+### D-90 · Tres parámetros nuevos en `/configuracion`
+- **Origen**: Fernando (propuesta, decisión 3; ampliada con la ventana de inactividad por la revisión externa).
+- **Contexto**: el motor necesita la duración de serie, la vigencia de reserva y la ventana de actividad de una sesión sin hardcodearlas.
+- **Decisión**: `segundosEjecucionSerie` (entero, default 60, rango 1–3600), `minutosVencimientoReserva` (entero, default 15, rango 0–1440) y `minutosInactividadSesion` (entero, default 30, rango 1–1440), por el patrón D-54.
+- **Por qué**: reutiliza lector único, validación, auditoría y panel ya probados; no crea un segundo lector.
+- **Dónde**: `src/domains/configuracion/configuracion.ts`, `src/lib/configuracion.ts`, `src/app/configuracion/page.tsx`.
+
+### D-91 · Solo se calcula para socios con rutina activa
+- **Origen**: Fernando (propuesta, decisión 4).
+- **Contexto**: el motor necesita ejercicios pendientes; sin rutina activa no hay nada que calcular.
+- **Decisión**: sin `RutinaAsignada.activa = true`, el check-in y la sesión se comportan exactamente como hoy y no se invoca el motor.
+- **Por qué**: evita ruido, consultas y reservas inútiles; conserva la retrocompatibilidad.
+- **Dónde**: `calcularYReservar` (gate `tieneRutinaActiva`), `member-access-check`.
+
+### D-92 · Flujo obligatorio `ACEPTAR` / `ESPERAR`
+- **Origen**: Fernando (propuesta, decisión 5 y 6).
+- **Contexto**: el flujo obligatorio es el objeto de la tesis; permitir elegir máquina lo invalidaría.
+- **Decisión**: el socio solo acepta la recomendación vigente o espera el orden de rutina. No hay tercera opción ni elección libre de máquina. La reasignación por instructor queda en Etapa 5 (P-61).
+- **Por qué**: acota el alcance y mantiene medible la comparación motor vs. orden de rutina.
+- **Dónde**: `POST /api/asignaciones/decidir`, `src/domains/asignacion/orquestacion.ts`; `EN_CURSO → CANCELADA` no se implementa.
+
+### Propuestas de la IA adoptadas por el diseño
+
+### D-93 · Tabla `AsignacionDeEjercicio` con cuatro estados persistidos
+- **Origen**: IA, adoptada.
+- **Contexto**: la reserva existe antes de la sesión y debe vencer sin contaminar `SesionDeEntrenamiento`.
+- **Decisión**: modelo `AsignacionDeEjercicio` y enum `EstadoAsignacion` con `RESERVADA | EN_CURSO | COMPLETADA | CANCELADA`. `VENCIDA` no se persiste: se deriva con `estado = RESERVADA AND venceEn <= ahora`.
+- **Por qué**: evita un valor de enum inalcanzable y una escritura en caliente que el sistema no necesita; separa reserva y sesión.
+- **Dónde**: `prisma/schema.prisma`, migración `20261026120000_asignacion_ejercicio`.
+
+### D-94 · `esperaSegundos` y `ahorroSegundos` como instantánea inmutable
+- **Origen**: IA, adoptada.
+- **Contexto**: la tesis necesita saber qué espera y ahorro calculó el sistema en el momento de decidir.
+- **Decisión**: enteros no nulos, escritos al crear la reserva y nunca recalculados al leer ni al cambiar la configuración. Las filas `EN_CURSO` por orden de rutina usan `0/0`.
+- **Por qué**: mezclar la medición histórica con el estado actual rompería la comparación; `0/0` es la única representación no nula para una ejecución sin decisión del motor.
+- **Dónde**: `AsignacionDeEjercicio`, `src/domains/asignacion/orquestacion.ts`, spec de persistencia.
+
+### D-95 · Advisory lock global de la instalación
+- **Origen**: IA, adoptada (el spec de persistencia la fija).
+- **Contexto**: dos check-in concurrentes pueden elegir la misma máquina; el unique parcial rompería la cola.
+- **Decisión**: `pg_advisory_xact_lock(880000001)` al inicio de la transacción de cálculo+reserva, antes de leer, con una clave constante global.
+- **Por qué**: la máquina ganadora solo se conoce después de calcular; un lock por máquina no puede adquirirse antes de la lectura. La instalación es un único gimnasio, así que no fragmenta nada.
+- **Dónde**: `AsignacionRepository.enTransaccionBloqueada`, prueba `asignacion-concurrencia.integration.test.ts`.
+
+### D-96 · Una reserva activa por socio sin índice único parcial
+- **Origen**: IA, adoptada.
+- **Contexto**: el spec permite defensa en profundidad con un unique parcial.
+- **Decisión**: se enforcea con el lock + cancelar las `RESERVADA` no vencidas + insertar, en una transacción. No se crea índice único parcial.
+- **Por qué**: el predicado de un índice parcial debe ser inmutable; `venceEn > now()` no se puede expresar y un `WHERE estado = 'RESERVADA'` bloquearía al socio con una reserva vencida no reemplazada.
+- **Dónde**: `cancelarReservasActivas` + `crearReserva`, `asignacion-repositorio.ts`.
+
+### D-97 · Ocupación derivada de sesiones y filas `EN_CURSO`
+- **Origen**: IA, adoptada.
+- **Contexto**: `Maquina.estado = OCUPADA` nunca se escribe (D-73); la ocupación real debe salir de la sesión.
+- **Decisión**: ocupante = sesión `EN_CURSO` con fila `EN_CURSO` sobre la máquina cuyo `ejercicioId` coincide con `ejercicioActualId`, o —sin fila— con exactamente una máquina candidata. `seriesRestantes` descuenta solo `NORMAL`/`HASTA_EL_FALLO` dentro de `1..series`; `< 1` excluye al ocupante.
+- **Por qué**: mantiene la coherencia con D-73/D-87 y evita una segunda fuente de verdad para el estado de la máquina.
+- **Dónde**: `leerEntradaMotor`, spec de persistencia (limitación declarada para 0 o varias candidatas sin fila).
+
+### D-98 · Timeout de cálculo de 2 segundos
+- **Origen**: IA, adoptada.
+- **Contexto**: el check-in no puede esperar indefinidamente; `after` no está verificado en Vercel.
+- **Decisión**: `TIMEOUT_CALCULO_MS = 2000` como `timeout` de la transacción interactiva, `maxWait = 1000`, y carrera externa a 2250 ms como red de seguridad.
+- **Por qué**: el cálculo normal es rápido; 2 s acota la peor latencia sin dejar la transacción abierta ni el lock retenido (Prisma aborta al vencer).
+- **Dónde**: `src/domains/asignacion/orquestacion.ts`, `asignacion-repositorio.ts`, `member-access-check`.
+- **Ver D-110**: el tope es configurable por entorno.
+
+### D-99 · Matriz de permisos de `/api/asignaciones`
+- **Origen**: IA, adoptada.
+- **Contexto**: el flujo obligatorio lo decide el socio; el personal solo necesita lectura para la Etapa 5.
+- **Decisión**: SOCIO `GET`+`POST` sobre lo propio; ADMINISTRADOR e INSTRUCTOR solo `GET` (con `socioId` obligatorio); RECEPCIONISTA `403`. La entrada explícita de ADMINISTRADOR recorta el comodín para impedir `POST`.
+- **Por qué**: mínima superficie, coherente con el flujo obligatorio y con el test de consistencia matriz/handler.
+- **Dónde**: `src/lib/authorization.ts`, rutas `src/app/api/asignaciones/**`, `asignacion-api`.
+
+### D-100 · Se rechaza `after()`; espera acotada
+- **Origen**: IA, adoptada.
+- **Contexto**: `after` de Next 16 requiere `waitUntil` en serverless y Vercel no está verificado (P-28).
+- **Decisión**: `await` acotado con timeout en el servicio; no se usa `after` en esta etapa.
+- **Por qué**: es seguro y testeable hoy; la decisión es local al servicio y se puede revisitar cuando P-28 cierre, sin tocar el motor ni la tabla.
+- **Dónde**: `src/api/acceso.ts` (gancho), `src/domains/asignacion/orquestacion.ts`.
+
+### D-101 · El ocupante usa la rutina de su sesión, no la rutina activa actual
+- **Origen**: IA, adoptada.
+- **Contexto**: una sesión `EN_CURSO` puede sobrevivir a la desactivación de la rutina asignada; su prescripción (`series`, `descanso`) debe ser la que está ejecutando.
+- **Decisión**: para ocupantes se usa `sesion.rutinaAsignada.rutina`; para la cola se usa la rutina activa del miembro que reservó, como fija el spec.
+- **Por qué**: usar la rutina activa actual para un ocupante con otra rutina subestimaría o sobreestimaría `seriesRestantes` y el descanso.
+- **Dónde**: `leerEntradaMotor` (paso 7 y 8).
+
+### D-102 · Regla determinista 404 vs 409 en `decidir`
+- **Origen**: IA, adoptada.
+- **Contexto**: el spec distingue "nunca existió" de "venció o se canceló entre la lectura y la decisión", pero el `POST` no recibe el id de la reserva.
+- **Decisión**: sin sugerencia vigente, se mira la última fila del socio por `creadaEn desc`. `RESERVADA` (vencida o sin máquina) → `409 SIN_SUGERENCIA_VIGENTE`; `CANCELADA` creada dentro de `minutosVencimientoReserva` (ventana inclusiva: `creadaEn >= ahora − ventana`, igual que D-105) → `409`; cualquier otro caso → `404 SIN_SUGERENCIA`.
+- **Por qué**: es determinista con el `ahora` inyectado, acota el 409 a una ventana y evita un 409 eterno tras un `ESPERAR` antiguo.
+- **Dónde**: `decidirSugerencia`, `src/api/asignaciones.ts`, `asignacion-api`.
+
+### D-103 · Guarda de capacidad en la integración de sesión
+- **Origen**: IA, adoptada.
+- **Contexto**: los tests existentes de sesión mockean Prisma sin los modelos nuevos; el camino sin asignaciones debe ser idéntico y los tests deben quedar verdes sin ediciones.
+- **Decisión**: `esClienteConAsignaciones(db)` detecta `asignacionDeEjercicio` y `ejercicioMaquina`; sin ellos, el adaptador es no-op. Con ellos, la integración corre y los errores reales se propagan donde la sesión debe ser atómica.
+- **Por qué**: preserva la retrocompatibilidad, permite desplegar el código antes de la migración y evita un mock frágil; en producción el modelo existe siempre.
+- **Dónde**: `src/domains/sesion/integracion-asignaciones.ts`, `sesion-de-entrenamiento.ts`.
+
+### D-104 · Dos migraciones aditivas separadas
+- **Origen**: IA, adoptada.
+- **Contexto**: la migración de la tabla debe tener 0 `DROP`/`ALTER` (AC-413); la de configuración necesita `ALTER TABLE ADD COLUMN` (AC-504).
+- **Decisión**: `20261026120000_asignacion_ejercicio` (tipo + tabla + índices + FKs inline) y `20261026120500_asignacion_configuracion` (tres columnas con default).
+- **Por qué**: cada archivo cumple su criterio de revisión sin mezclar una tabla nueva con un `ALTER` a una tabla existente.
+- **Dónde**: `prisma/migrations/`.
+
+### D-105 · Corte de inactividad para ocupantes
+- **Origen**: IA, adoptada.
+- **Contexto**: una sesión abandonada en `EN_CURSO` bloquea una máquina para siempre; la base de desarrollo tiene sesiones `EN_CURSO` antiguas. La consulta de ocupantes tomaba toda sesión `EN_CURSO` con `ejercicioActualId`, sin corte de edad.
+- **Decisión**: una sesión o fila `AsignacionDeEjercicio` en `EN_CURSO` cuenta como ocupante solo si tuvo actividad en los últimos `minutosInactividadSesion` minutos (default 30). La actividad es el `RegistroDeProgreso` más reciente, con `horaInicio`/`creadaEn` como respaldo; la comparación es inclusiva (`>=`). `ahora` y el parámetro se inyectan al plan de lectura.
+- **Por qué**: libera máquinas de sesiones fantasma sin job de limpieza, conserva el determinismo con reloj inyectado y aplica la misma regla a las dos fuentes de ocupación.
+- **Dónde**: `leerEntradaMotor` (paso 7), `LecturaEntrada`, `src/domains/asignacion/orquestacion.ts`, spec `asignacion-ejercicio-persistencia`.
+
+### D-106 · `ejercicioId` con `ON DELETE CASCADE`
+- **Origen**: IA, adoptada.
+- **Contexto**: con `Restrict`, un ejercicio con cualquier asignación se volvía indeletable y el mapeo P2003 existente producía el mensaje equivocado (`DELETE_BLOCKED_ASSIGNED`). El borrado de un ejercicio con uso real ya está bloqueado por `RegistroDeProgreso` y `EjercicioEnRutina`.
+- **Decisión**: la FK `AsignacionDeEjercicio.ejercicioId` usa `ON DELETE CASCADE` en Prisma y en la migración. Eliminar un ejercicio sin progreso ni filas de rutina elimina sus asignaciones y el ejercicio.
+- **Por qué**: la cascada solo alcanza asignaciones de ejercicios nunca ejecutados; evita el bloqueo artificial y el mensaje incorrecto sin perder historial de ejercicios usados.
+- **Dónde**: `prisma/schema.prisma`, migración `20261026120000_asignacion_ejercicio`, integración de persistencia (T-056c).
+
+### D-107 · La consulta del advisory lock devuelve un entero, no `void`
+- **Origen**: IA, adoptada tras el fallo de la suite de integración de CP2.
+- **Contexto**: `SELECT pg_advisory_xact_lock($1::bigint)` con `$queryRaw` falla en Prisma 6.19 con
+  `Failed to deserialize column of type 'void'`. Los tests unitarios no podían verlo porque mockean el cliente;
+  lo destapó la integración contra Postgres real.
+- **Decisión**: la sentencia es
+  `SELECT 1 AS ok FROM (SELECT pg_advisory_xact_lock(${clave}::bigint)) AS t`. Sigue siendo
+  `pg_advisory_xact_lock` dentro de la misma transacción interactiva, tomado antes de leer, y sigue usando
+  `$queryRaw` (nunca `$executeRaw`, que rechaza consultas con filas).
+- **Por qué**: el lock es un efecto de la función; su valor de retorno es irrelevante. Envolverlo en una
+  subconsulta permite proyectar un entero que Prisma sí deserializa, sin cambiar el alcance ni el momento del lock.
+- **Dónde**: `src/domains/asignacion/asignacion-repositorio.ts` (`enTransaccionBloqueada`); el contrato queda
+  fijado por el test unitario "la consulta del lock pide una columna soportada" y por los dos tests de integración
+  (concurrencia y liberación del lock al fallar).
+
+### D-108 · Ocupante sin fila `EN_CURSO`: solo se asigna a una máquina si es la única candidata
+- **Origen**: revisión de CP2, adoptada.
+- **Contexto**: D-97 declara la regla, pero la consecuencia quedó solo en su línea "Dónde". Una sesión `EN_CURSO` sin fila `EN_CURSO` no dice qué máquina está usando (por ejemplo, el socio avanzó por orden de rutina sin pasar por una reserva aceptada).
+- **Decisión**: si el ejercicio actual tiene exactamente una candidata en `EjercicioMaquina`, esa máquina se marca ocupada. Con 0 o con 2+ candidatas, el ocupante no se asigna a ninguna máquina y esa sesión no aporta ocupación.
+- **Consecuencia**: el motor puede ver libre una máquina que en realidad está ocupada y subestimar la espera. Es un límite conocido, no un defecto; el error va hacia "menos espera".
+- **Por qué**: asignar a la máquina equivocada inventaría esperas falsas sobre una máquina libre; sin dato real no se adivina.
+- **Mitigación pendiente**: evaluar en T-056g que el adaptador de sesión registre una fila `EN_CURSO` con `maquinaId` siempre que la máquina sea conocida.
+- **Dónde**: `aplicarOcupantes` (`asignacion-ocupacion.ts`), spec de persistencia, D-97.
+
+### D-109 · `decidirSugerencia` devuelve `contenido` ante ERROR o TIMEOUT
+- **Origen**: CP3, adoptada.
+- **Contexto**: el spec de API exige que un fallo de persistencia en `POST` devuelva 500 `SERVER_ERROR` (AC-484); sin una variante de error, la única salida era `sin_sugerencia` (404/409), que miente sobre la causa.
+- **Decisión**: `ResultadoDecision` incluye `{ tipo: "contenido"; motivo: "ERROR" | "TIMEOUT" }`; la función no lanza y el handler lo mapea a 500.
+- **Por qué**: es el mismo patrón que `ResultadoOrquestacion`; la excepción no atraviesa capas.
+- **Alternativa descartada**: que `decidirSugerencia` lance y el handler mapee.
+- **Dónde**: `orquestacion.ts`, §7 de este diseño, spec `asignacion-api`.
+
+### D-110 · Tope del cálculo configurable por entorno
+- **Origen**: IA, adoptada tras el smoke manual.
+- **Contexto**: contra una base remota (Supabase) desde una máquina local, el cálculo del check-in supera los 2000 ms, el motor devuelve `TIMEOUT` y no se crea reserva; subiendo el tope a 20 s a mano todo el flujo funciona.
+- **Decisión**: `ASIGNACION_TIMEOUT_CALCULO_MS` (entero, 500–30000, por defecto 2000) y `ASIGNACION_MAX_WAIT_TRANSACCION_MS` (mismo criterio, por defecto 1000). Los lee `src/lib/asignacion-timeouts.ts` y llegan a la orquestación por parámetro; el dominio nunca lee `process.env`.
+- **Por qué**: en producción, con la base cerca, el valor por defecto alcanza; en desarrollo o demos con base remota, no. Un valor inválido cae al default sin lanzar: la configuración nunca rompe el check-in.
+- **Alternativa descartada**: fijar un tope mayor para todos (alarga la espera del check-in en el caso normal) y mover el cálculo a `after` (D-98: no verificado en Vercel).
+- **Dónde**: `src/lib/asignacion-timeouts.ts`, `orquestacion.ts` (`DepsOrquestacion.timeouts`), `src/api/{acceso,sesiones,asignaciones}.ts`, `.env.example`.
+
+---
+
 ## 2. Registro de defectos corregidos
 
 | ID | Síntoma | Causa raíz | Corrección | Commit | Cómo se detectó |
@@ -1533,10 +1711,14 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-61 | Salida de emergencia del flujo obligatorio: máquina rota durante la sesión o socio lesionado → reasignación por instructor. No es parte del motor puro; requiere estado de sesión y permisos de instructor | Media | Etapa 4 |
 | P-62 | Simulación comparativa para la tesis: espera promedio del motor frente a seguir el orden de rutina, con N socios y M máquinas | Baja | Posterior a la Etapa 5 |
 | P-63 | Documentación de la limitación del criterio "solo-espera" (sin orden fisiológico) para el informe de tesis. Limitación declarada; no se resuelve en esta iniciativa | Baja | Informe de tesis; referencia de AC-313 |
-| P-64 | El cálculo en check-in debe ser **best-effort**: nunca bloquea ni falla el registro de asistencia. Capa de servicio/API, no de dominio | Media | Etapa 4 |
-| P-65 | Reserva provisional con vencimiento configurable (propuesta: 15 minutos sin iniciar rutina libera el lugar en cola). Requiere estado de sesión y temporizador | Media | Etapa 4 |
-| P-66 | Evaluar la API de Next 16 para trabajo posterior a la respuesta, leyendo `node_modules/next/dist/docs` antes de proponerla | Baja | Etapa 4 |
-| P-67 | Etapa 4: quien arma la entrada del motor debe **excluir de las colas la reserva del propio socio** al recalcular (check-in → inicio de rutina → tras cada ejercicio); si no, el socio se espera a sí mismo. Requiere **test obligatorio** en la Etapa 4 | Media | Precondición de integración, no del motor puro |
+| P-64 | ~~El cálculo en check-in debe ser **best-effort**~~ | — | **Resuelto (Etapa 4, T-056g1)**: el gancho vive en `evaluarYRegistrarAcceso`, con `try/catch` y log; diez tests cubren motor que lanza, `invalido`, fallo de persistencia y timeout |
+| P-65 | ~~Reserva provisional con vencimiento configurable~~ | — | **Resuelto (Etapa 4)**: `venceEn` por fila y `minutosVencimientoReserva` en `/configuracion` (D-89, D-110); el vencimiento es perezoso (D-106/AC-406) |
+| P-66 | ~~Evaluar la API de Next 16 para trabajo posterior a la respuesta~~ | — | **Resuelto (Etapa 4)**: `after` requiere `waitUntil` en serverless y no está verificado (P-28); se usa `await` acotado (D-100) |
+| P-67 | ~~Quien arma la entrada debe excluir de las colas la reserva del propio socio~~ | — | **Resuelto (Etapa 4)**: `socioId: { not: socioActual }` en las consultas de ocupantes y cola, con test dedicado (AC-410) |
+| P-68 | ~~Prueba de concurrencia de reservas contra Postgres~~ | — | **Resuelto (Etapa 4, T-056d3)**: `asignacion-concurrencia.integration.test.ts` y `asignacion-orquestacion.integration.test.ts` contra Docker; verificado por mutación (sin el advisory lock fallan los tres escenarios) |
+| P-69 | Limpieza batch de filas `RESERVADA` vencidas: el vencimiento es perezoso y la tabla crece sin límite | Baja | Abierto. El vencimiento perezoso cubre la operación (D-106/AC-406); la limpieza queda para cuando haya volumen real |
+| P-70 | ~~`ejercicioActualId` de la sesión debe reflejar la asignación aceptada~~ | — | **Resuelto (Etapa 4, T-056g2/g3a)**: `iniciarSesion` consume la reserva y fija el ejercicio; al completar, el siguiente sale de la reserva o del orden de rutina |
+| P-71 | Sensibilidad de la latencia del check-in: peor caso ≈2,25 s por la carrera externa | Media | Parcialmente mitigado: `ASIGNACION_TIMEOUT_CALCULO_MS` configurable por entorno (D-110). Falta medir con carga real y reevaluar `after` si se verifica P-28 |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | **Casi cerrado (2026-10-16)**: `npm run build` ✅ y `npm run start` ✅ (exit 0, 45 páginas). El **pooler se probó y funciona**: Prisma directo tolera las transacciones interactivas (el landmine de pgbouncer no se dispara) y `npm run start` con `DATABASE_URL` *pooled* responde login `200` y `/api/home-interno` `200` (6,01 s / 2,40 s, contra 3,21 s / 1,33–1,71 s de la conexión directa: **más lento en local por `connection_limit=1`**, que serializa las consultas; su beneficio es la concurrencia en serverless). **Falta probarlo en Vercel**; las migraciones siguen necesitando conexión directa (sin `directUrl`) |

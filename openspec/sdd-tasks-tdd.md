@@ -127,6 +127,13 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-055b ➕ Motor de espera: bloqueo y selección | ✅ | — (direct to `dev`) | ≈330 | Block reasons, chosen machine, canonical comparator, saving and determinism; D-85 |
 | T-055c ➕ Motor de espera: validación estricta | ✅ | — (direct to `dev`) | ≈247 | `Number.isFinite` before ranges, `seriesRestantes >= 1`, shared `duracionDeEjercicio`; D-87 |
 | T-055d ➕ Motor de espera: cierre documental | ✅ | — (direct to `dev`) | ≈110 | Archive of Etapa 3: decisions, pending items, task log and promoted spec |
+| T-056a ➕ Asignación: esquema, migraciones y configuración (CP1) | ✅ | — (direct to `dev`) | ≈428 | `AsignacionDeEjercicio` + two additive migrations + three `/configuracion` parameters; D-93, D-104 |
+| T-056b/c ➕ Asignación: repositorio, entrada del motor y lock (CP2) | ✅ | — (direct to `dev`) | ≈2.327 | Repository split by responsibility, occupants with activity cutoff, queue (P-67), writes with guard and `pg_advisory_xact_lock`; D-95, D-97, D-105, D-107 |
+| T-056d ➕ Asignación: orquestación (CP3) | ✅ | — (direct to `dev`) | ≈1.350 | `calcularYReservar`, fallback/invalid/errors, `decidirSugerencia` (D-102), `reservaVigente`, check-in bridge, configurable timeouts (D-110) |
+| T-056e ➕ Asignación: handlers (CP4a) | ✅ | — (direct to `dev`) | ≈725 | `handleObtenerSugerencia` and `handleDecidirSugerencia`; `contenido` mapping (D-109) |
+| T-056f ➕ Asignación: rutas, matriz y mapper (CP4b) | ✅ | — (direct to `dev`) | ≈433 | `GET /api/asignaciones/sugerencia`, `POST /api/asignaciones/decidir`, RBAC matrix (D-99) and `SIN_SUGERENCIA`/`SIN_SUGERENCIA_VIGENTE` in the mapper |
+| T-056g ➕ Asignación: check-in y sesión (CP4c) | ✅ | — (direct to `dev`) | ≈900 | Best-effort check-in hook, session adapter (D-103), consume on start/advance, close on finish |
+| T-056g ➕ Asignación: cierre documental | ✅ | — (direct to `dev`) | ≈150 | Archive of Etapa 4: D-88…D-110, pendings P-61…P-71, promoted specs and archive report |
 
 ## Scope changes during apply
 

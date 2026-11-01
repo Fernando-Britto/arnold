@@ -17,7 +17,7 @@ corrió dos veces en la pasada anterior con 9 suites / 54 tests en verde.
 
 Las observaciones son de cobertura, no de comportamiento. **Actualizado el 2026-10-25**: los
 hallazgos medios 1 (AC-453/AC-525) y 2 (AC-402/AC-411) quedaron cerrados con tests nuevos (ver
-"Seguimiento"); el medio 3 (compuerta de integración sin Docker) y los bajos 4–7 siguen abiertos.
+"Seguimiento"); el medio 3 (compuerta de integración) quedó cerrado el 2026-10-31 y los bajos 4–7 siguen abiertos.
 
 ## Compuertas
 
@@ -231,9 +231,8 @@ Ninguno.
    no hay test que lo asevere. *Propuesta*: test de `leerSugerenciaVigente` que devuelva `120/60`
    guardados aunque el estado de otra máquina cambie. *(Implementado: `orquestacion.decision` →
    "devuelve los 120/60 guardados aunque cambie el gimnasio, sin invocar el motor".)*
-3. **Compuerta de integración no ejecutada en esta sesión.** Docker no responde para el usuario
-   actual (`docker ps` → exit 1). No es un defecto del change, pero deja la compuerta sin evidencia
-   fresca. *Propuesta*: correr `npm run test:integration` con Docker accesible antes de archivar.
+3. ~~**Compuerta de integración no ejecutada en esta sesión.**~~ **Cerrado el 2026-10-31**: la
+   ejecutó Fernando con resultado OK (última corrida registrada por el agente: 9 suites / 54 tests).
 
 ### Bajos
 4. **AC-411 — "las lecturas no invocan el motor"** sin aserción explícita; se cumple por
@@ -256,7 +255,7 @@ hallazgos 1 y 2.
 
 ## Seguimiento
 
-**2026-10-25 — cierre de los hallazgos medios 1 y 2.**
+**2026-10-31 — cierre de los hallazgos medios 1, 2 y 3.**
 
 - **Cerrado (medio 1, AC-453 / AC-525)**: nuevo `src/api/acceso-asignacion.ventana.test.ts` con dos
   casos sobre la ventana anti-passback real (asistencia previa filtrada como la consulta real):
@@ -269,9 +268,10 @@ hallazgos 1 y 2.
 - **Cerrado (medio 2, AC-402 / AC-411)**: nuevo test en `orquestacion.decision.test.ts` que verifica
   que `reservaVigente` devuelve los `120/60` persistidos aunque cambie el estado del doble, con un
   espía sobre `calcularEspera` que confirma que el motor no se invoca.
-- **Sigue abierto (medio 3)**: la compuerta `npm run test:integration` no se pudo ejecutar en esta
-  sesión (Docker no accesible); queda a cargo del usuario antes de archivar.
+- **Cerrado (medio 3)**: la compuerta `npm run test:integration` fue **ejecutada por Fernando el
+  2026-10-31 con resultado OK** (sin salida adjunta en el informe; última corrida registrada por el
+  agente: **9 suites / 54 tests**).
 - **Bajos 4–7**: aceptados como están (AC-403 enum por tipo/DDL, AC-486 identidad encadenada,
-  AC-521 rutas de ingreso, AC-509 arrastra el medio 3).
+  AC-521 rutas de ingreso).
 
 Veredicto sin cambios: **APROBADO CON OBSERVACIONES**.
