@@ -31,6 +31,8 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     // el Socio ve su rutina vía /api/home-socio
     // PUT para finalizar la sesión de entrenamiento (D-44); GET/POST ya existían.
     '/api/sesiones': ['GET', 'POST', 'PUT'],
+    // Sugerencia de espera y decisión obligatoria (D-99): el socio decide sobre lo propio.
+    '/api/asignaciones': ['GET', 'POST'],
     '/api/auth/logout': ['POST'],
   },
 },
@@ -45,6 +47,7 @@ INSTRUCTOR: {
     '/api/rutinas-asignadas': ['GET', 'POST'], // asignar rutina (T-034); Admin por wildcard
     '/api/rutinas': ['GET', 'POST', 'PUT', 'DELETE'],
     '/api/sesiones': ['GET'], // N2: el Instructor solo lee sesiones; el POST/PUT los rechaza el handler
+    '/api/asignaciones': ['GET'], // consulta la sugerencia de un socio (D-99)
     '/api/auth/logout': ['POST'],
   },
 },
@@ -72,6 +75,9 @@ RECEPCIONISTA: {
       // recorta por prefijo (ver hasRouteAccess). No toca /api/home-socio ni ninguna otra ruta.
       '/home-socio': [],
       '/api/configuracion': ['GET', 'PUT'], // panel de parámetros: solo Administrador (D-54)
+      // Solo lectura de la sugerencia: la entrada explícita recorta el comodín para el POST,
+      // que queda exclusivo del Socio (D-99).
+      '/api/asignaciones': ['GET'],
       '*': ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // wildcard: all methods on all routes
     },
   },

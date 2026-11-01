@@ -41,11 +41,25 @@ const REGISTROS_PARA_ULTIMA_VEZ = 50;
 export const RIR_MIN = 0;
 export const RIR_MAX = 5;
 
+import type { TimeoutsAsignacion } from "@/lib/asignacion-timeouts";
+import {
+  completarEjecucionParaSesion,
+  completarEjecucionesDeSesion,
+  consumirReservaParaSesion,
+  crearEjecucionParaSesion,
+  esClienteConAsignaciones,
+  leerReservaVigenteParaSesion,
+  maquinaUnicaDe,
+  recalcularTrasSesion,
+} from "./integracion-asignaciones";
+
 export interface IniciarSesionInput {
   socioId: string;
   rutinaAsignadaId: string;
   /** Inyectable en tests; en producción es `new Date()`. */
   ahora?: Date;
+  /** Timeouts del recálculo (D-110); por defecto, los históricos. */
+  timeouts?: TimeoutsAsignacion;
 }
 
 export interface RegistrarSerieInput {
@@ -64,6 +78,8 @@ export interface RegistrarSerieInput {
   drops?: DropDeSerie[];
   /** Inyectable en tests; en producción es `new Date()`. */
   ahora?: Date;
+  /** Timeouts del recálculo (D-110); por defecto, los históricos. */
+  timeouts?: TimeoutsAsignacion;
 }
 
 /** Un drop set: la carga reducida y las repeticiones que hizo con ella. */
@@ -239,6 +255,17 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
   const primero = ejercicios[0] ?? null;
   const ahora = input.ahora ?? new Date();
 
+  // D-103: sin los modelos nuevos no se toca nada y la sesión se comporta como siempre.
+  const tieneAsignaciones = esClienteConAsignaciones(prisma);
+  const reserva = tieneAsignaciones
+    ? await leerReservaVigenteParaSesion(prisma, input.socioId, ahora)
+    : null;
+  const reservaDeLaRutina =
+    reserva && ejercicios.some((ejercicio) => ejercicio.ejercicioId === reserva.ejercicioId)
+      ? reserva
+      : null;
+  const ejercicioInicialId = reservaDeLaRutina?.ejercicioId ?? primero?.ejercicioId ?? null;
+
   // SE-1/SE-3: una sesión nueva cuando ya hay una EN_CURSO deja la anterior en ABANDONADA
   // (con horaFin). Así `ABANDONADA` tiene un disparador real y se mantiene el invariante
   // "a lo sumo una EN_CURSO por socio". El abandono y la creación van en UNA transacción.
@@ -252,17 +279,67 @@ export async function iniciarSesion(input: IniciarSesionInput): Promise<SesionIn
       data: { estadoDeFinalizacion: "ABANDONADA", horaFin: ahora },
     });
 
-    return tx.sesionDeEntrenamiento.create({
+    const creada = await tx.sesionDeEntrenamiento.create({
       data: {
         socioId: input.socioId,
         rutinaAsignadaId: input.rutinaAsignadaId,
         estadoDeFinalizacion: "EN_CURSO",
         horaInicio: ahora,
-        ejercicioActualId: primero ? primero.ejercicioId : null,
-        serieActual: primero ? 1 : null,
+        ejercicioActualId: ejercicioInicialId,
+        serieActual: ejercicioInicialId ? 1 : null,
       },
     });
+    const sesionId = (creada as { id: string }).id;
+    const cliente = tx as unknown as Parameters<typeof consumirReservaParaSesion>[0];
+
+    if (tieneAsignaciones && reservaDeLaRutina) {
+      // Consumo y fallback, dentro de la misma transacción que crea la sesión (design §9).
+      const consumida = await consumirReservaParaSesion(
+        cliente,
+        reservaDeLaRutina.id,
+        sesionId,
+        ahora
+      );
+      if (!consumida) {
+        await tx.sesionDeEntrenamiento.update({
+          where: { id: sesionId },
+          data: {
+            ejercicioActualId: primero ? primero.ejercicioId : null,
+            serieActual: primero ? 1 : null,
+          },
+        });
+        if (primero) {
+          await crearEjecucionParaSesion(cliente, {
+            socioId: input.socioId,
+            sesionId,
+            ejercicioId: primero.ejercicioId,
+            maquinaId: await maquinaUnicaDe(cliente, primero.ejercicioId),
+            ahora,
+          });
+        }
+      }
+    } else if (tieneAsignaciones && primero) {
+      await crearEjecucionParaSesion(cliente, {
+        socioId: input.socioId,
+        sesionId,
+        ejercicioId: primero.ejercicioId,
+        maquinaId: await maquinaUnicaDe(cliente, primero.ejercicioId),
+        ahora,
+      });
+    }
+
+    return creada;
   });
+
+  if (tieneAsignaciones) {
+    await recalcularTrasSesion({
+      socioId: input.socioId,
+      ahora,
+      momento: "INICIO_RUTINA",
+      excluirEjercicioIds: [],
+      ...(input.timeouts ? { timeouts: input.timeouts } : {}),
+    });
+  }
 
   const { ultimasVeces, sugerencias, records } = await seguimientoDeEjercicios({
     socioId: input.socioId,
@@ -399,8 +476,16 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
     throw new Error("VALIDATION_ERROR: El drop set se agrega a una serie, no se registra solo");
   }
   const drops = validarDrops(input.drops, tipo);
+  // Mismo criterio que `iniciarSesion`: manda el `ahora` inyectado.
+  const ahora = input.ahora ?? new Date();
 
-  return prisma.$transaction(async (tx) => {
+  // D-103: sin los modelos nuevos, esta función se comporta exactamente como siempre.
+  const tieneAsignaciones = esClienteConAsignaciones(prisma);
+  let socioDeLaSesion = "";
+  // Design §9: el recálculo se dispara al COMPLETAR un ejercicio, no en cada serie.
+  let completoEjercicio = false;
+
+  const resultado = await prisma.$transaction(async (tx) => {
     // SE-2: la lectura y revalidación de la sesión van DENTRO de la transacción. Si se
     // leyera afuera, un doble envío concurrente podría calcular el mismo `numeroSerie`
     // a partir del mismo `serieActual` y perder el avance.
@@ -426,6 +511,7 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
       throw new Error("VALIDATION_ERROR: El ejercicio no es el actual de la sesión");
     }
 
+    socioDeLaSesion = sesion.socioId;
     const ejercicios = sesion.rutinaAsignada.rutina.ejercicios;
     const idxActual = ejercicios.findIndex((e) => e.ejercicioId === sesion.ejercicioActualId);
     if (idxActual < 0) {
@@ -459,14 +545,42 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
 
     let siguienteEjercicioId: string | null = sesion.ejercicioActualId;
     let siguienteSerie: number | null = numeroSerie + 1;
+    let siguientePorOrden = false;
     if (numeroSerie >= actual.series) {
-      const siguiente = ejercicios[idxActual + 1];
-      if (siguiente) {
-        siguienteEjercicioId = siguiente.ejercicioId;
-        siguienteSerie = 1;
-      } else {
-        siguienteEjercicioId = null;
-        siguienteSerie = null;
+      completoEjercicio = true;
+      siguienteEjercicioId = null;
+      siguienteSerie = null;
+
+      // Design §9: la reserva se lee y se consume DENTRO de esta transacción.
+      if (tieneAsignaciones) {
+        const cliente = tx as unknown as Parameters<typeof consumirReservaParaSesion>[0];
+        const reserva = await leerReservaVigenteParaSesion(cliente, sesion.socioId, ahora);
+        const reservaDeLaRutina =
+          reserva && ejercicios.some((e) => e.ejercicioId === reserva.ejercicioId)
+            ? reserva
+            : null;
+
+        if (reservaDeLaRutina) {
+          const consumida = await consumirReservaParaSesion(
+            cliente,
+            reservaDeLaRutina.id,
+            sesion.id,
+            ahora
+          );
+          if (consumida) {
+            siguienteEjercicioId = reservaDeLaRutina.ejercicioId;
+            siguienteSerie = 1;
+          }
+        }
+      }
+
+      if (siguienteEjercicioId === null) {
+        const siguiente = ejercicios[idxActual + 1];
+        if (siguiente) {
+          siguienteEjercicioId = siguiente.ejercicioId;
+          siguienteSerie = 1;
+          siguientePorOrden = true;
+        }
       }
     }
 
@@ -489,6 +603,21 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
       throw new Error(
         "VALIDATION_ERROR: La sesión fue modificada por un registro concurrente; recargá e intentá de nuevo"
       );
+    }
+
+    if (tieneAsignaciones && numeroSerie >= actual.series) {
+      const cliente = tx as unknown as Parameters<typeof completarEjecucionParaSesion>[0];
+      await completarEjecucionParaSesion(cliente, sesion.id, input.ejercicioId);
+
+      if (siguientePorOrden && siguienteEjercicioId) {
+        await crearEjecucionParaSesion(cliente, {
+          socioId: sesion.socioId,
+          sesionId: sesion.id,
+          ejercicioId: siguienteEjercicioId,
+          maquinaId: await maquinaUnicaDe(cliente, siguienteEjercicioId),
+          ahora,
+        });
+      }
     }
 
     const registro = await tx.registroDeProgreso.create({
@@ -532,6 +661,18 @@ export async function registrarSerie(input: RegistrarSerieInput): Promise<SerieR
     });
     return { registro, sesion: sesionActualizada, drops: dropsGuardados };
   });
+
+  if (completoEjercicio && tieneAsignaciones) {
+    await recalcularTrasSesion({
+      socioId: socioDeLaSesion,
+      ahora,
+      momento: "POST_EJERCICIO",
+      excluirEjercicioIds: [input.ejercicioId],
+      ...(input.timeouts ? { timeouts: input.timeouts } : {}),
+    });
+  }
+
+  return resultado;
 }
 
 /**
@@ -587,13 +728,29 @@ export async function finalizarSesion(input: FinalizarSesionInput) {
   }
 
   const completo = (sesion as { serieActual: number | null }).serieActual === null;
+  const datos = {
+    horaFin: input.ahora ?? new Date(),
+    estadoDeFinalizacion: completo ? "COMPLETADA" : "INCOMPLETA",
+  } as const;
 
-  return prisma.sesionDeEntrenamiento.update({
-    where: { id: input.sesionId },
-    data: {
-      horaFin: input.ahora ?? new Date(),
-      estadoDeFinalizacion: completo ? "COMPLETADA" : "INCOMPLETA",
-    },
+  // D-103: sin los modelos nuevos, fin de sesión es exactamente lo de siempre.
+  // `Boolean(...)` evita que TypeScript estreche `prisma` al tipo de la guarda (rompería `$transaction`).
+  const tieneAsignaciones = Boolean(esClienteConAsignaciones(prisma));
+  if (!tieneAsignaciones) {
+    return prisma.sesionDeEntrenamiento.update({ where: { id: input.sesionId }, data: datos });
+  }
+
+  // Design §9: la sesión y sus ejecuciones se cierran en UNA transacción.
+  return prisma.$transaction(async (tx) => {
+    const actualizada = await tx.sesionDeEntrenamiento.update({
+      where: { id: input.sesionId },
+      data: datos,
+    });
+    await completarEjecucionesDeSesion(
+      tx as unknown as Parameters<typeof completarEjecucionesDeSesion>[0],
+      input.sesionId
+    );
+    return actualizada;
   });
 }
 

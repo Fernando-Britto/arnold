@@ -23,7 +23,7 @@ describe("validarCambiosConfiguracion", () => {
     expect(r.cambios).not.toBe(payloadCompleto);
   });
 
-  it("declara los 11 campos esperados", () => {
+  it("declara los 14 campos esperados", () => {
     expect(Object.keys(CAMPOS_CONFIGURACION)).toEqual([
       "capacidadMaxima",
       "periodoGracia",
@@ -36,6 +36,9 @@ describe("validarCambiosConfiguracion", () => {
       "ofertaReactivacionActiva",
       "diasSinAsistirParaOferta",
       "enfriamientoOfertaDias",
+      "segundosEjecucionSerie",
+      "minutosVencimientoReserva",
+      "minutosInactividadSesion",
     ]);
   });
 
@@ -132,5 +135,90 @@ describe("validarCambiosConfiguracion", () => {
   it("devuelve el primer error según el orden de CAMPOS_CONFIGURACION", () => {
     const r = validarCambiosConfiguracion({ periodoGracia: 99, capacidadMaxima: -5 });
     expect(r).toEqual({ ok: false, message: "capacidadMaxima debe estar entre 1 y 10000" });
+  });
+
+  it("acepta segundosEjecucionSerie en los bordes 1 y 3600", () => {
+    expect(validarCambiosConfiguracion({ segundosEjecucionSerie: 1 })).toEqual({
+      ok: true,
+      cambios: { segundosEjecucionSerie: 1 },
+    });
+    expect(validarCambiosConfiguracion({ segundosEjecucionSerie: 3600 })).toEqual({
+      ok: true,
+      cambios: { segundosEjecucionSerie: 3600 },
+    });
+  });
+
+  it("rechaza segundosEjecucionSerie 0", () => {
+    expect(validarCambiosConfiguracion({ segundosEjecucionSerie: 0 })).toEqual({
+      ok: false,
+      message: "segundosEjecucionSerie debe estar entre 1 y 3600",
+    });
+  });
+
+  it("rechaza segundosEjecucionSerie 3601", () => {
+    expect(validarCambiosConfiguracion({ segundosEjecucionSerie: 3601 })).toEqual({
+      ok: false,
+      message: "segundosEjecucionSerie debe estar entre 1 y 3600",
+    });
+  });
+
+  it("rechaza segundosEjecucionSerie 60.5", () => {
+    expect(validarCambiosConfiguracion({ segundosEjecucionSerie: 60.5 })).toEqual({
+      ok: false,
+      message: "segundosEjecucionSerie debe ser un número entero",
+    });
+  });
+
+  it("acepta minutosVencimientoReserva 0 y 1440", () => {
+    expect(validarCambiosConfiguracion({ minutosVencimientoReserva: 0 })).toEqual({
+      ok: true,
+      cambios: { minutosVencimientoReserva: 0 },
+    });
+    expect(validarCambiosConfiguracion({ minutosVencimientoReserva: 1440 })).toEqual({
+      ok: true,
+      cambios: { minutosVencimientoReserva: 1440 },
+    });
+  });
+
+  it("rechaza minutosVencimientoReserva -1 y 1441", () => {
+    const esperado = { ok: false, message: "minutosVencimientoReserva debe estar entre 0 y 1440" };
+    expect(validarCambiosConfiguracion({ minutosVencimientoReserva: -1 })).toEqual(esperado);
+    expect(validarCambiosConfiguracion({ minutosVencimientoReserva: 1441 })).toEqual(esperado);
+  });
+
+  it("rechaza minutosVencimientoReserva NaN, Infinity y string", () => {
+    const esperado = { ok: false, message: "minutosVencimientoReserva debe ser un número" };
+    expect(validarCambiosConfiguracion({ minutosVencimientoReserva: NaN })).toEqual(esperado);
+    expect(validarCambiosConfiguracion({ minutosVencimientoReserva: Infinity })).toEqual(esperado);
+    expect(validarCambiosConfiguracion({ minutosVencimientoReserva: "15" })).toEqual(esperado);
+  });
+
+  it("acepta minutosInactividadSesion 1 y 1440", () => {
+    expect(validarCambiosConfiguracion({ minutosInactividadSesion: 1 })).toEqual({
+      ok: true,
+      cambios: { minutosInactividadSesion: 1 },
+    });
+    expect(validarCambiosConfiguracion({ minutosInactividadSesion: 1440 })).toEqual({
+      ok: true,
+      cambios: { minutosInactividadSesion: 1440 },
+    });
+  });
+
+  it("rechaza minutosInactividadSesion 0, -1 y 1441", () => {
+    const esperado = { ok: false, message: "minutosInactividadSesion debe estar entre 1 y 1440" };
+    expect(validarCambiosConfiguracion({ minutosInactividadSesion: 0 })).toEqual(esperado);
+    expect(validarCambiosConfiguracion({ minutosInactividadSesion: -1 })).toEqual(esperado);
+    expect(validarCambiosConfiguracion({ minutosInactividadSesion: 1441 })).toEqual(esperado);
+  });
+
+  it("rechaza minutosInactividadSesion 30.5, NaN, Infinity y string", () => {
+    expect(validarCambiosConfiguracion({ minutosInactividadSesion: 30.5 })).toEqual({
+      ok: false,
+      message: "minutosInactividadSesion debe ser un número entero",
+    });
+    const noNumero = { ok: false, message: "minutosInactividadSesion debe ser un número" };
+    expect(validarCambiosConfiguracion({ minutosInactividadSesion: NaN })).toEqual(noNumero);
+    expect(validarCambiosConfiguracion({ minutosInactividadSesion: Infinity })).toEqual(noNumero);
+    expect(validarCambiosConfiguracion({ minutosInactividadSesion: "30" })).toEqual(noNumero);
   });
 });

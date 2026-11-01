@@ -44,6 +44,14 @@ const GRUPOS: ReadonlyArray<{ titulo: string; campos: readonly CampoConfiguracio
       "enfriamientoOfertaDias",
     ],
   },
+  {
+    titulo: "Motor de espera",
+    campos: [
+      "segundosEjecucionSerie",
+      "minutosVencimientoReserva",
+      "minutosInactividadSesion",
+    ],
+  },
 ];
 
 const ETIQUETAS: Record<CampoConfiguracion, string> = {
@@ -58,6 +66,9 @@ const ETIQUETAS: Record<CampoConfiguracion, string> = {
   diasSinAsistirParaOferta: "Días sin asistir para la oferta",
   descuentoReactivacion: "Descuento de reactivación (%)",
   enfriamientoOfertaDias: "Enfriamiento de la oferta (días)",
+  segundosEjecucionSerie: "Duración de la serie (segundos)",
+  minutosVencimientoReserva: "Vencimiento de la reserva (minutos)",
+  minutosInactividadSesion: "Inactividad de sesión (minutos)",
 };
 
 /** "1–10000" para los campos numéricos; null en el booleano. */
@@ -81,6 +92,9 @@ function aFormulario(config: Configuracion): Formulario {
     diasSinAsistirParaOferta: String(config.diasSinAsistirParaOferta),
     descuentoReactivacion: String(config.descuentoReactivacion),
     enfriamientoOfertaDias: String(config.enfriamientoOfertaDias),
+    segundosEjecucionSerie: String(config.segundosEjecucionSerie),
+    minutosVencimientoReserva: String(config.minutosVencimientoReserva),
+    minutosInactividadSesion: String(config.minutosInactividadSesion),
   };
 }
 

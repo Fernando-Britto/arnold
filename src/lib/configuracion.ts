@@ -28,6 +28,12 @@ export interface Configuracion {
   diaLimitePago: number;
   diaCorteAltaTardia: number;
   antiPassbackMinutos: number;
+  /** Duración estimada de una serie, en segundos, para el motor de espera (D-90). */
+  segundosEjecucionSerie: number;
+  /** Minutos que una reserva provisional espera antes de vencer (D-90). */
+  minutosVencimientoReserva: number;
+  /** Minutos de inactividad tras los cuales una sesión deja de ocupar su máquina (D-105). */
+  minutosInactividadSesion: number;
 }
 
 /**
@@ -48,6 +54,9 @@ export const CONFIGURACION_POR_DEFECTO: Readonly<Configuracion> = Object.freeze(
   diaLimitePago: 10,
   diaCorteAltaTardia: 20,
   antiPassbackMinutos: 60,
+  segundosEjecucionSerie: 60,
+  minutosVencimientoReserva: 15,
+  minutosInactividadSesion: 30,
 });
 
 /** Fila tal como la devuelve Prisma, más los campos de la oferta que T-045b convierte en columnas. */
@@ -77,6 +86,9 @@ function normalizarFila(fila: FilaConfiguracion | null): Configuracion {
     diaLimitePago: fila?.diaLimitePago ?? d.diaLimitePago,
     diaCorteAltaTardia: fila?.diaCorteAltaTardia ?? d.diaCorteAltaTardia,
     antiPassbackMinutos: fila?.antiPassbackMinutos ?? d.antiPassbackMinutos,
+    segundosEjecucionSerie: fila?.segundosEjecucionSerie ?? d.segundosEjecucionSerie,
+    minutosVencimientoReserva: fila?.minutosVencimientoReserva ?? d.minutosVencimientoReserva,
+    minutosInactividadSesion: fila?.minutosInactividadSesion ?? d.minutosInactividadSesion,
   };
 }
 

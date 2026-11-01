@@ -6,6 +6,7 @@
  * La verificación de propiedad vive en las rutas: un SOCIO solo actúa sobre sus sesiones;
  * ADMINISTRADOR/INSTRUCTOR pueden leer.
  */
+import { timeoutsDeEntorno } from "@/lib/asignacion-timeouts";
 import {
   iniciarSesion,
   obtenerSesion,
@@ -32,12 +33,12 @@ export type {
 
 /** Handle POST /api/sesiones — inicia una sesión de entrenamiento. */
 export async function handleIniciarSesion(input: IniciarSesionInput) {
-  return iniciarSesion(input);
+  return iniciarSesion({ ...input, timeouts: timeoutsDeEntorno() });
 }
 
 /** Handle POST /api/sesiones/[id]/series — registra una serie. */
 export async function handleRegistrarSerie(input: RegistrarSerieInput) {
-  return registrarSerie(input);
+  return registrarSerie({ ...input, timeouts: timeoutsDeEntorno() });
 }
 
 /** Handle GET /api/sesiones/[id]/resumen — resumen de la sesión (T-046b, D-62). */

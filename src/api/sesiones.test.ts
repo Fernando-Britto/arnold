@@ -41,7 +41,18 @@ async function mocks() {
 }
 
 describe("handlers de sesiones", () => {
-  beforeEach(() => jest.clearAllMocks());
+  let envPrevio: string | undefined;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    envPrevio = process.env.ASIGNACION_TIMEOUT_CALCULO_MS;
+    process.env.ASIGNACION_TIMEOUT_CALCULO_MS = "7000";
+  });
+
+  afterEach(() => {
+    if (envPrevio === undefined) delete process.env.ASIGNACION_TIMEOUT_CALCULO_MS;
+    else process.env.ASIGNACION_TIMEOUT_CALCULO_MS = envPrevio;
+  });
 
   it("handleIniciarSesion delega en iniciarSesion", async () => {
     const input = { socioId: "socio-1", rutinaAsignadaId: "asig-1" };
@@ -50,7 +61,10 @@ describe("handlers de sesiones", () => {
     const r = await handleIniciarSesion(input);
 
     expect(r).toEqual({ sesion: { id: "s1" }, ejercicios: [] });
-    expect(mockIniciar).toHaveBeenCalledWith(input);
+    expect(mockIniciar).toHaveBeenCalledWith({
+      ...input,
+      timeouts: { calculoMs: 7000, maxWaitMs: 1000 },
+    });
   });
 
   it("handleRegistrarSerie delega en registrarSerie", async () => {
@@ -60,7 +74,10 @@ describe("handlers de sesiones", () => {
     const r = await handleRegistrarSerie(input);
 
     expect(r).toEqual({ registro: { id: "r1" }, sesion: { id: "s1" } });
-    expect(mockRegistrar).toHaveBeenCalledWith(input);
+    expect(mockRegistrar).toHaveBeenCalledWith({
+      ...input,
+      timeouts: { calculoMs: 7000, maxWaitMs: 1000 },
+    });
   });
 
   it("handleFinalizarSesion delega en finalizarSesion", async () => {

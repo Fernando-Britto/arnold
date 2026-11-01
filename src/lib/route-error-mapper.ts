@@ -199,6 +199,20 @@ export function mapErrorToResponse(
         status: 409,
       };
     }
+    if (code === "SIN_SUGERENCIA") {
+      return {
+        code: "SIN_SUGERENCIA",
+        message: "No hay una sugerencia vigente",
+        status: 404,
+      };
+    }
+    if (code === "SIN_SUGERENCIA_VIGENTE") {
+      return {
+        code: "SIN_SUGERENCIA_VIGENTE",
+        message: "La sugerencia ya no está vigente; vuelva a consultar",
+        status: 409,
+      };
+    }
     if (code === "NOT_FOUND") {
       return {
         code: "NOT_FOUND",
@@ -210,7 +224,7 @@ export function mapErrorToResponse(
 
   // Extract specific error codes from message prefix (VALIDATION_XXX, MEMBERSHIP_XXX, NOT_FOUND, etc.)
   const validationCodeMatch = message.match(
-    /^(VALIDATION_MAX_EJERCICIOS|VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_EJERCICIOS|DELETE_BLOCKED_REFERENCES|ESTADO_NO_ASIGNABLE|DUPLICATE_NOMBRE_UBICACION|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|PAYMENT_ALREADY_ANNULLED|AMOUNT_CHANGED|DUPLICATE_EXERCISE|ASIGNACION_CONFLICTO|NOT_FOUND):\s*(.+)$/
+    /^(VALIDATION_MAX_EJERCICIOS|VALIDATION_[A-Z_]+|MEMBERSHIP_[A-Z_]+|DEACTIVATION_WARNING|DELETE_BLOCKED_ASSIGNED|DELETE_BLOCKED_EJERCICIOS|DELETE_BLOCKED_REFERENCES|ESTADO_NO_ASIGNABLE|DUPLICATE_NOMBRE_UBICACION|CASH_CLOSE_CONFLICT|PAYMENT_ALREADY_REGISTERED|PAYMENT_ALREADY_ANNULLED|AMOUNT_CHANGED|DUPLICATE_EXERCISE|ASIGNACION_CONFLICTO|SIN_SUGERENCIA_VIGENTE|SIN_SUGERENCIA|NOT_FOUND):\s*(.+)$/
   );
   if (validationCodeMatch) {
     const [, errorCode, errorMessage] = validationCodeMatch;
@@ -227,6 +241,8 @@ export function mapErrorToResponse(
     if (errorCode === "AMOUNT_CHANGED") status = 409;
     if (errorCode === "DUPLICATE_EXERCISE") status = 409;
     if (errorCode === "ASIGNACION_CONFLICTO") status = 409;
+    if (errorCode === "SIN_SUGERENCIA") status = 404;
+    if (errorCode === "SIN_SUGERENCIA_VIGENTE") status = 409;
     if (errorCode === "NOT_FOUND") status = 404;
     
     // For NOT_FOUND, keep the localized resourceName message (the generic contract).
