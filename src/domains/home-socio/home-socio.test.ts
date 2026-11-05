@@ -5,6 +5,7 @@ import {
   compute28DiasAsistencia,
   buildSemanaCalendario,
   computeRachaSemanas,
+  diasHastaVencimiento,
 } from "./home-socio";
 
 describe("computeAforoPercentage (spec: home-socio-portal §AforoCard, AC-005)", () => {
@@ -50,6 +51,26 @@ describe("computeMembresiaStatus (spec: home-socio-portal §MembresiCard, AC-007
     expect(result.estado).toBe("VENCIDA");
     expect(result.mostrarRenovar).toBe(true);
     expect(result.diasRestantes).toBe(-6);
+  });
+});
+
+describe('diasHastaVencimiento (Home_Socio header, "N días")', () => {
+  const ahora = new Date("2026-11-05T12:00:00Z");
+
+  it("cuenta los días que faltan", () => {
+    expect(diasHastaVencimiento(new Date("2026-11-10T12:00:00Z"), ahora)).toBe(5);
+  });
+
+  it("vence hoy: 0", () => {
+    expect(diasHastaVencimiento(new Date("2026-11-05T12:00:00Z"), ahora)).toBe(0);
+  });
+
+  it("ya vencida: nunca negativo", () => {
+    expect(diasHastaVencimiento(new Date("2026-10-30T12:00:00Z"), ahora)).toBe(0);
+  });
+
+  it("redondea hacia arriba el día empezado", () => {
+    expect(diasHastaVencimiento(new Date("2026-11-06T00:00:00Z"), ahora)).toBe(1);
   });
 });
 

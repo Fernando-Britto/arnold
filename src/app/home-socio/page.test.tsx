@@ -148,6 +148,22 @@ describe("HomeSocioPage (sesión primero: recorrido + historial + números)", ()
     expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument();
   });
 
+  it("muestra los días restantes de la membresía con el reloj fijo", async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-12-15T00:00:00.000Z"));
+    try {
+      asSocio();
+      render(<HomeSocioPage />);
+      await waitForLoadingComplete();
+
+      expect(screen.getByText(/Plan Musculación/).textContent).toBe(
+        "Plan Musculación · 5 días"
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("redirige a /login sin sesión", () => {
     mockAuth.mockReturnValue({ isAuthenticated: false, isMember: false });
     render(<HomeSocioPage />);

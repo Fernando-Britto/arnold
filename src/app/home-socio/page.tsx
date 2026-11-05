@@ -14,6 +14,7 @@ import { UltimasSesiones } from "@/components/home-socio/ultimas-sesiones";
 import { PesoCorporalCard } from "@/components/home-socio/peso-corporal-card";
 import { SeccionCargando } from "@/components/home-socio/seccion-cargando";
 import { CLAVES, leerCache } from "@/lib/cache-cliente";
+import { diasHastaVencimiento } from "@/domains/home-socio/home-socio";
 
 /**
  * Home del socio.
@@ -47,6 +48,8 @@ export function HomeSocioPage() {
   const [loading, setLoading] = useState(() => data === null);
   const [error, setError] = useState<string | null>(null);
   const [modoEjecucion, setModoEjecucion] = useState(false);
+  // `ahora` se congela al montar: el reloj es impuro y no debe leerse en el render.
+  const [ahora] = useState(() => new Date());
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -94,13 +97,7 @@ export function HomeSocioPage() {
           <p className="text-sm font-semibold text-ink-muted">
             {data.membresia.planNombre} ·{" "}
             <span className="text-ink">
-              {Math.max(
-                0,
-                Math.ceil(
-                  (new Date(data.membresia.fechaVencimiento).getTime() - Date.now()) / 86_400_000,
-                ),
-              )}{" "}
-              días
+              {diasHastaVencimiento(new Date(data.membresia.fechaVencimiento), ahora)} días
             </span>
           </p>
         )}

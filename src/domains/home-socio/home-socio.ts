@@ -50,6 +50,18 @@ export function computeMembresiaStatus(
   };
 }
 
+/**
+ * Días que faltan para el vencimiento, como los muestrea la cabecera del Home
+ * ("N días"): redondeo hacia arriba del día empezado y nunca negativo (una
+ * membresía vencida muestra 0, no días negativos).
+ */
+export function diasHastaVencimiento(fechaVencimiento: Date, ahora: Date): number {
+  return Math.max(
+    0,
+    Math.ceil((fechaVencimiento.getTime() - ahora.getTime()) / MS_PER_DAY)
+  );
+}
+
 function startOfWeekMonday(date: Date): Date {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = d.getUTCDay(); // 0 = Sunday .. 6 = Saturday
