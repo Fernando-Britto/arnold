@@ -1,5 +1,9 @@
 # 🏋️ ARNOLD - Documento de Requisitos del Sistema (SRS)
 
+> **Nota histórica.** Documento de requisitos inicial (septiembre de 2026). El stack y las decisiones
+> vigentes difieren de lo que dice acá (por ejemplo, Next.js 16 en lugar de 15); el estado actual está en
+> [`PROJECT-STATUS.md`](PROJECT-STATUS.md) y [`openspec/decisions.md`](openspec/decisions.md).
+
 ## 📌 1. Descripción General del Proyecto
 **ARNOLD** es un Sistema Integral de Gestión para Gimnasios orientado a automatizar los procesos operativos, administrativos y de seguimiento de socios. La plataforma busca erradicar la dependencia de memoria humana en recepcionistas, reducir tiempos de espera de instructores y socios, y brindar trazabilidad completa en asistencias, pagos y progresiones físicas.
 
