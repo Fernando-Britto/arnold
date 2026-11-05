@@ -56,6 +56,7 @@
 }
 
 :root {
+  color-scheme: light;
   --background: var(--color-surface);
   --foreground: var(--color-ink);
 }
@@ -113,18 +114,20 @@ body {
 }
 
 /*
- * Sustrato oscuro del área del socio.
+ * Tema claro / oscuro.
  *
- * No es "modo oscuro": es el sustrato que el gimnasio pide de noche, en el celular, entre
- * series. Se implementa sobrescribiendo los tokens semánticos dentro de un scope, así
- * los mismos componentes sirven en los dos sustratos sin duplicarse.
+ * La elección se resuelve en <html> con `data-tema="claro" | "oscuro"`. Sin cookie `tema`,
+ * el primer arranque sigue a `prefers-color-scheme`; después manda lo que el usuario eligió
+ * en el selector del rail, que persiste la preferencia por dispositivo. Login y kiosco no
+ * llevan selector, pero heredan el tema del `<html>`.
  *
- * El staff queda sobre el sustrato claro: es un mostrador con luz de día y una pantalla
- * compartida; ahí el contraste alto en fondo claro gana.
+ * Se implementa sobrescribiendo los tokens semánticos dentro de `[data-tema="oscuro"]`, así
+ * los mismos componentes sirven en los dos temas sin duplicarse.
  */
-.theme-dark {
+[data-tema="oscuro"] {
   /* El color heredado del body sigue siendo el del tema claro: sin esto, cualquier texto sin
      clase de color queda #181b1b sobre fondo oscuro (invisible). */
+  color-scheme: dark;
   color: var(--color-ink);
   --background: #111113;
   --foreground: #f4f4f2;
@@ -162,11 +165,24 @@ body {
   --shadow-card: 0 18px 40px rgba(0, 0, 0, 0.45);
 }
 
-.theme-dark ::selection {
+[data-tema="oscuro"] ::selection {
   background: #fc4c02;
   color: #0a0a0b;
 }
 
-.theme-dark ::placeholder {
+[data-tema="oscuro"] ::placeholder {
   color: var(--color-ink-muted);
+}
+
+/* El selector muestra la acción: sol en oscuro (ir a claro), luna en claro (ir a oscuro). */
+.tema-icono-sol {
+  display: none;
+}
+
+[data-tema="oscuro"] .tema-icono-sol {
+  display: block;
+}
+
+[data-tema="oscuro"] .tema-icono-luna {
+  display: none;
 }

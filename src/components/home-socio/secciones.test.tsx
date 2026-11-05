@@ -66,6 +66,14 @@ describe("MiRutinaSection (T-039 §Mi rutina)", () => {
     expect(screen.getByText(/no tenés una rutina asignada/i)).toBeInTheDocument();
     expect(screen.getByText(/todavía no registraste sesiones/i)).toBeInTheDocument();
   });
+
+  it("mientras carga muestra el título y el pulso, sin estados vacíos", () => {
+    render(<MiRutinaSection rutina={null} sesiones={[]} sesionEnCurso={null} cargando />);
+    expect(screen.getByRole("heading", { name: "Mi rutina" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("seccion-cargando").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/no tenés una rutina asignada/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/todavía no registraste sesiones/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("MisEjerciciosSection (T-039 §Mis ejercicios)", () => {
@@ -80,6 +88,13 @@ describe("MisEjerciciosSection (T-039 §Mis ejercicios)", () => {
   it("estado vacío sin ejercicios", () => {
     render(<MisEjerciciosSection ejercicios={[]} />);
     expect(screen.getByText(/no tenés ejercicios asignados/i)).toBeInTheDocument();
+  });
+
+  it("mientras carga muestra el título y el pulso, sin estado vacío", () => {
+    render(<MisEjerciciosSection ejercicios={[]} cargando />);
+    expect(screen.getByRole("heading", { name: "Mis ejercicios" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("seccion-cargando").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/no tenés ejercicios asignados/i)).not.toBeInTheDocument();
   });
 });
 
@@ -108,6 +123,13 @@ describe("ProgresoDetalleSection (T-039 §Progreso)", () => {
     render(<ProgresoDetalleSection progreso={[]} />);
     expect(screen.getByText(/todavía no registraste entrenamientos/i)).toBeInTheDocument();
   });
+
+  it("mientras carga muestra el título y el pulso, sin estado vacío", () => {
+    render(<ProgresoDetalleSection progreso={[]} cargando />);
+    expect(screen.getByRole("heading", { name: "Mi progreso" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("seccion-cargando").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/todavía no registraste entrenamientos/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("PagosSection (T-039 §Mis pagos y membresía)", () => {
@@ -134,6 +156,13 @@ describe("PagosSection (T-039 §Mis pagos y membresía)", () => {
     render(<PagosSection membresia={null} />);
     expect(screen.getByText(/no tenés pagos ni membresía/i)).toBeInTheDocument();
   });
+
+  it("mientras carga muestra el título y el pulso, sin estado vacío", () => {
+    render(<PagosSection membresia={null} cargando />);
+    expect(screen.getByRole("heading", { name: "Mis pagos y membresía" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("seccion-cargando").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/no tenés pagos ni membresía/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("AsistenciasSection (T-039 §Mis asistencias)", () => {
@@ -152,5 +181,12 @@ describe("AsistenciasSection (T-039 §Mis asistencias)", () => {
     const dias = Array.from({ length: 35 }, (_, i) => ({ fecha: `2026-09-${String(3 + i).padStart(2, "0")}`, asistio: false }));
     render(<AsistenciasSection asistencias={{ rachaSemanas: 0, total: 0, dias }} />);
     expect(screen.getByText(/todavía no registraste asistencias/i)).toBeInTheDocument();
+  });
+
+  it("mientras carga muestra el título y el pulso, sin estado vacío", () => {
+    render(<AsistenciasSection asistencias={{ rachaSemanas: 0, total: 0, dias: [] }} cargando />);
+    expect(screen.getByRole("heading", { name: "Mis asistencias" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("seccion-cargando").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/todavía no registraste asistencias/i)).not.toBeInTheDocument();
   });
 });

@@ -24,7 +24,7 @@ export function SectionPageLayout({
   children,
 }: SectionPageLayoutProps) {
   return (
-    <div className="theme-dark flex min-h-screen flex-col bg-surface-page lg:flex-row">
+    <div className="flex min-h-screen flex-col bg-surface-page lg:flex-row">
       <StaffRail activeSection={activeSection} />
 
       <div className="flex min-w-0 flex-1 flex-col">

@@ -6,6 +6,7 @@ import type { Periodo } from "@/domains/ejercicio/balance-muscular";
 import { balanceMuscularDelSocio } from "@/domains/ejercicio/balance-muscular-datos";
 import type { Musculo } from "@/domains/ejercicio/musculos";
 import { throwIfNotOk } from "@/utils/api-error";
+import { CLAVES, conCache } from "@/lib/cache-cliente";
 
 /** El balance muscular tal como viaja por la red: la fecha de inicio es texto. */
 export interface BalanceMuscularDTO {
@@ -30,8 +31,10 @@ export async function handleBalanceMuscular(input: {
 }
 
 /** GET /api/home-socio/musculos?periodo=... */
-export async function fetchBalanceMuscular(periodo: Periodo): Promise<BalanceMuscularDTO> {
-  const response = await fetch(`/api/home-socio/musculos?periodo=${periodo}`);
-  await throwIfNotOk(response, "No se pudo cargar el balance muscular");
-  return response.json();
+export function fetchBalanceMuscular(periodo: Periodo): Promise<BalanceMuscularDTO> {
+  return conCache(CLAVES.balanceMuscular(periodo), async () => {
+    const response = await fetch(`/api/home-socio/musculos?periodo=${periodo}`);
+    await throwIfNotOk(response, "No se pudo cargar el balance muscular");
+    return response.json();
+  });
 }

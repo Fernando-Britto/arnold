@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth";
 import * as homeSocioApi from "@/api/home-socio";
 import type { HomeSocioViewModel } from "@/api/home-socio";
 import { fetchSesionEnCurso, iniciarSesionDeEntrenamiento } from "@/api/sesiones";
+import { limpiarCache } from "@/lib/cache-cliente";
 
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
@@ -126,15 +127,25 @@ const baseViewModel: HomeSocioViewModel = {
 };
 
 const waitForLoadingComplete = () =>
-  waitFor(() => expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument());
+  waitFor(() => expect(screen.queryAllByTestId("seccion-cargando")).toHaveLength(0));
 
 const asSocio = (extra: Record<string, unknown> = {}) =>
   mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false, ...extra });
 
 describe("HomeSocioPage (sesión primero: recorrido + historial + números)", () => {
   beforeEach(() => {
+    limpiarCache();
     jest.clearAllMocks();
     mockFetch.mockResolvedValue(baseViewModel);
+  });
+
+  it("muestra la cabecera Hoy mientras espera la base", () => {
+    asSocio();
+    mockFetch.mockReturnValue(new Promise(() => {}));
+    render(<HomeSocioPage />);
+    expect(screen.getByRole("heading", { name: "Hoy" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("seccion-cargando").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument();
   });
 
   it("redirige a /login sin sesión", () => {

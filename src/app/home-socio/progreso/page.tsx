@@ -12,7 +12,13 @@ import { ProgresoDetalleSection } from "@/components/home-socio/progreso-detalle
 export function ProgresoPage() {
   return (
     <SocioSeccionPage active="progreso">
-      {(data) => <ProgresoDetalleSection progreso={data.progreso} extra={<BalanceMuscularCard />} />}
+      {(data, cargando) => (
+        <ProgresoDetalleSection
+          progreso={data?.progreso ?? []}
+          extra={<BalanceMuscularCard />}
+          cargando={cargando}
+        />
+      )}
     </SocioSeccionPage>
   );
 }

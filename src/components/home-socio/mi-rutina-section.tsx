@@ -4,6 +4,7 @@ import React from "react";
 import { Clock, Dumbbell, Play } from "lucide-react";
 import type { RutinaSeccionDTO, SesionHistorialDTO, SesionEnCursoDTO } from "@/api/home-socio-secciones";
 import { AtribucionMedia, EjercicioMiniatura } from "@/components/ejercicio-crud/ejercicio-media";
+import { SeccionCargando } from "./seccion-cargando";
 
 /**
  * MiRutinaSection (T-039, D-45): rutina asignada con su prescripción, historial de sesiones
@@ -15,6 +16,8 @@ export interface MiRutinaSectionProps {
   sesionEnCurso: SesionEnCursoDTO | null;
   onSeguirRutina?: () => void;
   onVerEjercicios?: () => void;
+  /** Mientras espera la base: el marco y el título ya se ven, solo el contenido espera. */
+  cargando?: boolean;
 }
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -34,6 +37,7 @@ export function MiRutinaSection({
   sesionEnCurso,
   onSeguirRutina,
   onVerEjercicios,
+  cargando = false,
 }: MiRutinaSectionProps) {
   // Si algún ejercicio tiene animación, todas las filas reservan el lugar de la miniatura (alineadas).
   const hayMedia = rutina?.ejercicios.some((e) => e.mediaId) ?? false;
@@ -58,7 +62,9 @@ export function MiRutinaSection({
           )}
         </div>
 
-        {!rutina ? (
+        {cargando ? (
+          <SeccionCargando className="h-40" />
+        ) : !rutina ? (
           <p className="text-sm text-ink-muted">Todavía no tenés una rutina asignada.</p>
         ) : (
           <>
@@ -117,7 +123,9 @@ export function MiRutinaSection({
 
       <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6">
         <h2 className="text-lg font-bold text-ink">Historial de sesiones</h2>
-        {sesiones.length === 0 ? (
+        {cargando ? (
+          <SeccionCargando className="h-24" />
+        ) : sesiones.length === 0 ? (
           <p className="text-sm text-ink-muted">Todavía no registraste sesiones.</p>
         ) : (
           <ul className="flex flex-col divide-y divide-zinc-100">

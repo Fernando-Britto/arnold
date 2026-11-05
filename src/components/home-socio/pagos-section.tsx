@@ -4,6 +4,7 @@ import React from "react";
 import { CreditCard } from "lucide-react";
 import type { MembresiaSeccionDTO } from "@/api/home-socio-secciones";
 import { formatMoney } from "@/utils/formatting";
+import { SeccionCargando } from "./seccion-cargando";
 
 /**
  * PagosSection (T-039, D-45): historial de pagos, cobertura/vencimiento y estado de pago
@@ -12,6 +13,8 @@ import { formatMoney } from "@/utils/formatting";
  */
 export interface PagosSectionProps {
   membresia: MembresiaSeccionDTO | null;
+  /** Mientras espera la base: el título ya se ve, solo el contenido espera. */
+  cargando?: boolean;
 }
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -44,14 +47,16 @@ function formatPeriodo(periodo: string | null): string {
   return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("es-AR", { month: "long", year: "numeric" });
 }
 
-export function PagosSection({ membresia }: PagosSectionProps) {
+export function PagosSection({ membresia, cargando = false }: PagosSectionProps) {
   return (
     <section aria-labelledby="pagos-titulo" className="flex flex-col gap-6">
       <h1 id="pagos-titulo" className="text-xl font-bold text-ink">
         Mis pagos y membresía
       </h1>
 
-      {!membresia ? (
+      {cargando ? (
+        <SeccionCargando className="h-40" />
+      ) : !membresia ? (
         <p className="text-sm text-ink-muted">Todavía no tenés pagos ni membresía registrados.</p>
       ) : (
         <>

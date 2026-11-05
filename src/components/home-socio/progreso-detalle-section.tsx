@@ -3,6 +3,7 @@
 import React from "react";
 import { TrendingUp } from "lucide-react";
 import type { ProgresoEjercicioDTO } from "@/api/home-socio-secciones";
+import { SeccionCargando } from "./seccion-cargando";
 
 /**
  * ProgresoDetalleSection (T-039, D-45): cargas y mejores marcas en el tiempo, por ejercicio.
@@ -13,6 +14,8 @@ export interface ProgresoDetalleSectionProps {
   progreso: ProgresoEjercicioDTO[];
   /** Contenido que va justo debajo del título, antes de los ejercicios (T-051: el balance muscular). */
   extra?: React.ReactNode;
+  /** Mientras espera la base: el título y el `extra` ya se ven, solo los ejercicios esperan. */
+  cargando?: boolean;
 }
 
 const kgFormatter = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
@@ -21,7 +24,7 @@ function formatFechaCorta(iso: string): string {
   return new Date(iso).toLocaleDateString("es-AR", { day: "numeric", month: "short" });
 }
 
-export function ProgresoDetalleSection({ progreso, extra }: ProgresoDetalleSectionProps) {
+export function ProgresoDetalleSection({ progreso, extra, cargando = false }: ProgresoDetalleSectionProps) {
   return (
     <section aria-labelledby="progreso-titulo" className="flex flex-col gap-6">
       <h1 id="progreso-titulo" className="text-xl font-bold text-ink">
@@ -30,7 +33,9 @@ export function ProgresoDetalleSection({ progreso, extra }: ProgresoDetalleSecti
 
       {extra}
 
-      {progreso.length === 0 ? (
+      {cargando ? (
+        <SeccionCargando className="h-40" />
+      ) : progreso.length === 0 ? (
         <p className="text-sm text-ink-muted">Todavía no registraste entrenamientos.</p>
       ) : (
         progreso.map((p) => {

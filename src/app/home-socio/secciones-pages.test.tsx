@@ -9,6 +9,7 @@ import { MisEjerciciosPage } from "./mis-ejercicios/page";
 import { ProgresoPage } from "./progreso/page";
 import { MiMembresiaPage } from "./mi-membresia/page";
 import { MisAsistenciasPage } from "./mis-asistencias/page";
+import { limpiarCache } from "@/lib/cache-cliente";
 
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
@@ -71,10 +72,11 @@ const VACIO: HomeSocioSeccionesViewModel = {
 };
 
 const waitForLoadingComplete = () =>
-  waitFor(() => expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument());
+  waitFor(() => expect(screen.queryAllByTestId("seccion-cargando")).toHaveLength(0));
 
 describe("secciones del socio: páginas (T-039)", () => {
   beforeEach(() => {
+    limpiarCache();
     jest.clearAllMocks();
     mockAuth.mockReturnValue({ isAuthenticated: true, isMember: true, isStaff: false });
     mockFetch.mockResolvedValue(VM);
@@ -85,6 +87,14 @@ describe("secciones del socio: páginas (T-039)", () => {
       musculos: [],
       sinTrabajar: [],
     });
+  });
+
+  it("dibuja el marco y el título mientras espera la base", () => {
+    mockFetch.mockReturnValue(new Promise(() => {}));
+    render(<MiRutinaPage />);
+    expect(screen.getByRole("heading", { name: "Mi rutina" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("seccion-cargando").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument();
   });
 
   it("cada página redirige a /login sin sesión", () => {

@@ -8,7 +8,9 @@ import { MisEjerciciosSection } from "@/components/home-socio/mis-ejercicios-sec
 export function MisEjerciciosPage() {
   return (
     <SocioSeccionPage active="ejercicios">
-      {(data) => <MisEjerciciosSection ejercicios={data.ejercicios} />}
+      {(data, cargando) => (
+        <MisEjerciciosSection ejercicios={data?.ejercicios ?? []} cargando={cargando} />
+      )}
     </SocioSeccionPage>
   );
 }

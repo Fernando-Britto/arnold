@@ -6,6 +6,9 @@
  * a pedir la lista completa; las mutaciones invalidan la clave que cambian.
  */
 
+/** Prefijo de las claves dinámicas del balance muscular (una por período). */
+export const PREFIJO_BALANCE_MUSCULAR = "balance-muscular:";
+
 /** Claves de las listas cacheadas. Centralizadas para no repetir strings. */
 export const CLAVES = {
   clientes: "clientes",
@@ -14,6 +17,9 @@ export const CLAVES = {
   membresias: "membresias",
   membresiasActivas: "membresias-activas",
   rutinas: "rutinas",
+  homeSocio: "home-socio",
+  homeSocioSecciones: "home-socio-secciones",
+  balanceMuscular: (periodo: string) => `${PREFIJO_BALANCE_MUSCULAR}${periodo}`,
 } as const;
 
 const TTL_POR_DEFECTO = 60_000;
@@ -52,6 +58,23 @@ export async function conCache<T>(
 
   enVuelo.set(clave, promesa);
   return promesa;
+}
+
+/** Devuelve el valor cacheado si sigue vigente, sin disparar la carga. */
+export function leerCache<T>(clave: string): T | null {
+  const guardado = cache.get(clave);
+  if (!guardado || guardado.vence <= Date.now()) return null;
+  return guardado.valor as T;
+}
+
+/** Descarta todas las claves que empiezan con `prefijo` (para claves dinámicas). */
+export function invalidarCachePorPrefijo(prefijo: string): void {
+  for (const clave of [...cache.keys()]) {
+    if (clave.startsWith(prefijo)) {
+      cache.delete(clave);
+      enVuelo.delete(clave);
+    }
+  }
 }
 
 /** Descarta una o más listas: la próxima visita las vuelve a pedir. */

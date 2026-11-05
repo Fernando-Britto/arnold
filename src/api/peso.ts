@@ -4,6 +4,7 @@
  */
 import { borrarPeso, fijarMetaDePeso, registrarPeso } from "@/domains/peso/peso-socio";
 import { throwIfNotOk } from "@/utils/api-error";
+import { CLAVES, invalidarCache } from "@/lib/cache-cliente";
 
 /** Handle POST /api/peso — registra un pesaje. El dominio valida el tipo y el rango. */
 export async function handleRegistrarPeso(input: { socioId: string; peso: unknown }) {
@@ -49,7 +50,9 @@ export async function registrarPesoCorporal(peso: number): Promise<PesajeDTO> {
     body: JSON.stringify({ peso }),
   });
   await throwIfNotOk(response, "No se pudo registrar el peso");
-  return response.json();
+  const pesaje = await response.json();
+  invalidarCache(CLAVES.homeSocio);
+  return pesaje;
 }
 
 /** PUT /api/peso/meta — fija la meta de peso (kg), o la borra con `null`. */
@@ -60,11 +63,14 @@ export async function fijarMetaDePesoCorporal(pesoObjetivo: number | null): Prom
     body: JSON.stringify({ pesoObjetivo }),
   });
   await throwIfNotOk(response, "No se pudo guardar la meta");
-  return response.json();
+  const meta = await response.json();
+  invalidarCache(CLAVES.homeSocio);
+  return meta;
 }
 
 /** DELETE /api/peso/[id] — borra un pesaje propio. */
 export async function borrarPesoCorporal(id: string): Promise<void> {
   const response = await fetch(`/api/peso/${encodeURIComponent(id)}`, { method: "DELETE" });
   await throwIfNotOk(response, "No se pudo borrar el pesaje");
+  invalidarCache(CLAVES.homeSocio);
 }

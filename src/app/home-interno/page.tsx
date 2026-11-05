@@ -140,7 +140,7 @@ export function HomeInternoPage() {
   if (!dataActual && loading) {
     return (
       <div
-        className="theme-dark flex min-h-screen items-center justify-center bg-surface-page"
+        className="flex min-h-screen items-center justify-center bg-surface-page"
         role="status"
         aria-busy="true"
         aria-label="Cargando el panel"
@@ -222,7 +222,7 @@ export function HomeInternoPage() {
   }
 
   return (
-    <div className="theme-dark flex min-h-screen flex-col bg-surface-page lg:flex-row">
+    <div className="flex min-h-screen flex-col bg-surface-page lg:flex-row">
       <StaffRail activeSection="inicio" />
 
       <main className="mx-auto flex w-full min-w-0 max-w-[1360px] flex-col gap-4 px-5 py-6 lg:px-8">

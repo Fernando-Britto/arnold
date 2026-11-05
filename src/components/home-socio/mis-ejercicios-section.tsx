@@ -4,6 +4,7 @@ import React from "react";
 import { Trophy } from "lucide-react";
 import type { EjercicioDeRutinaDTO } from "@/api/home-socio-secciones";
 import { AtribucionMedia, EjercicioVideo } from "@/components/ejercicio-crud/ejercicio-media";
+import { SeccionCargando } from "./seccion-cargando";
 
 /**
  * MisEjerciciosSection (T-039, D-45): los ejercicios de la rutina del socio con su
@@ -11,11 +12,13 @@ import { AtribucionMedia, EjercicioVideo } from "@/components/ejercicio-crud/eje
  */
 export interface MisEjerciciosSectionProps {
   ejercicios: EjercicioDeRutinaDTO[];
+  /** Mientras espera la base: el título ya se ve, solo la lista espera. */
+  cargando?: boolean;
 }
 
 const kgFormatter = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
 
-export function MisEjerciciosSection({ ejercicios }: MisEjerciciosSectionProps) {
+export function MisEjerciciosSection({ ejercicios, cargando = false }: MisEjerciciosSectionProps) {
   const hayMedia = ejercicios.some((e) => e.mediaId);
   return (
     <section aria-labelledby="mis-ejercicios-titulo" className="flex flex-col gap-6">
@@ -23,7 +26,9 @@ export function MisEjerciciosSection({ ejercicios }: MisEjerciciosSectionProps) 
         Mis ejercicios
       </h1>
 
-      {ejercicios.length === 0 ? (
+      {cargando ? (
+        <SeccionCargando className="h-40" />
+      ) : ejercicios.length === 0 ? (
         <p className="text-sm text-ink-muted">Todavía no tenés ejercicios asignados.</p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">

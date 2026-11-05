@@ -7,6 +7,7 @@ import {
   fetchHomeSocioSeccionesData,
   type HomeSocioSeccionesViewModel,
 } from "@/api/home-socio-secciones";
+import { CLAVES, leerCache } from "@/lib/cache-cliente";
 
 export interface UseSeccionesSocio {
   data: HomeSocioSeccionesViewModel | null;
@@ -25,8 +26,10 @@ export function useSeccionesSocio(): UseSeccionesSocio {
   const router = useRouter();
   const { isAuthenticated, isMember } = useAuth();
 
-  const [data, setData] = useState<HomeSocioSeccionesViewModel | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<HomeSocioSeccionesViewModel | null>(() =>
+    leerCache<HomeSocioSeccionesViewModel>(CLAVES.homeSocioSecciones)
+  );
+  const [loading, setLoading] = useState(() => data === null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

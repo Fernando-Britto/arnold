@@ -9,6 +9,7 @@
  * src/app/api/home-socio/route.ts (GET /api/home-socio, T-028 / D-29). This
  * module is the wire contract plus the client-side fetch.
  */
+import { CLAVES, conCache } from "@/lib/cache-cliente";
 
 export interface PuntoProgresoDTO {
   fecha: string; // ISO date
@@ -140,10 +141,12 @@ export interface HomeSocioViewModel {
   ultimasSesiones: UltimaSesionDTO[];
 }
 
-export async function fetchHomeSocioData(): Promise<HomeSocioViewModel> {
-  const response = await fetch("/api/home-socio");
-  if (!response.ok) {
-    throw new Error(`Failed to fetch home-socio data: ${response.statusText}`);
-  }
-  return response.json();
+export function fetchHomeSocioData(): Promise<HomeSocioViewModel> {
+  return conCache(CLAVES.homeSocio, async () => {
+    const response = await fetch("/api/home-socio");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch home-socio data: ${response.statusText}`);
+    }
+    return response.json();
+  });
 }

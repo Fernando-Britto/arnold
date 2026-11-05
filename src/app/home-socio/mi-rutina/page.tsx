@@ -11,13 +11,14 @@ export function MiRutinaPage() {
 
   return (
     <SocioSeccionPage active="rutina">
-      {(data) => (
+      {(data, cargando) => (
         <MiRutinaSection
-          rutina={data.rutina}
-          sesiones={data.sesiones}
-          sesionEnCurso={data.sesionEnCurso}
+          rutina={data?.rutina ?? null}
+          sesiones={data?.sesiones ?? []}
+          sesionEnCurso={data?.sesionEnCurso ?? null}
           onSeguirRutina={() => router.push("/home-socio")}
           onVerEjercicios={() => router.push("/home-socio/mis-ejercicios")}
+          cargando={cargando}
         />
       )}
     </SocioSeccionPage>

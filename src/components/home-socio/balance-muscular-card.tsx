@@ -7,7 +7,9 @@ import { COLORES_POR_NIVEL, textoDeSeries } from "@/domains/ejercicio/mapa-corpo
 import { ETIQUETAS_MUSCULO, PESO_SECUNDARIO } from "@/domains/ejercicio/musculos";
 import { etiquetaDeFecha } from "@/domains/peso/presentacion-peso";
 import { handleApiError } from "@/utils/api-error";
+import { CLAVES, leerCache } from "@/lib/cache-cliente";
 import { MapaCorporal } from "./mapa-corporal";
+import { SeccionCargando } from "./seccion-cargando";
 
 /**
  * Balance muscular (T-051 parte 2, D-107): cuántas series de trabajo hizo el socio por músculo, con un
@@ -26,7 +28,10 @@ const BOTON_PERIODO = "rounded-lg border px-3 py-2 text-sm font-semibold";
 export function BalanceMuscularCard() {
   const [periodo, setPeriodo] = useState<Periodo>("semana");
   const [intento, setIntento] = useState(0);
-  const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [resultado, setResultado] = useState<Resultado | null>(() => {
+    const datos = leerCache<BalanceMuscularDTO>(CLAVES.balanceMuscular("semana"));
+    return datos ? { clave: "semana#0", datos } : null;
+  });
 
   // Cada pedido lleva una clave (período e intento). Se muestra solo el resultado de la clave actual: una
   // respuesta que llega tarde de otro período no pisa lo que se está viendo, y mientras llega la nueva no
@@ -80,11 +85,7 @@ export function BalanceMuscularCard() {
         </div>
       </div>
 
-      {actual === null && (
-        <p role="status" className="text-sm text-ink-muted">
-          Cargando balance muscular…
-        </p>
-      )}
+      {actual === null && <SeccionCargando className="h-24" />}
 
       {actual?.error !== undefined && (
         <div className="flex flex-col items-start gap-2">

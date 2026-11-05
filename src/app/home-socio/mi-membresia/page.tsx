@@ -8,7 +8,9 @@ import { PagosSection } from "@/components/home-socio/pagos-section";
 export function MiMembresiaPage() {
   return (
     <SocioSeccionPage active="membresia">
-      {(data) => <PagosSection membresia={data.membresia} />}
+      {(data, cargando) => (
+        <PagosSection membresia={data?.membresia ?? null} cargando={cargando} />
+      )}
     </SocioSeccionPage>
   );
 }

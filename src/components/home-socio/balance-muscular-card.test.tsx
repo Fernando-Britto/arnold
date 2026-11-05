@@ -47,10 +47,10 @@ describe("BalanceMuscularCard", () => {
 
     render(<BalanceMuscularCard />);
 
-    expect(screen.getByRole("status")).toHaveTextContent(/cargando/i);
+    expect(screen.getByTestId("seccion-cargando")).toBeInTheDocument();
     expect(mockFetch).toHaveBeenCalledWith("semana");
     await act(async () => resolver(semana));
-    expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("seccion-cargando")).not.toBeInTheDocument();
   });
 
   it("resume cuántas series y cuántos músculos, y desde qué día cuenta", async () => {
@@ -182,7 +182,7 @@ describe("BalanceMuscularCard", () => {
       await screen.findByTestId("balance-resumen");
       await user.click(within(grupo()).getByRole("button", { name: "90 días" }));
 
-      expect(screen.getByRole("status")).toHaveTextContent(/cargando/i);
+      expect(screen.getByTestId("seccion-cargando")).toBeInTheDocument();
       expect(screen.queryByText("Pecho")).not.toBeInTheDocument();
       await act(async () => resolver({ ...treintaDias, periodo: "90d" }));
       expect(await screen.findByText("Cuádriceps")).toBeInTheDocument();

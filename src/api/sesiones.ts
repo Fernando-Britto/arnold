@@ -20,6 +20,12 @@ import {
   type RegistrarSerieInput,
 } from "@/domains/sesion/sesion-de-entrenamiento";
 import { throwIfNotOk } from "@/utils/api-error";
+import {
+  CLAVES,
+  invalidarCache,
+  invalidarCachePorPrefijo,
+  PREFIJO_BALANCE_MUSCULAR,
+} from "@/lib/cache-cliente";
 
 export type {
   DetalleSesionEnCurso,
@@ -247,6 +253,12 @@ export interface SesionIniciadaDTO {
  * headers de auth (PG-7).
  */
 
+/** Una serie o sesión nueva cambia el inicio y las secciones del socio. */
+function invalidarDatosDelSocio(): void {
+  invalidarCache(CLAVES.homeSocio, CLAVES.homeSocioSecciones);
+  invalidarCachePorPrefijo(PREFIJO_BALANCE_MUSCULAR);
+}
+
 /** GET /api/sesiones?enCurso=1 — sesión en curso del socio con el detalle para retomar. */
 export async function fetchSesionEnCurso(): Promise<SesionEnCursoDTO> {
   const response = await fetch("/api/sesiones?enCurso=1");
@@ -266,7 +278,9 @@ export async function iniciarSesionDeEntrenamiento(
     body: JSON.stringify({ rutinaAsignadaId }),
   });
   await throwIfNotOk(response, "No se pudo iniciar la sesión");
-  return response.json();
+  const sesion = await response.json();
+  invalidarDatosDelSocio();
+  return sesion;
 }
 
 /** POST /api/sesiones/[id]/series — registra una serie de la sesión. */
@@ -291,7 +305,9 @@ export async function registrarSerieDeEntrenamiento(
     body: JSON.stringify(input),
   });
   await throwIfNotOk(response, "No se pudo registrar la serie");
-  return response.json();
+  const serie = await response.json();
+  invalidarDatosDelSocio();
+  return serie;
 }
 
 /** PUT /api/sesiones/[id] — finaliza la sesión de entrenamiento. */
@@ -300,7 +316,9 @@ export async function finalizarSesionDeEntrenamiento(sesionId: string) {
     method: "PUT",
   });
   await throwIfNotOk(response, "No se pudo finalizar la sesión");
-  return response.json();
+  const sesion = await response.json();
+  invalidarDatosDelSocio();
+  return sesion;
 }
 
 /** GET /api/sesiones/[id]/resumen — resumen de la sesión terminada (T-046b, D-62). */

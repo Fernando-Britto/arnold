@@ -1,4 +1,5 @@
 import { fetchHomeSocioData, type HomeSocioViewModel } from "./home-socio";
+import { limpiarCache } from "@/lib/cache-cliente";
 
 describe("fetchHomeSocioData", () => {
   const mockData: HomeSocioViewModel = {
@@ -14,6 +15,7 @@ describe("fetchHomeSocioData", () => {
   };
 
   beforeEach(() => {
+    limpiarCache();
     global.fetch = jest.fn();
   });
 
@@ -27,6 +29,18 @@ describe("fetchHomeSocioData", () => {
 
     expect(global.fetch).toHaveBeenCalledWith("/api/home-socio");
     expect(result).toEqual(mockData);
+  });
+
+  it("reutiliza el cache: dos llamadas pegan una sola vez", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => mockData,
+    });
+
+    await fetchHomeSocioData();
+    await fetchHomeSocioData();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("throws a descriptive error when the request fails", async () => {

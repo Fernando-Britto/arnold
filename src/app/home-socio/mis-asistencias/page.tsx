@@ -8,7 +8,12 @@ import { AsistenciasSection } from "@/components/home-socio/asistencias-section"
 export function MisAsistenciasPage() {
   return (
     <SocioSeccionPage active="asistencias">
-      {(data) => <AsistenciasSection asistencias={data.asistencias} />}
+      {(data, cargando) => (
+        <AsistenciasSection
+          asistencias={data?.asistencias ?? { rachaSemanas: 0, total: 0, dias: [] }}
+          cargando={cargando}
+        />
+      )}
     </SocioSeccionPage>
   );
 }

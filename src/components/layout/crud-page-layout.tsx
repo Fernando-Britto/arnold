@@ -20,7 +20,7 @@ export function CrudPageLayout({
   listPanel,
 }: CrudPageLayoutProps) {
   return (
-    <div className="theme-dark flex min-h-screen flex-col bg-surface-page lg:flex-row">
+    <div className="flex min-h-screen flex-col bg-surface-page lg:flex-row">
       <StaffRail activeSection={section} />
 
       {/* El rail es h-screen: si el contenido no va en una columna hermana, arranca debajo del

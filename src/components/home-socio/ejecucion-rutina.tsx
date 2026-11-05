@@ -25,6 +25,7 @@ import {
   type TipoSerie,
 } from "@/domains/sesion/tipo-serie";
 import { AtribucionMedia, EjercicioVideo } from "@/components/ejercicio-crud/ejercicio-media";
+import { SeccionCargando } from "./seccion-cargando";
 import { RecordEnVivo } from "./record-en-vivo";
 import { DropsDeSerie, type DropEnEdicion } from "./drops-de-serie";
 import { EncabezadoDeSesion } from "./encabezado-de-sesion";
@@ -295,7 +296,7 @@ export function EjecucionRutina({
   if (cargando) {
     return (
       <div data-testid="ejecucion-rutina" className="p-6 text-ink-muted">
-        Cargando la sesión...
+        <SeccionCargando className="h-40" />
       </div>
     );
   }

@@ -1,4 +1,11 @@
-import { conCache, invalidarCache, limpiarCache } from "./cache-cliente";
+import {
+  CLAVES,
+  conCache,
+  invalidarCache,
+  invalidarCachePorPrefijo,
+  leerCache,
+  limpiarCache,
+} from "./cache-cliente";
 
 describe("cache-cliente", () => {
   beforeEach(() => limpiarCache());
@@ -66,5 +73,43 @@ describe("cache-cliente", () => {
   it("cada clave tiene su propio valor", async () => {
     expect(await conCache("a", async () => ["a"])).toEqual(["a"]);
     expect(await conCache("b", async () => ["b"])).toEqual(["b"]);
+  });
+
+  it("leerCache devuelve el valor vigente sin cargar", async () => {
+    const cargar = jest.fn().mockResolvedValue(["guardado"]);
+    await conCache("lista", cargar);
+
+    expect(leerCache<string[]>("lista")).toEqual(["guardado"]);
+    expect(cargar).toHaveBeenCalledTimes(1);
+  });
+
+  it("leerCache devuelve null después de invalidar la clave", async () => {
+    await conCache("lista", async () => ["guardado"]);
+
+    invalidarCache("lista");
+
+    expect(leerCache("lista")).toBeNull();
+  });
+
+  it("leerCache devuelve null cuando vence el TTL", async () => {
+    let ahora = 1_000;
+    jest.spyOn(Date, "now").mockImplementation(() => ahora);
+    await conCache("lista", async () => ["guardado"], 1_000);
+
+    expect(leerCache("lista")).toEqual(["guardado"]);
+    ahora += 1_001;
+    expect(leerCache("lista")).toBeNull();
+  });
+
+  it("invalidarCachePorPrefijo borra las claves del prefijo y respeta las demás", async () => {
+    await conCache(CLAVES.balanceMuscular("semana"), async () => ({ periodo: "semana" }));
+    await conCache(CLAVES.balanceMuscular("90d"), async () => ({ periodo: "90d" }));
+    await conCache(CLAVES.homeSocio, async () => ({ inicio: true }));
+
+    invalidarCachePorPrefijo("balance-muscular:");
+
+    expect(leerCache(CLAVES.balanceMuscular("semana"))).toBeNull();
+    expect(leerCache(CLAVES.balanceMuscular("90d"))).toBeNull();
+    expect(leerCache(CLAVES.homeSocio)).toEqual({ inicio: true });
   });
 });

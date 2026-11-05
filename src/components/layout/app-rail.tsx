@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { ThemeToggle } from "./theme-toggle";
 
 /**
  * Rail vertical compartido por el socio y el staff.
@@ -34,9 +35,12 @@ export interface AppRailProps {
 export function AppRail({ navLabel, zones, footer }: AppRailProps) {
   return (
     <aside className="flex w-full shrink-0 flex-col bg-surface-rail px-3.5 pb-5 pt-6 lg:sticky lg:top-0 lg:h-screen lg:w-[236px] lg:border-r lg:border-border-soft">
-      <p className="px-2.5 text-lg font-black tracking-tight text-ink">
-        ARNOLD<span className="text-brand">GYM</span>
-      </p>
+      <div className="flex items-center justify-between gap-2 pl-2.5">
+        <p className="text-lg font-black tracking-tight text-ink">
+          ARNOLD<span className="text-brand">GYM</span>
+        </p>
+        <ThemeToggle />
+      </div>
 
       <nav aria-label={navLabel} className="mt-7 flex flex-col">
         {zones.map((zone) => (

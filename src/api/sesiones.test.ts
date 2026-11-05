@@ -24,6 +24,14 @@ import {
   obtenerSesion,
   resumenDeSesion,
 } from "@/domains/sesion/sesion-de-entrenamiento";
+import * as cacheCliente from "@/lib/cache-cliente";
+import {
+  CLAVES,
+  conCache,
+  leerCache,
+  limpiarCache,
+  PREFIJO_BALANCE_MUSCULAR,
+} from "@/lib/cache-cliente";
 
 jest.mock("@/domains/sesion/sesion-de-entrenamiento");
 jest.mock("@/lib/db", () => ({ prisma: { socio: { findUnique: jest.fn() } } }));
@@ -147,7 +155,11 @@ describe("resolveSocioIdDeUsuario", () => {
 });
 
 describe("fetchers del cliente de sesiones", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    limpiarCache();
+  });
+  afterEach(() => jest.restoreAllMocks());
 
   it("fetchSesionEnCurso hace GET /api/sesiones?enCurso=1 y devuelve el detalle", async () => {
     const detalle = { sesion: null, ejercicios: [], ultimaSerie: null, cargaActual: null };
@@ -196,6 +208,26 @@ describe("fetchers del cliente de sesiones", () => {
         body: JSON.stringify({ ejercicioId: "ej-1", carga: 42.5, repeticiones: 10, rir: 2 }),
       })
     );
+  });
+
+  it("registrarSerieDeEntrenamiento invalida el inicio y las secciones del socio", async () => {
+    const invalidarSpy = jest.spyOn(cacheCliente, "invalidarCache");
+    const prefijoSpy = jest.spyOn(cacheCliente, "invalidarCachePorPrefijo");
+    await conCache(CLAVES.homeSocioSecciones, async () => ({ cacheado: true }));
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ registro: { id: "reg-1" }, sesion: { id: "s1" } }),
+    });
+
+    await registrarSerieDeEntrenamiento("s1", {
+      ejercicioId: "ej-1",
+      carga: 40,
+      repeticiones: 10,
+    });
+
+    expect(invalidarSpy).toHaveBeenCalledWith(CLAVES.homeSocio, CLAVES.homeSocioSecciones);
+    expect(prefijoSpy).toHaveBeenCalledWith(PREFIJO_BALANCE_MUSCULAR);
+    expect(leerCache(CLAVES.homeSocioSecciones)).toBeNull();
   });
 
   it("finalizarSesionDeEntrenamiento hace PUT a /api/sesiones/[id]", async () => {

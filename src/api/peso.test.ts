@@ -8,6 +8,8 @@ import {
   registrarPesoCorporal,
 } from "./peso";
 import { fijarMetaDePeso, registrarPeso } from "@/domains/peso/peso-socio";
+import * as cacheCliente from "@/lib/cache-cliente";
+import { CLAVES, conCache, leerCache } from "@/lib/cache-cliente";
 
 jest.mock("@/domains/peso/peso-socio");
 
@@ -38,6 +40,7 @@ describe("llamadas del navegador", () => {
   const original = global.fetch;
   afterEach(() => {
     global.fetch = original;
+    jest.restoreAllMocks();
   });
 
   it("registrarPesoCorporal hace POST a /api/peso con el peso", async () => {
@@ -50,6 +53,20 @@ describe("llamadas del navegador", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ peso: 78.4 }),
     });
+  });
+
+  it("un registro exitoso invalida el cache del inicio", async () => {
+    const invalidarSpy = jest.spyOn(cacheCliente, "invalidarCache");
+    await conCache(CLAVES.homeSocio, async () => ({ cacheado: true }));
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: "m1", peso: 78.4, fecha: "2026-10-18T14:00:00.000Z" }),
+    });
+
+    await registrarPesoCorporal(78.4);
+
+    expect(invalidarSpy).toHaveBeenCalledWith(CLAVES.homeSocio);
+    expect(leerCache(CLAVES.homeSocio)).toBeNull();
   });
 
   it("fijarMetaDePesoCorporal hace PUT a /api/peso/meta, y manda null a propósito para borrar", async () => {

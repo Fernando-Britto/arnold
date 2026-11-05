@@ -7,6 +7,7 @@
  */
 export type { EstadoCuotaSocio } from "@/domains/pago/cuota";
 import type { EstadoCuotaSocio } from "@/domains/pago/cuota";
+import { CLAVES, conCache } from "@/lib/cache-cliente";
 
 export interface EjercicioDeRutinaDTO {
   id: string;
@@ -89,10 +90,12 @@ export interface HomeSocioSeccionesViewModel {
   asistencias: AsistenciasSeccionDTO;
 }
 
-export async function fetchHomeSocioSeccionesData(): Promise<HomeSocioSeccionesViewModel> {
-  const response = await fetch("/api/home-socio/secciones");
-  if (!response.ok) {
-    throw new Error(`Failed to fetch home-socio sections: ${response.statusText}`);
-  }
-  return response.json();
+export function fetchHomeSocioSeccionesData(): Promise<HomeSocioSeccionesViewModel> {
+  return conCache(CLAVES.homeSocioSecciones, async () => {
+    const response = await fetch("/api/home-socio/secciones");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch home-socio sections: ${response.statusText}`);
+    }
+    return response.json();
+  });
 }

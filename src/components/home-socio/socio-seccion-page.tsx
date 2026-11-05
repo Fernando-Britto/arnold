@@ -8,37 +8,30 @@ import type { HomeSocioSeccionesViewModel } from "@/api/home-socio-secciones";
 
 /**
  * Página de sección del socio: resuelve la sesión, carga el payload de
- * `/api/home-socio/secciones` y delega el render a `children` con los datos listos.
- * Maneja carga y error de forma uniforme (mismo lenguaje visual que Home_Socio).
+ * `/api/home-socio/secciones` y delega el render a `children` con los datos (o `null` mientras
+ * espera) y el estado de carga. El shell, el rail y los títulos se dibujan al instante; solo el
+ * contenido que depende de la base espera un pulso. El error conserva su alerta.
  */
 export function SocioSeccionPage({
   active,
   children,
 }: {
   active: TopNavLink;
-  children: (data: HomeSocioSeccionesViewModel) => React.ReactNode;
+  children: (data: HomeSocioSeccionesViewModel | null, cargando: boolean) => React.ReactNode;
 }) {
   const { data, loading, error, isAuthenticated, isMember } = useSeccionesSocio();
 
   if (!isAuthenticated || !isMember) return null;
 
-  if (loading) {
-    return (
-      <SocioShell active={active}>
-        <p className="text-ink-muted">Cargando...</p>
-      </SocioShell>
-    );
-  }
-
-  if (error || !data) {
+  if (error) {
     return (
       <SocioShell active={active}>
         <p role="alert" className="text-danger">
-          {error ?? "No pudimos cargar tus datos. Probá de nuevo en un momento."}
+          {error}
         </p>
       </SocioShell>
     );
   }
 
-  return <SocioShell active={active}>{children(data)}</SocioShell>;
+  return <SocioShell active={active}>{children(data, loading)}</SocioShell>;
 }

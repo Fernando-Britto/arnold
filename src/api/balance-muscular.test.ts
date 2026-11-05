@@ -3,6 +3,7 @@
  */
 import { fetchBalanceMuscular, handleBalanceMuscular } from "./balance-muscular";
 import { balanceMuscularDelSocio } from "@/domains/ejercicio/balance-muscular-datos";
+import { limpiarCache } from "@/lib/cache-cliente";
 
 jest.mock("@/domains/ejercicio/balance-muscular-datos");
 const mockBalance = balanceMuscularDelSocio as jest.MockedFunction<typeof balanceMuscularDelSocio>;
@@ -42,6 +43,7 @@ describe("handleBalanceMuscular", () => {
 
 describe("fetchBalanceMuscular", () => {
   const original = global.fetch;
+  beforeEach(() => limpiarCache());
   afterEach(() => {
     global.fetch = original;
   });
@@ -54,6 +56,16 @@ describe("fetchBalanceMuscular", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/api/home-socio/musculos?periodo=90d");
     expect(r).toEqual({ periodo: "90d" });
+  });
+
+  it("reutiliza el cache del mismo período: dos llamadas pegan una sola vez", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ periodo: "semana" }) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await fetchBalanceMuscular("semana");
+    await fetchBalanceMuscular("semana");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("si el servidor falla lanza el error con su mensaje", async () => {
