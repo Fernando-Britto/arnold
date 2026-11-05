@@ -244,7 +244,7 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-54 | Máquinas (D-73): `EstadoMaquina` está duplicado como uniones literales en `src/domains/home-interno/home-interno.ts` y `src/components/home-socio/tarjeta-detalle.tsx`; el código nuevo importa el tipo de Prisma. Consolidación diferida | Baja |
 | P-55 | Máquinas (D-73): `POST`, `GET` (por id) y `PUT` devuelven un campo `status` dentro del JSON del recurso (`{ ...maquina, status }`), igual que Membresías; el estado HTTP debería ser la única fuente. No se corrigió en esta feature | Baja |
 | P-56 | Máquinas (D-73): una actualización y un borrado simultáneos pueden chocar en un P2025 de Prisma que hoy sale como 500; mapearlo a 404/409 | Baja |
-| P-57 | ESLint falla en `dev` por `Date.now()` durante el render en `src/app/home-socio/page.tsx:129` (`react-hooks/purity`); es preexistente de `f4d1ac2` y no se corrigió en esta feature | Baja |
+| P-57 | ~~ESLint falla en `dev` por `Date.now()` durante el render en `src/app/home-socio/page.tsx` (`react-hooks/purity`); es preexistente de `f4d1ac2` y no se corrigió en esta feature~~ → **resuelto (2026-11-05)**: los días de membresía se calculan con `diasHastaVencimiento` (dominio puro que recibe `ahora`) y la página congela `ahora` en un estado perezoso; `npx eslint .` queda en 0 errores | Baja |
 | P-58 | El conteo `enMaquinas` en el listado de ejercicios quedó diferido (pregunta Q3 de la propuesta / open question del diseño) | Baja |
 | P-59 | `MAX_EJERCICIOS_POR_MAQUINA` como parámetro en tiempo de ejecución de `/configuracion` quedó diferido; sigue siendo una constante dura | Baja |
 
