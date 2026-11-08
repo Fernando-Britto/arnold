@@ -164,6 +164,19 @@ export const MAQUINAS = [
   { nombre: "Bicicleta fija", tipoEquipamiento: "CARDIO" as const, estado: "FUERA_DE_SERVICIO" as const },
 ];
 
+/**
+ * Asociaciones de demostración (D-117): cada ejercicio de "Torso B" contra una máquina DISPONIBLE.
+ * El seed las crea para que la asignación de la home funcione sin pasar por `/maquinas`. Las parejas
+ * son fijas para que la demo sea determinista: cada ejercicio queda con una sola candidata.
+ */
+const ASOCIACIONES_DEMO: { ejercicio: string; maquina: string }[] = [
+  { ejercicio: "Press inclinado", maquina: "Banco plano" },
+  { ejercicio: "Jalón al pecho", maquina: "Polea alta" },
+  { ejercicio: "Remo con mancuerna", maquina: "Banco plano" },
+  { ejercicio: "Elevaciones laterales", maquina: "Polea alta" },
+  { ejercicio: "Extensión de tríceps", maquina: "Polea alta" },
+];
+
 export async function runSeed(prisma: PrismaClient, opts: SeedOptions): Promise<SeedResult> {
   if ((opts.env ?? process.env.NODE_ENV) === "production") {
     throw new Error("El seed no puede correr en producción");
@@ -248,6 +261,32 @@ export async function runSeed(prisma: PrismaClient, opts: SeedOptions): Promise<
 
   if ((await prisma.maquina.count()) === 0) {
     await prisma.maquina.createMany({ data: MAQUINAS.map((m) => ({ ...m, ubicacion: "Sala principal" })) });
+  }
+
+  // D-117: se buscan por nombre entre las que existen (la tabla puede venir sembrada de antes) y solo
+  // se toman las DISPONIBLES. Si falta una máquina o un ejercicio, esa pareja se omite sin fallar.
+  const maquinasDeDemo = await prisma.maquina.findMany({
+    where: {
+      nombre: { in: [...new Set(ASOCIACIONES_DEMO.map((a) => a.maquina))] },
+      estado: "DISPONIBLE",
+    },
+    select: { id: true, nombre: true },
+  });
+  const maquinaId = new Map(maquinasDeDemo.map((m) => [m.nombre, m.id]));
+  const asociaciones = ASOCIACIONES_DEMO.flatMap(({ ejercicio, maquina }) => {
+    const ejercicioDeDemo = ejercicioId[ejercicio];
+    const maquinaDeDemo = maquinaId.get(maquina);
+    if (!ejercicioDeDemo || !maquinaDeDemo) return [];
+    return [{ ejercicioId: ejercicioDeDemo, maquinaId: maquinaDeDemo }];
+  });
+  const omitidas = ASOCIACIONES_DEMO.length - asociaciones.length;
+  if (omitidas > 0) {
+    console.warn(
+      `[seed] ${omitidas} asociación(es) de demo omitidas: falta la máquina DISPONIBLE o el ejercicio`
+    );
+  }
+  if (asociaciones.length > 0) {
+    await prisma.ejercicioMaquina.createMany({ data: asociaciones, skipDuplicates: true });
   }
   if (!(await prisma.reglaDeProgresion.findFirst({ where: { tipo: "LINEAL" } }))) {
     await prisma.reglaDeProgresion.create({ data: { tipo: "LINEAL", incrementoSugerido: 2.5 } });

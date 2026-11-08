@@ -17,6 +17,7 @@ function fakePrisma(overrides: Record<string, unknown> = {}) {
           const key = `${model}.${method}`;
           if (key in overrides) return overrides[key];
           if (method === "findFirst" || method === "findUnique") return null;
+          if (method === "findMany") return []; // T-057a: sin override, no hay máquinas para asociar
           if (method === "count") return 0;
           if (method === "deleteMany") return { count: 0 };
           return { id: `${model}-${++n}`, ...(args?.create ?? args?.data ?? {}) };
@@ -81,6 +82,62 @@ describe("runSeed", () => {
     const polea = maquinas.find((m) => m.nombre === "Polea alta");
     expect(polea).toBeDefined();
     expect(polea).toMatchObject({ estado: "DISPONIBLE", ubicacion: "Sala principal" });
+  });
+
+  it("T-057a: asocia los ejercicios de Torso B a máquinas disponibles (AC-561, AC-562, AC-564)", async () => {
+    const { prisma, calls } = fakePrisma({
+      "maquina.findMany": [
+        { id: "m-banco", nombre: "Banco plano" },
+        { id: "m-polea", nombre: "Polea alta" },
+      ],
+    });
+    await run(prisma);
+
+    const consulta = calls.find((c) => c.model === "maquina" && c.method === "findMany");
+    expect(consulta).toBeDefined();
+    expect(consulta!.args.where).toMatchObject({ estado: "DISPONIBLE" });
+
+    const creadas = calls.find((c) => c.model === "ejercicioMaquina" && c.method === "createMany");
+    expect(creadas).toBeDefined();
+    const filas = creadas!.args.data as Array<{ ejercicioId: string; maquinaId: string }>;
+    expect(filas).toHaveLength(5);
+    expect(new Set(filas.map((f) => f.ejercicioId)).size).toBe(5); // los cinco ejercicios de Torso B
+    for (const fila of filas) {
+      expect(["m-banco", "m-polea"]).toContain(fila.maquinaId);
+    }
+
+    // No crea máquinas, ejercicios ni rutinas nuevas para lograrlo (AC-564)
+    expect(calls.filter((c) => c.model === "maquina" && c.method === "create")).toHaveLength(0);
+    expect(calls.filter((c) => c.model === "ejercicio" && c.method === "createMany")).toHaveLength(0);
+    expect(calls.filter((c) => c.model === "rutina" && c.method === "createMany")).toHaveLength(0);
+  });
+
+  it("T-057a: es idempotente y no borra asociaciones hechas a mano (AC-563)", async () => {
+    const { prisma, calls } = fakePrisma({
+      "maquina.findMany": [
+        { id: "m-banco", nombre: "Banco plano" },
+        { id: "m-polea", nombre: "Polea alta" },
+      ],
+    });
+    await run(prisma);
+
+    const creadas = calls.find((c) => c.model === "ejercicioMaquina" && c.method === "createMany");
+    expect(creadas!.args.skipDuplicates).toBe(true);
+    expect(
+      calls.filter((c) => c.model === "ejercicioMaquina" && c.method === "deleteMany")
+    ).toHaveLength(0);
+  });
+
+  it("T-057a: si falta una máquina, omite esa asociación sin fallar (AC-561)", async () => {
+    const { prisma, calls } = fakePrisma({
+      "maquina.findMany": [{ id: "m-banco", nombre: "Banco plano" }],
+    });
+    await expect(run(prisma)).resolves.toBeDefined();
+
+    const creadas = calls.find((c) => c.model === "ejercicioMaquina" && c.method === "createMany");
+    const filas = creadas!.args.data as Array<{ maquinaId: string }>;
+    expect(filas).toHaveLength(2); // Press inclinado y Remo con mancuerna son de Banco plano
+    expect(filas.every((f) => f.maquinaId === "m-banco")).toBe(true);
   });
 
   it("borra datos transaccionales solo de los socios del seed, nunca sin filtro", async () => {
