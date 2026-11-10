@@ -145,9 +145,11 @@ Chain strategy: no aplica (sin PRs: un slice = un commit)
 - **Objetivo**: `sinSugerencia`, `vencida`, `error`, `cargando`, y montar la tarjeta en la home solo cuando
   corresponde (D-118).
 - **AC**: AC-541, AC-542, AC-543, AC-546, AC-548, AC-553, AC-554.
-- **Archivos**: `tarjeta-sugerencia.tsx` y su test (modificados), `src/app/home-socio/page.tsx` (modificado),
-  `src/app/home-socio/page.test.tsx` (modificado).
-- **Estimado**: 180 base · **270 cota**.
+- **Archivos**: `tarjeta-sugerencia.tsx` y su test (modificados), `sugerencia-asignacion.tsx` y su test
+  (nuevos: contenedor con el hook, D-122), `use-sugerencia-asignacion.ts` (tipo: agrega `vencida`),
+  `src/app/home-socio/page.tsx` y `page.test.tsx` (modificados).
+- **Estimado**: 200 base · **300 cota** (medido: 7 archivos, ≈330 líneas). D-123: cada botón se dibuja solo
+  si llega su callback.
 - **Pasos (RED → GREEN)**:
   1. RED: pruebas de `sinSugerencia` (ambos `null` → mensaje neutro único, D-114), `error` ("No pudimos…" +
      "Reintentar") y `cargando` (`SeccionCargando` de `h-24`, sin texto de carga).

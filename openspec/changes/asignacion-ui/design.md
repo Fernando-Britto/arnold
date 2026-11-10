@@ -262,6 +262,20 @@ Orden: S0 → S1 → S2 → S3. Total ≈670; ningún slice pasa 400.
   `sesionEnProgreso` se recalcula y la tarjeta se reevalúa.
 - **Por qué**: sin esto, después de entrenar la tarjeta podría quedar oculta hasta un refresh manual.
 
+### D-122 · El hook vive en un contenedor, no en la tarjeta
+- **Origen**: Fernando (2026-11-05).
+- **Decisión**: `SugerenciaAsignacion` (`src/components/home-socio/sugerencia-asignacion.tsx`) es el único
+  que usa el hook y le pasa el estado a `TarjetaSugerencia`, que sigue siendo presentación pura. La página
+  monta el contenedor solo con rutina activa y sin sesión en curso (D-118): si no se monta, no hay consulta.
+- **Por qué**: mantiene la tarjeta testeable sin red y hace imposible consultar cuando la regla de
+  visibilidad no se cumple.
+
+### D-123 · Sin callback, sin botón
+- **Origen**: Fernando (2026-11-05).
+- **Decisión**: "Ir ahora", "Esperar", "Volver a consultar" y "Reintentar" se renderizan **solo** si llega
+  su callback. Entre S2b y S3 no existen botones muertos.
+- **Por qué**: un botón que no hace nada es peor que su ausencia, y evita que S2b invente no-ops.
+
 ## 12. Riesgos y reversión
 
 - **R1 · Latencia del `GET`** con base remota (D-110): se conserva el estado previo y no se bloquea la home.
