@@ -30,7 +30,7 @@ function textoDeLaTarjeta(): string {
 
 describe("TarjetaSugerencia (estados con datos)", () => {
   it("libre: espera 0 muestra 'Está libre' y nombra la máquina y el ejercicio", () => {
-    render(<TarjetaSugerencia estado={lista()} />);
+    render(<TarjetaSugerencia estado={lista()} onAceptar={jest.fn()} onEsperar={jest.fn()} />);
 
     expect(textoDeLaTarjeta()).toContain("Está libre");
     expect(textoDeLaTarjeta()).toContain("Andá a Banco plano y hacé Press inclinado.");
@@ -76,7 +76,7 @@ describe("TarjetaSugerencia (estados con datos)", () => {
   });
 
   it("accesibilidad: live region, título y botones nativos", () => {
-    render(<TarjetaSugerencia estado={lista()} />);
+    render(<TarjetaSugerencia estado={lista()} onAceptar={jest.fn()} onEsperar={jest.fn()} />);
 
     const tarjeta = screen.getByTestId("tarjeta-sugerencia");
     expect(tarjeta.querySelector('[aria-live="polite"]')).not.toBeNull();
@@ -115,5 +115,67 @@ describe("TarjetaSugerencia (estados con datos)", () => {
     expect(libre).toContain("Está libre");
     expect(enEspera).toContain("Te toca en 2 min");
     expect(libre).not.toBe(enEspera);
+  });
+
+  it("sinSugerencia: mensaje neutro único y 'Volver a consultar'", async () => {
+    const onConsultar = jest.fn();
+    render(
+      <TarjetaSugerencia
+        estado={{ tipo: "lista", sugerencia: null, siguienteEnOrden: null }}
+        onConsultar={onConsultar}
+      />
+    );
+
+    expect(textoDeLaTarjeta()).toContain("Todavía no tenemos una sugerencia para vos.");
+    await userEvent.click(screen.getByRole("button", { name: "Volver a consultar" }));
+    expect(onConsultar).toHaveBeenCalledTimes(1);
+  });
+
+  it("vencida: avisa que la reserva venció y ofrece volver a consultar", async () => {
+    const onConsultar = jest.fn();
+    render(<TarjetaSugerencia estado={{ tipo: "vencida" }} onConsultar={onConsultar} />);
+
+    expect(textoDeLaTarjeta()).toContain("La reserva venció. Volvemos a consultar.");
+    await userEvent.click(screen.getByRole("button", { name: "Volver a consultar" }));
+    expect(onConsultar).toHaveBeenCalledTimes(1);
+  });
+
+  it("error: avisa que no pudo calcular y ofrece reintentar", async () => {
+    const onConsultar = jest.fn();
+    render(<TarjetaSugerencia estado={{ tipo: "error" }} onConsultar={onConsultar} />);
+
+    expect(textoDeLaTarjeta()).toContain("No pudimos calcular tu próxima máquina.");
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(onConsultar).toHaveBeenCalledTimes(1);
+  });
+
+  it("cargando: pulso sin texto de carga y sin botones", () => {
+    render(<TarjetaSugerencia estado={{ tipo: "cargando" }} />);
+
+    expect(screen.getByTestId("seccion-cargando")).toBeInTheDocument();
+    expect(screen.queryByText(/cargando/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("D-123: sin callbacks no hay botones muertos", () => {
+    const { unmount } = render(<TarjetaSugerencia estado={lista({ esperaSegundos: 90 })} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    unmount();
+
+    render(
+      <TarjetaSugerencia estado={{ tipo: "lista", sugerencia: null, siguienteEnOrden: null }} />
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("D-123: cada botón aparece solo si llega su callback", () => {
+    const { unmount } = render(<TarjetaSugerencia estado={lista()} onAceptar={jest.fn()} />);
+    expect(screen.getByRole("button", { name: "Ir ahora" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Esperar" })).not.toBeInTheDocument();
+    unmount();
+
+    render(<TarjetaSugerencia estado={lista()} onEsperar={jest.fn()} />);
+    expect(screen.queryByRole("button", { name: "Ir ahora" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Esperar" })).toBeInTheDocument();
   });
 });

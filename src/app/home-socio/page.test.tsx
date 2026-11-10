@@ -7,6 +7,8 @@ import * as homeSocioApi from "@/api/home-socio";
 import type { HomeSocioViewModel } from "@/api/home-socio";
 import { fetchSesionEnCurso, iniciarSesionDeEntrenamiento } from "@/api/sesiones";
 import { limpiarCache } from "@/lib/cache-cliente";
+import { fetchSugerencia } from "@/api/asignaciones-cliente";
+import { ApiError } from "@/utils/api-error";
 
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
@@ -18,6 +20,7 @@ jest.mock("next/navigation", () => ({
 jest.mock("@/contexts/auth");
 jest.mock("@/api/home-socio", () => ({ fetchHomeSocioData: jest.fn() }));
 jest.mock("@/api/sesiones");
+jest.mock("@/api/asignaciones-cliente");
 
 const mockAuth = useAuth as jest.Mock;
 const mockFetch = homeSocioApi.fetchHomeSocioData as jest.MockedFunction<
@@ -27,6 +30,7 @@ const mockEnCurso = fetchSesionEnCurso as jest.MockedFunction<typeof fetchSesion
 const mockIniciar = iniciarSesionDeEntrenamiento as jest.MockedFunction<
   typeof iniciarSesionDeEntrenamiento
 >;
+const mockSugerencia = fetchSugerencia as jest.MockedFunction<typeof fetchSugerencia>;
 
 const baseViewModel: HomeSocioViewModel = {
   progreso: {
@@ -137,6 +141,13 @@ describe("HomeSocioPage (sesión primero: recorrido + historial + números)", ()
     limpiarCache();
     jest.clearAllMocks();
     mockFetch.mockResolvedValue(baseViewModel);
+    mockSugerencia.mockReset();
+    mockSugerencia.mockResolvedValue({
+      socioId: "socio-1",
+      sugerencia: null,
+      siguienteEnOrden: null,
+      calculadoEn: "2026-11-05T12:00:00.000Z",
+    });
   });
 
   it("muestra la cabecera Hoy mientras espera la base", () => {
@@ -393,5 +404,74 @@ describe("HomeSocioPage (sesión primero: recorrido + historial + números)", ()
     await user.click(screen.getByRole("button", { name: /cerrar sesión/i }));
 
     expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it("D-118: con sesión en curso no muestra la tarjeta ni consulta la sugerencia", async () => {
+    asSocio();
+    mockFetch.mockResolvedValue({ ...baseViewModel, sesionEnProgreso: true });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.queryByTestId("tarjeta-sugerencia")).not.toBeInTheDocument();
+    expect(mockSugerencia).not.toHaveBeenCalled();
+  });
+
+  it("con rutina activa y sin sesión en curso muestra la tarjeta y consulta una vez", async () => {
+    asSocio();
+    mockSugerencia.mockResolvedValue({
+      socioId: "socio-1",
+      sugerencia: {
+        asignacionId: "a-1",
+        ejercicioId: "e-1",
+        ejercicioNombre: "Press inclinado",
+        maquinaId: "m-1",
+        maquinaNombre: "Banco plano",
+        esperaSegundos: 0,
+        ahorroSegundos: 120,
+        creadaEn: "2026-11-05T12:00:00.000Z",
+        venceEn: "2026-11-05T12:15:00.000Z",
+      },
+      siguienteEnOrden: null,
+      calculadoEn: "2026-11-05T12:00:00.000Z",
+    });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(await screen.findByTestId("tarjeta-sugerencia")).toBeInTheDocument();
+    expect(screen.getByText("Está libre")).toBeInTheDocument();
+    expect(mockSugerencia).toHaveBeenCalledTimes(1);
+  });
+
+  it("sin rutina activa no muestra la tarjeta ni consulta", async () => {
+    asSocio();
+    mockFetch.mockResolvedValue({ ...baseViewModel, rutinaActiva: null });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(screen.queryByTestId("tarjeta-sugerencia")).not.toBeInTheDocument();
+    expect(mockSugerencia).not.toHaveBeenCalled();
+  });
+
+  it("si la tarjeta falla, el resto de la home sigue visible", async () => {
+    asSocio();
+    mockSugerencia.mockRejectedValue(new ApiError(500, "boom"));
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    expect(await screen.findByText("No pudimos calcular tu próxima máquina.")).toBeInTheDocument();
+    expect(screen.getByTestId("card-rutina")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Hoy" })).toBeInTheDocument();
+  });
+
+  it("la tarjeta usa tokens del tema, sin colores fijos ni dark:", async () => {
+    asSocio();
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    const tarjeta = screen.getByTestId("tarjeta-sugerencia");
+    expect(tarjeta.className).toContain("bg-surface");
+    expect(tarjeta.className).toContain("border-border");
+    expect(tarjeta.className).not.toMatch(/dark:/);
+    expect(tarjeta.className).not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
 });

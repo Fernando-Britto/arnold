@@ -16,6 +16,7 @@ import type { SiguienteDTO, SugerenciaDTO } from "@/api/asignaciones";
 export type EstadoSugerencia =
   | { tipo: "cargando" }
   | { tipo: "lista"; sugerencia: SugerenciaDTO | null; siguienteEnOrden: SiguienteDTO | null }
+  | { tipo: "vencida" }
   | { tipo: "error" };
 
 export interface UsoSugerenciaAsignacion {

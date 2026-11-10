@@ -1,20 +1,24 @@
 "use client";
 
 /**
- * Tarjeta "Tu próxima máquina" de la home del socio (T-057c, S2a).
+ * Tarjeta "Tu próxima máquina" de la home del socio (T-057c/T-057d, S2a/S2b).
  *
- * Presentación pura: recibe el estado del hook por props, no consulta ni guarda estado. Solo cubre los
- * estados con datos — `libre`, `enEspera` y `sinReserva`—; los vacíos y de error son de S2b.
+ * Presentación pura: recibe el estado del hook por props, no consulta ni guarda estado.
  * El copy es el del spec (`asignacion-sugerencia-ui`), en español rioplatense y sin jerga.
+ *
+ * D-123: cada botón se dibuja **solo** si llega su callback, así no existen botones muertos.
  */
 import React from "react";
+import { SeccionCargando } from "./seccion-cargando";
 import type { EstadoSugerencia } from "./use-sugerencia-asignacion";
 
 export interface TarjetaSugerenciaProps {
   estado: EstadoSugerencia;
-  /** Cableado real en S3; acá solo se dibujan los botones. */
+  /** Acciones de decisión: el cableado real llega en S3. */
   onAceptar?: () => void;
   onEsperar?: () => void;
+  /** Recarga la sugerencia (`consultar` del hook). */
+  onConsultar?: () => void;
 }
 
 /** Minutos estimados: se redondea hacia arriba el minuto empezado; bajo 60 s, "menos de 1 min". */
@@ -23,32 +27,56 @@ function esperaEnTexto(segundos: number): string {
   return `${Math.ceil(segundos / 60)} min`;
 }
 
+const MARCO = "rounded-xl border border-border bg-surface p-5";
 const CLASE_BOTON_PRIMARIO =
   "flex h-11 flex-1 items-center justify-center rounded-lg bg-brand-strong text-sm font-bold text-surface";
 const CLASE_BOTON_SECUNDARIO =
   "flex h-11 flex-1 items-center justify-center rounded-lg border border-border bg-surface text-sm font-semibold text-ink";
 
-export function TarjetaSugerencia({ estado, onAceptar, onEsperar }: TarjetaSugerenciaProps) {
-  // `cargando` y `error` llegan en S2b; `lista` sin reserva ni orden tampoco se dibuja todavía.
-  if (estado.tipo !== "lista") return null;
+export function TarjetaSugerencia({
+  estado,
+  onAceptar,
+  onEsperar,
+  onConsultar,
+}: TarjetaSugerenciaProps) {
+  if (estado.tipo === "cargando") {
+    return (
+      <section data-testid="tarjeta-sugerencia" aria-labelledby="sugerencia-titulo" className={MARCO}>
+        <h2 id="sugerencia-titulo" className="text-sm font-semibold text-ink-muted">
+          Tu próxima máquina
+        </h2>
+        <SeccionCargando className="mt-3 h-24" />
+      </section>
+    );
+  }
 
-  const { sugerencia, siguienteEnOrden } = estado;
+  const { tipo } = estado;
+  const sugerencia = tipo === "lista" ? estado.sugerencia : null;
+  const siguienteEnOrden = tipo === "lista" ? estado.siguienteEnOrden : null;
+  // Ambos null: sin rutina activa o sin máquinas que ofrecer. Mensaje neutro único (D-114).
+  const sinDatos = tipo === "lista" && !sugerencia && !siguienteEnOrden;
   const maquina = sugerencia?.maquinaNombre ?? "tu máquina";
   const conAcciones = sugerencia !== null;
 
-  if (!sugerencia && !siguienteEnOrden) return null;
-
   return (
-    <section
-      data-testid="tarjeta-sugerencia"
-      aria-labelledby="sugerencia-titulo"
-      className="rounded-xl border border-border bg-surface p-5"
-    >
+    <section data-testid="tarjeta-sugerencia" aria-labelledby="sugerencia-titulo" className={MARCO}>
       <h2 id="sugerencia-titulo" className="text-sm font-semibold text-ink-muted">
         Tu próxima máquina
       </h2>
 
       <div aria-live="polite" className="mt-1.5 flex flex-col gap-1">
+        {tipo === "vencida" && (
+          <p className="text-sm text-ink">La reserva venció. Volvemos a consultar.</p>
+        )}
+
+        {tipo === "error" && (
+          <p className="text-sm text-ink">No pudimos calcular tu próxima máquina.</p>
+        )}
+
+        {sinDatos && (
+          <p className="text-sm text-ink-muted">Todavía no tenemos una sugerencia para vos.</p>
+        )}
+
         {sugerencia && sugerencia.esperaSegundos === 0 && (
           <>
             <p className="text-lg font-black tracking-tight text-ink">Está libre</p>
@@ -82,13 +110,25 @@ export function TarjetaSugerencia({ estado, onAceptar, onEsperar }: TarjetaSuger
         )}
       </div>
 
-      {conAcciones && (
+      {conAcciones && (onAceptar || onEsperar) && (
         <div className="mt-4 flex gap-2">
-          <button type="button" onClick={onAceptar} className={CLASE_BOTON_PRIMARIO}>
-            Ir ahora
-          </button>
-          <button type="button" onClick={onEsperar} className={CLASE_BOTON_SECUNDARIO}>
-            Esperar
+          {onAceptar && (
+            <button type="button" onClick={onAceptar} className={CLASE_BOTON_PRIMARIO}>
+              Ir ahora
+            </button>
+          )}
+          {onEsperar && (
+            <button type="button" onClick={onEsperar} className={CLASE_BOTON_SECUNDARIO}>
+              Esperar
+            </button>
+          )}
+        </div>
+      )}
+
+      {!conAcciones && onConsultar && (
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={onConsultar} className={CLASE_BOTON_SECUNDARIO}>
+            {tipo === "error" ? "Reintentar" : "Volver a consultar"}
           </button>
         </div>
       )}

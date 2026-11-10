@@ -13,6 +13,7 @@ import { TuSerieCard } from "@/components/home-socio/tu-serie-card";
 import { UltimasSesiones } from "@/components/home-socio/ultimas-sesiones";
 import { PesoCorporalCard } from "@/components/home-socio/peso-corporal-card";
 import { SeccionCargando } from "@/components/home-socio/seccion-cargando";
+import { SugerenciaAsignacion } from "@/components/home-socio/sugerencia-asignacion";
 import { CLAVES, leerCache } from "@/lib/cache-cliente";
 import { diasHastaVencimiento } from "@/domains/home-socio/home-socio";
 
@@ -119,6 +120,10 @@ export function HomeSocioPage() {
       ) : data ? (
         <>
           <AvisoOfertaReactivacion descuentoPct={data.oferta?.descuentoPct ?? null} />
+
+          {/* D-118: con una sesión en curso la reserva es la del siguiente ejercicio y no se consume
+              a mitad de sesión, así que no se ofrece. */}
+          {data.rutinaActiva && !data.sesionEnProgreso && <SugerenciaAsignacion />}
 
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_352px]">
             <div className="flex min-w-0 flex-col gap-5">
