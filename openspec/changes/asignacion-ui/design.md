@@ -155,6 +155,16 @@ function useSugerenciaAsignacion(): {
   propio: el servidor ya acota el cálculo (D-110) y el `AbortController` solo cancela al desmontar.
 - **Desmontaje**: el cleanup aborta el pedido en vuelo, así no hay `setState` sobre un componente desmontado.
 
+### Ajustes de implementación (S1)
+
+- `EstadoSugerencia.lista` guarda `{ sugerencia, siguienteEnOrden }` y **no** la `RespuestaSugerencia`
+  completa: la respuesta del `POST` no trae `socioId` ni `calculadoEn`, y la tarjeta no los usa. Evita
+  inventar campos o pedir un `GET` extra solo para rellenarlos.
+- Los errores usan `ApiError` de `src/utils/api-error.ts` como `ErrorAsignacion`: ya expone `status`, `code`
+  y `message`, así que no se duplica la clase.
+- `decidirSugerencia`, la acción `decidir`, el estado `enviando` y los estados `aceptada`/`vencida` se
+  implementan en S3 (T-057e): S1 quedó solo con lectura y refresco.
+
 ## 7. Acciones y arranque de la sesión
 
 - `decidir("ACEPTAR")` → `POST` → estado `aceptada`. El botón "Empezar entrenamiento" llama `onSeguirRutina`

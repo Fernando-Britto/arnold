@@ -92,17 +92,17 @@ Chain strategy: no aplica (sin PRs: un slice = un commit)
 
 ### T-057b · S1 · Fetcher puro + hook
 
-- **Objetivo**: contrato de cliente y estado de la tarjeta, sin UI.
+- **Objetivo**: contrato de cliente **de lectura** y estado de la tarjeta, sin UI. **No incluye `decidir`
+  ni `enviando`**: se movieron a T-057e (S3) por presupuesto.
 - **AC**: AC-551, AC-552.
 - **Archivos**: `src/api/asignaciones-cliente.ts` (nuevo), `src/api/asignaciones-cliente.test.ts` (nuevo),
   `src/components/home-socio/use-sugerencia-asignacion.ts` (nuevo),
   `src/components/home-socio/use-sugerencia-asignacion.test.tsx` (nuevo).
-- **Estimado**: 180 base · **270 cota**.
+- **Estimado**: ≈150 base · **≈225 cota** (medido al cerrar: 312 líneas con la S3 fuera).
 - **Pasos (RED → GREEN)**:
-  1. RED: `asignaciones-cliente.test.ts` — `fetchSugerencia` pega `GET /api/asignaciones/sugerencia`;
-     `decidirSugerencia("ACEPTAR")` pega `POST` con body exacto `{"accion":"ACEPTAR"}`; un 409 se normaliza a
-     `{ status: 409, code: "SIN_SUGERENCIA_VIGENTE" }`; un 500 y un fallo de red también se normalizan. Rojo:
-     el módulo no existe.
+  1. RED: `asignaciones-cliente.test.ts` — `fetchSugerencia` pega `GET /api/asignaciones/sugerencia`, deja
+     las credenciales por defecto (same-origin) y propaga el `AbortSignal`; un 500 se normaliza a `ApiError`.
+     Rojo: el módulo no existe.
   2. GREEN: implementar `src/api/asignaciones-cliente.ts` con `import type` de
      `src/api/asignaciones.ts` (regla 9) y `signal?: AbortSignal`.
   3. RED: `use-sugerencia-asignacion.test.tsx` — consulta al montar, no consulta en `visibilitychange` cuando
@@ -170,9 +170,10 @@ Chain strategy: no aplica (sin PRs: un slice = un commit)
 
 - **Objetivo**: "Ir ahora" / "Esperar" cableados y D-121.
 - **AC**: AC-547, AC-549, AC-550, AC-556.
-- **Archivos**: `tarjeta-sugerencia.tsx` y su test, `use-sugerencia-asignacion.ts` y su test,
-  `src/app/home-socio/page.tsx` y `page.test.tsx` (modificados).
-- **Estimado**: 150 base · **225 cota**.
+- **Archivos**: `tarjeta-sugerencia.tsx` y su test, `asignaciones-cliente.ts` y su test,
+  `use-sugerencia-asignacion.ts` y su test, `src/app/home-socio/page.tsx` y `page.test.tsx` (modificados).
+- **Estimado**: ≈225 base · **≈340 cota** (150 propios + ≈77 heredados de S1: `decidirSugerencia`, la
+  acción `decidir`, el estado `enviando` y sus tests).
 - **Pasos (RED → GREEN)**:
   1. RED: "Ir ahora" llama `decidirSugerencia("ACEPTAR")` y "Esperar" llama `decidirSugerencia("ESPERAR")`
      (espía sobre el fetcher), con botones deshabilitados mientras viaja (doble toque no dispara dos veces).
@@ -190,6 +191,12 @@ Chain strategy: no aplica (sin PRs: un slice = un commit)
 - **Commit**: `feat(asignacion-ui): aceptar y esperar desde la tarjeta; recargar el home al cerrar la ejecución (S3, D-121)`.
 - **Parada**: si "Empezar entrenamiento" necesita un mecanismo distinto de `onSeguirRutina`, parar y reportar
   (regla 6: no se crea otro flujo).
+- **Tests heredados de S1** (se escriben acá de nuevo, en TDD):
+  - fetcher: "decide con POST y el body exacto { accion }" · "envía ESPERAR sin campos extra" ·
+    "404 SIN_SUGERENCIA se convierte en ApiError con código" · "409 SIN_SUGERENCIA_VIGENTE se convierte en
+    ApiError 409".
+  - hook: "decidir ACEPTAR marca enviando y termina en aceptada" · "un 409 al decidir pasa a vencida y
+    vuelve a consultar".
 
 ### S4 · Eco en la sesión — DIFERIDO
 
