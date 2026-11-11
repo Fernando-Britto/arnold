@@ -1,6 +1,6 @@
-import { fetchSugerencia } from "./asignaciones-cliente";
+import { decidirSugerencia, fetchSugerencia } from "./asignaciones-cliente";
 import { ApiError } from "@/utils/api-error";
-import type { RespuestaSugerencia } from "@/api/asignaciones";
+import type { RespuestaSugerencia, RespuestaDecision } from "@/api/asignaciones";
 
 const respuesta: RespuestaSugerencia = {
   socioId: "socio-1",
@@ -22,6 +22,8 @@ const respuesta: RespuestaSugerencia = {
 function respuestaOk(body: unknown): Response {
   return { ok: true, json: async () => body } as unknown as Response;
 }
+
+const decision: RespuestaDecision = { accion: "ACEPTAR", sugerencia: respuesta.sugerencia, siguienteEnOrden: null };
 
 function respuestaError(status: number, body: unknown): Response {
   return { ok: false, status, json: async () => body } as unknown as Response;
@@ -66,5 +68,51 @@ describe("asignaciones-cliente", () => {
     const error = await fetchSugerencia().catch((e) => e);
     expect(error).toBeInstanceOf(ApiError);
     expect(error.status).toBe(500);
+  });
+
+  it("decide con POST y el body exacto { accion }", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(respuestaOk(decision));
+
+    const resultado = await decidirSugerencia("ACEPTAR");
+
+    expect(global.fetch).toHaveBeenCalledWith("/api/asignaciones/decidir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "ACEPTAR" }),
+      signal: undefined,
+    });
+    expect(resultado).toEqual(decision);
+  });
+
+  it("envía ESPERAR sin campos extra", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(respuestaOk({ ...decision, accion: "ESPERAR", sugerencia: null }));
+
+    await decidirSugerencia("ESPERAR");
+
+    const [, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ accion: "ESPERAR" });
+  });
+
+  it("404 SIN_SUGERENCIA se convierte en ApiError con código", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      respuestaError(404, { code: "SIN_SUGERENCIA", message: "No hay una sugerencia vigente" })
+    );
+
+    await expect(decidirSugerencia("ACEPTAR")).rejects.toMatchObject({
+      name: "ApiError",
+      status: 404,
+      code: "SIN_SUGERENCIA",
+    });
+  });
+
+  it("409 SIN_SUGERENCIA_VIGENTE se convierte en ApiError 409", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue(
+      respuestaError(409, { code: "SIN_SUGERENCIA_VIGENTE", message: "La sugerencia ya no está vigente; vuelva a consultar" })
+    );
+
+    const error = await decidirSugerencia("ACEPTAR").catch((e) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(409);
+    expect(error.code).toBe("SIN_SUGERENCIA_VIGENTE");
   });
 });

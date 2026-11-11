@@ -178,4 +178,30 @@ describe("TarjetaSugerencia (estados con datos)", () => {
     expect(screen.queryByRole("button", { name: "Ir ahora" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Esperar" })).toBeInTheDocument();
   });
+
+  it("aceptada: confirma la reserva y ofrece empezar entrenamiento", async () => {
+    const onEmpezar = jest.fn();
+    render(<TarjetaSugerencia estado={{ tipo: "aceptada", sugerencia }} onEmpezar={onEmpezar} />);
+
+    expect(textoDeLaTarjeta()).toContain("Listo, te guardamos Banco plano para Press inclinado.");
+    await userEvent.click(screen.getByRole("button", { name: "Empezar entrenamiento" }));
+    expect(onEmpezar).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Ir ahora" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Esperar" })).not.toBeInTheDocument();
+  });
+
+  it("aceptada sin callback de empezar no muestra el botón (D-123)", () => {
+    render(<TarjetaSugerencia estado={{ tipo: "aceptada", sugerencia }} />);
+
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("enviando: los botones de decisión quedan deshabilitados", () => {
+    render(
+      <TarjetaSugerencia estado={lista({ esperaSegundos: 90 })} onAceptar={jest.fn()} onEsperar={jest.fn()} enviando />
+    );
+
+    expect(screen.getByRole("button", { name: "Ir ahora" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Esperar" })).toBeDisabled();
+  });
 });

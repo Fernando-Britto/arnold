@@ -1,12 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useSugerenciaAsignacion } from "./use-sugerencia-asignacion";
-import { fetchSugerencia } from "@/api/asignaciones-cliente";
+import { decidirSugerencia, fetchSugerencia } from "@/api/asignaciones-cliente";
 import { ApiError } from "@/utils/api-error";
-import type { RespuestaSugerencia, SugerenciaDTO } from "@/api/asignaciones";
+import type { RespuestaDecision, RespuestaSugerencia, SugerenciaDTO } from "@/api/asignaciones";
 
 jest.mock("@/api/asignaciones-cliente");
 
 const mockFetch = fetchSugerencia as jest.MockedFunction<typeof fetchSugerencia>;
+const mockDecidir = decidirSugerencia as jest.MockedFunction<typeof decidirSugerencia>;
 
 const sugerencia: SugerenciaDTO = {
   asignacionId: "a-1",
@@ -150,5 +151,120 @@ describe("useSugerenciaAsignacion", () => {
     const { result } = renderHook(() => useSugerenciaAsignacion());
 
     await waitFor(() => expect(result.current.estado.tipo).toBe("error"));
+  });
+
+  it("decidir ACEPTAR marca enviando y termina en aceptada", async () => {
+    mockDecidir.mockResolvedValue({ accion: "ACEPTAR", sugerencia, siguienteEnOrden: null });
+
+    const { result } = renderHook(() => useSugerenciaAsignacion());
+    await waitFor(() => expect(result.current.estado.tipo).toBe("lista"));
+
+    let promesa!: Promise<void>;
+    act(() => {
+      promesa = result.current.decidir("ACEPTAR");
+    });
+    expect(result.current.enviando).toBe(true);
+
+    await act(async () => {
+      await promesa;
+    });
+
+    expect(result.current.enviando).toBe(false);
+    expect(result.current.estado).toMatchObject({ tipo: "aceptada", sugerencia: { asignacionId: "a-1" } });
+    expect(mockDecidir).toHaveBeenCalledWith("ACEPTAR");
+  });
+
+  it("un 409 al decidir pasa a vencida y vuelve a consultar", async () => {
+    mockDecidir.mockRejectedValue(new ApiError(409, "vencida", "SIN_SUGERENCIA_VIGENTE"));
+
+    const { result } = renderHook(() => useSugerenciaAsignacion());
+    await waitFor(() => expect(result.current.estado.tipo).toBe("lista"));
+    const reconsulta = diferida<RespuestaSugerencia>();
+    mockFetch.mockReturnValueOnce(reconsulta.promise);
+
+    await act(async () => {
+      await result.current.decidir("ACEPTAR");
+    });
+
+    expect(result.current.estado.tipo).toBe("vencida");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      reconsulta.resolve(conSugerencia("a-2"));
+    });
+    expect(result.current.estado).toMatchObject({ tipo: "lista", sugerencia: { asignacionId: "a-2" } });
+  });
+
+  it("doble toque: mientras hay un POST en vuelo no se envía otro", async () => {
+    const pendiente = diferida<RespuestaDecision>();
+    mockDecidir.mockReturnValueOnce(pendiente.promise);
+
+    const { result } = renderHook(() => useSugerenciaAsignacion());
+    await waitFor(() => expect(result.current.estado.tipo).toBe("lista"));
+
+    let primera!: Promise<void>;
+    act(() => {
+      primera = result.current.decidir("ACEPTAR");
+    });
+    await act(async () => {
+      await result.current.decidir("ESPERAR");
+    });
+
+    expect(mockDecidir).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pendiente.resolve({ accion: "ACEPTAR", sugerencia, siguienteEnOrden: null });
+      await primera;
+    });
+  });
+
+  it("ESPERAR 200 deja el estado sin reserva con el siguiente en orden", async () => {
+    const siguiente = { ejercicioId: "e-2", ejercicioNombre: "Jalón al pecho", maquinaId: "m-2", esperaSegundos: 0 };
+    mockDecidir.mockResolvedValue({ accion: "ESPERAR", sugerencia: null, siguienteEnOrden: siguiente });
+    mockFetch.mockResolvedValue({ socioId: "socio-1", sugerencia: null, siguienteEnOrden: siguiente, calculadoEn: "" });
+
+    const { result } = renderHook(() => useSugerenciaAsignacion());
+    await waitFor(() => expect(result.current.estado.tipo).toBe("lista"));
+
+    await act(async () => {
+      await result.current.decidir("ESPERAR");
+    });
+
+    await waitFor(() =>
+      expect(result.current.estado).toMatchObject({ tipo: "lista", sugerencia: null, siguienteEnOrden: siguiente })
+    );
+  });
+
+  it("un 500 al decidir deja error y enviando en false", async () => {
+    mockDecidir.mockRejectedValue(new ApiError(500, "boom"));
+
+    const { result } = renderHook(() => useSugerenciaAsignacion());
+    await waitFor(() => expect(result.current.estado.tipo).toBe("lista"));
+
+    await act(async () => {
+      await result.current.decidir("ACEPTAR");
+    });
+
+    expect(result.current.estado.tipo).toBe("error");
+    expect(result.current.enviando).toBe(false);
+  });
+
+  it("carrera: una respuesta vieja del GET no pisa el resultado de ACEPTAR", async () => {
+    const { result } = renderHook(() => useSugerenciaAsignacion());
+    await waitFor(() => expect(result.current.estado.tipo).toBe("lista"));
+
+    const getLento = diferida<RespuestaSugerencia>();
+    mockFetch.mockReturnValueOnce(getLento.promise);
+    act(() => result.current.consultar());
+
+    mockDecidir.mockResolvedValue({ accion: "ACEPTAR", sugerencia, siguienteEnOrden: null });
+    await act(async () => {
+      await result.current.decidir("ACEPTAR");
+    });
+    expect(result.current.estado.tipo).toBe("aceptada");
+
+    await act(async () => {
+      getLento.resolve(conSugerencia("vieja"));
+    });
+    expect(result.current.estado).toMatchObject({ tipo: "aceptada" });
   });
 });

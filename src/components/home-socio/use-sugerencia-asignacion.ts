@@ -7,25 +7,32 @@
  * la reserva vence, así que un valor guardado ofrecería acciones sobre algo muerto. Cada consulta
  * cancela la anterior y solo la última escribe el estado, para que una respuesta vieja no pise a la nueva.
  *
- * La decisión (`ACEPTAR`/`ESPERAR`) y el estado `enviando` viven en S3 (T-057e).
+ * La decisión (`ACEPTAR`/`ESPERAR`) invalida cualquier lectura en vuelo: la respuesta de la decisión manda
+ * y una lectura vieja no puede pisarla (D-120).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchSugerencia } from "@/api/asignaciones-cliente";
+import { decidirSugerencia, fetchSugerencia, type AccionDeSugerencia } from "@/api/asignaciones-cliente";
+import { ApiError } from "@/utils/api-error";
 import type { SiguienteDTO, SugerenciaDTO } from "@/api/asignaciones";
 
 export type EstadoSugerencia =
   | { tipo: "cargando" }
   | { tipo: "lista"; sugerencia: SugerenciaDTO | null; siguienteEnOrden: SiguienteDTO | null }
+  | { tipo: "aceptada"; sugerencia: SugerenciaDTO }
   | { tipo: "vencida" }
   | { tipo: "error" };
 
 export interface UsoSugerenciaAsignacion {
   estado: EstadoSugerencia;
+  /** Hay un `POST` de decisión en vuelo: los botones se deshabilitan. */
+  enviando: boolean;
   consultar: () => void;
+  decidir: (accion: AccionDeSugerencia) => Promise<void>;
 }
 
 export function useSugerenciaAsignacion(): UsoSugerenciaAsignacion {
   const [estado, setEstado] = useState<EstadoSugerencia>({ tipo: "cargando" });
+  const [enviando, setEnviando] = useState(false);
 
   const montado = useRef(true);
   const enVuelo = useRef<AbortController | null>(null);
@@ -70,5 +77,34 @@ export function useSugerenciaAsignacion(): UsoSugerenciaAsignacion {
     return () => document.removeEventListener("visibilitychange", alCambiarVisibilidad);
   }, [consultar]);
 
-  return { estado, consultar };
+  const decidir = useCallback(
+    async (accion: AccionDeSugerencia) => {
+      if (enviando) return;
+      setEnviando(true);
+      // Invalida la lectura en vuelo: la decisión manda sobre cualquier GET anterior (D-120).
+      enVuelo.current?.abort();
+      ultimaConsulta.current += 1;
+
+      try {
+        const respuesta = await decidirSugerencia(accion);
+        if (!montado.current) return;
+        if (respuesta.sugerencia) {
+          setEstado({ tipo: "aceptada", sugerencia: respuesta.sugerencia });
+        } else {
+          setEstado({ tipo: "lista", sugerencia: null, siguienteEnOrden: respuesta.siguienteEnOrden });
+        }
+        if (accion === "ESPERAR") consultar();
+      } catch (error) {
+        if (!montado.current) return;
+        const caducada = error instanceof ApiError && (error.status === 409 || error.status === 404);
+        setEstado({ tipo: caducada ? "vencida" : "error" });
+        if (caducada) consultar();
+      } finally {
+        if (montado.current) setEnviando(false);
+      }
+    },
+    [consultar, enviando]
+  );
+
+  return { estado, enviando, consultar, decidir };
 }

@@ -1,19 +1,31 @@
 "use client";
 
 /**
- * Contenedor de la sugerencia de asignación (T-057d, D-122).
+ * Contenedor de la sugerencia de asignación (T-057d/T-057e, D-122).
  *
  * Es el único punto que usa el hook: la tarjeta sigue siendo presentación pura. La página lo monta
  * solo cuando corresponde (D-118), así que si no se monta no hay consulta.
- *
- * `decidir` todavía no existe: las acciones se cablean en S3.
  */
 import React from "react";
 import { TarjetaSugerencia } from "./tarjeta-sugerencia";
 import { useSugerenciaAsignacion } from "./use-sugerencia-asignacion";
 
-export function SugerenciaAsignacion() {
-  const { estado, consultar } = useSugerenciaAsignacion();
+export interface SugerenciaAsignacionProps {
+  /** La misma acción que "Seguir rutina" del hero: abre la ejecución de la rutina. */
+  onSeguirRutina: () => void;
+}
 
-  return <TarjetaSugerencia estado={estado} onConsultar={consultar} />;
+export function SugerenciaAsignacion({ onSeguirRutina }: SugerenciaAsignacionProps) {
+  const { estado, enviando, consultar, decidir } = useSugerenciaAsignacion();
+
+  return (
+    <TarjetaSugerencia
+      estado={estado}
+      enviando={enviando}
+      onAceptar={() => void decidir("ACEPTAR")}
+      onEsperar={() => void decidir("ESPERAR")}
+      onConsultar={consultar}
+      onEmpezar={onSeguirRutina}
+    />
+  );
 }

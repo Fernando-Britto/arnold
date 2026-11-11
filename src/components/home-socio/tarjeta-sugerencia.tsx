@@ -19,6 +19,10 @@ export interface TarjetaSugerenciaProps {
   onEsperar?: () => void;
   /** Recarga la sugerencia (`consultar` del hook). */
   onConsultar?: () => void;
+  /** Arranca o retoma la rutina: la misma acción que "Seguir rutina" del hero. */
+  onEmpezar?: () => void;
+  /** Hay una decisión en vuelo: los botones de decisión se deshabilitan. */
+  enviando?: boolean;
 }
 
 /** Minutos estimados: se redondea hacia arriba el minuto empezado; bajo 60 s, "menos de 1 min". */
@@ -38,6 +42,8 @@ export function TarjetaSugerencia({
   onAceptar,
   onEsperar,
   onConsultar,
+  onEmpezar,
+  enviando = false,
 }: TarjetaSugerenciaProps) {
   if (estado.tipo === "cargando") {
     return (
@@ -51,12 +57,12 @@ export function TarjetaSugerencia({
   }
 
   const { tipo } = estado;
-  const sugerencia = tipo === "lista" ? estado.sugerencia : null;
+  const sugerencia = tipo === "lista" || tipo === "aceptada" ? estado.sugerencia : null;
   const siguienteEnOrden = tipo === "lista" ? estado.siguienteEnOrden : null;
   // Ambos null: sin rutina activa o sin máquinas que ofrecer. Mensaje neutro único (D-114).
   const sinDatos = tipo === "lista" && !sugerencia && !siguienteEnOrden;
   const maquina = sugerencia?.maquinaNombre ?? "tu máquina";
-  const conAcciones = sugerencia !== null;
+  const conAcciones = tipo === "lista" && sugerencia !== null;
 
   return (
     <section data-testid="tarjeta-sugerencia" aria-labelledby="sugerencia-titulo" className={MARCO}>
@@ -75,6 +81,13 @@ export function TarjetaSugerencia({
 
         {sinDatos && (
           <p className="text-sm text-ink-muted">Todavía no tenemos una sugerencia para vos.</p>
+        )}
+
+        {tipo === "aceptada" && (
+          <p className="text-sm text-ink">
+            Listo, te guardamos <strong className="font-semibold">{maquina}</strong> para{" "}
+            <strong className="font-semibold">{estado.sugerencia.ejercicioNombre}</strong>.
+          </p>
         )}
 
         {sugerencia && sugerencia.esperaSegundos === 0 && (
@@ -113,19 +126,27 @@ export function TarjetaSugerencia({
       {conAcciones && (onAceptar || onEsperar) && (
         <div className="mt-4 flex gap-2">
           {onAceptar && (
-            <button type="button" onClick={onAceptar} className={CLASE_BOTON_PRIMARIO}>
+            <button type="button" onClick={onAceptar} disabled={enviando} className={CLASE_BOTON_PRIMARIO}>
               Ir ahora
             </button>
           )}
           {onEsperar && (
-            <button type="button" onClick={onEsperar} className={CLASE_BOTON_SECUNDARIO}>
+            <button type="button" onClick={onEsperar} disabled={enviando} className={CLASE_BOTON_SECUNDARIO}>
               Esperar
             </button>
           )}
         </div>
       )}
 
-      {!conAcciones && onConsultar && (
+      {tipo === "aceptada" && onEmpezar && (
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={onEmpezar} className={CLASE_BOTON_PRIMARIO}>
+            Empezar entrenamiento
+          </button>
+        </div>
+      )}
+
+      {tipo !== "aceptada" && !conAcciones && onConsultar && (
         <div className="mt-4 flex gap-2">
           <button type="button" onClick={onConsultar} className={CLASE_BOTON_SECUNDARIO}>
             {tipo === "error" ? "Reintentar" : "Volver a consultar"}

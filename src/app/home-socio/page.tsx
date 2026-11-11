@@ -123,7 +123,9 @@ export function HomeSocioPage() {
 
           {/* D-118: con una sesión en curso la reserva es la del siguiente ejercicio y no se consume
               a mitad de sesión, así que no se ofrece. */}
-          {data.rutinaActiva && !data.sesionEnProgreso && <SugerenciaAsignacion />}
+          {data.rutinaActiva && !data.sesionEnProgreso && (
+            <SugerenciaAsignacion onSeguirRutina={handleSeguirRutina} />
+          )}
 
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_352px]">
             <div className="flex min-w-0 flex-col gap-5">
