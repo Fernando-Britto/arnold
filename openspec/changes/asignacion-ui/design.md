@@ -276,6 +276,13 @@ Orden: S0 → S1 → S2 → S3. Total ≈670; ningún slice pasa 400.
   su callback. Entre S2b y S3 no existen botones muertos.
 - **Por qué**: un botón que no hace nada es peor que su ausencia, y evita que S2b invente no-ops.
 
+### D-124 · ESPERAR usa la respuesta del POST y además reconsulta
+- **Origen**: IA, adoptada en S3.
+- **Decisión**: con `ESPERAR` 200 el estado se arma con la respuesta del `POST` (`sugerencia: null` +
+  `siguienteEnOrden`) y **después** se dispara `consultar()`, para cumplir AC-551 sin mostrar por un
+  instante la reserva cancelada.
+- **Por qué**: la respuesta ya trae lo necesario; la reconsulta refresca el cálculo real y no hay parpadeo.
+
 ## 12. Riesgos y reversión
 
 - **R1 · Latencia del `GET`** con base remota (D-110): se conserva el estado previo y no se bloquea la home.

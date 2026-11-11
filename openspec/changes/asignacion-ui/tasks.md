@@ -174,8 +174,8 @@ Chain strategy: no aplica (sin PRs: un slice = un commit)
 - **AC**: AC-547, AC-549, AC-550, AC-556.
 - **Archivos**: `tarjeta-sugerencia.tsx` y su test, `asignaciones-cliente.ts` y su test,
   `use-sugerencia-asignacion.ts` y su test, `src/app/home-socio/page.tsx` y `page.test.tsx` (modificados).
-- **Estimado**: ≈225 base · **≈340 cota** (150 propios + ≈77 heredados de S1: `decidirSugerencia`, la
-  acción `decidir`, el estado `enviando` y sus tests).
+- **Estimado**: ≈225 base · **≈340 cota**. **Medido**: 5 archivos, 331 líneas (150 propios + 77 heredados
+  + los tests nuevos de doble toque, ESPERAR, 500, carrera y D-121).
 - **Pasos (RED → GREEN)**:
   1. RED: "Ir ahora" llama `decidirSugerencia("ACEPTAR")` y "Esperar" llama `decidirSugerencia("ESPERAR")`
      (espía sobre el fetcher), con botones deshabilitados mientras viaja (doble toque no dispara dos veces).
@@ -193,6 +193,8 @@ Chain strategy: no aplica (sin PRs: un slice = un commit)
 - **Commit**: `feat(asignacion-ui): aceptar y esperar desde la tarjeta; recargar el home al cerrar la ejecución (S3, D-121)`.
 - **Parada**: si "Empezar entrenamiento" necesita un mecanismo distinto de `onSeguirRutina`, parar y reportar
   (regla 6: no se crea otro flujo).
+- **Corte aplicado**: D-121 se separó a **S3b** porque el slice medía 417 líneas (tope 400). S3a cierra con
+  ≈370 y S3b (refetch del home al cerrar la ejecución) queda como slice propio.
 - **Tests heredados de S1** (se escriben acá de nuevo, en TDD):
   - fetcher: "decide con POST y el body exacto { accion }" · "envía ESPERAR sin campos extra" ·
     "404 SIN_SUGERENCIA se convierte en ApiError con código" · "409 SIN_SUGERENCIA_VIGENTE se convierte en
