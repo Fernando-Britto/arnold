@@ -14,7 +14,7 @@ import { UltimasSesiones } from "@/components/home-socio/ultimas-sesiones";
 import { PesoCorporalCard } from "@/components/home-socio/peso-corporal-card";
 import { SeccionCargando } from "@/components/home-socio/seccion-cargando";
 import { SugerenciaAsignacion } from "@/components/home-socio/sugerencia-asignacion";
-import { CLAVES, leerCache } from "@/lib/cache-cliente";
+import { CLAVES, invalidarCache, leerCache } from "@/lib/cache-cliente";
 import { diasHastaVencimiento } from "@/domains/home-socio/home-socio";
 
 /**
@@ -62,9 +62,7 @@ export function HomeSocioPage() {
     }
   }, [isAuthenticated, isMember, router]);
 
-  useEffect(() => {
-    if (!isAuthenticated || !isMember) return;
-
+  const cargarHome = useCallback((esCargaInicial = false) => {
     let cancelled = false;
 
     fetchHomeSocioData()
@@ -72,7 +70,10 @@ export function HomeSocioPage() {
         if (!cancelled) setData(result);
       })
       .catch(() => {
-        if (!cancelled) setError("No pudimos cargar tu inicio. Probá de nuevo en un momento.");
+        // Una recarga fallida no borra lo que ya se ve; solo la carga inicial muestra el error.
+        if (!cancelled && esCargaInicial) {
+          setError("No pudimos cargar tu inicio. Probá de nuevo en un momento.");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -81,9 +82,22 @@ export function HomeSocioPage() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, isMember]);
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isMember) return;
+    return cargarHome(true);
+  }, [isAuthenticated, isMember, cargarHome]);
 
   const handleSeguirRutina = useCallback(() => setModoEjecucion(true), []);
+
+  const cerrarEjecucion = useCallback(() => {
+    setModoEjecucion(false);
+    // D-121: el payload del home está cacheado 60 s; se invalida para que `sesionEnProgreso` no quede
+    // viejo y la tarjeta no siga oculta después de entrenar.
+    invalidarCache(CLAVES.homeSocio);
+    cargarHome();
+  }, [cargarHome]);
 
   if (!isAuthenticated || !isMember) return null;
 
@@ -112,7 +126,7 @@ export function HomeSocioPage() {
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
           <EjecucionRutina
             rutinaAsignadaId={data?.rutinaActiva?.rutinaAsignadaId ?? null}
-            onCerrar={() => setModoEjecucion(false)}
+            onCerrar={cerrarEjecucion}
           />
         </div>
       ) : loading && !data ? (

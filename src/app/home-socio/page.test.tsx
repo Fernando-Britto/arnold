@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/auth";
 import * as homeSocioApi from "@/api/home-socio";
 import type { HomeSocioViewModel } from "@/api/home-socio";
 import { fetchSesionEnCurso, iniciarSesionDeEntrenamiento } from "@/api/sesiones";
-import { limpiarCache } from "@/lib/cache-cliente";
+import { CLAVES, invalidarCache, limpiarCache } from "@/lib/cache-cliente";
+import { EjecucionRutina } from "@/components/home-socio/ejecucion-rutina";
 import { fetchSugerencia } from "@/api/asignaciones-cliente";
 import { ApiError } from "@/utils/api-error";
 
@@ -21,6 +22,14 @@ jest.mock("@/contexts/auth");
 jest.mock("@/api/home-socio", () => ({ fetchHomeSocioData: jest.fn() }));
 jest.mock("@/api/sesiones");
 jest.mock("@/api/asignaciones-cliente");
+jest.mock("@/lib/cache-cliente", () => {
+  const actual = jest.requireActual("@/lib/cache-cliente");
+  return { ...actual, invalidarCache: jest.fn() };
+});
+jest.mock("@/components/home-socio/ejecucion-rutina", () => {
+  const actual = jest.requireActual("@/components/home-socio/ejecucion-rutina");
+  return { ...actual, EjecucionRutina: jest.fn(actual.EjecucionRutina) };
+});
 
 const mockAuth = useAuth as jest.Mock;
 const mockFetch = homeSocioApi.fetchHomeSocioData as jest.MockedFunction<
@@ -473,5 +482,79 @@ describe("HomeSocioPage (sesión primero: recorrido + historial + números)", ()
     expect(tarjeta.className).toContain("border-border");
     expect(tarjeta.className).not.toMatch(/dark:/);
     expect(tarjeta.className).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+  });
+
+  /** Cierra la ejecución sin pasar por el resumen: el stub solo expone `onCerrar`. */
+  function ejecucionQueCierra() {
+    (EjecucionRutina as unknown as jest.Mock).mockImplementationOnce(
+      ({ onCerrar }: { onCerrar?: () => void }) => (
+        <button type="button" onClick={onCerrar}>
+          Volver al inicio
+        </button>
+      )
+    );
+  }
+
+  async function abrirYCerrarEjecucion() {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /(empezar|retomar) entrenamiento/i }));
+    await user.click(await screen.findByRole("button", { name: "Volver al inicio" }));
+    return user;
+  }
+
+  it("D-121: al cerrar la ejecución recarga el home y la tarjeta vuelve a aparecer", async () => {
+    asSocio();
+    ejecucionQueCierra();
+    mockFetch
+      .mockResolvedValueOnce({ ...baseViewModel, sesionEnProgreso: true })
+      .mockResolvedValueOnce({ ...baseViewModel, sesionEnProgreso: false });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+    expect(screen.queryByTestId("tarjeta-sugerencia")).not.toBeInTheDocument();
+
+    await abrirYCerrarEjecucion();
+
+    expect(await screen.findByTestId("tarjeta-sugerencia")).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("D-121: la recarga invalida la caché del home para traer datos frescos", async () => {
+    asSocio();
+    ejecucionQueCierra();
+    mockFetch.mockResolvedValueOnce({ ...baseViewModel, sesionEnProgreso: true });
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    await abrirYCerrarEjecucion();
+
+    expect(invalidarCache).toHaveBeenCalledWith(CLAVES.homeSocio);
+  });
+
+  it("la recarga no muestra pantalla de carga y conserva los datos viejos", async () => {
+    asSocio();
+    ejecucionQueCierra();
+    mockFetch.mockResolvedValueOnce({ ...baseViewModel, sesionEnProgreso: true });
+    mockFetch.mockReturnValueOnce(new Promise(() => {}));
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    await abrirYCerrarEjecucion();
+
+    expect(screen.getByTestId("card-rutina")).toBeInTheDocument();
+    expect(screen.queryAllByTestId("seccion-cargando")).toHaveLength(0);
+  });
+
+  it("si la recarga falla, la home conserva el contenido", async () => {
+    asSocio();
+    ejecucionQueCierra();
+    mockFetch.mockResolvedValueOnce({ ...baseViewModel, sesionEnProgreso: true });
+    mockFetch.mockRejectedValueOnce(new Error("boom"));
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    await abrirYCerrarEjecucion();
+
+    expect(screen.getByTestId("card-rutina")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
