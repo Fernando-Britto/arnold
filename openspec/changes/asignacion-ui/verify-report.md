@@ -9,11 +9,11 @@
 
 ## Resumen
 
-La implementación cumple los 22 criterios del change: 19 cubiertos con tests que verifican valores o
-comportamiento, 2 parciales (AC-550 sin click end-to-end en la página, AC-566 solo smoke) y 1 verificado por
-inspección más que por test (AC-551 "sin polling"). Las 13 decisiones del change se cumplen en el código sin
-desviaciones de comportamiento; las dos únicas diferencias son de documentación (README desactualizado) y de
-cobertura (navegador/tema solo en smoke).
+La implementación cumple los 22 criterios del change: **20 cubiertos** con tests que verifican valores o
+comportamiento, **1 parcial** (AC-554: el tema se verifica solo por clases) y **1 solo smoke** (AC-566: el
+seed contra Postgres real). AC-551 "sin polling" se cubre además por inspección. Las 13 decisiones del change
+se cumplen en el código sin desviaciones de comportamiento. Los dos hallazgos bajos de documentación y de
+cadena end-to-end quedaron cerrados el 2026-11-12 (ver *Seguimiento*).
 
 Las compuertas están verdes: `tsc`, `lint` (0 errores), `npm test` (278 suites / 3908 tests) y `build`. Las
 dos mutaciones de verificación independiente fallaron en el test correcto.
@@ -31,7 +31,7 @@ dos mutaciones de verificación independiente fallaron en el test correcto.
 | AC-547 | `use-sugerencia-asignacion.test.tsx:177` (409 → vencida + reconsulta); render `tarjeta-sugerencia.test.tsx:134` | ✅ |
 | AC-548 | `tarjeta-sugerencia.test.tsx:143`; `sugerencia-asignacion.test.tsx:66` ("Reintentar"); `page.test.tsx:464` (home intacta) | ✅ |
 | AC-549 | `asignaciones-cliente.test.ts:73,87` (body exacto); `tarjeta-sugerencia.test.tsx:199` (disabled); `use-…:198` (doble toque) | ✅ |
-| AC-550 | `tarjeta-sugerencia.test.tsx:182` (copy + botón); `sugerencia-asignacion.test.tsx:98` (llama `onSeguirRutina`); `page.test.tsx:366` (ese handler abre la ejecución) | 🟡 parcial: no hay un test que toque el botón **de la tarjeta** dentro de la página |
+| AC-550 | `tarjeta-sugerencia.test.tsx:182`; `sugerencia-asignacion.test.tsx:98`; **`page.test.tsx:562` "AC-550: 'Empezar entrenamiento' de la tarjeta abre la ejecución como el botón del hero"** | ✅ (cerrado 2026-11-12) |
 | AC-551 | `use-…:69,78,91` (montar, pestaña, manual), `:177` (tras 409), `:220` (tras ESPERAR); sin `setInterval` en el hook | ✅ |
 | AC-552 | `use-…:100` (respuesta vieja descartada), `:251` (GET viejo no pisa la decisión), `asignaciones-cliente.test.ts:55`; el hook no importa `cache-cliente` | ✅ |
 | AC-553 | `tarjeta-sugerencia.test.tsx:152` (pulso sin texto); `page.test.tsx:533` (recarga sin pantalla) | ✅ |
@@ -133,8 +133,8 @@ Ambas revertidas; `git status --short` quedó vacío.
 
 1. **Navegador y tema claro/oscuro**: no hay e2e. El smoke es la única verificación real del render, del
    contraste y del cambio de tema (`page.test.tsx:475` solo mira clases).
-2. **AC-550 sin cadena completa**: el contenedor llama `onSeguirRutina` y la página le pasa el mismo handler
-   del hero, pero ningún test hace click en "Empezar entrenamiento" **de la tarjeta** dentro de la página.
+2. ~~**AC-550 sin cadena completa**~~ → **Cerrado el 2026-11-12** con el test de caracterización de
+   `page.test.tsx:562`.
 3. **Ambigüedad "sin rutina" vs "rutina sin máquinas"**: el contrato devuelve ambos `null` en los dos casos
    (`src/api/asignaciones.ts:143-147`); la UI usa un mensaje neutro (D-114). No se puede distinguir.
 4. **Latencia con base remota** (D-110): el `GET` corre el motor para `siguienteEnOrden`
@@ -159,11 +159,26 @@ Ninguno.
 Ninguno.
 
 ### Bajos
-1. **README contradice S0** (`README.md:36`): dice que el seed no asocia ejercicios a máquinas. **Arreglo**:
-   cambiar esa línea por "el seed asocia los ejercicios de la rutina Torso B a máquinas disponibles (D-117);
-   el resto de las asociaciones se cargan desde `/maquinas`".
-2. **AC-550 parcial**: falta el test end-to-end del botón de la tarjeta en la página. **Arreglo**: en
-   `page.test.tsx`, con la sugerencia en estado `aceptada`, clickear "Empezar entrenamiento" de la tarjeta y
-   esperar `ejecucion-rutina`.
-3. **AC-554/AC-566 solo smoke**: sin e2e ni corrida del seed contra Postgres en CI. **Arreglo**: aceptado
-   como está; el smoke manual lo cubre.
+1. ~~**README contradice S0** (`README.md:36`)~~ → **Cerrado el 2026-11-12**: `README.md:35-39` ahora
+   describe las asociaciones del seed (D-117) y la home donde el socio ve y decide la sugerencia.
+2. ~~**AC-550 parcial**: faltaba el test end-to-end del botón de la tarjeta~~ → **Cerrado el 2026-11-12**:
+   `page.test.tsx` "AC-550: 'Empezar entrenamiento' de la tarjeta abre la ejecución como el botón del hero"
+   (test de caracterización: ya pasaba; la mutación de `onSeguirRutina` a no-op lo hace fallar).
+3. **AC-554/AC-566 solo smoke**: sin e2e ni corrida del seed contra Postgres en CI. **Aceptado** como está;
+   el smoke manual lo cubre.
+
+## Seguimiento
+
+**2026-11-12 — cierre de los hallazgos bajos 1 y 2.**
+
+- **Hallazgo 1 cerrado**: `README.md` dejó de decir que el seed no asocia ejercicios a máquinas; ahora lista
+  las parejas de "Torso B" y aclara que es idempotente y que omite con log lo que no encuentra. También se
+  agregó a "Asignación dinámica de ejercicios" que la sugerencia se ve y se decide en la home, y que con
+  sesión en curso no se muestra (D-118).
+- **Hallazgo 2 cerrado**: nuevo test de caracterización en `src/app/home-socio/page.test.tsx` que hace clic
+  en "Ir ahora" y después en "Empezar entrenamiento" **de la tarjeta**, dentro de la página, y verifica que
+  se abre `ejecucion-rutina` con `mockIniciar("asig-1")`. Mutación de verificación: pasarle a
+  `<SugerenciaAsignacion>` un `onSeguirRutina` no-op hace fallar ese test (y solo ese).
+- **Hallazgo 3**: sigue abierto y aceptado (AC-554 y AC-566 se cubren en el smoke manual).
+
+Veredicto sin cambios: **APROBADO CON OBSERVACIONES**.

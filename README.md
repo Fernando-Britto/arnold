@@ -32,8 +32,11 @@ npm run dev                 # http://localhost:3000
 **Datos de desarrollo** (opcional, solo para probar): `npm run seed` carga 5 usuarios (Administrador, Instructor,
 Recepcionista y 2 Socios, todos `@arnold.test`), membresías, ejercicios, rutinas, máquinas y datos de asistencia, progreso,
 pagos y cuotas. Se puede correr las veces que haga falta (no duplica) y se niega a correr con `NODE_ENV=production`.
-La contraseña por defecto es `Arnold2026!`; se cambia con `SEED_PASSWORD` en el `.env`. El seed **no** asocia
-ejercicios a máquinas: sin ese paso el motor de asignación devuelve `sin_opciones` (ver más abajo).
+La contraseña por defecto es `Arnold2026!`; se cambia con `SEED_PASSWORD` en el `.env`. El seed también asocia
+los ejercicios de la rutina "Torso B" a máquinas disponibles —Press inclinado y Remo con mancuerna a "Banco
+plano"; Jalón al pecho, Elevaciones laterales y Extensión de tríceps a "Polea alta"— de forma idempotente y
+sin pisar lo que ya exista. Si una máquina se renombró o no está disponible, esa asociación se omite y queda
+un aviso en el log del seed.
 
 ## Comandos
 
@@ -70,6 +73,11 @@ sumando el descanso y el tiempo estimado de ejecución de quienes ocupan cada m�
 provisional que vence (15 minutos por defecto, configurable en `/configuracion`); el socio la ve y decide
 **ACEPTAR** o **ESPERAR**. Al iniciar la sesión la reserva se consume y, al terminar cada ejercicio, el
 cálculo se repite.
+
+La sugerencia se ve en la **home del socio**: una tarjeta entre la cabecera y la sesión con el ejercicio, la
+máquina y la espera estimada, y los botones "Ir ahora" (ACEPTAR) y "Esperar" (ESPERAR). Con una sesión en
+curso la tarjeta no se muestra: la reserva vigente es la del siguiente ejercicio y no se consume a mitad de
+sesión.
 
 - `GET /api/asignaciones/sugerencia` — SOCIO (sobre lo propio), ADMINISTRADOR e INSTRUCTOR (con `socioId`).
 - `POST /api/asignaciones/decidir` — solo SOCIO, sobre lo propio.

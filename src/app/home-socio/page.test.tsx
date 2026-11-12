@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HomeSocioPage } from "./page";
 import { useAuth } from "@/contexts/auth";
@@ -8,7 +8,7 @@ import type { HomeSocioViewModel } from "@/api/home-socio";
 import { fetchSesionEnCurso, iniciarSesionDeEntrenamiento } from "@/api/sesiones";
 import { CLAVES, invalidarCache, limpiarCache } from "@/lib/cache-cliente";
 import { EjecucionRutina } from "@/components/home-socio/ejecucion-rutina";
-import { fetchSugerencia } from "@/api/asignaciones-cliente";
+import { decidirSugerencia, fetchSugerencia } from "@/api/asignaciones-cliente";
 import { ApiError } from "@/utils/api-error";
 
 const mockPush = jest.fn();
@@ -40,6 +40,7 @@ const mockIniciar = iniciarSesionDeEntrenamiento as jest.MockedFunction<
   typeof iniciarSesionDeEntrenamiento
 >;
 const mockSugerencia = fetchSugerencia as jest.MockedFunction<typeof fetchSugerencia>;
+const mockDecidir = decidirSugerencia as jest.MockedFunction<typeof decidirSugerencia>;
 
 const baseViewModel: HomeSocioViewModel = {
   progreso: {
@@ -556,5 +557,65 @@ describe("HomeSocioPage (sesión primero: recorrido + historial + números)", ()
 
     expect(screen.getByTestId("card-rutina")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("AC-550: 'Empezar entrenamiento' de la tarjeta abre la ejecución como el botón del hero", async () => {
+    asSocio();
+    const sugerencia = {
+      asignacionId: "a-1",
+      ejercicioId: "e1",
+      ejercicioNombre: "Press de Banca",
+      maquinaId: "m-1",
+      maquinaNombre: "Banco plano",
+      esperaSegundos: 0,
+      ahorroSegundos: 120,
+      creadaEn: "2026-11-05T12:00:00.000Z",
+      venceEn: "2026-11-05T12:15:00.000Z",
+    };
+    mockSugerencia.mockResolvedValue({
+      socioId: "socio-1",
+      sugerencia,
+      siguienteEnOrden: null,
+      calculadoEn: "2026-11-05T12:00:00.000Z",
+    });
+    mockDecidir.mockResolvedValue({ accion: "ACEPTAR", sugerencia, siguienteEnOrden: null });
+    mockEnCurso.mockResolvedValueOnce({
+      sesion: null,
+      ejercicios: [],
+      ultimaSerie: null,
+      cargaActual: null,
+      ultimasVeces: {},
+      sugerencias: {},
+      records: {},
+    });
+    mockIniciar.mockResolvedValueOnce({
+      sesion: {
+        id: "s1",
+        rutinaAsignadaId: "asig-1",
+        estadoDeFinalizacion: "EN_CURSO",
+        horaInicio: "2026-10-12T13:00:00.000Z",
+        ejercicioActualId: "e1",
+        serieActual: 1,
+      },
+      ejercicios: [
+        {
+          id: "e1", nombre: "Press de Banca", series: 4, repeticiones: 8, descanso: 120, orden: 0,
+          mediaId: null, musculoObjetivo: null, instrucciones: [],
+        },
+      ],
+      ultimasVeces: {},
+      sugerencias: {},
+      records: {},
+    });
+    const user = userEvent.setup();
+    render(<HomeSocioPage />);
+    await waitForLoadingComplete();
+
+    const tarjeta = screen.getByTestId("tarjeta-sugerencia");
+    await user.click(within(tarjeta).getByRole("button", { name: "Ir ahora" }));
+    await user.click(await within(tarjeta).findByRole("button", { name: "Empezar entrenamiento" }));
+
+    expect(await screen.findByTestId("ejecucion-rutina")).toBeInTheDocument();
+    expect(mockIniciar).toHaveBeenCalledWith("asig-1");
   });
 });
