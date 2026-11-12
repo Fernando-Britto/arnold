@@ -251,6 +251,11 @@ Lista completa con severidad en [`decisions.md` §3](openspec/decisions.md#3-pen
 | P-57 | ~~ESLint falla en `dev` por `Date.now()` durante el render en `src/app/home-socio/page.tsx` (`react-hooks/purity`); es preexistente de `f4d1ac2` y no se corrigió en esta feature~~ → **resuelto (2026-11-05)**: los días de membresía se calculan con `diasHastaVencimiento` (dominio puro que recibe `ahora`) y la página congela `ahora` en un estado perezoso; `npx eslint .` queda en 0 errores | Baja |
 | P-58 | El conteo `enMaquinas` en el listado de ejercicios quedó diferido (pregunta Q3 de la propuesta / open question del diseño) | Baja |
 | P-59 | `MAX_EJERCICIOS_POR_MAQUINA` como parámetro en tiempo de ejecución de `/configuracion` quedó diferido; sigue siendo una constante dura | Baja |
+| P-61 | Salida de emergencia del flujo obligatorio: máquina rota durante la sesión o socio lesionado → reasignación por instructor. No es parte del motor puro: requiere estado de sesión y permisos de instructor | Media |
+| P-62 | Simulación comparativa para la tesis: espera promedio del motor frente a seguir el orden de rutina, con N socios y M máquinas | Baja |
+| P-63 | Documentación de la limitación del criterio "solo-espera" (sin orden fisiológico) para el informe de tesis | Baja |
+| P-69 | Limpieza batch de filas `RESERVADA` vencidas: el vencimiento es perezoso y la tabla crece sin límite | Baja |
+| P-71 | Sensibilidad de la latencia del check-in: peor caso ≈2,25 s por la carrera externa; mitigado por `ASIGNACION_TIMEOUT_CALCULO_MS`, falta medir con carga real | Media |
 
 ## Cambios recientes (2026-10-07 al 2026-11-12)
 
