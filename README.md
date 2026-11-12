@@ -89,7 +89,7 @@ sesión.
   si el ejercicio tiene una única candidata; con varias, el motor puede **subestimar** la espera.
 
 Specs y decisiones: [`openspec/specs/asignacion-orquestacion/spec.md`](openspec/specs/asignacion-orquestacion/spec.md)
-y [`openspec/decisions.md`](openspec/decisions.md) (D-88 a D-111, sin D-107).
+y [`openspec/decisions.md`](openspec/decisions.md) (D-88 a D-124, sin D-107).
 
 ## Estructura
 

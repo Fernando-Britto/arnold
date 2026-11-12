@@ -1,6 +1,6 @@
 # Registro de decisiones — ARNOLD MVP Core
 
-**Actualizado**: 2026-10-31 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
+**Actualizado**: 2026-11-12 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
 
 Este documento registra **por qué** el proyecto se desvió del plan original durante `sdd-apply`, qué
 alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace; acá queda el *porqué*.
@@ -1652,6 +1652,105 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Dónde**: `src/domains/asignacion/asignacion-repositorio.ts` (`enTransaccionBloqueada`); el contrato queda
   fijado por el test unitario "la consulta del lock pide una columna soportada" y por los dos tests de integración
   (concurrencia y liberación del lock al fallar).
+
+### D-112 · La sugerencia se muestra en la home; el eco en la sesión queda diferido
+- **Origen**: Fernando (2026-11-05).
+- **Contexto**: la reserva nace en el check-in y el socio abre `/home-socio` al llegar
+  (`src/app/home-socio/page.tsx:88-131`); dentro de la sesión el único recálculo ocurre al completar un
+  ejercicio (`src/domains/sesion/sesion-de-entrenamiento.ts:547-560`).
+- **Decisión**: esta change muestra la tarjeta en la home, entre la cabecera y `SesionHero`. La franja de
+  solo lectura dentro de `EjecucionRutina` (S4) queda **diferida** y se decide al terminar S2.
+- **Por qué**: el lugar donde el socio decide es antes de empezar; S4 no cambia el flujo y se puede evaluar
+  con S2 en la mano.
+
+### D-113 · Los botones dicen "Ir ahora" y "Esperar"
+- **Origen**: Fernando (2026-11-05).
+- **Decisión**: "Ir ahora" envía `ACEPTAR`; "Esperar" envía `ESPERAR`. El contrato no cambia
+  (`src/api/asignaciones.ts:169-176` acepta solo `accion`).
+- **Por qué**: "aceptar" es el verbo del contrato, pero en pantalla el socio entiende "ir ahora".
+
+### D-114 · "Sin sugerencia" es un único mensaje neutro
+- **Origen**: Fernando (2026-11-05).
+- **Contexto**: el contrato devuelve ambos `null` tanto si el socio no tiene rutina activa como si el motor
+  no encuentra opciones (`src/api/asignaciones.ts:143-147`).
+- **Decisión**: un solo mensaje neutro. **No** se agrega un campo al contrato ni se modifica el backend.
+- **Por qué**: distinguir las causas no cambia lo que el socio puede hacer y agranda el alcance.
+
+### D-115 · La vista de instructor/administrador queda fuera de alcance
+- **Origen**: Fernando (2026-11-05).
+- **Contexto**: el `GET` ya acepta `socioId` para ambos roles (`src/api/asignaciones.ts:127-141`).
+- **Decisión**: no se implementa en esta change; queda como semilla de **P-61**.
+- **Por qué**: el flujo obligatorio lo decide el socio y la reasignación por instructor es otra etapa.
+
+### D-116 · Refresco sin polling y sin cache
+- **Origen**: Fernando (2026-11-05).
+- **Decisión**: la sugerencia se consulta al montar, al volver a la pestaña
+  (`visibilitychange`), y tras `ACEPTAR`, `ESPERAR` o completar un ejercicio. **Sin polling.** **No** se
+  cachea en `src/lib/cache-cliente.ts`.
+- **Por qué**: cada consulta ejecuta el motor (D-110) y la reserva tiene `venceEn`
+  (`src/api/asignaciones.ts:25`), así que un cache de 60 s ofrecería acciones sobre algo vencido.
+
+### D-117 · El seed asocia ejercicios de "Torso B" a máquinas disponibles
+- **Origen**: Fernando (2026-11-05).
+- **Contexto**: el seed siembra máquinas (`prisma/seed-data.ts:158-165`) pero nunca `EjercicioMaquina`;
+  sin asociaciones el motor devuelve `sin_opciones` y la demo no muestra nada.
+- **Decisión**: S0 agrega asociaciones idempotentes entre los ejercicios de "Torso B"
+  (`prisma/seed-data.ts:106-116`) y máquinas `DISPONIBLE`. No toca el resto del seed ni
+  `tests/prisma-seed.test.ts` más allá de lo necesario para seguir verde.
+- **Por qué**: la pantalla tiene que poder probarse de punta a punta sin pasos manuales por `/maquinas`.
+
+### D-118 · La tarjeta se oculta mientras hay una sesión en curso
+- **Origen**: Fernando (2026-11-05).
+- **Contexto**: con sesión `EN_CURSO` la API devuelve la reserva del **siguiente** ejercicio y no existe
+  consumo a mitad de sesión (`src/domains/sesion/sesion-de-entrenamiento.ts:547-560`).
+- **Decisión**: la tarjeta se monta solo con `data.rutinaActiva !== null` y `data.sesionEnProgreso === false`
+  (`src/api/home-socio.ts:130`). Con sesión en curso no se muestra ni se consulta.
+- **Por qué**: "Ir ahora" sobre una reserva que no se puede consumir es una promesa falsa; el caso se resuelve
+  en S4, que es de solo lectura.
+
+### D-119 · Se consulta al montar, al volver a la pestaña y tras cada acción
+- **Origen**: Fernando (2026-11-05, D-116 del change).
+- **Decisión**: `useEffect` de montaje + `visibilitychange` a visible + después de `ACEPTAR`/`ESPERAR`/409/
+  error y al cerrar la ejecución. Sin polling. Sin cache.
+- **Por qué**: cada `GET` corre el motor (`src/api/asignaciones.ts:149`) y la reserva vence; un cache de 60 s
+  (`src/lib/cache-cliente.ts:25`) ofrecería acciones sobre algo muerto.
+
+### D-120 · Solo la última consulta escribe el estado
+- **Origen**: IA, adoptada.
+- **Decisión**: cada consulta lleva `AbortController` y un identificador monotónico; al resolver, si no es la
+  última, se descarta.
+- **Por qué**: volver a la pestaña puede disparar una consulta mientras otra está en vuelo; sin esto, una
+  respuesta vieja puede reintroducir una reserva ya vencida.
+
+### D-121 · Al cerrar la ejecución se recargan los datos del home
+- **Origen**: IA, adoptada (hueco detectado en el diseño).
+- **Contexto**: `sesionEnProgreso` viene del payload del home y ese payload está cacheado 60 s
+  (`src/api/home-socio.ts:144-146`); las mutaciones de sesión invalidan el cache
+  (`src/api/sesiones.ts:257-260`) pero la home no se vuelve a pedir al cerrar `EjecucionRutina`.
+- **Decisión**: cuando `modoEjecucion` pasa a `false`, la home vuelve a cargar sus datos; con eso
+  `sesionEnProgreso` se recalcula y la tarjeta se reevalúa.
+- **Por qué**: sin esto, después de entrenar la tarjeta podría quedar oculta hasta un refresh manual.
+
+### D-122 · El hook vive en un contenedor, no en la tarjeta
+- **Origen**: Fernando (2026-11-05).
+- **Decisión**: `SugerenciaAsignacion` (`src/components/home-socio/sugerencia-asignacion.tsx`) es el único
+  que usa el hook y le pasa el estado a `TarjetaSugerencia`, que sigue siendo presentación pura. La página
+  monta el contenedor solo con rutina activa y sin sesión en curso (D-118): si no se monta, no hay consulta.
+- **Por qué**: mantiene la tarjeta testeable sin red y hace imposible consultar cuando la regla de
+  visibilidad no se cumple.
+
+### D-123 · Sin callback, sin botón
+- **Origen**: Fernando (2026-11-05).
+- **Decisión**: "Ir ahora", "Esperar", "Volver a consultar" y "Reintentar" se renderizan **solo** si llega
+  su callback. Entre S2b y S3 no existen botones muertos.
+- **Por qué**: un botón que no hace nada es peor que su ausencia, y evita que S2b invente no-ops.
+
+### D-124 · ESPERAR usa la respuesta del POST y además reconsulta
+- **Origen**: IA, adoptada en S3.
+- **Decisión**: con `ESPERAR` 200 el estado se arma con la respuesta del `POST` (`sugerencia: null` +
+  `siguienteEnOrden`) y **después** se dispara `consultar()`, para cumplir AC-551 sin mostrar por un
+  instante la reserva cancelada.
+- **Por qué**: la respuesta ya trae lo necesario; la reconsulta refresca el cálculo real y no hay parpadeo.
 
 ---
 

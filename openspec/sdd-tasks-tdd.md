@@ -134,6 +134,11 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-056f ➕ Asignación: rutas, matriz y mapper (CP4b) | ✅ | — (direct to `dev`) | ≈433 | `GET /api/asignaciones/sugerencia`, `POST /api/asignaciones/decidir`, RBAC matrix (D-99) and `SIN_SUGERENCIA`/`SIN_SUGERENCIA_VIGENTE` in the mapper |
 | T-056g ➕ Asignación: check-in y sesión (CP4c) | ✅ | — (direct to `dev`) | ≈900 | Best-effort check-in hook, session adapter (D-103), consume on start/advance, close on finish |
 | T-056g ➕ Asignación: cierre documental | ✅ | — (direct to `dev`) | ≈150 | Archive of Etapa 4: D-88…D-111 (sin D-107, que pertenece a balance muscular), pendings P-61…P-71, promoted specs and archive report |
+| T-057a ➕ Asignación UI: seed de asociaciones (S0) | ✅ | — (direct to `dev`) | ≈120 | Asociaciones idempotentes de "Torso B" a máquinas `DISPONIBLE` con `skipDuplicates`; D-117 |
+| T-057b ➕ Asignación UI: fetcher y hook (S1) | ✅ | — (direct to `dev`) | ≈312 | `asignaciones-cliente.ts` (GET con `import type`) y `useSugerenciaAsignacion`: montar, pestaña, abort y id monotónico; D-119, D-120 |
+| T-057c/d ➕ Asignación UI: tarjeta y visibilidad (S2a/S2b) | ✅ | — (direct to `dev`) | ≈540 | Estados con datos, vacíos y de error; contenedor con el hook; la home monta solo con rutina y sin sesión en curso; D-114, D-118, D-122, D-123 |
+| T-057e ➕ Asignación UI: acciones y refresco (S3a/S3b) | ✅ | — (direct to `dev`) | ≈490 | "Ir ahora"/"Esperar", guard de doble toque, carrera decidir-vs-GET y recarga al cerrar con `invalidarCache`; D-121, D-124 |
+| T-057e ➕ Asignación UI: cierre documental | ✅ | — (direct to `dev`) | ≈150 | Archive of Etapa 5 visible: D-112…D-124, specs `asignacion-sugerencia-ui` y `seed-asignacion-demo`, verify con los dos hallazgos bajos cerrados |
 
 ## Scope changes during apply
 
