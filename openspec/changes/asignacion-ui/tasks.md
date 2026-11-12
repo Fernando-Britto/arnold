@@ -193,8 +193,9 @@ Chain strategy: no aplica (sin PRs: un slice = un commit)
 - **Commit**: `feat(asignacion-ui): aceptar y esperar desde la tarjeta; recargar el home al cerrar la ejecución (S3, D-121)`.
 - **Parada**: si "Empezar entrenamiento" necesita un mecanismo distinto de `onSeguirRutina`, parar y reportar
   (regla 6: no se crea otro flujo).
-- **Corte aplicado**: D-121 se separó a **S3b** porque el slice medía 417 líneas (tope 400). S3a cierra con
-  ≈370 y S3b (refetch del home al cerrar la ejecución) queda como slice propio.
+- **Corte aplicado y cerrado**: D-121 se separó a **S3b** porque el slice medía 417 líneas (tope 400).
+  **S3a medido**: 373 líneas, 9 archivos. **S3b medido**: ≈45 líneas en `page.tsx` + `page.test.tsx`
+  (`cargarHome`, `cerrarEjecucion`, `invalidarCache(CLAVES.homeSocio)` y 4 tests).
 - **Tests heredados de S1** (se escriben acá de nuevo, en TDD):
   - fetcher: "decide con POST y el body exacto { accion }" · "envía ESPERAR sin campos extra" ·
     "404 SIN_SUGERENCIA se convierte en ApiError con código" · "409 SIN_SUGERENCIA_VIGENTE se convierte en
