@@ -23,6 +23,8 @@ export interface TarjetaSugerenciaProps {
   onEmpezar?: () => void;
   /** Hay una decisión en vuelo: los botones de decisión se deshabilitan. */
   enviando?: boolean;
+  /** Hay una consulta en vuelo: el botón de recarga lo muestra y se deshabilita. */
+  consultando?: boolean;
 }
 
 /** Minutos estimados: se redondea hacia arriba el minuto empezado; bajo 60 s, "menos de 1 min". */
@@ -32,10 +34,12 @@ function esperaEnTexto(segundos: number): string {
 }
 
 const MARCO = "rounded-xl border border-border bg-surface p-5";
-const CLASE_BOTON_PRIMARIO =
-  "flex h-11 flex-1 items-center justify-center rounded-lg bg-brand-strong text-sm font-bold text-surface";
-const CLASE_BOTON_SECUNDARIO =
-  "flex h-11 flex-1 items-center justify-center rounded-lg border border-border bg-surface text-sm font-semibold text-ink";
+// Feedback al tocar: el hover/active con transform da la señal de que el botón respondió, incluso
+// cuando la acción no cambia lo que se ve (por ejemplo, "Volver a consultar" con los mismos datos).
+const BASE_BOTON =
+  "flex h-11 flex-1 items-center justify-center rounded-lg text-sm transition-transform duration-150 enabled:hover:scale-[1.02] enabled:active:scale-95 disabled:opacity-60";
+const CLASE_BOTON_PRIMARIO = `${BASE_BOTON} bg-brand-strong font-bold text-surface enabled:hover:bg-brand-deep`;
+const CLASE_BOTON_SECUNDARIO = `${BASE_BOTON} border border-border bg-surface font-semibold text-ink enabled:hover:bg-surface-hover`;
 
 export function TarjetaSugerencia({
   estado,
@@ -44,6 +48,7 @@ export function TarjetaSugerencia({
   onConsultar,
   onEmpezar,
   enviando = false,
+  consultando = false,
 }: TarjetaSugerenciaProps) {
   if (estado.tipo === "cargando") {
     return (
@@ -148,8 +153,13 @@ export function TarjetaSugerencia({
 
       {tipo !== "aceptada" && !conAcciones && onConsultar && (
         <div className="mt-4 flex gap-2">
-          <button type="button" onClick={onConsultar} className={CLASE_BOTON_SECUNDARIO}>
-            {tipo === "error" ? "Reintentar" : "Volver a consultar"}
+          <button
+            type="button"
+            onClick={onConsultar}
+            disabled={consultando}
+            className={CLASE_BOTON_SECUNDARIO}
+          >
+            {consultando ? "Consultando…" : tipo === "error" ? "Reintentar" : "Volver a consultar"}
           </button>
         </div>
       )}

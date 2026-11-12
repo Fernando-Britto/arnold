@@ -267,4 +267,20 @@ describe("useSugerenciaAsignacion", () => {
     });
     expect(result.current.estado).toMatchObject({ tipo: "aceptada" });
   });
+
+  it("consultando marca solo la recarga manual, no la carga inicial", async () => {
+    const { result } = renderHook(() => useSugerenciaAsignacion());
+    await waitFor(() => expect(result.current.estado.tipo).toBe("lista"));
+    expect(result.current.consultando).toBe(false);
+
+    const pendiente = diferida<RespuestaSugerencia>();
+    mockFetch.mockReturnValueOnce(pendiente.promise);
+    act(() => result.current.consultar());
+    expect(result.current.consultando).toBe(true);
+
+    await act(async () => {
+      pendiente.resolve(conSugerencia("a-1"));
+    });
+    expect(result.current.consultando).toBe(false);
+  });
 });

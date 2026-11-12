@@ -16,12 +16,13 @@ export interface SugerenciaAsignacionProps {
 }
 
 export function SugerenciaAsignacion({ onSeguirRutina }: SugerenciaAsignacionProps) {
-  const { estado, enviando, consultar, decidir } = useSugerenciaAsignacion();
+  const { estado, enviando, consultando, consultar, decidir } = useSugerenciaAsignacion();
 
   return (
     <TarjetaSugerencia
       estado={estado}
       enviando={enviando}
+      consultando={consultando}
       onAceptar={() => void decidir("ACEPTAR")}
       onEsperar={() => void decidir("ESPERAR")}
       onConsultar={consultar}

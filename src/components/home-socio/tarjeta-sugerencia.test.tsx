@@ -204,4 +204,17 @@ describe("TarjetaSugerencia (estados con datos)", () => {
     expect(screen.getByRole("button", { name: "Ir ahora" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Esperar" })).toBeDisabled();
   });
+
+  it("mientras consulta, el botón de recarga lo dice y queda deshabilitado", () => {
+    render(
+      <TarjetaSugerencia
+        estado={{ tipo: "lista", sugerencia: null, siguienteEnOrden: null }}
+        onConsultar={jest.fn()}
+        consultando
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Consultando…" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Volver a consultar" })).not.toBeInTheDocument();
+  });
 });
