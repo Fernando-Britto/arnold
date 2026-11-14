@@ -13,6 +13,10 @@ jest.mock("next/navigation", () => ({
 }));
 jest.mock("@/contexts/auth");
 jest.mock("@/api/home-interno", () => ({ fetchHomeInternoData: jest.fn() }));
+jest.mock("@/api/reasignaciones-cliente", () => ({
+  fetchSesionesEnCurso: jest.fn().mockResolvedValue([]),
+  reasignarMaquinaApi: jest.fn(),
+}));
 
 const mockAuth = useAuth as jest.Mock;
 const mockFetch = api.fetchHomeInternoData as jest.MockedFunction<typeof api.fetchHomeInternoData>;
@@ -137,5 +141,18 @@ describe("HomeInternoPage Part 1 (Row_Acciones, Row_Hoy, Row_Operacion)", () => 
     mockFetch.mockRejectedValue(new Error("boom"));
     render(<HomeInternoPage />);
     expect(await screen.findByText("No se pudo cargar el resumen operativo")).toBeInTheDocument();
+  });
+
+  it("P-61: el panel de sesiones en curso aparece solo para instructor o admin", async () => {
+    mockAuth.mockReturnValue(staff);
+    const { unmount } = render(<HomeInternoPage />);
+    await loaded();
+    expect(screen.getByTestId("sesiones-en-curso")).toBeInTheDocument();
+    unmount();
+
+    mockAuth.mockReturnValue({ ...staff, user: { nombre: "Rocío", rol: "RECEPCIONISTA" } });
+    render(<HomeInternoPage />);
+    await loaded();
+    expect(screen.queryByTestId("sesiones-en-curso")).not.toBeInTheDocument();
   });
 });

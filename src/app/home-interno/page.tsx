@@ -18,6 +18,7 @@ import {
   type Pendiente,
 } from "@/components/home-interno/pendientes-de-hoy";
 import { AsignarRutinaModal } from "@/components/rutina/asignar-rutina-modal";
+import { SesionesEnCurso } from "@/components/home-interno/sesiones-en-curso";
 import { ROLE_GATE_MATRIX } from "@/middleware/role-gating";
 
 /**
@@ -255,6 +256,9 @@ export function HomeInternoPage() {
         )}
 
         <QuickActions onAction={handleAction} disabledActions={accionesDeshabilitadas} />
+
+        {/* P-61: solo el instructor y el administrador reasignan (D-126). */}
+        {(user?.rol === "INSTRUCTOR" || user?.rol === "ADMINISTRADOR") && <SesionesEnCurso />}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
           <div className="min-w-0 lg:col-span-5">

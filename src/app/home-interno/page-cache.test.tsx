@@ -19,6 +19,10 @@ jest.mock("next/navigation", () => ({
 }));
 jest.mock("@/contexts/auth");
 jest.mock("@/api/home-interno", () => ({ fetchHomeInternoData: jest.fn() }));
+jest.mock("@/api/reasignaciones-cliente", () => ({
+  fetchSesionesEnCurso: jest.fn().mockResolvedValue([]),
+  reasignarMaquinaApi: jest.fn(),
+}));
 
 const mockAuth = useAuth as jest.Mock;
 const mockFetch = api.fetchHomeInternoData as jest.MockedFunction<typeof api.fetchHomeInternoData>;

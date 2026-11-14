@@ -13,6 +13,10 @@ jest.mock("next/navigation", () => ({
 }));
 jest.mock("@/contexts/auth");
 jest.mock("@/api/home-interno", () => ({ fetchHomeInternoData: jest.fn() }));
+jest.mock("@/api/reasignaciones-cliente", () => ({
+  fetchSesionesEnCurso: jest.fn().mockResolvedValue([]),
+  reasignarMaquinaApi: jest.fn(),
+}));
 jest.mock("@/components/rutina/asignar-rutina-modal", () => ({
   AsignarRutinaModal: ({ onClose }: { onClose: () => void }) => (
     <div>
