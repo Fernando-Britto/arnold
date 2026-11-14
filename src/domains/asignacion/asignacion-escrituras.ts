@@ -55,6 +55,19 @@ export class AsignacionEscrituras {
     });
     return count > 0;
   }
+  /** P-61: cancela una ejecución EN_CURSO. El guard incluye la sesión para no pisar un avance del socio. */
+  async cancelarEjecucion(
+    id: string,
+    sesionId: string,
+    dbInyectada?: AsignacionDb
+  ): Promise<boolean> {
+    const db = await this.db(dbInyectada);
+    const { count } = await db.asignacionDeEjercicio.updateMany({
+      where: { id, sesionId, estado: "EN_CURSO" },
+      data: { estado: "CANCELADA" },
+    });
+    return count === 1;
+  }
   async completarEjecucion(
     sesionId: string,
     ejercicioId: string,

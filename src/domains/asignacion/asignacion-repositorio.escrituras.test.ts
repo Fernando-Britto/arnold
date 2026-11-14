@@ -46,6 +46,25 @@ describe("AsignacionRepository: escrituras y advisory lock", () => {
       expect(resultado).toEqual({ id: "a-1" });
     });
 
+    it("cancelarEjecucion usa el guard de estado EN_CURSO y de sesión", async () => {
+      const db = crearDb();
+      db.asignacionDeEjercicio.updateMany.mockResolvedValue({ count: 1 });
+
+      const resultado = await repo(db).cancelarEjecucion("a-1", "s-1");
+
+      expect(db.asignacionDeEjercicio.updateMany).toHaveBeenCalledWith({
+        where: { id: "a-1", sesionId: "s-1", estado: "EN_CURSO" },
+        data: { estado: "CANCELADA" },
+      });
+      expect(resultado).toBe(true);
+    });
+
+    it("cancelarEjecucion devuelve false si el socio ya avanzó", async () => {
+      const db = crearDb(); // updateMany responde count 0 por defecto
+
+      await expect(repo(db).cancelarEjecucion("a-1", "s-1")).resolves.toBe(false);
+    });
+
     it("consumirReserva usa updateMany con guard de estado y vencimiento", async () => {
       const db = crearDb();
       db.asignacionDeEjercicio.updateMany.mockResolvedValue({ count: 1 });
