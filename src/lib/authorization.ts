@@ -48,6 +48,7 @@ INSTRUCTOR: {
     '/api/rutinas': ['GET', 'POST', 'PUT', 'DELETE'],
     '/api/sesiones': ['GET'], // N2: el Instructor solo lee sesiones; el POST/PUT los rechaza el handler
     '/api/asignaciones': ['GET'], // consulta la sugerencia de un socio (D-99)
+    '/api/reasignaciones': ['GET', 'POST'], // P-61: panel de sesiones en curso y reasignación (D-126)
     '/api/auth/logout': ['POST'],
   },
 },
@@ -78,6 +79,7 @@ RECEPCIONISTA: {
       // Solo lectura de la sugerencia: la entrada explícita recorta el comodín para el POST,
       // que queda exclusivo del Socio (D-99).
       '/api/asignaciones': ['GET'],
+      '/api/reasignaciones': ['GET', 'POST'], // P-61: el instructor y el admin reasignan (D-126)
       '*': ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], // wildcard: all methods on all routes
     },
   },
