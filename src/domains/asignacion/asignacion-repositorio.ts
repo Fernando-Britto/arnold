@@ -1,4 +1,5 @@
 import type { Configuracion } from "@/lib/configuracion";
+import { timeoutsDeEntorno } from "@/lib/asignacion-timeouts";
 import type {
   AsignacionDb,
   AsignacionPort,
@@ -159,6 +160,8 @@ export class AsignacionRepository implements AsignacionPort {
    */
   async enTransaccionDeReasignacion<T>(fn: (tx: TxReasignacion) => Promise<T>): Promise<T> {
     const db = await this.cargar();
+    // Mismos topes configurables que el cálculo (D-110): contra una base remota 2 s no alcanzan.
+    const timeouts = timeoutsDeEntorno();
     return db.$transaction(
       async (tx) => {
         await tx.$queryRaw`
@@ -219,7 +222,7 @@ export class AsignacionRepository implements AsignacionPort {
           },
         });
       },
-      { maxWait: MAX_WAIT_TRANSACCION_MS, timeout: TIMEOUT_TRANSACCION_MS }
+      { maxWait: timeouts.maxWaitMs, timeout: timeouts.calculoMs }
     );
   }
 }

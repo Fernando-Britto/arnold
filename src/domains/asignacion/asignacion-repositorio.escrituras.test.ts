@@ -46,6 +46,23 @@ describe("AsignacionRepository: escrituras y advisory lock", () => {
       expect(resultado).toEqual({ id: "a-1" });
     });
 
+    it("enTransaccionDeReasignacion usa los topes de entorno (D-110)", async () => {
+      const db = crearDb();
+      process.env.ASIGNACION_TIMEOUT_CALCULO_MS = "7000";
+      process.env.ASIGNACION_MAX_WAIT_TRANSACCION_MS = "3000";
+      try {
+        await repo(db).enTransaccionDeReasignacion(async () => 0);
+      } finally {
+        delete process.env.ASIGNACION_TIMEOUT_CALCULO_MS;
+        delete process.env.ASIGNACION_MAX_WAIT_TRANSACCION_MS;
+      }
+
+      expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        maxWait: 3000,
+        timeout: 7000,
+      });
+    });
+
     it("cancelarEjecucion usa el guard de estado EN_CURSO y de sesión", async () => {
       const db = crearDb();
       db.asignacionDeEjercicio.updateMany.mockResolvedValue({ count: 1 });
