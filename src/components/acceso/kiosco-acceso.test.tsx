@@ -111,6 +111,38 @@ describe("KioscoAcceso", () => {
     jest.useRealTimers();
   });
 
+  it("acepta DNI y PIN desde el teclado físico, con Enter para avanzar", async () => {
+    const user = userEvent.setup();
+    mockCheckIn.mockResolvedValueOnce({
+      resultado: "PERMITIDO",
+      socio: { id: "socio-1", nombre: "Ana García", membresia: "Gold" },
+      estadoCuota: "AL_DIA",
+    });
+    render(<KioscoAcceso />);
+
+    await user.keyboard("30123456{Enter}");
+    expect(screen.getByText(/ingresá tu pin/i)).toBeInTheDocument();
+
+    await user.keyboard("1111{Enter}");
+    expect(mockCheckIn).toHaveBeenCalledWith({ dni: "30123456", pin: "1111" });
+    expect(await screen.findByText("Ana García")).toBeInTheDocument();
+  });
+
+  it("Backspace borra el último dígito tipeado y Esc vuelve del PIN al DNI", async () => {
+    const user = userEvent.setup();
+    render(<KioscoAcceso />);
+
+    await user.keyboard("30123456{Backspace}");
+    expect(screen.getByLabelText("DNI ingresado")).toHaveTextContent("3012345");
+
+    await user.keyboard("{Enter}");
+    expect(screen.getByText(/ingresá tu pin/i)).toBeInTheDocument();
+
+    await user.keyboard("12{Escape}");
+    expect(screen.getByText(/ingresá tu dni/i)).toBeInTheDocument();
+    expect(mockCheckIn).not.toHaveBeenCalled();
+  });
+
   it("no permite enviar el PIN hasta tener 4 dígitos", async () => {
     const user = userEvent.setup();
     render(<KioscoAcceso />);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { checkIn, type CheckInResultado } from "@/api/acceso";
 import { handleApiError } from "@/utils/api-error";
 import { TecladoNumerico } from "./teclado-numerico";
@@ -85,6 +85,51 @@ export function KioscoAcceso() {
       setPaso("RESULTADO");
     }
   };
+
+  // El kiosco es táctil, pero la recepción lo opera con teclado físico: dígitos, Backspace,
+  // Enter para avanzar/ingresar y Esc para volver del PIN al DNI. Se ignoran los atajos con
+  // modificadores y lo que se tipea dentro del diálogo de override (sus propios campos).
+  // El ref guarda el handler del render actual: el listener se registra una sola vez y nunca
+  // queda con estado viejo.
+  const alTeclear = useRef<(event: KeyboardEvent) => void>(() => {});
+
+  useEffect(() => {
+    alTeclear.current = (event) => {
+      if (paso === "RESULTADO" || overrideAbierto) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const foco = event.target as HTMLElement | null;
+      if (foco && /^(INPUT|TEXTAREA|SELECT)$/.test(foco.tagName)) return;
+
+      if (/^\d$/.test(event.key)) {
+        event.preventDefault();
+        handleDigito(event.key);
+        return;
+      }
+      if (event.key === "Backspace") {
+        event.preventDefault();
+        handleBorrar();
+        return;
+      }
+      if (event.key === "Enter") {
+        // Con un control enfocado, Enter ya lo activa por su cuenta: no lo pisamos.
+        if (foco?.tagName === "BUTTON") return;
+        event.preventDefault();
+        if (paso === "DNI") continuar();
+        else void ingresar();
+        return;
+      }
+      if (event.key === "Escape" && paso === "PIN") {
+        event.preventDefault();
+        volver();
+      }
+    };
+  });
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => alTeclear.current(event);
+    document.addEventListener("keydown", listener);
+    return () => document.removeEventListener("keydown", listener);
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-surface-page p-6">
