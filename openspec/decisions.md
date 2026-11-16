@@ -1,6 +1,6 @@
 # Registro de decisiones — ARNOLD MVP Core
 
-**Actualizado**: 2026-11-12 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
+**Actualizado**: 2026-11-14 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
 
 Este documento registra **por qué** el proyecto se desvió del plan original durante `sdd-apply`, qué
 alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace; acá queda el *porqué*.
@@ -1752,6 +1752,79 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   instante la reserva cancelada.
 - **Por qué**: la respuesta ya trae lo necesario; la reconsulta refresca el cálculo real y no hay parpadeo.
 
+### D-125 · La v1 cambia la máquina; saltar el ejercicio queda para P-72
+- **Origen**: Fernando (2026-11-12).
+- **Contexto**: saltar un ejercicio obliga a mover `ejercicioActualId` y `serieActual`
+  (`src/domains/sesion/sesion-de-entrenamiento.ts:171`), que es justo lo que la Etapa 4 evitó tocar.
+- **Decisión**: la reasignación cancela la fila `EN_CURSO` y crea otra del **mismo** ejercicio en la máquina
+  elegida. También cubre asignar máquina a una fila `EN_CURSO` con `maquinaId` nulo (mitiga D-108). Saltar el
+  ejercicio se registra como **P-72**.
+- **Por qué**: cambiar de máquina no toca la sesión; el socio sigue en su ejercicio con sus series.
+
+### D-126 · El panel vive en Home_Interno y es para INSTRUCTOR y ADMINISTRADOR
+- **Origen**: Fernando (2026-11-12).
+- **Decisión**: sección "Sesiones en curso" en `Home_Interno` (`src/app/home-interno/page.tsx:259`), sin abrir
+  `/clientes` ni tocar RN-06. RECEPCIONISTA no accede.
+- **Por qué**: el caso es operativo y en vivo; el instructor necesita ver quién está entrenando ahora, no
+  buscar una ficha.
+
+### D-127 · La sesión sigue EN_CURSO
+- **Origen**: Fernando (2026-11-12).
+- **Decisión**: solo cambia la fila de ejecución. La sesión conserva `ejercicioActualId`, `serieActual` y sus
+  registros; cerrarla sigue siendo del socio.
+- **Por qué**: el instructor resuelve la emergencia, no termina el entrenamiento de la persona.
+
+### D-128 · La auditoría va dentro de la transacción
+- **Origen**: Fernando (2026-11-12), con la evidencia de `src/api/socios/access-override.ts:94-100`, que
+  audita el override dentro de `prisma.$transaction`.
+- **Contexto**: `registrarOperacion` (`src/lib/audit.ts:59-72`) usa el cliente **global**
+  (`prisma.registroDeAuditoria.create`, `src/lib/audit.ts:65`), así que llamarlo dentro de un
+  `$transaction` escribiría por otra conexión y podría quedar auditado sin reasignar (o al revés).
+- **Decisión**: se escribe con `tx.registroDeAuditoria.create` dentro de `enTransaccionBloqueada`, con
+  responsable, socio, ejercicio, máquina origen (`null` si no tenía) y máquina destino. **No** se usa
+  `registrarOperacion` en esta operación.
+- **Por qué**: es una acción con privilegios; no puede existir una reasignación sin rastro ni un rastro sin
+  reasignación.
+
+### D-129 · Destino válido: candidata, DISPONIBLE y libre
+- **Origen**: Fernando (2026-11-12).
+- **Decisión**: la máquina destino tiene que estar en `EjercicioMaquina` para ese ejercicio, con
+  `Maquina.estado = DISPONIBLE` y **sin ocupante vigente**. La ocupación se calcula con la misma lógica de
+  `aplicarOcupantes` (`src/domains/asignacion/asignacion-ocupacion.ts:84`), excluyendo al socio que se
+  reasigna. Si no cumple: `409` con mensaje en español.
+- **Por qué**: el motor ya prohíbe dos ocupantes por máquina; la reasignación no puede introducir el estado
+  que el modelo no contempla.
+
+### D-130 · Concurrencia con el lock global y transición guardada
+- **Origen**: Fernando (2026-11-12).
+- **Decisión**: toda la operación corre en `enTransaccionBloqueada`
+  (`src/domains/asignacion/asignacion-repositorio.ts:107-118`, el mismo `pg_advisory_xact_lock` que
+  `calcularYReservar`), y la cancelación usa `updateMany` filtrado por `id + sesionId + estado = EN_CURSO`
+  con `count === 1`. Si el socio completó la última serie en el medio, el guard devuelve `0` y la respuesta es
+  `409` ("el socio ya terminó ese ejercicio").
+- **Por qué**: el socio y el instructor compiten por la misma fila; el lock y el guard son la única forma
+  barata de que gane uno solo.
+
+### D-131 · Fuera de alcance: avisar al socio y recalcular reservas ajenas
+- **Origen**: Fernando (2026-11-12).
+- **Decisión**: no hay notificación en la pantalla del socio ni recálculo de otras reservas. Las sugerencias
+  son instantáneas (D-102) y se refrescan en el próximo recálculo del propio socio.
+- **Por qué**: el aviso es verbal y recalcular a terceros agranda el alcance sin necesidad.
+
+### D-132 · Un recurso propio para la reasignación: `GET`/`POST /api/reasignaciones`
+- **Origen**: IA, adoptada (revisada durante S1).
+- **Decisión**: `GET /api/reasignaciones` devuelve las sesiones abiertas con sus candidatas y
+  `POST /api/reasignaciones` recibe `{ asignacionId, maquinaId }`.
+- **Por qué**: la matriz es por prefijo. Colgarlo de `/api/asignaciones` obligaba a dar `POST` en ese prefijo
+  al INSTRUCTOR y al ADMIN, lo que habilitaba también `POST /api/asignaciones/decidir` para ellos (over-grant
+  que el guardián marca). Con un prefijo propio, los roles son exactos y no hace falta ninguna excepción.
+
+### D-133 · La ocupación del destino se evalúa reusando `aplicarOcupantes`
+- **Origen**: IA, adoptada.
+- **Decisión**: `maquinaOcupada` llama `aplicarOcupantes` sobre una entrada mínima de una máquina con el
+  `socioId` del reasignado (D-129).
+- **Por qué**: hereda el corte de inactividad (D-105) y la regla D-108 sin duplicar SQL ni divergir del motor.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -1838,7 +1911,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-58 | El conteo `enMaquinas` en el listado de ejercicios quedó diferido (pregunta Q3 de la propuesta / open question del diseño) | Baja | El listado no muestra en cuántas máquinas está cada ejercicio; retomar cuando se pida esa columna |
 | P-59 | `MAX_EJERCICIOS_POR_MAQUINA` como parámetro en tiempo de ejecución de `/configuracion` quedó diferido; sigue siendo una constante dura | Baja | Pasarla a `/configuracion` si el negocio necesita ajustar el tope sin tocar código |
 | P-60 | Asignación automática o sugerida de ejercicios a máquinas a partir del equipamiento y el grupo muscular del ejercicio y del tipo/nombre de la máquina; el administrador revisa y confirma (la sugerencia preselecciona en el modal, nunca asigna en silencio) | Baja | Idea futura; requiere una heurística de matching y preselección en el modal. Registrar en "Ideas futuras" de `odd/tasks/maquina-ejercicios.md` |
-| P-61 | Salida de emergencia del flujo obligatorio: máquina rota durante la sesión o socio lesionado → reasignación por instructor. No es parte del motor puro; requiere estado de sesión y permisos de instructor | Media | Etapa 4 |
+| P-61 | ~~Salida de emergencia del flujo obligatorio: máquina rota durante la sesión o socio lesionado → reasignación por instructor~~ | — | **Resuelto (2026-11-14, `reasignacion-instructor`)**: el instructor y el administrador ven las sesiones en curso en `Home_Interno` y cambian la máquina de una ejecución `EN_CURSO` (`POST /api/reasignaciones`) bajo el lock global, con auditoría en la transacción; saltar el ejercicio queda en P-72 |
 | P-62 | Simulación comparativa para la tesis: espera promedio del motor frente a seguir el orden de rutina, con N socios y M máquinas | Baja | Posterior a la Etapa 5 |
 | P-63 | Documentación de la limitación del criterio "solo-espera" (sin orden fisiológico) para el informe de tesis. Limitación declarada; no se resuelve en esta iniciativa | Baja | Informe de tesis; referencia de AC-313 |
 | P-64 | ~~El cálculo en check-in debe ser **best-effort**~~ | — | **Resuelto (Etapa 4, T-056g1)**: el gancho vive en `evaluarYRegistrarAcceso`, con `try/catch` y log; diez tests cubren motor que lanza, `invalido`, fallo de persistencia y timeout |

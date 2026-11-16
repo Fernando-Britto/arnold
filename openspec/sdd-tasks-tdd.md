@@ -139,6 +139,10 @@ Legend: ✅ done · ⏳ pending · ➕ added during apply (not in the original p
 | T-057c/d ➕ Asignación UI: tarjeta y visibilidad (S2a/S2b) | ✅ | — (direct to `dev`) | ≈540 | Estados con datos, vacíos y de error; contenedor con el hook; la home monta solo con rutina y sin sesión en curso; D-114, D-118, D-122, D-123 |
 | T-057e ➕ Asignación UI: acciones y refresco (S3a/S3b) | ✅ | — (direct to `dev`) | ≈490 | "Ir ahora"/"Esperar", guard de doble toque, carrera decidir-vs-GET y recarga al cerrar con `invalidarCache`; D-121, D-124 |
 | T-057e ➕ Asignación UI: cierre documental | ✅ | — (direct to `dev`) | ≈150 | Archive of Etapa 5 visible: D-112…D-124, specs `asignacion-sugerencia-ui` y `seed-asignacion-demo`, verify con los dos hallazgos bajos cerrados |
+| T-058a ➕ Reasignación: dominio con lock y guardas (S0) | ✅ | — (direct to `dev`) | ≈418 | `reasignarMaquina`, `cancelarEjecucion` (guard `EN_CURSO` + `sesionId`), `enTransaccionDeReasignacion` con el lock global y auditoría en el `tx`; D-125, D-128, D-130 |
+| T-058b/c ➕ Reasignación: GET y POST /api/reasignaciones (S1/S2) | ✅ | — (direct to `dev`) | ≈637 | Lectura de sesiones en curso con candidatas, reasignación con body estricto y cinco códigos de error; matriz con INSTRUCTOR y ADMIN; D-126, D-132 |
+| T-058d/e ➕ Reasignación: panel de sesiones en curso (S3/S4) | ✅ | — (direct to `dev`) | ≈282 | Panel en `Home_Interno` con selector de candidatas, 409 visible y refresco; solo INSTRUCTOR y ADMIN |
+| T-058e ➕ Reasignación: integración y cierre | ✅ | — (direct to `dev`) | ≈220 | Integración contra Postgres (10 suites / 59 tests) y test de serialización del lock verificado por mutación; archivo del change con D-125…D-133 y P-72 |
 
 ## Scope changes during apply
 

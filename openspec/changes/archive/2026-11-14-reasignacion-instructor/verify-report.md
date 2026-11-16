@@ -273,3 +273,23 @@ Ninguno.
    suite sola y la corrida siguiente pasaron. Ajeno a este change.
 3. **Sesión sin fila `EN_CURSO`**: el panel la lista pero no permite reasignar (botón deshabilitado). Es
    coherente con AC-572; si se quiere resolver, es otro slice.
+
+## Seguimiento
+
+**2026-11-14 — smoke del flujo contra la API y la base reales.** El smoke destapó un defecto: `POST
+/api/reasignaciones` devolvía **500** contra la base remota (`Transaction not found` en la tercera consulta de
+la transacción). Causa: la transacción usaba los topes fijos de 2 s y 1 s, que contra Supabase no alcanzan
+(misma clase que D-110). **Corregido en la rama**: `enTransaccionDeReasignacion` toma `timeoutsDeEntorno()`
+(`src/domains/asignacion/asignacion-repositorio.ts:164`), con test propio
+(`asignacion-repositorio.escrituras.test.ts` "enTransaccionDeReasignacion usa los topes de entorno").
+
+Con `ASIGNACION_TIMEOUT_CALCULO_MS=20000` y `ASIGNACION_MAX_WAIT_TRANSACCION_MS=5000` el flujo completo se
+verificó: `POST` **200**, fila anterior `CANCELADA`, fila nueva `EN_CURSO` en la máquina elegida, sesión
+intacta (`ejercicioActualId`, `serieActual`), `RegistroDeAuditoria` con las cinco piezas y el socio
+registrando una serie después de la reasignación. `403` verificado para RECEPCIONISTA y SOCIO en `GET` y
+`POST`.
+
+**Queda pendiente el render del panel en un navegador real** (los tests corren en jsdom): lo cubre el smoke
+de Fernando con el guion de abajo.
+
+Veredicto sin cambios: **APROBADO CON OBSERVACIONES**.

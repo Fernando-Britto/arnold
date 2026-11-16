@@ -26,7 +26,7 @@ npm run dev                 # http://localhost:3000
 | `JWT_SECRET` | Firma de la cookie de sesión. **Obligatoria en producción** |
 | `TRUST_PROXY_HEADERS` | Opcional. `true` solo si hay un proxy propio y confiable delante (fuera de Vercel); ver `.env.example` |
 | `SEED_PASSWORD` | Opcional. Contraseña de los usuarios del seed; tiene un valor por defecto en `prisma/seed.ts` |
-| `ASIGNACION_TIMEOUT_CALCULO_MS` | Opcional. Tope del cálculo de asignación, en milisegundos; entero entre 500 y 30000, 2000 por defecto. Contra una base remota conviene subirlo (p. ej. 15000–20000): si no, el check-in no crea reserva |
+| `ASIGNACION_TIMEOUT_CALCULO_MS` | Opcional. Tope del cálculo de asignación **y de la transacción de reasignación**, en milisegundos; entero entre 500 y 30000, 2000 por defecto. Contra una base remota conviene subirlo (p. ej. 15000–20000): si no, el check-in no crea reserva y el panel del instructor devuelve 500 |
 | `ARNOLD_TEST_DATABASE_URL` | Opcional. Base de los tests de integración; por defecto `postgresql://arnold:arnold@127.0.0.1:5433/arnold_test` (ver `tests/integration/setup-env.ts`) |
 
 **Datos de desarrollo** (opcional, solo para probar): `npm run seed` carga 5 usuarios (Administrador, Instructor,
@@ -62,8 +62,8 @@ unitarios. La suite de integración queda afuera a propósito porque necesita Do
 ## Roles
 
 `ADMINISTRADOR` (todo, con excepciones explícitas) · `INSTRUCTOR` (ejercicios, rutinas y asignación de
-rutinas; lectura de socios y de la sugerencia) · `RECEPCIONISTA` (clientes, pagos, cierres y check-in) ·
-`SOCIO` (su propio portal y sus sesiones). La matriz exacta está en `PROJECT-STATUS.md` y en
+rutinas; lectura de socios y de la sugerencia; panel de sesiones en curso y reasignación de máquina) ·
+`RECEPCIONISTA` (clientes, pagos, cierres y check-in) · `SOCIO` (su propio portal y sus sesiones). La matriz exacta está en `PROJECT-STATUS.md` y en
 `src/lib/authorization.ts`.
 
 ## Asignación dinámica de ejercicios
@@ -81,6 +81,9 @@ sesión.
 
 - `GET /api/asignaciones/sugerencia` — SOCIO (sobre lo propio), ADMINISTRADOR e INSTRUCTOR (con `socioId`).
 - `POST /api/asignaciones/decidir` — solo SOCIO, sobre lo propio.
+- `GET /api/reasignaciones` y `POST /api/reasignaciones` — INSTRUCTOR y ADMINISTRADOR: listan las sesiones en
+  curso y **cambian la máquina** de una ejecución `EN_CURSO` (mismo ejercicio, destino candidata, disponible y
+  libre). La sesión del socio no se toca y la acción queda auditada. "Saltar el ejercicio" no está: es P-72.
 - El Administrador registra las máquinas y las asocia a ejercicios desde `/maquinas` (fila expandida →
   "Asignar ejercicios"). Sin asociaciones, no hay candidatas y el motor no sugiere nada.
 - El cálculo es **best-effort**: si falla, tarda o expira, la asistencia y la sesión siguen exactamente
@@ -89,7 +92,7 @@ sesión.
   si el ejercicio tiene una única candidata; con varias, el motor puede **subestimar** la espera.
 
 Specs y decisiones: [`openspec/specs/asignacion-orquestacion/spec.md`](openspec/specs/asignacion-orquestacion/spec.md)
-y [`openspec/decisions.md`](openspec/decisions.md) (D-88 a D-124, sin D-107).
+y [`openspec/decisions.md`](openspec/decisions.md) (D-88 a D-133, sin D-107).
 
 ## Estructura
 
