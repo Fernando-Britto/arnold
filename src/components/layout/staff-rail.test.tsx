@@ -29,9 +29,17 @@ describe("StaffRail (zonas por rol)", () => {
     expect(screen.getByRole("link", { name: "Hoy" })).toHaveAttribute("href", "/home-interno");
     expect(screen.getByRole("link", { name: "Clientes" })).toHaveAttribute("href", "/clientes");
     expect(screen.getByRole("link", { name: "Pagos" })).toHaveAttribute("href", "/pagos");
-    expect(screen.getByRole("link", { name: "Cierres" })).toHaveAttribute("href", "/cierres");
+    expect(screen.getByRole("link", { name: "Cierres de caja" })).toHaveAttribute("href", "/cierres");
     expect(screen.getByRole("link", { name: "Configuración" })).toHaveAttribute("href", "/configuracion");
     expect(screen.getByRole("link", { name: "Máquinas" })).toHaveAttribute("href", "/maquinas");
+  });
+
+  it("agrupa en las zonas del mockup: Socios, Entrenamiento y Caja", () => {
+    mockUseAuth.mockReturnValue(asRol("ADMINISTRADOR"));
+    render(<StaffRail activeSection="ejercicios" />);
+    expect(screen.getByText("Socios")).toBeInTheDocument();
+    expect(screen.getByText("Entrenamiento")).toBeInTheDocument();
+    expect(screen.getByText("Caja")).toBeInTheDocument();
   });
 
   it("RECEPCIONISTA ve su trabajo real: Clientes, Pagos y Cierres", () => {
@@ -40,7 +48,7 @@ describe("StaffRail (zonas por rol)", () => {
     expect(screen.getAllByRole("link")).toHaveLength(4);
     expect(screen.getByRole("link", { name: "Clientes" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Pagos" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Cierres" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Cierres de caja" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Membresías" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Configuración" })).not.toBeInTheDocument();
   });
@@ -49,8 +57,9 @@ describe("StaffRail (zonas por rol)", () => {
     mockUseAuth.mockReturnValue(asRol("INSTRUCTOR"));
     render(<StaffRail activeSection="rutinas" />);
     expect(screen.getAllByRole("link")).toHaveLength(3);
-    expect(screen.queryByText("Comercial")).not.toBeInTheDocument();
-    expect(screen.getByText("Operación")).toBeInTheDocument();
+    expect(screen.queryByText("Caja")).not.toBeInTheDocument();
+    expect(screen.queryByText("Socios")).not.toBeInTheDocument();
+    expect(screen.getByText("Entrenamiento")).toBeInTheDocument();
   });
 
   it("marca la sección activa con aria-current=page", () => {

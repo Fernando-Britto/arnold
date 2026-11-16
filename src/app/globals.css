@@ -186,3 +186,53 @@ body {
 [data-tema="oscuro"] .tema-icono-luna {
   display: none;
 }
+
+/*
+ * Rail colapsado (solo íconos). La preferencia vive en la cookie `rail` y en `data-rail`, así
+ * el estado sobrevive a la navegación sin guardar estado React. Solo aplica al rail fijo de
+ * escritorio: en mobile el rail se apila arriba del contenido y necesita sus etiquetas.
+ */
+@media (min-width: 1024px) {
+  [data-rail="colapsado"] .rail {
+    width: 68px;
+  }
+
+  [data-rail="colapsado"] .rail-zona,
+  [data-rail="colapsado"] .rail-identidad {
+    display: none;
+  }
+
+  /* El label se oculta a la vista pero NO del árbol de accesibilidad: en un rail de íconos
+     el texto sigue siendo el nombre del enlace para lectores de pantalla. */
+  [data-rail="colapsado"] .rail-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  [data-rail="colapsado"] .rail-fila {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  /* A 68px el wordmark y los botones lado a lado no entran: el rail se apila en vertical y la
+     marca desaparece, como en cualquier rail de íconos. */
+  [data-rail="colapsado"] .rail-marca {
+    display: none;
+  }
+
+  [data-rail="colapsado"] .rail-cabecera {
+    justify-content: center;
+    padding-left: 0;
+  }
+
+  [data-rail="colapsado"] .rail-acciones,
+  [data-rail="colapsado"] .rail-pie {
+    flex-direction: column;
+    align-items: center;
+    padding-left: 0;
+  }
+}

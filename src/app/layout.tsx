@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/auth";
 import { NotificationProvider } from "@/contexts/notifications";
 import { getSessionUser } from "@/lib/session";
+import { SCRIPT_RAIL } from "@/lib/rail";
 import { SCRIPT_TEMA } from "@/lib/tema";
 
 // Inter es la tipografía del diseño: openspec/*.svg usan font-family="Inter" en
@@ -28,6 +29,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         {/* Síncrono a propósito: resuelve cookie/sistema antes del primer paint (Next,
             "Preventing flash before hydration"). `next/script` lo encola y puede parpadear. */}
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_RAIL }} />
         <AuthProvider initialUser={user}>
           <NotificationProvider>{children}</NotificationProvider>
         </AuthProvider>

@@ -2,6 +2,18 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import {
+  ClipboardList,
+  Cog,
+  CreditCard,
+  Dumbbell,
+  IdCard,
+  LayoutDashboard,
+  Lock,
+  SlidersHorizontal,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { AppRail, RailFooter, type RailZone } from "./app-rail";
 
@@ -23,41 +35,92 @@ interface NavItem {
   label: string;
   href: string;
   roles: string[];
+  icon: LucideIcon;
 }
 
 /**
- * Las zonas siguen el trabajo del staff, no el modelo de datos.
+ * Zonas del mockup de la barra lateral: el agrupado sigue el modelo de datos (Socios,
+ * Entrenamiento, Caja) y no el trabajo diario de cada rol. "Hoy" va suelto arriba y
+ * Configuración anclada al pie, separada del resto.
  *
- * Antes la navegación era una lista plana de cinco entidades y **Pagos y Cierres no estaban**:
- * solo se llegaba a ellas desde los atajos del panel. Un RECEPCIONISTA —cuyo trabajo diario es
- * cobrar y cerrar caja— veía únicamente "Clientes". Ahora "Comercial" agrupa membresías, pagos y
- * cierres, y "Operación" el día a día del salón.
- *
- * "Control de Acceso" queda fuera a propósito: es un kiosco que se abre y se deja corriendo, no
- * un destino al que se navega.
+ * "Control de Acceso" y "Dispositivos" siguen fuera del rail a propósito: el kiosco se abre y
+ * se deja corriendo, y los dispositivos se administran desde Configuración.
  */
-const ZONES: { label?: string; items: NavItem[] }[] = [
+const ZONES: { label?: string; pinFondo?: boolean; items: NavItem[] }[] = [
   {
-    label: "Operación",
+    label: "Socios",
     items: [
-      { section: "clientes", label: "Clientes", href: "/clientes", roles: ["ADMINISTRADOR", "RECEPCIONISTA"] },
-      { section: "rutinas", label: "Rutinas", href: "/rutinas", roles: ["ADMINISTRADOR", "INSTRUCTOR"] },
-      { section: "ejercicios", label: "Ejercicios", href: "/ejercicios", roles: ["ADMINISTRADOR", "INSTRUCTOR"] },
-      { section: "maquinas", label: "Máquinas", href: "/maquinas", roles: ["ADMINISTRADOR"] },
+      {
+        section: "clientes",
+        label: "Clientes",
+        href: "/clientes",
+        roles: ["ADMINISTRADOR", "RECEPCIONISTA"],
+        icon: Users,
+      },
+      {
+        section: "membresias",
+        label: "Membresías",
+        href: "/membresias",
+        roles: ["ADMINISTRADOR"],
+        icon: IdCard,
+      },
     ],
   },
   {
-    label: "Comercial",
+    label: "Entrenamiento",
     items: [
-      { section: "membresias", label: "Membresías", href: "/membresias", roles: ["ADMINISTRADOR"] },
-      { section: "pagos", label: "Pagos", href: "/pagos", roles: ["ADMINISTRADOR", "RECEPCIONISTA"] },
-      { section: "cierres", label: "Cierres", href: "/cierres", roles: ["ADMINISTRADOR", "RECEPCIONISTA"] },
+      {
+        section: "rutinas",
+        label: "Rutinas",
+        href: "/rutinas",
+        roles: ["ADMINISTRADOR", "INSTRUCTOR"],
+        icon: ClipboardList,
+      },
+      {
+        section: "ejercicios",
+        label: "Ejercicios",
+        href: "/ejercicios",
+        roles: ["ADMINISTRADOR", "INSTRUCTOR"],
+        icon: Dumbbell,
+      },
+      {
+        section: "maquinas",
+        label: "Máquinas",
+        href: "/maquinas",
+        roles: ["ADMINISTRADOR"],
+        icon: Cog,
+      },
     ],
   },
   {
-    label: "Sistema",
+    label: "Caja",
     items: [
-      { section: "configuracion", label: "Configuración", href: "/configuracion", roles: ["ADMINISTRADOR"] },
+      {
+        section: "pagos",
+        label: "Pagos",
+        href: "/pagos",
+        roles: ["ADMINISTRADOR", "RECEPCIONISTA"],
+        icon: CreditCard,
+      },
+      {
+        section: "cierres",
+        label: "Cierres de caja",
+        href: "/cierres",
+        roles: ["ADMINISTRADOR", "RECEPCIONISTA"],
+        icon: Lock,
+      },
+    ],
+  },
+  {
+    pinFondo: true,
+    items: [
+      {
+        section: "configuracion",
+        label: "Configuración",
+        href: "/configuracion",
+        roles: ["ADMINISTRADOR"],
+        icon: SlidersHorizontal,
+      },
     ],
   },
 ];
@@ -82,7 +145,7 @@ export function StaffRail({ activeSection }: StaffRailProps) {
   const puedeInicio = STAFF.includes(rol);
 
   // Cada zona se filtra por rol y las vacías no se renderizan: un INSTRUCTOR no debe ver una
-  // etiqueta "Comercial" sin destinos debajo.
+  // etiqueta "Caja" sin destinos debajo.
   const zones: RailZone[] = [];
   if (puedeInicio) {
     zones.push({
@@ -93,6 +156,7 @@ export function StaffRail({ activeSection }: StaffRailProps) {
           href: "/home-interno",
           active: activeSection === "inicio",
           onSelect: () => router.push("/home-interno"),
+          icon: LayoutDashboard,
         },
       ],
     });
@@ -106,8 +170,9 @@ export function StaffRail({ activeSection }: StaffRailProps) {
         href: item.href,
         active: item.section === activeSection,
         onSelect: () => router.push(item.href),
+        icon: item.icon,
       }));
-    if (items.length > 0) zones.push({ label: zone.label, items });
+    if (items.length > 0) zones.push({ label: zone.label, pinFondo: zone.pinFondo, items });
   }
 
   return (
