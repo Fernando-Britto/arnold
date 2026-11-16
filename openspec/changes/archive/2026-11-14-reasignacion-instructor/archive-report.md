@@ -58,8 +58,9 @@ socio. Es la transición que la spec de persistencia tenía reservada: `EN_CURSO
 - **Smoke del flujo contra la API y la base reales (2026-11-14)**: destapó un 500 por el timeout fijo de la
   transacción contra la base remota. Corregido en la rama: `enTransaccionDeReasignacion` usa
   `timeoutsDeEntorno()` (D-110). Con `ASIGNACION_TIMEOUT_CALCULO_MS=20000` el flujo se verificó completo
-  (200, `CANCELADA` + `EN_CURSO`, sesión intacta, auditoría y serie posterior). El render del panel en el
-  navegador queda para Fernando.
+  (200, `CANCELADA` + `EN_CURSO`, sesión intacta, auditoría y serie posterior).
+- **Smoke visual (Fernando, 2026-11-16)**: OK. La sección "Sesiones en curso" se ve en `Home_Interno` para
+  instructor y administrador, el selector de candidatas funciona y el 409 se muestra en pantalla.
 
 ## Lecciones
 

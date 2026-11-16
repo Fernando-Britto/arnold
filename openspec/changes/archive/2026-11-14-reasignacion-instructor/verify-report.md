@@ -289,7 +289,9 @@ intacta (`ejercicioActualId`, `serieActual`), `RegistroDeAuditoria` con las cinc
 registrando una serie después de la reasignación. `403` verificado para RECEPCIONISTA y SOCIO en `GET` y
 `POST`.
 
-**Queda pendiente el render del panel en un navegador real** (los tests corren en jsdom): lo cubre el smoke
-de Fernando con el guion de abajo.
+**Render del panel verificado en un navegador real por Fernando (2026-11-16)**: la sección "Sesiones en
+curso" aparece en `Home_Interno` para el instructor y el administrador, el selector ofrece las candidatas y el
+mensaje de conflicto se ve en pantalla. Con eso queda cerrado el único punto que los tests de jsdom no
+cubrían.
 
 Veredicto sin cambios: **APROBADO CON OBSERVACIONES**.
