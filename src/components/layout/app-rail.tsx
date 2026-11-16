@@ -60,9 +60,9 @@ export function AppRail({ navLabel, zones, footer }: AppRailProps) {
       </div>
 
       <nav aria-label={navLabel} className="flex flex-1 flex-col gap-4">
-        {zones.map((zone) => (
+        {zones.map((zone, indice) => (
           <div
-            key={zone.label ?? "inicio"}
+            key={zone.label ?? `zona-${indice}`}
             className={`flex flex-col gap-0.5 ${zone.pinFondo ? "mt-auto" : ""}`}
           >
             {zone.label && (
