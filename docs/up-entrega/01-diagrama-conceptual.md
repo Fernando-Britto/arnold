@@ -283,8 +283,14 @@ classDiagram
 ```
 
 > `ReglaDeProgresion`, `Dispositivo` y `ConfiguracionDelSistema` **no tienen relaciones**: son
-> tablas de parámetros (reglas de progresión por tipo, dispositivos autorizados y configuración
-> singleton de hecho).
+> tablas de parámetros sueltos (reglas de incremento por tipo, dispositivos autorizados y
+> configuración singleton de hecho).
+>
+> **`ReglaDeProgresion` no se asocia con `EjercicioEnRutina`** ni con `Ejercicio`: en el schema no
+> existe ninguna FK hacia ella. Es un catálogo de parámetros (`tipo`, `incrementoSugerido`) que se
+> busca por tipo (`LINEAL`) al armar el portal del socio
+> (`src/api/home-socio-data.ts`). Si el Análisis muestra una regla de progresión colgando de
+> `EjercicioEnRutina`, esa relación **no está implementada**.
 >
 > Para que el diagrama sea legible, los tipos se escriben sin modificadores: `musculosSecundarios`
 > e `instrucciones` son **listas** (`String[]` en Prisma), los `Decimal` son `Decimal(10,2)` o
@@ -330,15 +336,22 @@ Fuente: `prisma/schema.prisma` → bloques `enum`.
 
 ### A. Conceptos de la lista que **NO existen** como entidad en el schema
 
-| Concepto del Análisis | Estado en el código | Evidencia |
+| Concepto del Análisis | Estado | Evidencia |
 |---|---|---|
-| **Notificación** | **NO IMPLEMENTADO**. No hay modelo, tabla ni endpoint de notificaciones. Tampoco queda un elemento de interfaz: la campana inerte que tenía la barra horizontal se retiró con el rediseño del rail. | `prisma/schema.prisma` (no aparece); no hay `src/app/api/notificaciones` |
-| **OcupacionPorFranja** | **NO IMPLEMENTADO**. La ocupación por franja se **calcula** desde `Asistencia` en memoria; no se persiste. | `src/domains/home-interno/home-interno.ts` (`buildAforoHoras`) |
-| **IntentoDeRecuperacion** | **NO IMPLEMENTADO**. No hay tabla de intentos de recuperación de contraseña/seguridad. | `prisma/schema.prisma`; no hay rutas de recuperación |
-| **UsoDeMaquina** | **NO IMPLEMENTADO** con ese nombre. El uso de una máquina se modela como `AsignacionDeEjercicio` en estado `EN_CURSO`; la ocupación se **deriva**, no se guarda en una tabla propia. | `prisma/schema.prisma` → `AsignacionDeEjercicio`; `src/domains/asignacion/asignacion-ocupacion.ts` |
+| **Notificación** | **Iteración 2, pendiente.** No hay modelo, tabla ni endpoint. | `prisma/schema.prisma` (no aparece); no hay `src/app/api/notificaciones` |
+| **OcupacionPorFranja** | **Iteración 2, pendiente.** Hoy la ocupación por franja se **calcula** en memoria desde `Asistencia`; no se persiste. | `src/domains/home-interno/home-interno.ts` (`buildAforoHoras`) |
 | **Instructor** | **No es una entidad**: es un valor del enum `Rol`. | `enum Rol` |
 | **Recepcionista** | **No es una entidad**: es un valor del enum `Rol`. | `enum Rol` |
 | **Administrador** | **No es una entidad**: es un valor del enum `Rol`. | `enum Rol` |
+
+> Dos conceptos de la lista **se descartan** y por eso no figuran en la tabla:
+>
+> - **`UsoDeMaquina`**: lo **reemplaza** `AsignacionDeEjercicio` en estado `EN_CURSO`. La ocupación
+>   se deriva de esas filas (`src/domains/asignacion/asignacion-ocupacion.ts`); no hay tabla de uso.
+> - **`IntentoDeRecuperacion`**: **no existe** como tabla ni como flujo. Lo único implementado de la
+>   recuperación de socios inactivos es la **oferta de reactivación**: `Pago.montoLista`,
+>   `Pago.descuentoPct` y los parámetros `ofertaReactivacionActiva`, `diasSinAsistirParaOferta`,
+>   `enfriamientoOfertaDias` y `descuentoReactivacion` en `ConfiguracionDelSistema` (D-54).
 
 ### B. Entidades del schema que **NO están** en la lista del Análisis
 

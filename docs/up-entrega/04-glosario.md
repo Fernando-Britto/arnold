@@ -66,7 +66,7 @@
 | **Decisión de la sugerencia** | Asignación | `ACEPTAR` (confirma la reserva vigente; **no escribe**) o `ESPERAR` (la cancela). No hay tercera opción ni decisión implícita. (D-92, `orquestacion.ts`) |
 | **Reasignación** | Asignación | Cambiar la **máquina** de una ejecución `EN_CURSO`: cancela la fila anterior, crea la nueva del mismo ejercicio y audita, en una transacción con advisory lock. No salta el ejercicio ni cambia la sesión. (D-125…D-133) |
 | **Aforo** | Operación | Ocupación actual: asistencias `PERMITIDO` dentro de `ventanaAforoMinutos` (90 por defecto) sobre `capacidadMaxima`. Con `capacidadMaxima = 0` muestra "Aforo no configurado". (`computeAforo`) |
-| **Ocupación por franja** | Operación | Barras de 2 horas de la ocupación del día. **Se calcula en memoria**, no se persiste. **NO EXISTE como tabla.** (`buildAforoHoras`) |
+| **Ocupación por franja** | Operación | Barras de 2 horas de la ocupación del día. Se **calcula en memoria** desde `Asistencia`; **no existe como tabla**. En el Análisis figura como módulo pendiente de la **Iteración 2**. (`buildAforoHoras`) |
 | **Cierre de caja** | Operación | `CierreDeCaja`: totaliza los pagos `CONFIRMADO` sin cierre con `fechaPago ≤ hasta` y les asigna `cierreDeCajaId`. Una vez creado no se edita ni se borra. (`src/domains/cierre/cierre-de-caja.ts`) |
 | **Turno** | Operación | Franja laboral del empleado (`MANANA`/`TARDE`/`NOCHE`). El cierre no guarda el rango del turno: se infiere del `createdAt`. (`enum Turno`; D-05) |
 | **Inactividad** | Operación | `diasInactividad` (15): umbral de la tarjeta "Socios inactivos" de Home_Interno. Es **distinto** de `diasSinAsistirParaOferta` (30). (`computeInactivos`) |
@@ -77,4 +77,4 @@
 | **Rate limit** | Técnico | Límite de intentos por IP: **8/min** en login y **20/min** de intentos de identidad fallidos en check-in. (`src/lib/rateLimit.ts`) |
 | **Refresh token** | Técnico | Token opaco de 30 días, guardado como hash, con rotación y detección de reuso: usar uno revocado corta toda la cadena del usuario. (D-57, `src/lib/refresh-token.ts`) |
 | **Mora** | — | **El sistema no usa este término.** Lo que el negocio llamaría "mora" se modela como el estado de pago calculado `VENCIDA` más `periodoGracia`. (`src/domains/pago/cuota.ts`) |
-| **Notificación** | — | **NO IMPLEMENTADO.** No hay modelo, tabla ni endpoint de notificaciones, y tampoco queda un elemento de interfaz: la campana inerte de la barra horizontal se retiró con el rail. |
+| **Notificación** | — | **Iteración 2, pendiente.** No hay modelo, tabla ni endpoint de notificaciones, y tampoco queda un elemento de interfaz: la campana inerte de la barra horizontal se retiró con el rail. |

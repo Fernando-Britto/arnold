@@ -319,5 +319,4 @@ sequenceDiagram
 | Finalizar sesión | 7 | Sí |
 | Sugerencia y decisión de asignación | 8 | Sí |
 | Registrar cierre de caja | 9 | Sí |
-| Notificaciones al socio | — | **NO IMPLEMENTADO**: no hay endpoint ni modelo |
-| Recuperación de contraseña | — | **NO IMPLEMENTADO**: no hay flujo ni tabla |
+| Notificaciones al socio | — | **Iteración 2, pendiente**: no hay endpoint ni modelo |
