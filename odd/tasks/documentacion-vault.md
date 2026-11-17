@@ -51,16 +51,28 @@ Completo el 2026-11-16.
 - Verificado: 0 links internos rotos en las notas tocadas (resolución por ruta y por nombre).
 - Datos tomados del código, de `PROJECT-STATUS.md` y de `openspec/decisions.md`, no de memoria.
 
+## Segunda pasada (mismo día)
+
+- `Proyecto/Roles y permisos.md`: prefijos de `/api/maquinas`, `/api/asignaciones` y
+  `/api/reasignaciones`; se corrigió la fila del `PUT` de sesiones del Instructor (ya no está en la
+  matriz) y se actualizó la tabla de pantallas al rail nuevo.
+- `Proyecto/Reglas de negocio.md`: 7 specs nuevas en §2 (máquinas, asociación, motor, sugerencia,
+  seed, reasignación) y 15 invariantes nuevas en §4.
+- `Proyecto/Glosario.md`: 23 términos nuevos (máquina, candidata, reserva, ocupante, cola, espera,
+  ahorro, reasignación, balance muscular, rail, tema, kiosco, …).
+- **UML**: los 8 artefactos + el de check-in suman una sección de ampliación con casos de uso, clases
+  conceptuales y de análisis, contratos, dos secuencias de diseño, paquetes del DCD y componentes.
+- Notas de módulo alineadas: Ejercicios (catálogo y relación con máquinas), Rutinas (modal T-052),
+  Sesiones (consumo de la reserva), Configuración (3 parámetros nuevos), Auditoría y Autenticación.
+- `Proyecto/README.md`: mapa de rutas y conteo de decisiones/pendientes al día.
+
 ## Lo que sigue sin documentar (marcado 🟡 en el inventario)
 
-- Los 8 artefactos **UP/UML** son del 2026-10-15 y no cubren la Etapa 5 (máquinas, asignación,
-  reasignación, balance muscular).
 - **Checklists de Validaciones** para Máquinas, Asignación dinámica, Configuración, Oferta y
-  Navegación: no existen; no se hizo el barrido de esos módulos.
-- `Proyecto/Roles y permisos` no incorpora todavía los prefijos `/api/maquinas`,
-  `/api/asignaciones` y `/api/reasignaciones`.
-- `Proyecto/Reglas de negocio` y `Proyecto/Glosario` no tienen las reglas ni el vocabulario nuevos
-  (reserva, ocupante, cola, candidata, ahorro).
+  Navegación: no existen; no se hizo el barrido de esos módulos. Es el único hueco grande.
+- Los diagramas **Mermaid originales** (no los de ampliación) siguen siendo del 2026-10-15: la
+  Etapa 5 está documentada aparte, no fundida en los diagramas viejos.
+- Conteos que envejecen solos: `Referencia de API` (69 operaciones) y `Testing` (3965 tests).
 
 ## Reglas del vault (respetar)
 
