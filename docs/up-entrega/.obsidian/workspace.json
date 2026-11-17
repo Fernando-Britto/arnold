@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "01-diagrama-conceptual.md",
+                "file": "02-secuencias-del-sistema.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "01-diagrama-conceptual"
+              "title": "02-secuencias-del-sistema"
             }
           }
         ]
@@ -99,7 +99,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "01-diagrama-conceptual.md",
+                "file": "02-secuencias-del-sistema.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -118,7 +118,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "01-diagrama-conceptual.md",
+                "file": "02-secuencias-del-sistema.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -161,7 +161,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "01-diagrama-conceptual.md",
+                "file": "02-secuencias-del-sistema.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -189,5 +189,15 @@
     }
   },
   "active": "a65d41ce3f6bbbc2",
-  "lastOpenFiles": []
+  "lastOpenFiles": [
+    "08-clases.md",
+    "07-operaciones.md",
+    "06-interaccion.md",
+    "05-casos-de-uso-reales.md",
+    "03-contratos-de-operaciones.md",
+    "02-secuencias-del-sistema.md",
+    "01-diagrama-conceptual.md",
+    "04-glosario.md",
+    "Sin título.canvas"
+  ]
 }
