@@ -1,6 +1,6 @@
 # Registro de decisiones — ARNOLD MVP Core
 
-**Actualizado**: 2026-11-14 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
+**Actualizado**: 2026-11-18 · **Plan**: [`sdd-tasks-tdd.md`](./sdd-tasks-tdd.md) · **Estado actual**: [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md)
 
 Este documento registra **por qué** el proyecto se desvió del plan original durante `sdd-apply`, qué
 alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace; acá queda el *porqué*.
@@ -1824,6 +1824,67 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Decisión**: `maquinaOcupada` llama `aplicarOcupantes` sobre una entrada mínima de una máquina con el
   `socioId` del reasignado (D-129).
 - **Por qué**: hereda el corte de inactividad (D-105) y la regla D-108 sin duplicar SQL ni divergir del motor.
+
+### D-134 · El sistema propone y el instructor aprueba
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (§7 del `explore.md`).
+- **Contexto**: el motor de progresión (D-59) solo sugiere una carga por ejercicio; no existe ningún mecanismo
+  para cambiar la rutina de un socio. La propuesta de adaptación tenía tres salidas: automática, aprobada por
+  el instructor o aceptada por el socio.
+- **Decisión**: el sistema **propone** y el instructor **aprueba**. La propuesta se modela como un registro con
+  estado, de modo que una auto-aprobación futura sea un cambio de configuración y no un rediseño del flujo.
+- **Consecuencia**: el socio no ve cambios en su rutina hasta que el instructor aprueba; cada propuesta guarda
+  qué cambió y quién la aprobó, y cuándo. S3 incluye la vista de aprobación.
+- **Por qué**: la adaptación toca cargas y ejercicios de una persona y el gimnasio responde por lo que propone.
+  Un instructor puede frenar una propuesta con datos flacos o una lesión que el motor no conoce.
+- **Alternativas descartadas**: **automático** (sin revisión humana, traslada la responsabilidad al sistema y no
+  hay forma de frenar un caso raro); **la acepta el socio** (el socio no decide sobre técnica ni seguridad).
+  Pasar a automático después pedía rehacer el flujo; con el registro de estado es configuración.
+- **Dónde**: `openspec/changes/adaptacion-rutina/explore.md` §7; slice S3; la tabla de propuestas se define en
+  el diseño de S2.
+
+### D-135 · Copia por socio perezosa y `planActualizadoAt` explícito
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (§4 y §7 del `explore.md`).
+- **Contexto**: `Rutina` es una plantilla compartida (`prisma/schema.prisma:360-377`: `RutinaAsignada` apunta a
+  `Rutina`), así que adaptar la rutina de un socio no puede editar la plantilla. Además, el juicio del motor
+  arranca en `planDesde` = `EjercicioEnRutina.updatedAt` (D-59, ajustado en D-61): `updatedAt` cambia con
+  cualquier edición de la fila, no solo con un cambio de prescripción juzgable, y no distingue qué cambió.
+- **Decisión**: **copia por socio, creada de forma perezosa en la primera adaptación**: el socio sin meta sigue
+  en la plantilla compartida y solo obtiene rutina propia cuando el motor le propone un cambio. Se agrega una
+  columna explícita `planActualizadoAt` en `EjercicioEnRutina` como fuente de `planDesde`, en lugar de
+  `updatedAt`. Migración aditiva.
+- **Consecuencia**: no se duplican plantillas de socios que nunca se adaptan; el listado de Rutinas sigue
+  mostrando plantillas y la copia aparece como rutina del socio. El motor pasa a leer `planActualizadoAt` y
+  `updatedAt` deja de decidir el corte. La migración es aditiva (columna nueva con backfill desde `updatedAt`).
+  `asignarRutina` y la asignación dinámica siguen leyendo `RutinaAsignada.rutina`, sin cambios de contrato.
+- **Por qué**: aísla el plan de cada socio sin reescribir motor ni asignación (las otras dos opciones obligaban
+  a interceptar cada lectura o a versionar todo). `planActualizadoAt` separa "cuándo cambió la prescripción que
+  el motor juzga" de `updatedAt`, que se mueve con cualquier edición: D-59 ya había anotado ese riesgo como
+  alternativa.
+- **Alternativas descartadas**: **ajustes por socio sobre la plantilla** (dos fuentes de verdad por ejercicio y
+  cada lector de prescripción tiene que resolver el override); **versionado de la rutina** (explosión de
+  versiones, migración y CRUD más caros); **copia al asignar** (duplica plantillas de socios sin meta).
+- **Dónde**: `openspec/changes/adaptacion-rutina/explore.md` §4 y §7; `prisma/schema.prisma`
+  (`EjercicioEnRutina`, `RutinaAsignada`) y la migración de S2; `src/domains/sesion/progresion-ejercicio.ts`
+  (`planDesde`).
+
+### D-136 · El entregable se corta en S1 motor puro, S2 persistencia y S3 aprobación
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (§7 del `explore.md`).
+- **Contexto**: la exploración ofrecía tres alcances para el primer slice: solo micro, micro + meso o las tres
+  capas. La meso (volumen por músculo, estancamiento, fatiga semanal) hoy existe como tarjeta, no como insumo
+  del motor, y la macro no existe.
+- **Decisión**: el alcance de este change es **micro**, cortado en tres slices: **S1** motor puro de micro
+  con el RIR como señal blanda y tests con historiales sintéticos; **S2** persistencia (copia por socio y
+  propuesta); **S3** aprobación del instructor y vista del socio. **Meso (volumen por músculo, estancamiento y
+  fatiga) será un change posterior.**
+- **Consecuencia**: tres PRs encadenados y revisables; S1 no toca la base ni la UI y se valida contra
+  historiales sintéticos; la detección de estancamiento por músculo queda fuera.
+- **Por qué**: el motor puro primero se valida barato y sin migraciones; la persistencia y la aprobación agregan
+  estado y UI recién cuando el criterio está probado. Meter meso en S1 rompía el límite de PR y mezclaba el
+  criterio por ejercicio con la agregación por músculo.
+- **Alternativas descartadas**: **micro + meso en el mismo change** (la meso todavía no tiene motor propio y
+  agranda el alcance antes de validar el micro); **las tres capas** (sobredimensiona el primer entregable y pone
+  la macro antes de validar el micro).
+- **Dónde**: `openspec/changes/adaptacion-rutina/explore.md` §7; slices S1, S2 y S3.
 
 ---
 
