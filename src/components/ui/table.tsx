@@ -173,6 +173,9 @@ export function TableHeader({
 interface TableRowProps {
   selected?: boolean;
   onClick?: () => void;
+  /** Habilita la fila como foco de teclado (para seleccionarla con Enter/Espacio). */
+  tabIndex?: number;
+  onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
   /** Reserva la última zona y dibuja el chevron que anuncia que la fila se despliega. */
   disclosure?: boolean;
   children: React.ReactNode;
@@ -193,6 +196,8 @@ interface TableRowProps {
 export function TableRow({
   selected = false,
   onClick,
+  tabIndex,
+  onKeyDown,
   disclosure = false,
   children,
 }: TableRowProps) {
@@ -201,8 +206,14 @@ export function TableRow({
       role="row"
       aria-selected={selected}
       onClick={onClick}
+      tabIndex={tabIndex}
+      onKeyDown={onKeyDown}
       className={`flex h-14 items-center gap-4 border-b border-border px-6 ${
         onClick ? "cursor-pointer" : ""
+      } ${
+        onClick
+          ? "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+          : ""
       } ${selected ? "bg-brand-soft" : "bg-surface hover:bg-surface-hover"}`}
     >
       {children}

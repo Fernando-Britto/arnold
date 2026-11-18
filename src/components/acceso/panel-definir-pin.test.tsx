@@ -27,6 +27,7 @@ const socio = {
   telefono: null,
   membresia: { id: "gold-1", nombre: "Gold", precio: 30000 },
   estadoCuota: "PENDIENTE" as const,
+  fechaVencimiento: null,
   plan: null,
   oferta: null,
 };

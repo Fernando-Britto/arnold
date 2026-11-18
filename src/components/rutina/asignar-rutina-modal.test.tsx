@@ -29,6 +29,7 @@ const socio = {
   telefono: null,
   membresia: null,
   estadoCuota: "AL_DIA" as const,
+  fechaVencimiento: null,
   plan: null,
   oferta: null,
 };

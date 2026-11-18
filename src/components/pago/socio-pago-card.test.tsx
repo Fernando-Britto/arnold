@@ -15,6 +15,7 @@ const base: SocioBusqueda = {
   telefono: "+54 9 11 5555 5555",
   membresia: { id: "plan-gold", nombre: "Gold", precio: 30000 },
   estadoCuota: "VENCIDA",
+  fechaVencimiento: "2026-11-01T02:59:59.999Z",
   plan: {
     tipo: "RENOVACION",
     periodos: ["2026-11"],
@@ -43,5 +44,22 @@ describe("SocioPagoCard", () => {
     expect(screen.queryByText("Precio de lista")).not.toBeInTheDocument();
     expect(screen.queryByText("Descuento")).not.toBeInTheDocument();
     expect(screen.queryByText(/10 %/)).not.toBeInTheDocument();
+  });
+
+  it("muestra el título, el vencimiento y la acción de cambiar cliente", () => {
+    const onCambiarCliente = jest.fn();
+    render(<SocioPagoCard socio={base} onCambiarCliente={onCambiarCliente} />);
+
+    expect(screen.getByRole("heading", { name: "Cliente seleccionado" })).toBeInTheDocument();
+    expect(screen.getByText("31/10/2026")).toBeInTheDocument();
+
+    screen.getByRole("button", { name: "Cambiar cliente" }).click();
+    expect(onCambiarCliente).toHaveBeenCalledTimes(1);
+  });
+
+  it("sin membresía muestra 'Sin membresía' en Membresía y en Estado", () => {
+    render(<SocioPagoCard socio={{ ...base, membresia: null, plan: null }} />);
+
+    expect(screen.getAllByText("Sin membresía")).toHaveLength(2);
   });
 });

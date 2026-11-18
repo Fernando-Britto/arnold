@@ -46,7 +46,12 @@ export function PagosPage() {
 
   return (
     <SectionPageLayout activeSection="pagos" breadcrumb="Registrar Pago">
-      <h1 className="sr-only">Registrar Pago</h1>
+      <header className="mb-5">
+        <h1 className="text-2xl font-bold text-ink">Registrar Pago</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Buscá un cliente para comenzar a registrar el pago.
+        </p>
+      </header>
       <PagoForm />
     </SectionPageLayout>
   );

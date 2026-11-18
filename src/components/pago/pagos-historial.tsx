@@ -45,9 +45,11 @@ export interface PagosHistorialProps {
   socioId: string;
   /** Se llama tras anular con éxito (para que quien lo use refresque lo que muestre). */
   onAnulado?: () => void;
+  /** Cambia para volver a pedir el historial (p. ej. después de registrar un pago). */
+  refrescarToken?: number;
 }
 
-export function PagosHistorial({ socioId, onAnulado }: PagosHistorialProps) {
+export function PagosHistorial({ socioId, onAnulado, refrescarToken }: PagosHistorialProps) {
   const { notify } = useNotifications();
   const [pagos, setPagos] = useState<PagoHistorial[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +81,7 @@ export function PagosHistorial({ socioId, onAnulado }: PagosHistorialProps) {
     return () => {
       cancelado = true;
     };
-  }, [socioId]);
+  }, [socioId, refrescarToken]);
 
   const cancelar = () => {
     setAnulandoId(null);
