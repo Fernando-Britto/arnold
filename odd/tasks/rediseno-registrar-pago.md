@@ -51,24 +51,24 @@ un solo gesto y el flujo tiene que aprovechar el ancho de escritorio.
 
 ## Tareas
 
-- [ ] T1 · `src/api/socios.ts`: tipos `SocioResumen`/`BusquedaSociosResultado`, `handleBuscarSociosPorNombre`
+- [x] T1 · `src/api/socios.ts`: tipos `SocioResumen`/`BusquedaSociosResultado`, `handleBuscarSociosPorNombre`
       (SQL crudo + `estadoCuotaSocio` + config), `handleBuscarSocioPorId` reutilizando el armado del
       `SocioBusqueda`, `fechaVencimiento` en `SocioBusqueda`, y fetch de cliente
       `fetchSociosPorNombre` / `fetchSocioPorId`.
-- [ ] T2 · `src/app/api/socios/route.ts`: rama `?q=` con validación de `limit`/`offset` y handler
+- [x] T2 · `src/app/api/socios/route.ts`: rama `?q=` con validación de `limit`/`offset` y handler
       testeable `handleBuscarSociosRequest`. `src/app/api/socios/[id]/route.ts`: GET por id.
-- [ ] T3 · `src/components/ui/table.tsx`: `TableRow` con foco de teclado opcional (sin cambiar usos
+- [x] T3 · `src/components/ui/table.tsx`: `TableRow` con foco de teclado opcional (sin cambiar usos
       existentes).
-- [ ] T4 · `src/components/pago/cliente-busqueda.tsx`: buscador + grilla + paginación + estados;
+- [x] T4 · `src/components/pago/cliente-busqueda.tsx`: buscador + grilla + paginación + estados;
       props `seleccionadoId`, `onSeleccionar`, `refrescarToken`.
-- [ ] T5 · `src/components/pago/pago-form.tsx`: orquestación (selección, panel, método, cobro,
+- [x] T5 · `src/components/pago/pago-form.tsx`: orquestación (selección, panel, método, cobro,
       refrescos, "Cambiar cliente"). `socio-pago-card.tsx`: título "Cliente seleccionado",
       vencimiento y acción `onCambiarCliente`.
-- [ ] T6 · `src/app/pagos/page.tsx`: título visible "Registrar Pago" + descripción, contenido full width.
-- [ ] T7 · Tests: `src/api/socios.test.ts` (búsqueda y por id), `src/app/api/socios/route.test.ts`
+- [x] T6 · `src/app/pagos/page.tsx`: título visible "Registrar Pago" + descripción, contenido full width.
+- [x] T7 · Tests: `src/api/socios.test.ts` (búsqueda y por id), `src/app/api/socios/route.test.ts`
       (`?q=`, límites, roles), `src/components/pago/cliente-busqueda.test.tsx`,
       `src/components/pago/pago-form.test.tsx`, `socio-pago-card.test.tsx`.
-- [ ] T8 · Verificación: jest de las suites afectadas + `npx tsc --noEmit` + `npx eslint` de los
+- [x] T8 · Verificación: jest de las suites afectadas + `npx tsc --noEmit` + `npx eslint` de los
       archivos tocados.
 
 ## Criterios de aceptación
@@ -86,3 +86,13 @@ un solo gesto y el flujo tiene que aprovechar el ancho de escritorio.
 - `npx jest src/api/socios.test.ts src/app/api/socios/route.test.ts src/components/pago`
 - `npx tsc --noEmit`
 - `npx eslint src/api/socios.ts src/app/api/socios src/components/pago src/components/ui/table.tsx src/app/pagos`
+
+## Progreso
+
+- Commits: `f09172a` (API búsqueda por nombre + por id) y `186717c` (pantalla y tests).
+- Verificación: `npx jest src/api/socios.test.ts src/app/api/socios src/components/pago` → 10 suites / 88 tests OK;
+  `src/app/pagos/page.test.tsx` + `src/components/ui/table.test.tsx` → 2 suites / 20 tests OK;
+  `npx tsc --noEmit` y `npx eslint` de los archivos tocados → OK.
+- Smoke contra la base real: `SOFIA` → Sofía Socia, `santiago socio` → Santiago Socio, sin resultados y consulta
+  vacía sin query. `COUNT(*) OVER()::int` serializa como número.
+- Pendiente: smoke visual en navegador (no ejecutado) y prueba manual del POST de cobro desde la pantalla.
