@@ -53,11 +53,42 @@ export async function handleCerrarCajaRequest(
   }
 }
 
-/** Core handler logic for GET /api/cierres (lista). */
-export async function handleListarCierresRequest(): Promise<HandlerResult> {
+/** Paginación validada de GET /api/cierres (default 10/0, limit 1..50, offset ≥ 0). */
+export type PaginacionCierres =
+  | { ok: true; limit: number; offset: number }
+  | { ok: false; message: string };
+
+/**
+ * Valida `limit`/`offset` del listado de cierres. Pura y exportada para testear sin
+ * NextRequest: sin parámetros usa 10/0; un valor ausente cae a su default.
+ */
+export function parsePaginacionCierres(
+  rawLimit: string | null,
+  rawOffset: string | null
+): PaginacionCierres {
+  const limit =
+    rawLimit === null ? 10 : /^\d+$/.test(rawLimit) ? Number(rawLimit) : NaN;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+    return { ok: false, message: "El parámetro limit debe estar entre 1 y 50" };
+  }
+
+  const offset =
+    rawOffset === null ? 0 : /^\d+$/.test(rawOffset) ? Number(rawOffset) : NaN;
+  if (!Number.isInteger(offset) || offset < 0) {
+    return { ok: false, message: "El parámetro offset debe ser un número entero" };
+  }
+
+  return { ok: true, limit, offset };
+}
+
+/** Core handler logic for GET /api/cierres (página de cierres). */
+export async function handleListarCierresRequest(
+  limit?: number,
+  offset?: number
+): Promise<HandlerResult> {
   try {
-    const cierres = await handleListarCierres();
-    return { status: 200, body: cierres };
+    const pagina = await handleListarCierres({ limit, offset });
+    return { status: 200, body: pagina };
   } catch (error) {
     const mapped = mapErrorToResponse(error, {
       forbiddenMessage: "Se requiere rol de administrador o recepcionista",
@@ -154,9 +185,26 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const esPreview = request.nextUrl.searchParams.get("preview") === "1";
-  const { status, body } = esPreview
-    ? await handlePrevisualizarCierreRequest()
-    : await handleListarCierresRequest();
+  const searchParams = request.nextUrl.searchParams;
+  if (searchParams.get("preview") === "1") {
+    const { status, body } = await handlePrevisualizarCierreRequest();
+    return NextResponse.json(body, { status });
+  }
+
+  const paginacion = parsePaginacionCierres(
+    searchParams.get("limit"),
+    searchParams.get("offset")
+  );
+  if (!paginacion.ok) {
+    return NextResponse.json(
+      { code: "VALIDATION_ERROR", message: paginacion.message },
+      { status: 400 }
+    );
+  }
+
+  const { status, body } = await handleListarCierresRequest(
+    paginacion.limit,
+    paginacion.offset
+  );
   return NextResponse.json(body, { status });
 }

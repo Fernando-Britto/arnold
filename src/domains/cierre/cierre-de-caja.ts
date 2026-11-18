@@ -209,12 +209,25 @@ export async function previsualizarCierre(rango: RangoDeCierre): Promise<Totales
   return calcularTotales(await pagosPendientesDeCierre(rango));
 }
 
+/** Opciones de paginación del listado de cierres. `limit` default 20, `offset` default 0. */
+export interface OpcionesListadoCierre {
+  limit?: number;
+  offset?: number;
+}
+
 /** Cierres recientes, del más nuevo al más viejo, con sus pagos. */
-export async function listarCierres(limite = 20) {
+export async function listarCierres(opciones: OpcionesListadoCierre = {}) {
   const { prisma } = await import("@/lib/db");
   return prisma.cierreDeCaja.findMany({
     orderBy: { createdAt: "desc" },
-    take: limite,
+    skip: opciones.offset ?? 0,
+    take: opciones.limit ?? 20,
     include: { pagos: true },
   });
+}
+
+/** Cantidad total de cierres registrados (para paginar el historial). */
+export async function contarCierres(): Promise<number> {
+  const { prisma } = await import("@/lib/db");
+  return prisma.cierreDeCaja.count();
 }

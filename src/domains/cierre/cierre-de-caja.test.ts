@@ -13,13 +13,19 @@ import {
   pagosPendientesDeCierre,
   previsualizarCierre,
   listarCierres,
+  contarCierres,
 } from "./cierre-de-caja";
 
 jest.mock("@/lib/db", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const prisma: any = {
     pago: { findMany: jest.fn(), updateMany: jest.fn() },
-    cierreDeCaja: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
+    cierreDeCaja: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      count: jest.fn(),
+    },
     empleado: { findUnique: jest.fn() },
   };
   prisma.$transaction = jest.fn((ops) =>
@@ -310,8 +316,36 @@ describe("listarCierres", () => {
     expect(r).toEqual([{ id: "cierre-1" }]);
     expect(prisma.cierreDeCaja.findMany).toHaveBeenCalledWith({
       orderBy: { createdAt: "desc" },
+      skip: 0,
       take: 20,
       include: { pagos: true },
     });
+  });
+
+  it("pagina con limit/offset explícitos", async () => {
+    const prisma = await mocks();
+    (prisma.cierreDeCaja.findMany as jest.Mock).mockResolvedValue([{ id: "cierre-2" }]);
+
+    const r = await listarCierres({ limit: 10, offset: 20 });
+
+    expect(r).toEqual([{ id: "cierre-2" }]);
+    expect(prisma.cierreDeCaja.findMany).toHaveBeenCalledWith({
+      orderBy: { createdAt: "desc" },
+      skip: 20,
+      take: 10,
+      include: { pagos: true },
+    });
+  });
+});
+
+describe("contarCierres", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("devuelve el total de cierres registrados", async () => {
+    const prisma = await mocks();
+    (prisma.cierreDeCaja.count as jest.Mock).mockResolvedValue(7);
+
+    await expect(contarCierres()).resolves.toBe(7);
+    expect(prisma.cierreDeCaja.count).toHaveBeenCalledWith();
   });
 });

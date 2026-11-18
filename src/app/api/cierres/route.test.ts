@@ -28,6 +28,7 @@ import {
   handleCerrarCajaRequest,
   handleListarCierresRequest,
   handlePrevisualizarCierreRequest,
+  parsePaginacionCierres,
 } from "./route";
 
 const mockCerrar = handleCerrarCaja as jest.MockedFunction<typeof handleCerrarCaja>;
@@ -38,6 +39,7 @@ const mockAudit = registrarOperacion as jest.Mock;
 
 const cierreFalso = {
   id: "cierre-1",
+  createdAt: "2026-10-12T15:00:00.000Z",
   totalRecaudado: 1200,
   totalEfectivo: 1000,
   totalTransferencia: 0,
@@ -45,6 +47,8 @@ const cierreFalso = {
   cantidadOperaciones: 2,
   pagos: [],
 };
+
+const paginaFalsa = { items: [cierreFalso], total: 1 };
 
 const postReq = (body?: unknown) =>
   new NextRequest("http://localhost:3000/api/cierres", {
@@ -98,14 +102,41 @@ describe("handleCerrarCajaRequest (sin NextRequest)", () => {
   });
 });
 
+describe("parsePaginacionCierres", () => {
+  it("sin parámetros usa 10/0", () => {
+    expect(parsePaginacionCierres(null, null)).toEqual({ ok: true, limit: 10, offset: 0 });
+  });
+
+  it("acepta valores válidos y completa el que falta con su default", () => {
+    expect(parsePaginacionCierres("5", "20")).toEqual({ ok: true, limit: 5, offset: 20 });
+    expect(parsePaginacionCierres("50", null)).toEqual({ ok: true, limit: 50, offset: 0 });
+    expect(parsePaginacionCierres(null, "30")).toEqual({ ok: true, limit: 10, offset: 30 });
+  });
+
+  it("rechaza limit fuera de 1..50 o no numérico", () => {
+    for (const raw of ["0", "51", "-1", "abc", "1.5"]) {
+      const r = parsePaginacionCierres(raw, null);
+      expect(r.ok).toBe(false);
+    }
+  });
+
+  it("rechaza offset negativo o no numérico", () => {
+    for (const raw of ["-1", "abc", "1.5"]) {
+      const r = parsePaginacionCierres(null, raw);
+      expect(r.ok).toBe(false);
+    }
+  });
+});
+
 describe("handleListarCierresRequest / handlePrevisualizarCierreRequest", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("200 con la lista de cierres", async () => {
-    mockListar.mockResolvedValueOnce([cierreFalso] as never);
-    const r = await handleListarCierresRequest();
+  it("200 con la página de cierres", async () => {
+    mockListar.mockResolvedValueOnce(paginaFalsa as never);
+    const r = await handleListarCierresRequest(10, 0);
     expect(r.status).toBe(200);
-    expect(r.body).toEqual([cierreFalso]);
+    expect(r.body).toEqual(paginaFalsa);
+    expect(mockListar).toHaveBeenCalledWith({ limit: 10, offset: 0 });
   });
 
   it("200 con la previsualización", async () => {
@@ -228,16 +259,46 @@ describe("GET /api/cierres", () => {
     expect(res.status).toBe(403);
   });
 
-  it("200 con la lista de cierres recientes", async () => {
+  it("200 con la página de cierres y la paginación por defecto (10/0)", async () => {
     mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
-    mockListar.mockResolvedValueOnce([cierreFalso] as never);
+    mockListar.mockResolvedValueOnce(paginaFalsa as never);
 
     const res = await GET(getReq());
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual([cierreFalso]);
-    expect(mockListar).toHaveBeenCalled();
+    expect(await res.json()).toEqual(paginaFalsa);
+    expect(mockListar).toHaveBeenCalledWith({ limit: 10, offset: 0 });
     expect(mockPreview).not.toHaveBeenCalled();
+  });
+
+  it("200 con la paginación pedida", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+    mockListar.mockResolvedValueOnce(paginaFalsa as never);
+
+    const res = await GET(getReq("?limit=5&offset=10"));
+
+    expect(res.status).toBe(200);
+    expect(mockListar).toHaveBeenCalledWith({ limit: 5, offset: 10 });
+  });
+
+  it("400 VALIDATION_ERROR con limit inválido y no consulta los cierres", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+
+    const res = await GET(getReq("?limit=51"));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION_ERROR");
+    expect(mockListar).not.toHaveBeenCalled();
+  });
+
+  it("400 VALIDATION_ERROR con offset inválido y no consulta los cierres", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+
+    const res = await GET(getReq("?offset=-1"));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION_ERROR");
+    expect(mockListar).not.toHaveBeenCalled();
   });
 
   it("200 con la previsualización si ?preview=1", async () => {

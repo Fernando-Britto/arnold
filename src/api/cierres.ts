@@ -7,6 +7,7 @@
  */
 import {
   cerrarCaja,
+  contarCierres,
   listarCierres,
   previsualizarCierre,
   resolverEmpleadoId,
@@ -50,6 +51,18 @@ export interface RangoCierreDTO {
 }
 
 /**
+ * Fila de `Pago` tal como viene incluida en el listado de cierres. Prisma serializa
+ * `monto` (`Decimal`) a string; la UI lo normaliza con `formatMoney`.
+ */
+export interface PagoDeCierreDTO {
+  id: string;
+  fechaPago: string;
+  monto: number | string;
+  metodoPago: string;
+  estado: string;
+}
+
+/**
  * Fila de `CierreDeCaja` tal como llega del GET (listado). Prisma serializa los `Decimal`
  * a string, por eso los totales se aceptan como `number | string` y la UI los normaliza.
  */
@@ -61,6 +74,13 @@ export interface CierreDeCajaResumenDTO {
   totalTransferencia: number | string;
   totalTarjeta: number | string;
   cantidadOperaciones: number;
+  pagos: PagoDeCierreDTO[];
+}
+
+/** Página del listado de cierres: filas + total para paginar. */
+export interface PaginaDeCierres {
+  items: CierreDeCajaResumenDTO[];
+  total: number;
 }
 
 /** Rango del turno: el enviado, o el día del gimnasio hasta ahora. */
@@ -82,9 +102,20 @@ export async function handleCerrarCaja(input: CerrarCajaRequest): Promise<Cierre
   return cerrarCaja({ responsableId, ...rangoPorDefecto(input) });
 }
 
-/** Handle GET /api/cierres — cierres recientes. */
-export async function handleListarCierres() {
-  return listarCierres();
+/** Handle GET /api/cierres — página de cierres recientes + total. */
+export async function handleListarCierres(opciones?: {
+  limit?: number;
+  offset?: number;
+}): Promise<PaginaDeCierres> {
+  const [items, total] = await Promise.all([
+    listarCierres(opciones),
+    contarCierres(),
+  ]);
+  return {
+    // Prisma devuelve `Decimal` y `Date`; el DTO los declara como string/number.
+    items: items as unknown as CierreDeCajaResumenDTO[],
+    total,
+  };
 }
 
 /** Handle GET /api/cierres?preview=1 — totales pendientes de cierre (sin persistir) + rango usado. */
@@ -135,9 +166,19 @@ export async function createCierre(rango?: RangoCierreDTO): Promise<CierreDeCaja
   return response.json();
 }
 
-/** Client-side API call: cierres recientes. */
-export async function fetchCierres(): Promise<CierreDeCajaResumenDTO[]> {
-  const response = await fetch("/api/cierres");
+/**
+ * Client-side API call: página de cierres recientes. Sin parámetros llama exactamente a
+ * `/api/cierres` (el server aplica sus defaults); con parámetros arma la query.
+ */
+export async function fetchCierres(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<PaginaDeCierres> {
+  const query = new URLSearchParams();
+  if (params?.limit !== undefined) query.set("limit", String(params.limit));
+  if (params?.offset !== undefined) query.set("offset", String(params.offset));
+  const qs = query.toString();
+  const response = await fetch(qs ? `/api/cierres?${qs}` : "/api/cierres");
   await throwIfNotOk(response, "No se pudieron cargar los cierres");
   return response.json();
 }

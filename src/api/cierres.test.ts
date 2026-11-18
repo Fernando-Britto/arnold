@@ -13,6 +13,7 @@ import {
 } from "./cierres";
 import {
   cerrarCaja,
+  contarCierres,
   listarCierres,
   previsualizarCierre,
   resolverEmpleadoId,
@@ -24,11 +25,13 @@ jest.mock("@/domains/cierre/cierre-de-caja");
 const mockResolver = resolverEmpleadoId as jest.MockedFunction<typeof resolverEmpleadoId>;
 const mockCerrar = cerrarCaja as jest.MockedFunction<typeof cerrarCaja>;
 const mockListar = listarCierres as jest.MockedFunction<typeof listarCierres>;
+const mockContar = contarCierres as jest.MockedFunction<typeof contarCierres>;
 const mockPreview = previsualizarCierre as jest.MockedFunction<typeof previsualizarCierre>;
 
 const ahora = new Date("2026-10-12T15:00:00.000Z");
 const cierreFalso = {
   id: "cierre-1",
+  createdAt: "2026-10-12T15:00:00.000Z",
   totalRecaudado: 1200,
   totalEfectivo: 1000,
   totalTransferencia: 0,
@@ -70,13 +73,25 @@ describe("handleCerrarCaja", () => {
 describe("handleListarCierres", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("delega en el servicio que lista los cierres", async () => {
+  it("devuelve la página con items y total, delegando la paginación y el conteo", async () => {
     mockListar.mockResolvedValueOnce([cierreFalso] as never);
+    mockContar.mockResolvedValueOnce(1);
+
+    const r = await handleListarCierres({ limit: 10, offset: 20 });
+
+    expect(r).toEqual({ items: [cierreFalso], total: 1 });
+    expect(mockListar).toHaveBeenCalledWith({ limit: 10, offset: 20 });
+    expect(mockContar).toHaveBeenCalled();
+  });
+
+  it("sin opciones delega el default y devuelve una página vacía", async () => {
+    mockListar.mockResolvedValueOnce([] as never);
+    mockContar.mockResolvedValueOnce(0);
 
     const r = await handleListarCierres();
 
-    expect(r).toEqual([cierreFalso]);
-    expect(mockListar).toHaveBeenCalled();
+    expect(r).toEqual({ items: [], total: 0 });
+    expect(mockListar).toHaveBeenCalledWith(undefined);
   });
 });
 
@@ -148,13 +163,24 @@ describe("helpers de fetch del cliente", () => {
     );
   });
 
-  it("fetchCierres hace GET /api/cierres", async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => [] });
+  it("fetchCierres sin params hace GET /api/cierres", async () => {
+    const pagina = { items: [cierreFalso], total: 1 };
+    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => pagina });
 
     const r = await fetchCierres();
 
-    expect(r).toEqual([]);
+    expect(r).toEqual(pagina);
     // PG-7: la sesión va en cookie; el fetch no adjunta headers.
     expect(global.fetch).toHaveBeenCalledWith("/api/cierres");
+  });
+
+  it("fetchCierres con params arma la query de paginación", async () => {
+    const pagina = { items: [cierreFalso], total: 11 };
+    global.fetch = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => pagina });
+
+    const r = await fetchCierres({ limit: 10, offset: 10 });
+
+    expect(r).toEqual(pagina);
+    expect(global.fetch).toHaveBeenCalledWith("/api/cierres?limit=10&offset=10");
   });
 });
