@@ -29,6 +29,15 @@ describe("ConfirmDialog", () => {
     expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
   });
 
+  it("renderiza el contenido extra (children) entre el mensaje y los botones", () => {
+    render(
+      <ConfirmDialog {...baseProps}>
+        <p>Total recaudado: $ 1.200</p>
+      </ConfirmDialog>
+    );
+    expect(screen.getByText("Total recaudado: $ 1.200")).toBeInTheDocument();
+  });
+
   it("permite etiquetas personalizadas", () => {
     render(<ConfirmDialog {...baseProps} confirmLabel="Eliminar" cancelLabel="Volver" />);
     expect(screen.getByRole("button", { name: "Eliminar" })).toBeInTheDocument();

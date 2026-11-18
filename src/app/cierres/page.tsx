@@ -7,31 +7,22 @@ import { useNotifications } from "@/contexts/notifications";
 import {
   fetchPreviewCierre,
   createCierre,
-  fetchCierres,
   type PreviewCierreResult,
-  type CierreDeCajaResumenDTO,
 } from "@/api/cierres";
 import { handleApiError } from "@/utils/api-error";
 import { SectionPageLayout } from "@/components/layout/section-page-layout";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ResumenTurno } from "@/components/cierre/resumen-turno";
+import { HistorialCierres } from "@/components/cierre/historial-cierres";
 import { formatMoney as money } from "@/utils/formatting";
-import { GYM_TIME_ZONE } from "@/domains/home-interno/home-interno";
 
 /** Roles que pueden cerrar la caja (D-42 / matriz de autorización). */
 const ALLOWED_ROLES = ["ADMINISTRADOR", "RECEPCIONISTA"];
 
-/** Fecha del cierre en hora del gimnasio: "11/10/2026". */
-function formatFechaCierre(iso: string): string {
-  return new Intl.DateTimeFormat("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: GYM_TIME_ZONE,
-  }).format(new Date(iso));
-}
-
 /**
- * Pantalla "Cierre de Caja" (T-040): muestra los totales del turno (previsualización
- * de los pagos pendientes) y confirma el cierre contra POST /api/cierres.
+ * Pantalla "Cierre de Caja" (T-040): resumen del turno a ancho completo, confirmación
+ * explícita antes de cerrar e historial paginado. El cierre usa el rango previsualizado
+ * (CC-2), así lo que se confirma es exactamente lo que se mostró.
  */
 export function CierresPage() {
   const router = useRouter();
@@ -39,10 +30,11 @@ export function CierresPage() {
   const { notify } = useNotifications();
 
   const [totales, setTotales] = useState<PreviewCierreResult | null>(null);
-  const [cierres, setCierres] = useState<CierreDeCajaResumenDTO[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [confirmando, setConfirmando] = useState(false);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+  const [refrescarHistorial, setRefrescarHistorial] = useState(0);
 
   const isAuthorized = Boolean(isAuthenticated && user && ALLOWED_ROLES.includes(user.rol));
 
@@ -57,72 +49,65 @@ export function CierresPage() {
   }, [isAuthenticated, user, router]);
 
   const cargarPreview = useCallback(async () => {
-    setLoading(true);
+    setCargando(true);
     setError(null);
     try {
       setTotales(await fetchPreviewCierre());
     } catch (err) {
       setError(handleApiError(err, "No se pudo calcular el cierre de caja."));
     } finally {
-      setLoading(false);
+      setCargando(false);
     }
   }, []);
 
-  /**
-   * Historial de cierres (CC-3). Es información secundaria: si falla, el flujo de
-   * previsualizar/cerrar sigue funcionando y sólo se deja el historial vacío.
-   */
-  const cargarHistorial = useCallback(async () => {
-    try {
-      setCierres(await fetchCierres());
-    } catch {
-      setCierres([]);
-    }
-  }, []);
-
+  // Carga inicial: el setState vive en los callbacks del fetch, no en el cuerpo del efecto.
   useEffect(() => {
     if (!isAuthorized) return;
-    let cancelled = false;
+    let cancelado = false;
     fetchPreviewCierre()
       .then((data) => {
-        if (!cancelled) setTotales(data);
+        if (!cancelado) setTotales(data);
       })
       .catch((err) => {
-        if (!cancelled) setError(handleApiError(err, "No se pudo calcular el cierre de caja."));
+        if (!cancelado) {
+          setError(handleApiError(err, "No se pudo calcular el cierre de caja."));
+        }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelado) setCargando(false);
       });
-
-    // Historial (CC-3): carga secundaria dentro del mismo efecto, sin setState síncrono.
-    fetchCierres()
-      .then((data) => {
-        if (!cancelled) setCierres(data);
-      })
-      .catch(() => {
-        if (!cancelled) setCierres([]);
-      });
-
     return () => {
-      cancelled = true;
+      cancelado = true;
     };
   }, [isAuthorized]);
 
-  const handleConfirmar = async () => {
+  /** Abre el diálogo. El POST ocurre recién al confirmar, nunca al abrir. */
+  const abrirDialogo = () => {
+    if (!totales) return;
     setError(null);
+    setDialogoAbierto(true);
+  };
+
+  const cerrarDialogo = () => {
+    if (!confirmando) setDialogoAbierto(false);
+  };
+
+  const handleConfirmar = async () => {
+    if (!totales || confirmando) return;
     setConfirmando(true);
     try {
       // CC-2: cerrar exactamente el rango previsualizado, no un `new Date()` nuevo.
-      const cierre = await createCierre(
-        totales ? { desde: totales.desde, hasta: totales.hasta } : undefined
-      );
+      const cierre = await createCierre({ desde: totales.desde, hasta: totales.hasta });
       notify(
         "success",
         `Cierre registrado: ${money(cierre.totalRecaudado)} · ${cierre.cantidadOperaciones} operaciones`
       );
+      setDialogoAbierto(false);
       await cargarPreview();
-      await cargarHistorial();
+      setRefrescarHistorial((n) => n + 1);
     } catch (err) {
+      // El resumen queda intacto: el error se muestra en el panel para reintentar.
+      setDialogoAbierto(false);
       setError(handleApiError(err, "No se pudo cerrar la caja."));
     } finally {
       setConfirmando(false);
@@ -146,87 +131,50 @@ export function CierresPage() {
 
   return (
     <SectionPageLayout activeSection="cierres" breadcrumb="Cierre de Caja">
-      <h1 className="sr-only">Cierre de Caja</h1>
+      <h1 className="text-2xl font-bold text-ink">Cierre de Caja</h1>
 
-      <div className="flex w-full max-w-lg flex-col gap-5 rounded-lg border border-border bg-surface p-6">
-        <div>
-          <p className="text-sm font-medium text-ink-muted">Total del turno</p>
-          <p data-testid="cierre-total" className="text-3xl font-bold text-ink">
-            {totales ? money(totales.totalRecaudado) : "$0.00"}
-          </p>
-          <p className="mt-1 text-xs text-ink-muted">
-            {totales?.cantidadOperaciones ?? 0} operaciones pendientes de cierre
-          </p>
-        </div>
+      <ResumenTurno
+        totales={totales}
+        cargando={cargando}
+        error={error}
+        confirmando={confirmando}
+        onConfirmar={abrirDialogo}
+        onReintentar={cargarPreview}
+      />
 
-        {error && (
-          <p role="alert" className="rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger">
-            {error}
-          </p>
+      <HistorialCierres key={refrescarHistorial} refrescarToken={refrescarHistorial} />
+
+      <ConfirmDialog
+        open={dialogoAbierto}
+        title="Confirmar cierre de caja"
+        message="Revisá el resumen antes de cerrar el turno."
+        confirmLabel={confirmando ? "Cerrando…" : "Confirmar cierre"}
+        onCancel={cerrarDialogo}
+        onConfirm={handleConfirmar}
+        confirmando={confirmando}
+      >
+        {totales && (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-ink-muted">Total recaudado</p>
+            <p className="text-2xl font-bold text-ink">{money(totales.totalRecaudado)}</p>
+            <dl className="flex flex-col gap-1">
+              <div className="flex justify-between">
+                <dt>Efectivo</dt>
+                <dd className="tabular-nums">{money(totales.totalEfectivo)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt>Transferencia</dt>
+                <dd className="tabular-nums">{money(totales.totalTransferencia)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt>Tarjeta</dt>
+                <dd className="tabular-nums">{money(totales.totalTarjeta)}</dd>
+              </div>
+            </dl>
+            <p>{totales.cantidadOperaciones} operaciones incluidas</p>
+          </div>
         )}
-
-        <div className="flex flex-col gap-1 text-sm text-ink-muted">
-          <div className="flex justify-between">
-            <span>Efectivo</span>
-            <span>{money(totales?.totalEfectivo ?? 0)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Transferencia</span>
-            <span>{money(totales?.totalTransferencia ?? 0)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Tarjeta</span>
-            <span>{money(totales?.totalTarjeta ?? 0)}</span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleConfirmar}
-          disabled={confirmando || loading}
-          className="rounded bg-brand-strong px-4 py-2 font-medium text-surface hover:bg-brand-deep disabled:cursor-not-allowed disabled:bg-ink-disabled"
-        >
-          {confirmando ? "Cerrando..." : "Confirmar cierre"}
-        </button>
-      </div>
-
-      <section aria-labelledby="cierres-recientes" className="mt-6 flex w-full max-w-lg flex-col gap-3">
-        <h2 id="cierres-recientes" className="text-sm font-medium text-ink-muted">
-          Cierres recientes
-        </h2>
-        {cierres.length === 0 ? (
-          <p className="text-sm text-ink-muted">Sin cierres registrados.</p>
-        ) : (
-          <ul data-testid="historial-cierres" className="flex flex-col gap-3">
-            {cierres.map((cierre) => (
-              <li
-                key={cierre.id}
-                className="rounded-lg border border-border bg-surface p-4 text-sm text-ink-muted"
-              >
-                <div className="flex justify-between font-medium text-ink">
-                  <span>{formatFechaCierre(cierre.createdAt)}</span>
-                  <span data-testid={`cierre-total-${cierre.id}`}>{money(cierre.totalRecaudado)}</span>
-                </div>
-                <div className="mt-2 flex flex-col gap-1 text-xs text-ink-muted">
-                  <div className="flex justify-between">
-                    <span>Efectivo</span>
-                    <span>{money(cierre.totalEfectivo)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Transferencia</span>
-                    <span>{money(cierre.totalTransferencia)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tarjeta</span>
-                    <span>{money(cierre.totalTarjeta)}</span>
-                  </div>
-                  <span className="pt-1">{cierre.cantidadOperaciones} operaciones</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      </ConfirmDialog>
     </SectionPageLayout>
   );
 }

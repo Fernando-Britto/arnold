@@ -20,6 +20,8 @@ export interface ConfirmDialogProps {
   confirmando?: boolean;
   /** Bloquea la confirmación (p. ej. el recurso está en uso). */
   confirmDisabled?: boolean;
+  /** Contenido extra entre el mensaje y los botones (p. ej. el resumen del cierre). */
+  children?: React.ReactNode;
 }
 
 /**
@@ -37,6 +39,7 @@ export function ConfirmDialog({
   danger = false,
   confirmando = false,
   confirmDisabled = false,
+  children,
 }: ConfirmDialogProps) {
   const dialogRef = useModalA11y<HTMLDivElement>(open, onCancel);
 
@@ -54,6 +57,7 @@ export function ConfirmDialog({
           {title}
         </h2>
         <p className="mt-2 text-sm text-ink-muted">{message}</p>
+        {children && <div className="mt-3 text-sm text-ink-soft">{children}</div>}
 
         <div className="mt-5 flex justify-end gap-3">
           <button
