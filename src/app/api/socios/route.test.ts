@@ -14,11 +14,14 @@ jest.mock("@/lib/auth", () => ({
   extractUserFromRequest: jest.fn(),
 }));
 
-import { handleBuscarSocio } from "@/api/socios";
+import { handleBuscarSocio, handleBuscarSociosPorNombre } from "@/api/socios";
 import { extractUserFromRequest } from "@/lib/auth";
-import { GET, handleBuscarSocioRequest } from "./route";
+import { GET, handleBuscarSocioRequest, handleBuscarSociosRequest } from "./route";
 
 const mockBuscar = handleBuscarSocio as jest.MockedFunction<typeof handleBuscarSocio>;
+const mockBuscarVarios = handleBuscarSociosPorNombre as jest.MockedFunction<
+  typeof handleBuscarSociosPorNombre
+>;
 const mockUser = extractUserFromRequest as jest.Mock;
 
 const socioFalso = {
@@ -29,6 +32,7 @@ const socioFalso = {
   telefono: null,
   membresia: { id: "plan-gold", nombre: "Gold", precio: 30000 },
   estadoCuota: "PENDIENTE",
+  fechaVencimiento: "2026-10-31T02:59:59.999Z",
   plan: {
     tipo: "RENOVACION",
     periodos: ["2026-11"],
@@ -36,6 +40,20 @@ const socioFalso = {
     cubreDesde: "2026-11-01T03:00:00.000Z",
     cubreHasta: "2026-11-30T02:59:59.999Z",
   },
+};
+
+const busquedaFalsa = {
+  items: [
+    {
+      id: "socio-1",
+      nombre: "Ana García",
+      dni: "30123456",
+      membresia: "Gold",
+      fechaVencimiento: "2026-10-31T02:59:59.999Z",
+      estadoCuota: "PENDIENTE",
+    },
+  ],
+  total: 1,
 };
 
 const getReq = (qs = "") => new NextRequest(`http://localhost:3000/api/socios${qs}`);
@@ -60,6 +78,29 @@ describe("handleBuscarSocioRequest (sin NextRequest)", () => {
 
     expect(r.status).toBe(404);
     expect((r.body as { code: string }).code).toBe("NOT_FOUND");
+  });
+});
+
+describe("handleBuscarSociosRequest (sin NextRequest)", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("200 con el resultado paginado", async () => {
+    mockBuscarVarios.mockResolvedValueOnce(busquedaFalsa as never);
+
+    const r = await handleBuscarSociosRequest("ana", 10, 0);
+
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual(busquedaFalsa);
+    expect(mockBuscarVarios).toHaveBeenCalledWith({ q: "ana", limit: 10, offset: 0 });
+  });
+
+  it("500 si la búsqueda falla", async () => {
+    mockBuscarVarios.mockRejectedValueOnce(new Error("boom"));
+
+    const r = await handleBuscarSociosRequest("ana");
+
+    expect(r.status).toBe(500);
+    expect((r.body as { code: string }).code).toBe("SERVER_ERROR");
   });
 });
 
@@ -112,5 +153,57 @@ describe("GET /api/socios", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(socioFalso);
     expect(mockBuscar).toHaveBeenCalledWith("30123456");
+  });
+
+  it("200 con la grilla paginada de ?q= para RECEPCIONISTA", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+    mockBuscarVarios.mockResolvedValueOnce(busquedaFalsa as never);
+
+    const res = await GET(getReq("?q=ana&limit=10&offset=0"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(busquedaFalsa);
+    expect(mockBuscarVarios).toHaveBeenCalledWith({ q: "ana", limit: 10, offset: 0 });
+    expect(mockBuscar).not.toHaveBeenCalled();
+  });
+
+  it("403 para INSTRUCTOR en la búsqueda por nombre", async () => {
+    mockUser.mockReturnValue({ id: "u-inst", rol: "INSTRUCTOR" });
+
+    const res = await GET(getReq("?q=ana"));
+
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("FORBIDDEN");
+    expect(mockBuscarVarios).not.toHaveBeenCalled();
+  });
+
+  it("400 con limit inválido sin llamar al handler", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+
+    const res = await GET(getReq("?q=ana&limit=0"));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION_ERROR");
+    expect(mockBuscarVarios).not.toHaveBeenCalled();
+  });
+
+  it("400 con offset inválido sin llamar al handler", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+
+    const res = await GET(getReq("?q=ana&offset=-1"));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION_ERROR");
+    expect(mockBuscarVarios).not.toHaveBeenCalled();
+  });
+
+  it("400 si falta dni y q", async () => {
+    mockUser.mockReturnValue({ id: "u-rec", rol: "RECEPCIONISTA" });
+
+    const res = await GET(getReq("?limit=10"));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("VALIDATION_REQUIRED");
+    expect(mockBuscarVarios).not.toHaveBeenCalled();
   });
 });

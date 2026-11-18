@@ -3,7 +3,13 @@
  * Prisma va mockeado (igual que registrar-pago.test.ts): el motor remoto no es
  * alcanzable. El estado de cuota y el plan se calculan con las reglas puras (D-40).
  */
-import { handleBuscarSocio, fetchSocioPorDni } from "./socios";
+import {
+  handleBuscarSocio,
+  handleBuscarSocioPorId,
+  handleBuscarSociosPorNombre,
+  fetchSocioPorDni,
+  fetchSociosPorNombre,
+} from "./socios";
 import { finDePeriodo, inicioDePeriodo } from "@/domains/pago/cuota";
 
 jest.mock("@/lib/db", () => {
@@ -14,6 +20,7 @@ jest.mock("@/lib/db", () => {
     pago: { findFirst: jest.fn() },
     asistencia: { findFirst: jest.fn() },
     configuracionDelSistema: { findFirst: jest.fn() },
+    $queryRaw: jest.fn(),
   };
   return { prisma };
 });
@@ -66,6 +73,7 @@ describe("handleBuscarSocio", () => {
       telefono: "+54 9 11 5555 5555",
       membresia: { id: "plan-gold", nombre: "Gold", precio: 30000 },
       estadoCuota: "PENDIENTE",
+      fechaVencimiento: finDePeriodo("2026-10").toISOString(),
       plan: {
         tipo: "RENOVACION",
         periodos: ["2026-11"],
@@ -171,6 +179,109 @@ describe("handleBuscarSocio", () => {
   });
 });
 
+describe("handleBuscarSocioPorId", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("devuelve la vista previa por id, con fechaVencimiento y estado", async () => {
+    const prisma = await armarSocio();
+    (prisma.cuota.findFirst as jest.Mock).mockResolvedValue({
+      fechaVencimiento: finDePeriodo("2026-10"),
+    });
+
+    const r = await handleBuscarSocioPorId("socio-1", d("2026-11-05T10:00:00"));
+
+    expect(prisma.socio.findUnique).toHaveBeenCalledWith({
+      where: { id: "socio-1" },
+      include: { usuario: true, membresiaAsignada: true },
+    });
+    expect(r.id).toBe("socio-1");
+    expect(r.fechaVencimiento).toBe(finDePeriodo("2026-10").toISOString());
+    expect(r.estadoCuota).toBe("PENDIENTE");
+    expect(r.plan?.periodos).toEqual(["2026-11"]);
+  });
+
+  it("lanza NOT_FOUND si el id no existe", async () => {
+    const prisma = await armarSocio();
+    (prisma.socio.findUnique as jest.Mock).mockResolvedValue(null);
+
+    await expect(handleBuscarSocioPorId("no-existe")).rejects.toThrow("NOT_FOUND");
+  });
+});
+
+describe("handleBuscarSociosPorNombre", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const fila = {
+    id: "socio-1",
+    nombre: "Ana García",
+    dni: "30123456",
+    membresiaNombre: "Gold",
+    fechaVencimiento: finDePeriodo("2026-10"),
+    total: 1,
+  };
+
+  it("arma un filtro unaccent/ILIKE por token con AND y mapea el resumen con estado", async () => {
+    const prisma = await armarSocio();
+    (prisma.$queryRaw as jest.Mock).mockResolvedValue([fila]);
+
+    const r = await handleBuscarSociosPorNombre(
+      { q: "  juan perez  " },
+      d("2026-11-05T10:00:00"),
+    );
+
+    const sql = (prisma.$queryRaw as jest.Mock).mock.calls[0][0] as {
+      sql: string;
+      values: unknown[];
+    };
+    expect(sql.sql).toContain("unaccent");
+    expect(sql.sql).toContain(" AND ");
+    // Dos patrones (uno por token) + LIMIT/OFFSET.
+    expect(sql.values).toEqual(["%juan%", "%perez%", 10, 0]);
+    expect(r).toEqual({
+      items: [
+        {
+          id: "socio-1",
+          nombre: "Ana García",
+          dni: "30123456",
+          membresia: "Gold",
+          fechaVencimiento: finDePeriodo("2026-10").toISOString(),
+          estadoCuota: "PENDIENTE",
+        },
+      ],
+      total: 1,
+    });
+  });
+
+  it("sin resultados devuelve total 0", async () => {
+    const prisma = await armarSocio();
+    (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+    const r = await handleBuscarSociosPorNombre({ q: "nadie" }, d("2026-11-05T10:00:00"));
+
+    expect(r).toEqual({ items: [], total: 0 });
+  });
+
+  it("con q vacío corta sin consultar la base", async () => {
+    const prisma = await armarSocio();
+
+    const r = await handleBuscarSociosPorNombre({ q: "   " });
+
+    expect(r).toEqual({ items: [], total: 0 });
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(prisma.configuracionDelSistema.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("clampea limit a 1..50 y offset a >= 0", async () => {
+    const prisma = await armarSocio();
+    (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+    await handleBuscarSociosPorNombre({ q: "ana", limit: 999, offset: -3 });
+
+    const sql = (prisma.$queryRaw as jest.Mock).mock.calls[0][0] as { values: unknown[] };
+    expect(sql.values).toEqual(["%ana%", 50, 0]);
+  });
+});
+
 describe("fetchSocioPorDni (fetch client)", () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -185,5 +296,20 @@ describe("fetchSocioPorDni (fetch client)", () => {
 
     expect(r).toEqual(socio);
     expect(global.fetch).toHaveBeenCalledWith("/api/socios?dni=30123456");
+  });
+
+  it("fetchSociosPorNombre arma q/limit/offset en la query string", async () => {
+    const resultado = { items: [], total: 0 };
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => resultado,
+    });
+
+    const r = await fetchSociosPorNombre({ q: "ana garcía", limit: 10, offset: 20 });
+
+    expect(r).toEqual(resultado);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/socios?q=ana+garc%C3%ADa&limit=10&offset=20",
+    );
   });
 });
