@@ -27,7 +27,7 @@
 
 - Los números que use el motor (series objetivo, ventana de estancamiento, factor de descarga, duración de fase) son **parámetros configurables candidatos**, no verdades derivadas.
 - La detección de estancamiento **no tiene definición consensuada**: es criterio de ingeniería.
-- El RIR sirve como señal, con dos correcciones: es ruidoso (Halperin 2022) y su efecto depende del objetivo (Robinson 2024: importa para hipertrofia, no para fuerza).
+- El RIR sirve como señal, con dos correcciones: es ruidoso y el error **no** depende del nivel (Halperin 2022: subestimación media de 0,95 reps, I² = 97,9 %); y su efecto depende del objetivo (Robinson 2024: importa para hipertrofia, no para fuerza).
 - La población de la evidencia es **adultos sanos, en su mayoría jóvenes entrenados**; el motor debe declarar exclusiones.
 
 ---
@@ -41,8 +41,8 @@
 | Carga alta vs baja | Schoenfeld et al. 2017, *JSCR* (`10.1519/JSC.0000000000002200`) | Meta-análisis | Entrenados y recreacionales | METADATOS (abstract no leído) | Alta (según literatura previa) | El resumen de "hipertrofia similar al fallo" **no se verificó en esta sesión** | `RANGO_REPS_HIPERTROFIA` |
 | Periodización | Williams 2017 (`10.1007/s40279-017-0734-y`); Moesgaard 2022 (`10.1007/s40279-021-01636-1`) | Meta-análisis | Mixta | METADATOS | Media | No se leyó el tamaño del efecto | `DURACION_FASE_SEMANAS` |
 | Autorregulación por RIR | Hickmott 2022 (`10.1186/s40798-021-00404-9`) | Revisión sistemática + meta-análisis | Entrenados | METADATOS | Media | Superioridad vs prescripción fija no verificada acá | `USAR_RIR_COMO_SENAL` (bool) |
-| Precisión del RIR | Halperin 2022, *Sports Med* 52(2):377-390 (`10.1007/s40279-021-01559-x`) | Scoping review + meta-análisis exploratorio | Entrenados | ABSTRACT parcial (objetivo; resultados no) | Media | Error de predicción no verificado en magnitud | `RIR_FACTOR_CORRECCION_POR_NIVEL` |
-| Progresión de carga y frecuencia | ACSM 2009 (`10.1249/MSS.0b013e3181915670`) | Posicionamiento de consenso | Adultos sanos | METADATOS | Media | Documento de posición; sin abstract con cifras | `INCREMENTO_POR_FASE_PCT` |
+| Precisión del RIR | Halperin 2022, *Sports Med* 52(2):377-390 (`10.1007/s40279-021-01559-x`, PMID 34542869) | Scoping review + meta-análisis exploratorio | 414 participantes, 12 estudios | ABSTRACT | Media | Subestimación media 0,95 reps, I² = 97,9 %; el nivel no influye | `RIR_DESFASE_GLOBAL`, `RIR_SERIE_DE_LECTURA` |
+| Progresión de carga y frecuencia | ACSM 2009 (`10.1249/MSS.0b013e3181915670`, PMID 19204579) | Posicionamiento de consenso | Adultos sanos | ABSTRACT | Media | Regla condicional: subir 2–10 % al lograr 1–2 reps de sobra | `REPS_SOBRANTES_PARA_SUBIR`, `INCREMENTO_PCT_MIN/MAX` |
 | Descarga — definición y variables | Bell et al. 2023, *Sports Med Open* 9:87 (`10.1186/s40798-023-00633-0`; PMC10511399) | Consenso Delphi (34/29/21 expertos) | Coaches de fuerza y físico | TEXTO COMPLETO (intro + tablas) | Alta para el acuerdo; baja para umbrales | Consenso ≥ 70 %; sin números universales | `DELOAD_REDUCCION_VOLUMEN_PCT` |
 | Descarga — evidencia empírica | Coleman et al. 2024, *PeerJ* 12:e16777 (`10.7717/peerj.16777`) | Ensayo controlado aleatorizado | 39 entrenados (29 M / 10 F), 9 semanas | ABSTRACT | Media-baja | Un solo ECA, cese total de 1 semana, n = 39, miembros inferiores; no habla de descargas con volumen reducido | `DELOAD_DURACION_SEMANAS` |
 | Estimación 1RM submáxima | Epley 1985; Brzycki 1993; validaciones posteriores | Estudios de validación | Mixta | NO VERIFICADO | Baja-media | Los errores por rango de repeticiones son *práctica*, no verificados acá | `RM_ESTIMACION_MAX_REPS` |
@@ -104,7 +104,7 @@
 
 **Estado**: la afirmación "hipertrofia similar con cargas altas y bajas cuando se llega al fallo, y fuerza mayor con carga alta" es **literatura conocida pero no verificada acá**. Tratarla como dirección probable, no como cita confirmada.
 
-**Parámetros candidatos (práctica)**: `RANGO_REPS_FUERZA` (3–6), `RANGO_REPS_HIPERTROFIA` (6–20).
+**Parámetros candidatos**: `RANGO_REPS_FUERZA` (**1–6**, ACSM 2009; el 3–6 es un valor práctico dentro de ese rango), `RANGO_REPS_HIPERTROFIA` (**6–12**, ACSM 2009).
 
 ### 3.4 Periodización
 
@@ -126,21 +126,45 @@
 
 ### 3.6 Precisión del RIR
 
-**Fuente**: Halperin, Malleron, Har-Nir, Androulakis-Korakakis, Wolf, Fisher & Steele (2022), *Sports Medicine* 52(2):377-390 (Epub 2021-09-20). DOI `10.1007/s40279-021-01559-x`. PMID 34542869. **ABSTRACT parcial**: se leyó el objetivo (comparar repeticiones predichas vs reales hasta el fallo, scoping review + meta-análisis exploratorio); **no** se leyeron los resultados numéricos.
+**Fuente**: Halperin, Malleron, Har-Nir, Androulakis-Korakakis, Wolf, Fisher & Steele (2022), *Sports Medicine* 52(2):377-390 (Epub 2021-09-20). DOI `10.1007/s40279-021-01559-x`. PMID 34542869. **ABSTRACT** (leído completo, verificado el 2026-11-18).
 
-**Estado**: la dirección "el RIR autoinformado tiene error y el error es mayor en novatos" es **inferencia del equipo**; la magnitud (2–3 repeticiones) **no está verificada** en esta sesión.
+**Evidencia (abstract)**
+- 12 estudios, 414 participantes, 262 tamaños de efecto.
+- En promedio los participantes **subestiman** las repeticiones que les quedaban hasta el fallo en **0,95 repeticiones** (IC 95 % 0,17–1,73).
+- Heterogeneidad **muy alta**: I² = 97,9 % (Q(261) = 3060).
+- El **nivel de entrenamiento no influyó** en la precisión (β = −0,006; IC −0,02 a 0,007).
+- La precisión mejora algo cuando la predicción se hace **más cerca del fallo** (β = −0,025), cuando las series son de **≤ 12 repeticiones** (β = 0,06, contra β = 0,47 con > 12), con **cargas más pesadas** y en **series posteriores** (β = −0,07).
+- La variación entre participantes es chica (DE 1,45 repeticiones).
+- Conclusión de los autores: la predicción es imperfecta **independientemente** de la experiencia.
 
-**Inferencia para el motor**: no confiar en el RIR puntual. Usar tendencia y, si se corrige, hacerlo con un factor por nivel como parámetro explícito.
+**Corrección respecto de la versión anterior**: "el error es mayor en novatos" y "el error puede ser de 2–3 repeticiones" **no salen de este abstract** y se eliminan. El desfase es global, no por nivel.
 
-**Parámetro candidato**: `RIR_FACTOR_CORRECCION_POR_NIVEL` (práctica: novato +1, intermedio +0,5, avanzado 0).
+**Inferencia para el motor**
+- Un factor de corrección **por nivel** no tiene respaldo: se elimina.
+- Queda un **desfase global opcional** (candidato ~+1 repetición), con incertidumbre amplia y desactivable.
+- La lectura más confiable es la **última serie** del ejercicio: es donde la predicción es más precisa y la más cercana al fallo.
+- La tendencia se evalúa sobre varias sesiones; nunca un solo dato.
+
+**Parámetros candidatos**: `RIR_DESFASE_GLOBAL` (candidato ~+1; incertidumbre amplia; desactivable), `RIR_SERIE_DE_LECTURA` = `"última serie"`.
 
 ### 3.7 Progresión de carga y frecuencia (ACSM)
 
-**Fuente**: American College of Sports Medicine (2009), "Progression Models in Resistance Training for Healthy Adults", *Medicine & Science in Sports & Exercise* 41(3):687-708. DOI `10.1249/MSS.0b013e3181915670`. **METADATOS**: DOI resuelve; es un posicionamiento, sin abstract con cifras.
+**Fuente**: American College of Sports Medicine (2009), "Progression Models in Resistance Training for Healthy Adults", *Medicine & Science in Sports & Exercise* 41(3):687-708. DOI `10.1249/MSS.0b013e3181915670`. PMID 19204579. **ABSTRACT** (leído completo, verificado el 2026-11-18).
 
-**Estado**: la regla "incrementos de 2–10 % según nivel" es **práctica extendida**, no un dato verificado acá.
+**Evidencia (abstract)**
+- **Regla de progresión**: cuando la persona puede hacer **1–2 repeticiones por encima** de las deseadas con la carga actual, se aumenta la carga **2–10 %**. Es una **condición sobre repeticiones**, no una tasa por nivel.
+- **Frecuencia**: 2–3 días/semana (novato), 3–4 (intermedio), 4–5 (avanzado).
+- **Nivel**: novato = sin experiencia o sin entrenar hace años; intermedio = **~6 meses** de entrenamiento consistente; avanzado = años.
+- **Cargas**: novato, 8–12 RM. Intermedio-avanzado, 1–12 RM periodizado con énfasis final en **1–6 RM**, descansos de 3–5 min.
+- **Hipertrofia**: misma selección y frecuencia; cargas 1–12 RM periodizadas con énfasis en **6–12 RM**, descansos de 1–2 min; mayor volumen y múltiples series.
 
-**Inferencia para el motor**: el incremento fijo de 2,5 kg del sistema actual es conservador para un novato en multiarticular y agresivo para un avanzado. Parametrizar por nivel y por tipo de ejercicio.
+**Corrección respecto de la versión anterior**: el 2–10 % **no** es "práctica por nivel" ni una tasa de incremento; es un umbral disparado por repeticiones de sobra. El rango de hipertrofia pasa de 6–20 (práctica) a **6–12 (ACSM)**.
+
+**Inferencia para el motor**
+- El motor actual solo expone `cumplida: boolean` (`src/domains/sesion/progresion-ejercicio.ts:64-78`): **no puede** aplicar la regla del ACSM tal cual, porque le faltan las repeticiones realizadas contra el objetivo. Eso es materia de una decisión del propose.
+- El incremento fijo de 2,5 kg puede expresarse como caso particular de la regla cuando el salto entra en el 2–10 % de la carga actual.
+
+**Parámetros candidatos**: `INCREMENTO_PCT_MIN` (2), `INCREMENTO_PCT_MAX` (10), `REPS_SOBRANTES_PARA_SUBIR` (1–2), `DIAS_POR_NIVEL` (novato 2–3, intermedio 3–4, avanzado 4–5), `RANGO_REPS_FUERZA` (**1–6**, ACSM; el 3–6 actual queda como valor práctico dentro del rango), `RANGO_REPS_HIPERTROFIA` (**6–12**, ACSM).
 
 ### 3.8 Descarga (deload)
 
@@ -239,6 +263,14 @@ Criterios pragmáticos usados en la práctica: N sesiones consecutivas sin progr
 
 **Regla**: AGPL-3.0 permite inspirarse en ideas, **no copiar código**. Este documento no reproduce implementaciones.
 
+### 3.15 Tema abierto — la meta como parámetro del RIR
+
+**Inferencia del equipo (no evidencia)**
+
+- Robinson 2024 separa el efecto por objetivo: el RIR pesa en hipertrofia y no en fuerza (ver 3.2). Para una meta tipo "mejorar press banca" (fuerza), el RIR aporta poco.
+- Por eso el motor debe recibir la **meta** como parámetro explícito y usar el RIR **solo cuando la meta lo justifique** (hipertrofia/definición), no como señal universal.
+- Queda abierto hasta que se definan las metas del MVP (decisión pendiente 4 del `explore.md`).
+
 ---
 
 ## 4. Lo que NO tiene evidencia directa
@@ -249,7 +281,7 @@ Criterios pragmáticos usados en la práctica: N sesiones consecutivas sin progr
 | "Definición" como fase con progresión propia | Construcción de práctica | Mapear a fuerza con volumen reducido; documentar que depende de nutrición |
 | Tasas de progreso por nivel (kg/semana) | Práctica, no verificada | Parametrizar y ajustar con historial real |
 | Descarga por calendario | Sin apoyo en el único ECA leído (Coleman 2024: cese total de 1 semana); no evalúa descargas con volumen reducido | Apagada por defecto; reactiva primero |
-| RIR como regulador diario | Superioridad no verificada (Hickmott: METADATOS) | No usarlo como regulador en este change |
+| RIR como regulador diario | Superioridad no verificada (Hickmott: METADATOS) | No usarlo como gatillo de una sola sesión: señal blanda = tendencia sobre una ventana, leída en la última serie (D-136) |
 | Población no adulta o con lesiones | Fuera de la literatura verificada | Declarar población objetivo y excluir |
 | Fórmulas de 1RM en rangos altos | No verificadas | Limitar a ≤ 6 reps |
 | Magnitud del efecto de periodización | Metadatos solamente | Leer Williams 2017 y Moesgaard 2022 antes de fijar duración de fase |
@@ -268,8 +300,8 @@ Criterios pragmáticos usados en la práctica: N sesiones consecutivas sin progr
 | 5 | Williams, Tolusso, Fedewa & Esco (2017). Periodized vs. Non-Periodized RT on Maximal Strength. *Sports Med* | `10.1007/s40279-017-0734-y` | — | METADATOS |
 | 6 | Moesgaard et al. (2022). Periodization on Strength and Muscle Hypertrophy in Volume-Equated Programs. *Sports Med* | `10.1007/s40279-021-01636-1` | — | METADATOS |
 | 7 | Hickmott, Chilibeck, Shaw & Butcher (2022). Load and Volume Autoregulation. *Sports Med Open* | `10.1186/s40798-021-00404-9` | — | METADATOS |
-| 8 | Halperin, Malleron, Har-Nir, Androulakis-Korakakis, Wolf, Fisher & Steele (2022). Accuracy in Predicting Repetitions to Task Failure. *Sports Med* 52(2):377-390 | `10.1007/s40279-021-01559-x` | 34542869 | ABSTRACT parcial (objetivo) |
-| 9 | ACSM (2009). Progression Models in Resistance Training for Healthy Adults. *MSSE* 41(3):687-708 | `10.1249/MSS.0b013e3181915670` | — | METADATOS |
+| 8 | Halperin, Malleron, Har-Nir, Androulakis-Korakakis, Wolf, Fisher & Steele (2022). Accuracy in Predicting Repetitions to Task Failure. *Sports Med* 52(2):377-390 | `10.1007/s40279-021-01559-x` | 34542869 | ABSTRACT (0,95 reps; I² 97,9 %; el nivel no influye) |
+| 9 | ACSM (2009). Progression Models in Resistance Training for Healthy Adults. *MSSE* 41(3):687-708 | `10.1249/MSS.0b013e3181915670` | 19204579 | ABSTRACT (2–10 % condicionado; frecuencias por nivel; 6–12 RM) |
 | 10 | Bell, Strafford, Coleman, Androulakis Korakakis & Nolan (2023). Integrating Deloading: An International Delphi Consensus. *Sports Med Open* 9:87 | `10.1186/s40798-023-00633-0` | 37730925 | TEXTO COMPLETO parcial (intro + tablas) |
 | 11 | Coleman et al. (2024). Gaining more from doing less? A one-week deload. *PeerJ* 12:e16777 | `10.7717/peerj.16777` | 38274324 | ABSTRACT |
 | 12 | Epley (1985); Brzycki (1993). Fórmulas de 1RM | — | — | NO VERIFICADO |
@@ -285,6 +317,7 @@ Criterios pragmáticos usados en la práctica: N sesiones consecutivas sin progr
 3. **Una fuente identificada**: la meta-regresión de 67 estudios / 2.058 participantes es Pelland et al. 2026, no una referencia sin autor.
 4. **Coleman 2024 no es "apoyo limitado a la práctica" ni tampoco "evidencia en contra del calendario"**: es un único ECA (n = 39, 9 semanas) con cese total de una semana; no muestra ventaja en hipertrofia y da menos fuerza que el grupo continuo. No permite concluir sobre descargas con volumen reducido.
 5. **openGym no se verificó**: las ideas de diseño siguen siendo referencia del equipo.
+6. **Dos correcciones más (2026-11-18)**: ACSM 2009 sí trae cifras en el abstract (2–10 % condicionado a 1–2 repeticiones de sobra, frecuencias por nivel y 6–12 RM para hipertrofia), y Halperin 2022 no respalda un error mayor en novatos: el desfase es global y el nivel no influye.
 
 **Pendiente para subir la fuerza del documento**: leer los abstracts de Schoenfeld 2017 (ambos), Williams 2017, Moesgaard 2022, Hickmott 2022 y los resultados de Halperin 2022. Son cinco lecturas de abstract, no papers completos.
 
