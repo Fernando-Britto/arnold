@@ -60,7 +60,16 @@ function useMovimientoReducido(): boolean {
   return useSyncExternalStore(suscribirMovimiento, hayMovimientoReducido, () => false);
 }
 
-export function EjercicioVideo({ mediaId, nombre }: { mediaId: string | null | undefined; nombre: string }) {
+export function EjercicioVideo({
+  mediaId,
+  nombre,
+  ancho = 180,
+}: {
+  mediaId: string | null | undefined;
+  nombre: string;
+  /** Lado del recuadro del video (y de la miniatura de respaldo), en px. */
+  ancho?: number;
+}) {
   const [fallo, setFallo] = useState(false);
   const movimientoReducido = useMovimientoReducido();
 
@@ -70,7 +79,7 @@ export function EjercicioVideo({ mediaId, nombre }: { mediaId: string | null | u
   if (fallo) {
     // El mp4 no cargó: se muestra el primer cuadro estático.
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={urlMiniatura(mediaId)} alt={`Ejercicio ${nombre}`} width={180} height={180} className="rounded border border-border bg-surface" />;
+    return <img src={urlMiniatura(mediaId)} alt={`Ejercicio ${nombre}`} width={ancho} height={ancho} className="rounded border border-border bg-surface" />;
   }
   return (
     <video
@@ -83,8 +92,8 @@ export function EjercicioVideo({ mediaId, nombre }: { mediaId: string | null | u
       muted
       playsInline
       preload="metadata"
-      width={180}
-      height={180}
+      width={ancho}
+      height={ancho}
       onError={() => setFallo(true)}
       className="rounded border border-border bg-surface"
     />

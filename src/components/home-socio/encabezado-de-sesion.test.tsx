@@ -15,6 +15,8 @@ describe("EncabezadoDeSesion", () => {
     expect(screen.getByTestId("sesion-ejercicio")).toHaveTextContent("Ejercicio 2 de 6");
     expect(screen.getByTestId("sesion-series")).toHaveTextContent("7/19 series");
     expect(screen.getByTestId("sesion-tiempo")).toHaveTextContent("12:34");
+    // 7 de 19 series ≈ 37 %.
+    expect(screen.getByTestId("sesion-porcentaje")).toHaveTextContent("37%");
   });
 
   it("la barra es una barra de progreso accesible, con el texto en palabras", () => {
@@ -58,5 +60,6 @@ describe("EncabezadoDeSesion", () => {
 
     expect(screen.getByTestId("sesion-relleno")).toHaveStyle({ width: "0%" });
     expect(screen.getByTestId("sesion-series")).toHaveTextContent("0/0 series");
+    expect(screen.getByTestId("sesion-porcentaje")).toHaveTextContent("0%");
   });
 });

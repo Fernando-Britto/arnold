@@ -123,9 +123,10 @@ export function HomeSocioPage() {
           {error}
         </p>
       ) : modoEjecucion ? (
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+        <div className="flex w-full flex-col gap-5">
           <EjecucionRutina
             rutinaAsignadaId={data?.rutinaActiva?.rutinaAsignadaId ?? null}
+            rutinaNombre={data?.rutinaActiva?.nombre ?? null}
             onCerrar={cerrarEjecucion}
           />
         </div>

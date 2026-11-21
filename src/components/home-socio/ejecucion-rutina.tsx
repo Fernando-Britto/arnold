@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, LogOut, Minus, Plus, TimerReset } from "lucide-react";
+import { Check, LogOut } from "lucide-react";
 import {
   fetchSesionEnCurso,
   iniciarSesionDeEntrenamiento,
@@ -15,20 +15,18 @@ import {
   type SugerenciaDTO,
   type UltimaVezDTO,
 } from "@/api/sesiones";
-import { calcularDescanso, formatearDescanso } from "@/domains/home-socio/descanso";
+import { calcularDescanso } from "@/domains/home-socio/descanso";
 import { cargaInicial } from "@/domains/sesion/progresion-ejercicio";
 import { contarProgreso } from "@/domains/sesion/progreso-sesion";
-import {
-  ETIQUETAS_TIPO_SERIE,
-  TIPOS_ELEGIBLES,
-  TIPO_SERIE_POR_DEFECTO,
-  type TipoSerie,
-} from "@/domains/sesion/tipo-serie";
+import { TIPO_SERIE_POR_DEFECTO, type TipoSerie } from "@/domains/sesion/tipo-serie";
 import { AtribucionMedia, EjercicioVideo } from "@/components/ejercicio-crud/ejercicio-media";
 import { SeccionCargando } from "./seccion-cargando";
-import { RecordEnVivo } from "./record-en-vivo";
-import { DropsDeSerie, type DropEnEdicion } from "./drops-de-serie";
-import { EncabezadoDeSesion } from "./encabezado-de-sesion";
+import type { DropEnEdicion } from "./drops-de-serie";
+import { EncabezadoEntrenamiento } from "./encabezado-entrenamiento";
+import { RegistroSerie } from "./registro-serie";
+import { HistorialSeries, type SerieLocal } from "./historial-series";
+import { DescansoEntrenamiento, type SiguienteSerie } from "./descanso-entrenamiento";
+import { ListaEjercicios } from "./lista-ejercicios";
 import { ResumenDeSesion } from "./resumen-de-sesion";
 import { UltimaVez } from "./ultima-vez";
 import { handleApiError } from "@/utils/api-error";
@@ -41,14 +39,12 @@ export const RIR_DEFAULT = 2;
 export interface EjecucionRutinaProps {
   /** Rutina asignada a ejecutar; null si el socio no tiene ninguna. */
   rutinaAsignadaId: string | null;
+  /** Nombre de la rutina, para el encabezado. */
+  rutinaNombre?: string | null;
   /** Incremento del stepper de peso, en kg (ReglaDeProgresion.incrementoSugerido). */
   incrementoKg?: number;
   /** Vuelve al inicio (cerrar la ejecución). */
   onCerrar?: () => void;
-}
-
-function redondear(n: number): number {
-  return Math.round(n * 100) / 100;
 }
 
 /**
@@ -68,13 +64,25 @@ function precarga(
   );
 }
 
+/** Lo que se muestra al completar todas las series de un ejercicio, antes de pasar al siguiente. */
+interface TransicionDeEjercicio {
+  nombre: string;
+  series: number;
+  repeticiones: number;
+  siguienteNombre: string | null;
+}
+
 /**
  * Pantalla de ejecución de rutina (T-038, D-48). Al montar retoma la sesión en curso del
  * socio o inicia una nueva contra `POST /api/sesiones`. Registra cada serie con peso, reps
- * y RIR, y muestra el cronómetro de descanso calculado con la hora guardada.
+ * y RIR, y muestra el descanso calculado con la hora guardada.
+ *
+ * El historial de series vive en memoria y se pierde al recargar (decisión de producto): las
+ * series anteriores a la recarga se muestran como hechas sin valores.
  */
 export function EjecucionRutina({
   rutinaAsignadaId,
+  rutinaNombre = null,
   incrementoKg = INCREMENTO_KG_DEFAULT,
   onCerrar,
 }: EjecucionRutinaProps) {
@@ -104,19 +112,42 @@ export function EjecucionRutina({
   const [drops, setDrops] = useState<DropEnEdicion[]>([]);
   /** Calentamientos hechos en el ejercicio actual: no son series de la rutina (D-64). */
   const [calentamientos, setCalentamientos] = useState(0);
+  /** Series registradas en esta sesión para el ejercicio actual; se pierde al recargar. */
+  const [historial, setHistorial] = useState<SerieLocal[]>([]);
+  const [transicion, setTransicion] = useState<TransicionDeEjercicio | null>(null);
 
   const [descansoInicio, setDescansoInicio] = useState<Date | null>(null);
   const [descansoSegundos, setDescansoSegundos] = useState(0);
   const [ahora, setAhora] = useState(() => Date.now());
+  const [pausaInicio, setPausaInicio] = useState<number | null>(null);
+  const [pausaAcumuladaMs, setPausaAcumuladaMs] = useState(0);
+  const [ajusteSegundos, setAjusteSegundos] = useState(0);
 
   const ejercicioActual = useMemo(
     () => ejercicios.find((e) => e.id === ejercicioActualId) ?? null,
     [ejercicios, ejercicioActualId]
   );
 
+  const pausadoMs =
+    pausaAcumuladaMs + (pausaInicio !== null ? Math.max(0, ahora - pausaInicio) : 0);
+
   const descanso = descansoInicio
-    ? calcularDescanso(descansoInicio, descansoSegundos, new Date(ahora))
+    ? calcularDescanso(descansoInicio, descansoSegundos, new Date(ahora), {
+        ajusteSegundos,
+        pausadoMs,
+      })
     : null;
+
+  const siguienteSerie: SiguienteSerie | null =
+    ejercicioActual && serieActual !== null
+      ? {
+          ejercicioNombre: ejercicioActual.nombre,
+          numeroSerie: serieActual,
+          totalSeries: ejercicioActual.series,
+          repeticiones,
+          cargaSugerida: carga,
+        }
+      : null;
 
   /** Series hechas y ejercicio actual contra lo que pide la rutina (T-049, D-67). */
   const progreso = useMemo(
@@ -212,13 +243,32 @@ export function EjecucionRutina({
     return () => clearInterval(id);
   }, [hayReloj]);
 
-  const sumarRepeticion = () => setRepeticiones((r) => r + 1);
-  const restarRepeticion = () => setRepeticiones((r) => Math.max(1, r - 1));
-  const sumarPeso = () => setCarga((c) => redondear(c + incrementoKg));
-  const restarPeso = () => setCarga((c) => Math.max(0, redondear(c - incrementoKg)));
-  const saltarDescanso = () => {
+  const limpiarDescanso = () => {
     setDescansoInicio(null);
     setDescansoSegundos(0);
+    setAjusteSegundos(0);
+    setPausaInicio(null);
+    setPausaAcumuladaMs(0);
+  };
+
+  const continuarEntrenamiento = () => {
+    setTransicion(null);
+    limpiarDescanso();
+  };
+
+  const pausarDescanso = () => {
+    if (descansoInicio && pausaInicio === null) setPausaInicio(Date.now());
+  };
+
+  const reanudarDescanso = () => {
+    if (pausaInicio !== null) {
+      setPausaAcumuladaMs((ms) => ms + Math.max(0, Date.now() - pausaInicio));
+      setPausaInicio(null);
+    }
+  };
+
+  const ajustarDescanso = (deltaSegundos: number) => {
+    setAjusteSegundos((segundos) => segundos + deltaSegundos);
   };
 
   /** Elegir "Al fallo" implica RIR 0: el socio no tiene que marcar las dos cosas. */
@@ -229,18 +279,29 @@ export function EjecucionRutina({
     if (elegido === "CALENTAMIENTO") setDrops([]);
   };
 
-  const handleSerieHecha = async () => {
+  const handleSerieHecha = async ({
+    repeticiones: reps,
+    carga: peso,
+  }: {
+    repeticiones: number;
+    carga: number;
+  }) => {
     if (!sesionId || !ejercicioActualId || !ejercicioActual) return;
     setError(null);
     setEnviando(true);
+
+    // La serie que se está registrando es la previa al avance del servidor.
+    const numeroSerieAntes = serieActual ?? 1;
+    const tipoAntes = tipo;
+
     try {
       const resultado = await registrarSerieDeEntrenamiento(sesionId, {
         ejercicioId: ejercicioActualId,
-        carga,
-        repeticiones,
+        carga: peso,
+        repeticiones: reps,
         rir,
         // Sin `tipo` el servidor usa NORMAL: solo se manda cuando es otro (D-64).
-        ...(tipo !== TIPO_SERIE_POR_DEFECTO ? { tipo } : {}),
+        ...(tipoAntes !== TIPO_SERIE_POR_DEFECTO ? { tipo: tipoAntes } : {}),
         // P-46, D-69: los drop sets viajan con la serie, en la misma petición.
         ...(drops.length > 0 ? { drops } : {}),
       });
@@ -249,12 +310,23 @@ export function EjecucionRutina({
       // lo puso el tipo y no tiene por qué quedar para la serie que sigue.
       setTipo(TIPO_SERIE_POR_DEFECTO);
       setDrops([]);
-      if (tipo === "HASTA_EL_FALLO") setRir(RIR_DEFAULT);
-      if (tipo === "CALENTAMIENTO") setCalentamientos((n) => n + 1);
+      if (tipoAntes === "HASTA_EL_FALLO") setRir(RIR_DEFAULT);
+      if (tipoAntes === "CALENTAMIENTO") setCalentamientos((n) => n + 1);
+
+      const registroLocal: SerieLocal = {
+        numeroSerie: tipoAntes === "CALENTAMIENTO" ? null : numeroSerieAntes,
+        carga: peso,
+        repeticiones: reps,
+        rir,
+        tipo: tipoAntes,
+        drops: drops.length,
+      };
+      const nuevoHistorial = [...historial, registroLocal];
+      setHistorial(nuevoHistorial);
 
       if (resultado.sesion.ejercicioActualId === null) {
         // Última serie: cierra la sesión y muestra el resumen (D-48).
-        saltarDescanso();
+        limpiarDescanso();
         await finalizarSesionDeEntrenamiento(sesionId);
         // El resumen es un extra (T-046b, D-62): si falla, igual se muestra que la rutina terminó.
         try {
@@ -268,19 +340,38 @@ export function EjecucionRutina({
         return;
       }
 
-      // Arranca el descanso con la hora guardada por el servidor. Un drop set cuelga de la
-      // serie anterior: no dispara el descanso largo (D-64).
-      if (tipo !== "DROP_SET") {
+      const siguienteId = resultado.sesion.ejercicioActualId;
+
+      if (tipoAntes !== "CALENTAMIENTO" && numeroSerieAntes >= ejercicioActual.series) {
+        // Se terminó el ejercicio: el backend ya avanzó. Sin descanso: se muestra la transición.
+        const siguiente = ejercicios.find((e) => e.id === siguienteId);
+        const repeticionesHechas = nuevoHistorial
+          .filter((serie) => serie.tipo !== "CALENTAMIENTO")
+          .reduce((total, serie) => total + serie.repeticiones, 0);
+        setTransicion({
+          nombre: ejercicioActual.nombre,
+          series: ejercicioActual.series,
+          repeticiones: repeticionesHechas,
+          siguienteNombre: siguiente?.nombre ?? null,
+        });
+        setHistorial([]);
+        setCalentamientos(0);
+      } else if (tipoAntes !== "DROP_SET") {
+        // Arranca el descanso con la hora guardada por el servidor. Un drop set cuelga de la
+        // serie anterior: no dispara el descanso largo (D-64).
         setDescansoInicio(new Date(resultado.registro.fecha));
         setDescansoSegundos(ejercicioActual.descanso);
         setAhora(Date.now());
+        setPausaInicio(null);
+        setPausaAcumuladaMs(0);
+        setAjusteSegundos(0);
       }
 
-      const siguienteId = resultado.sesion.ejercicioActualId;
       setEjercicioActualId(siguienteId);
       setSerieActual(resultado.sesion.serieActual);
       if (siguienteId !== ejercicioActualId) {
         setCalentamientos(0);
+        setHistorial([]);
         const siguiente = ejercicios.find((e) => e.id === siguienteId);
         setRepeticiones(siguiente?.repeticiones ?? 0);
         setCarga(precarga(siguienteId, 1, ultimasVeces, sugerencias));
@@ -302,28 +393,53 @@ export function EjecucionRutina({
   }
 
   if (finalizada) {
+    const seriesFallback = resumen?.seriesHechas ?? ejercicios.reduce((t, e) => t + e.series, 0);
+    const repeticionesTotales =
+      resumen?.ejercicios.reduce(
+        (total, ejercicio) =>
+          total +
+          ejercicio.hoy
+            .filter((serie) => serie.tipo !== "DROP_SET")
+            .reduce((suma, serie) => suma + serie.repeticiones, 0),
+        0
+      ) ?? 0;
+
     return (
       <div
         data-testid="ejecucion-rutina"
         role="status"
-        className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-8 text-center"
+        className="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface p-8 text-center"
       >
         <Check className="h-10 w-10 text-success" aria-hidden="true" />
-        <p className="text-xl font-bold text-ink">¡Rutina completada!</p>
+        <h2 className="text-2xl font-black text-ink">¡Entrenamiento completado!</h2>
+        <p className="text-sm text-ink-muted">Terminaste tu rutina de hoy.</p>
+
+        {resumen && (
+          <dl className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
+            <Metrica etiqueta="Ejercicios" valor={String(resumen.ejercicios.length)} testId="metrica-ejercicios" />
+            <Metrica etiqueta="Series" valor={String(resumen.seriesHechas)} testId="metrica-series" />
+            <Metrica etiqueta="Repeticiones" valor={String(repeticionesTotales)} testId="metrica-repeticiones" />
+            <Metrica
+              etiqueta="Duración"
+              valor={resumen.duracionMinutos !== null ? `${resumen.duracionMinutos} min` : "—"}
+              testId="metrica-duracion"
+            />
+          </dl>
+        )}
+
         {resumen && resumen.ejercicios.length > 0 ? (
           <ResumenDeSesion resumen={resumen} />
         ) : (
-          <p className="text-sm text-ink-muted">
-            Registraste {ejercicios.reduce((total, e) => total + e.series, 0)} series.
-          </p>
+          <p className="text-sm text-ink-muted">Registraste {seriesFallback} series.</p>
         )}
+
         {onCerrar && (
           <button
             type="button"
             onClick={onCerrar}
             className="mt-2 rounded-lg bg-brand-strong px-4 py-2 font-bold text-surface"
           >
-            Volver al inicio
+            Finalizar entrenamiento
           </button>
         )}
       </div>
@@ -331,18 +447,9 @@ export function EjecucionRutina({
   }
 
   return (
-    <div
-      data-testid="ejecucion-rutina"
-      className="flex grow flex-col gap-5 rounded-lg border border-border bg-surface p-6"
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-bold text-brand">EJECUTANDO RUTINA</p>
-          {ejercicioActual && (
-            <h2 className="text-2xl font-bold text-ink">{ejercicioActual.nombre}</h2>
-          )}
-        </div>
-        {onCerrar && (
+    <div data-testid="ejecucion-rutina" className="flex grow flex-col gap-5">
+      {onCerrar && (
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={onCerrar}
@@ -350,11 +457,12 @@ export function EjecucionRutina({
           >
             <LogOut className="h-4 w-4" aria-hidden="true" /> Salir
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {horaInicio !== null && (
-        <EncabezadoDeSesion
+        <EncabezadoEntrenamiento
+          rutinaNombre={rutinaNombre}
           hechas={progreso.hechas}
           total={progreso.total}
           ejercicioNumero={progreso.ejercicioNumero}
@@ -363,222 +471,153 @@ export function EjecucionRutina({
         />
       )}
 
-      {error && (
+      {transicion ? (
+        <section
+          data-testid="transicion-ejercicio"
+          role="status"
+          className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-8 text-center"
+        >
+          <Check className="h-10 w-10 text-success" aria-hidden="true" />
+          <h2 className="text-2xl font-black text-ink">¡Ejercicio completado!</h2>
+          <p className="font-bold text-ink">{transicion.nombre}</p>
+          <p className="text-sm text-ink-muted">
+            {transicion.series} {transicion.series === 1 ? "serie" : "series"} ·{" "}
+            {transicion.repeticiones} repeticiones
+          </p>
+          {transicion.siguienteNombre && (
+            <p className="text-sm text-ink-muted">
+              Siguiente: <span className="font-bold text-ink">{transicion.siguienteNombre}</span>
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={continuarEntrenamiento}
+            className="mt-2 rounded-lg bg-brand-strong px-4 py-2 font-bold text-surface"
+          >
+            Continuar al siguiente ejercicio
+          </button>
+        </section>
+      ) : descanso ? (
+        <DescansoEntrenamiento
+          restanteSegundos={descanso.restanteSegundos}
+          expirado={descanso.expirado}
+          pausado={pausaInicio !== null}
+          siguiente={siguienteSerie}
+          onMas15={() => ajustarDescanso(15)}
+          onMenos15={() => ajustarDescanso(-15)}
+          onPausar={pausarDescanso}
+          onReanudar={reanudarDescanso}
+          onContinuar={continuarEntrenamiento}
+        />
+      ) : ejercicioActual ? (
+        <>
+          <div className="grid gap-5 xl:grid-cols-[45fr_55fr]">
+            {/* Columna izquierda: el ejercicio que se está haciendo. */}
+            <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6">
+              <p className="text-xs font-bold text-brand">EJERCICIO ACTUAL</p>
+              <h3 className="text-xl font-black text-ink">{ejercicioActual.nombre}</h3>
+              {ejercicioActual.musculoObjetivo && (
+                <p className="text-sm text-ink-muted">{ejercicioActual.musculoObjetivo}</p>
+              )}
+              <p className="text-sm font-semibold text-ink-muted">
+                {ejercicioActual.series} {ejercicioActual.series === 1 ? "serie" : "series"}
+              </p>
+              {calentamientos > 0 && (
+                <p data-testid="calentamientos" className="text-xs text-ink-muted">
+                  Calentamientos: {calentamientos}
+                </p>
+              )}
+
+              {/* La media del catálogo solo existe si el ejercicio la tiene cargada (D-70). */}
+              {ejercicioActual.mediaId && (
+                <div className="flex flex-col gap-2">
+                  <EjercicioVideo
+                    mediaId={ejercicioActual.mediaId}
+                    nombre={ejercicioActual.nombre}
+                    ancho={320}
+                  />
+                  <AtribucionMedia />
+                </div>
+              )}
+
+              {/* Las instrucciones no dependen de que haya animación cargada. */}
+              {(ejercicioActual.instrucciones ?? []).length > 0 && (
+                <details className="text-sm text-ink-muted">
+                  <summary className="cursor-pointer font-bold text-brand">Cómo se hace</summary>
+                  <ol className="mt-2 list-decimal space-y-1 pl-5">
+                    {(ejercicioActual.instrucciones ?? []).map((paso, i) => (
+                      <li key={i}>{paso}</li>
+                    ))}
+                  </ol>
+                </details>
+              )}
+
+              <UltimaVez
+                ultimaVez={ultimasVeces[ejercicioActual.id] ?? null}
+                serieActual={serieActual}
+                ahora={ahora}
+                sugerencia={sugerencias[ejercicioActual.id] ?? null}
+              />
+            </section>
+
+            {/* Columna derecha: registro de la serie e historial local. */}
+            <div className="flex flex-col gap-5">
+              <RegistroSerie
+                ejercicio={ejercicioActual}
+                serieActual={serieActual ?? 1}
+                repeticiones={repeticiones}
+                onRepeticiones={setRepeticiones}
+                carga={carga}
+                onCarga={setCarga}
+                rir={rir}
+                onRir={setRir}
+                tipo={tipo}
+                onTipo={elegirTipo}
+                drops={drops}
+                onDrops={setDrops}
+                enviando={enviando}
+                error={error}
+                onRegistrar={handleSerieHecha}
+                records={records[ejercicioActual.id] ?? []}
+                incrementoKg={incrementoKg}
+              />
+              <HistorialSeries
+                planificadas={ejercicioActual.series}
+                repeticionesPlanificadas={ejercicioActual.repeticiones}
+                serieActual={serieActual}
+                historial={historial}
+              />
+            </div>
+          </div>
+
+          <ListaEjercicios ejercicios={ejercicios} actualId={ejercicioActualId} />
+        </>
+      ) : error ? (
         <p role="alert" className="rounded-md border border-danger-soft bg-danger-soft p-2 text-sm text-danger">
           {error}
         </p>
-      )}
-
-      {/* Animación del ejercicio actual (catálogo, T-050f, D-70): las instrucciones van en un desplegable
-          cerrado para no empujar hacia abajo el registro de series. */}
-      {ejercicioActual?.mediaId && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-4">
-            <EjercicioVideo mediaId={ejercicioActual.mediaId} nombre={ejercicioActual.nombre} />
-            {ejercicioActual.musculoObjetivo && (
-              <p className="text-sm text-ink-muted">{ejercicioActual.musculoObjetivo}</p>
-            )}
-          </div>
-          {ejercicioActual.instrucciones.length > 0 && (
-            <details className="text-sm text-ink-muted">
-              <summary className="cursor-pointer font-bold text-brand">Cómo se hace</summary>
-              <ol className="mt-2 list-decimal space-y-1 pl-5">
-                {ejercicioActual.instrucciones.map((paso, i) => (
-                  <li key={i}>{paso}</li>
-                ))}
-              </ol>
-            </details>
-          )}
-          <AtribucionMedia />
-        </div>
-      )}
-
-      {ejercicioActual && (
-        <>
-          <p className="text-sm font-medium text-ink-muted">
-            Serie {serieActual ?? 1} de {ejercicioActual.series}
-          </p>
-          {calentamientos > 0 && (
-            <p data-testid="calentamientos" className="text-xs text-ink-muted">
-              Calentamientos: {calentamientos}
-            </p>
-          )}
-
-          <UltimaVez
-            ultimaVez={ultimasVeces[ejercicioActual.id] ?? null}
-            serieActual={serieActual}
-            ahora={ahora}
-            sugerencia={sugerencias[ejercicioActual.id] ?? null}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* Repeticiones */}
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-border p-4">
-              <span className="text-xs font-bold text-ink-muted">REPETICIONES</span>
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={restarRepeticion}
-                  aria-label="Restar una repetición"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle text-ink-soft"
-                >
-                  <Minus className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <span data-testid="valor-repeticiones" className="text-3xl font-bold text-ink">
-                  {repeticiones}
-                </span>
-                <button
-                  type="button"
-                  onClick={sumarRepeticion}
-                  aria-label="Sumar una repetición"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle text-ink-soft"
-                >
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-
-            {/* Peso */}
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-border p-4">
-              <span className="text-xs font-bold text-ink-muted">PESO (KG)</span>
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={restarPeso}
-                  aria-label="Restar peso"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle text-ink-soft"
-                >
-                  <Minus className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <span data-testid="valor-carga" className="text-3xl font-bold text-ink">
-                  {carga}
-                </span>
-                <button
-                  type="button"
-                  onClick={sumarPeso}
-                  aria-label="Sumar peso"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle text-ink-soft"
-                >
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Un calentamiento no cuenta para las marcas (D-64): no tiene sentido avisar un récord. */}
-          {tipo !== "CALENTAMIENTO" && (
-            <RecordEnVivo frontera={records[ejercicioActual.id] ?? []} carga={carga} />
-          )}
-
-          {/* RIR */}
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-bold text-ink-muted">RIR (repeticiones en reserva)</span>
-            <div role="group" aria-label="RIR" className="flex gap-2">
-              {[0, 1, 2, 3, 4, 5].map((valor) => (
-                <button
-                  key={valor}
-                  type="button"
-                  onClick={() => setRir(valor)}
-                  aria-label={`RIR ${valor}`}
-                  aria-pressed={rir === valor}
-                  className={`h-10 w-10 rounded-lg border text-sm font-bold ${
-                    rir === valor
-                      ? "border-brand bg-brand-strong text-surface"
-                      : "border-border bg-surface text-ink-soft"
-                  }`}
-                >
-                  {valor}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tipo de serie (T-047, D-64) */}
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-bold text-ink-muted">TIPO DE SERIE</span>
-            <div role="group" aria-label="Tipo de serie" className="flex flex-wrap gap-2">
-              {TIPOS_ELEGIBLES.map((opcion) => (
-                <button
-                  key={opcion}
-                  type="button"
-                  onClick={() => elegirTipo(opcion)}
-                  aria-pressed={tipo === opcion}
-                  className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
-                    tipo === opcion
-                      ? "border-brand bg-orange-50 text-ink"
-                      : "border-border bg-surface text-ink-soft"
-                  }`}
-                >
-                  {ETIQUETAS_TIPO_SERIE[opcion]}
-                </button>
-              ))}
-            </div>
-            {tipo === "CALENTAMIENTO" && (
-              <p className="text-xs text-ink-muted">
-                No cuenta como una de las series de la rutina ni para tu progreso.
-              </p>
-            )}
-          </div>
-
-          {/* Drop sets (P-46, D-69): cuelgan de esta serie, no son series de la rutina. */}
-          {tipo !== "CALENTAMIENTO" && (
-            <DropsDeSerie
-              drops={drops}
-              onChange={setDrops}
-              cargaBase={carga}
-              repeticionesBase={repeticiones}
-              deshabilitado={enviando}
-            />
-          )}
-
-          <button
-            type="button"
-            onClick={handleSerieHecha}
-            disabled={enviando}
-            className="flex h-12 items-center justify-center gap-2 rounded-lg bg-brand-strong text-[15px] font-bold text-surface disabled:bg-ink-disabled"
-          >
-            <Check className="h-[18px] w-[18px]" aria-hidden="true" />
-            {enviando
-              ? "Guardando..."
-              : tipo === "CALENTAMIENTO"
-                ? "Calentamiento hecho"
-                : "Serie hecha"}
-          </button>
-
-          {descanso && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="flex flex-col items-center gap-2 rounded-2xl border border-warning bg-warning-soft p-4"
-            >
-              <div className="flex items-center gap-2 text-warning">
-                <TimerReset className="h-4 w-4" aria-hidden="true" />
-                <span className="text-sm font-bold">Descanso</span>
-              </div>
-              {descanso.expirado ? (
-                <p data-testid="descanso-terminado" className="text-lg font-bold text-success">
-                  ¡Descanso terminado!
-                </p>
-              ) : (
-                <p data-testid="descanso-tiempo" className="text-3xl font-bold text-warning">
-                  {formatearDescanso(descanso.restanteSegundos)}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={saltarDescanso}
-                className="text-sm font-bold text-brand underline"
-              >
-                Saltar
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {!ejercicioActual && !error && (
+      ) : (
         <p className="text-ink-muted">No hay un ejercicio en curso.</p>
       )}
+    </div>
+  );
+}
+
+function Metrica({
+  etiqueta,
+  valor,
+  testId,
+}: {
+  etiqueta: string;
+  valor: string;
+  testId: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-subtle p-3">
+      <dt className="text-xs font-bold text-ink-muted">{etiqueta}</dt>
+      <dd data-testid={testId} className="text-lg font-black text-ink">
+        {valor}
+      </dd>
     </div>
   );
 }

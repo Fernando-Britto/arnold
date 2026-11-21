@@ -49,6 +49,10 @@ export function EncabezadoDeSesion({
           <span data-testid="sesion-series" className="tabular-nums">
             {hechas}/{total} series
           </span>
+          <span aria-hidden="true">·</span>
+          <span data-testid="sesion-porcentaje" className="font-semibold tabular-nums">
+            {Math.round(porcentajeDeProgreso(hechas, total))}%
+          </span>
         </span>
       </div>
       <div

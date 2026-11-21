@@ -48,7 +48,7 @@ describe("EjecucionRutina con la animación del ejercicio", () => {
   it("muestra la animación y el músculo principal del ejercicio actual", async () => {
     mockEnCurso.mockResolvedValueOnce(enCurso("ej-1", [curl, sentadilla]));
     const { container } = render(<EjecucionRutina rutinaAsignadaId="asig-1" />);
-    await screen.findByText("Curl de bíceps con mancuernas");
+    await screen.findByRole("heading", { name: "Curl de bíceps con mancuernas" });
 
     expect(container.querySelector("video")).toHaveAttribute("src", "/ejercicios/0294-NbVPDMW.mp4");
     expect(screen.getByText("Bíceps")).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("EjecucionRutina con la animación del ejercicio", () => {
   it("al retomar en otro ejercicio muestra la animación de ese y no la del primero", async () => {
     mockEnCurso.mockResolvedValueOnce(enCurso("ej-2", [curl, sentadilla]));
     const { container } = render(<EjecucionRutina rutinaAsignadaId="asig-1" />);
-    await screen.findByText("Sentadilla con barra");
+    await screen.findByRole("heading", { name: "Sentadilla con barra" });
 
     expect(container.querySelector("video")).toHaveAttribute("src", "/ejercicios/0043-XyZ.mp4");
     expect(container.querySelectorAll("video")).toHaveLength(1);
@@ -66,7 +66,7 @@ describe("EjecucionRutina con la animación del ejercicio", () => {
   it("las instrucciones van en un desplegable cerrado, numeradas, para no tapar el registro de series", async () => {
     mockEnCurso.mockResolvedValueOnce(enCurso("ej-1", [curl]));
     const { container } = render(<EjecucionRutina rutinaAsignadaId="asig-1" />);
-    await screen.findByText("Curl de bíceps con mancuernas");
+    await screen.findByRole("heading", { name: "Curl de bíceps con mancuernas" });
 
     const desplegable = container.querySelector("details")!;
     expect(desplegable).not.toHaveAttribute("open");
@@ -78,14 +78,14 @@ describe("EjecucionRutina con la animación del ejercicio", () => {
   it("muestra la atribución a Gym visual una sola vez", async () => {
     mockEnCurso.mockResolvedValueOnce(enCurso("ej-1", [curl, sentadilla]));
     render(<EjecucionRutina rutinaAsignadaId="asig-1" />);
-    await screen.findByText("Curl de bíceps con mancuernas");
+    await screen.findByRole("heading", { name: "Curl de bíceps con mancuernas" });
     expect(screen.getAllByRole("link", { name: /gym visual/i })).toHaveLength(1);
   });
 
   it("un ejercicio cargado a mano queda como antes: sin video, sin desplegable, sin atribución", async () => {
     mockEnCurso.mockResolvedValueOnce(enCurso("ej-3", [aMano]));
     const { container } = render(<EjecucionRutina rutinaAsignadaId="asig-1" />);
-    await screen.findByText("Ejercicio propio");
+    await screen.findByRole("heading", { name: "Ejercicio propio" });
 
     expect(container.querySelector("video")).toBeNull();
     expect(container.querySelector("details")).toBeNull();
