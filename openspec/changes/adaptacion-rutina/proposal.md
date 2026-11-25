@@ -52,17 +52,19 @@ El alcance es **solo micro** (D-136), en tres slices: **S1** motor puro probado 
 1. **S1 — Motor puro** (sin base, sin UI): funciones puras que consumen historiales sintéticos y producen
    `SugerenciaAdaptacion` por ejercicio (subir carga, cambiar reps, descargar, mantener), con tests contra
    casos ACSM, RIR blando y detección de estancamiento configurable.
-2. **S2 — Persistencia**: copia perezosa de `Rutina` por socio, migración aditiva de `planActualizadoAt`,
-   tabla de `PropuestaAdaptacion` con estado, y servicio que dispara propuestas contra el motor de S1.
-3. **S3 — Aprobación y vista**: endpoint del instructor para listar/aprobar/rechazar propuestas, y vista del
-   socio que muestra la rutina vigente con el motivo de la última adaptación aprobada.
+2. **S2 — Persistencia**: copia perezosa de `Rutina` por socio, **una** migración aditiva (`planActualizadoAt`,
+   `Socio.metaDeEntrenamiento` y `Socio.nivel`), tabla de `PropuestaAdaptacion` con estado, y servicio que
+   dispara propuestas contra el motor de S1.
+3. **S3 — Aprobación y vista**: endpoint del instructor para listar/aprobar/rechazar propuestas; carga y
+   edición de la meta y el nivel del socio; y vista del socio que muestra la rutina vigente con el motivo de la
+   última adaptación aprobada.
 
 ### Out of Scope
 
 - **Meso** (volumen por músculo, estancamiento muscular, fatiga semanal): será change posterior.
 - **Macro** (transición entre fases fuerza/hipertrofia/descarga por meta): fuera de este change.
-- **Meta del socio, nivel explícito, días disponibles y lesiones**: no se modelan en este change; el motor de
-   S1 los recibe como parámetros opcionales para que el spec posterior los conecte.
+- **Días disponibles y lesiones**: no se modelan en este change. El motor los recibe como parámetros
+  opcionales, pero no hay dato que los alimente (ver R7).
 - **Descarga por calendario**: solo la reactiva (como hoy, D-59) entra en S1; la descarga por calendario queda
    para la capa macro.
 - **Asignación sugerencia UI, sugerencia de rutina al alta**: siguen como están.
@@ -99,6 +101,8 @@ El alcance es **solo micro** (D-136), en tres slices: **S1** motor puro probado 
 - RIR: señal blanda, leída en la última serie del ejercicio (`RIR_SERIE_DE_LECTURA`), con desfase global
   opcional (`RIR_DESFASE_GLOBAL`). No se usa como gatillo de una sola sesión; se evalúa sobre
   `RIR_VENTANA_TENDENCIA`. El RIR entra al motor **solo cuando la meta lo justifique** (D-138).
+- Sin meta ni nivel cargados, el motor aplica los defaults de S2 (`META_POR_DEFECTO` = solo ACSM,
+  `NIVEL_POR_DEFECTO` = `BASICO`).
 - Estancamiento: ventana configurable `ESTANCAMIENTO_VENTANA_SESIONES` (default 3), ingeniería, no derivada
   de evidencia (research §3.9).
 - Descarga reactiva: se mantiene la lógica de D-59 (3 fallos seguidos → −10 % ajustado a grilla), con el
@@ -113,7 +117,13 @@ El alcance es **solo micro** (D-136), en tres slices: **S1** motor puro probado 
 
 ### S2 — Persistencia
 
-- Migración aditiva: `planActualizadoAt DateTime?` en `EjercicioEnRutina`, backfill desde `updatedAt`.
+- **Una** migración aditiva: `planActualizadoAt DateTime?` en `EjercicioEnRutina` (backfill desde `updatedAt`),
+  `Socio.metaDeEntrenamiento` (enum nuevo Fuerza / Hipertrofia / Definición) y `Socio.nivel` (reusa el enum
+  existente `NivelDeDificultad`, hoy solo en `Rutina`: `prisma/schema.prisma:315` y `:325-329`).
+- **Valores por defecto cuando faltan datos**: `metaDeEntrenamiento = null` → el motor aplica **solo ACSM**, sin
+  modulación por RIR (el condicional de D-138 queda apagado). `nivel = null` → se trata como `BASICO` para rangos
+  de repeticiones y frecuencia, y **no** cambia el cálculo de carga (que es un % de la carga actual). Los dos
+  defaults son parámetros (`META_POR_DEFECTO`, `NIVEL_POR_DEFECTO`) y se documentan en el contrato del motor.
 - Copia perezosa de rutina: la primera adaptación que se apruebe clona `Rutina` + `EjercicioEnRutina` para
   ese socio y reasigna `RutinaAsignada`. Hasta entonces el socio sigue en la plantilla compartida.
 - Tabla `PropuestaAdaptacion`: `{ id, socioId, rutinaId, estado (PENDIENTE | APROBADA | RECHAZADA),
@@ -127,6 +137,10 @@ El alcance es **solo micro** (D-136), en tres slices: **S1** motor puro probado 
 
 - Endpoint del instructor: `GET /api/propuestas-adaptacion` (lista pendientes), `POST
   /api/propuestas-adaptacion/[id]/aprobar` y `…/rechazar`. Solo INSTRUCTOR y ADMINISTRADOR.
+- **Carga de meta y nivel**: se integra en la edición de cliente existente (`PUT /api/clientes/[id]`,
+  `src/app/api/clientes/[id]/route.ts`; UI en `cliente-form.tsx` / `clientes/page.tsx`). **Depende de R8**: si el
+  trabajo paralelo de alta con huella no está integrado en `dev`, se usa un endpoint separado
+  (`PATCH /api/socios/[id]/entrenamiento` + pantalla propia) y no se tocan esos archivos.
 - Al aprobar: se aplica la copia perezosa si todavía no existe, se escriben los cambios en los
   `EjercicioEnRutina` de la copia y se actualiza `planActualizadoAt` solo en los ejercicios que cambiaron
   series o reps.
@@ -217,6 +231,46 @@ prueba cese total de una semana, no descarga con volumen reducido.
 **Recomendación**: **B**. El motivo ya existe (`Sugerencia.motivo`, `progresion-ejercicio.ts:52`); mostrar la
 rutina adaptada da transparencia sin exponer el motor. El historial de fases queda para macro.
 
+### Pendientes antes del spec (sin resolver)
+
+Fernando no las resolvió todavía. No se numeran D-xxx; se numerarán cuando se decidan.
+
+#### (d) Propuesta `PENDIENTE` que quedó obsoleta
+
+Si ya hay una propuesta pendiente y una sesión nueva cambia el diagnóstico, la regla idempotente actual deja viva
+la propuesta vieja.
+
+| Opción | Qué hace | Ventaja | Costo |
+|---|---|---|---|
+| A. Mantenerla | Se ignora el diagnóstico nuevo hasta que el instructor resuelva la vieja | Cero trabajo | El instructor puede aprobar un diagnóstico desactualizado |
+| **B. Recalcular y reemplazar** | La nueva pasa a `PENDIENTE`; la vieja queda en estado `REEMPLAZADA` con puntero a la nueva | Nunca se aprueba un diagnóstico viejo; conserva traza de ambas | Estado nuevo y una regla de reemplazo en el servicio |
+| C. Caducarla | Estado `VENCIDA` por antigüedad (SLA) y crear una nueva | Limpia la pila | Necesita un job o cálculo perezoso; no cubre el cambio inmediato de diagnóstico |
+
+**Recomendación**: **B**. La propuesta vieja deja de ser accionable en el mismo momento en que el diagnóstico
+cambia, sin perder historial.
+
+#### (e) Redondeo del incremento: ¿el 2,5 kg es la grilla o la regla?
+
+| Opción | Qué es el 2,5 kg | Qué pasa cuando el 2 % es menor que un paso |
+|---|---|---|
+| A. La regla | Incremento fijo por sesión (como hoy) | No aplica: siempre sube 2,5 kg |
+| **B. La grilla** | Paso de peso; la regla es el % ACSM (2–10 %) redondeado al paso más cercano, con **mínimo un paso** | El mínimo de un paso lo cubre: sube 2,5 kg |
+| C. Sin grilla | % puro sobre la carga actual (cargas arbitrarias) | Sube el 2 % exacto, aunque no sea un peso cargable en la práctica |
+
+**Recomendación**: **B**. El porcentaje manda y la grilla lo hace cargable. Parámetro `REDONDEO_INCREMENTO`
+(`cercano` | `abajo`) para elegir el criterio de redondeo; con `abajo`, nunca se baja de un paso. El paso de grilla
+queda como parámetro (`PASO_GRILLA_KG`, default 2,5) y no como constante del motor.
+
+#### (f) Granularidad de la aprobación
+
+| Opción | Qué aprueba el instructor | Ventaja | Costo |
+|---|---|---|---|
+| A. Todo o nada | La propuesta entera | Simple de modelar y de operar | Un solo cambio malo obliga a rechazar los buenos |
+| **B. Por ejercicio** | Cada cambio de ejercicio, con "aprobar todo" como atajo | Rechaza lo dudoso y conserva lo bueno | Más UI y el modelo de S2 necesita estado por ítem (tabla de ítems o JSON con estado) |
+
+**Recomendación**: **B**, con atajo "aprobar todo". Afecta el modelo de `PropuestaAdaptacion` en S2 (hoy planteado
+como `contenido` JSON con estado único): si se elige B, la migración debe incluir el estado por ítem.
+
 ## Criterios de éxito verificables
 
 ### S1 (motor puro — historiales sintéticos, sin base)
@@ -237,8 +291,13 @@ rutina adaptada da transparencia sin exponer el motor. El historial de fases que
 
 ### S2 (persistencia)
 
-- Migración aditiva aplicada con `npx prisma migrate deploy`; `planActualizadoAt` existe en
-  `EjercicioEnRutina` con backfill desde `updatedAt`.
+- **Prerrequisito (R2)**: base de desarrollo aislada creada, o `dev` alineada con `feat/adaptacion-rutina`, antes
+  de ejecutar cualquier migración. Sin eso, S2 no empieza.
+- Sobre esa base/precondición, `npx prisma migrate deploy` aplica la migración aditiva: `planActualizadoAt` existe
+  en `EjercicioEnRutina` con backfill desde `updatedAt`, y `Socio.metaDeEntrenamiento` / `Socio.nivel` existen y
+  son nullable.
+- Test de defaults: con `meta = null` el motor aplica solo ACSM (sin RIR); con `nivel = null` usa `BASICO` y no
+  cambia el cálculo de carga.
 - Test de copia perezosa: primera adaptación clona `Rutina` + `EjercicioEnRutina` y reasigna
   `RutinaAsignada`; segunda adaptación trabaja sobre la copia sin volver a clonar.
 - Test de propuesta idempotente: dos sesiones cerradas seguidas sin aprobación intermedia generan **una**
@@ -274,6 +333,7 @@ rutina adaptada da transparencia sin exponer el motor. El historial de fases que
 | **R5 · Propuestas huérfanas**: si el instructor nunca aprueba ni rechaza, la pila de `PENDIENTE` crece y el socio no progresa. | Estancamiento operativo. | Media | Listado del instructor ordena por antigüedad y marca las de más de `PROPUESTA_SLA_DIAS` (parámetro); no hay aprobación automática en este change. |
 | **R6 · Tests de S1 con historiales sintéticos que pasan sin el criterio correcto**: la suite no distingue entre "subir por ACSM" y "subir por reps cumplidas" si los casos no están bien armados. | Falsa confianza en el motor. | Media | Casos sintéticos obligatorios: (i) reps cumplidas sin sobra → mantener; (ii) 1 rep de sobra → subir al mínimo del 2 %; (iii) 3 reps de sobra → subir al máximo del 10 %; (iv) RIR alto sostenido con meta hipertrofia → frenar; (v) RIR alto con meta fuerza → ignorar. Mutación: invertir el criterio debe hacer fallar al menos (ii) y (iii). |
 | **R7 · Población fuera de la evidencia**: Pelland 2026, Coleman 2024 y Robinson 2024 estudian adultos sanos jóvenes; el motor se aplica sin filtro a cualquier socio. | Recomendación inadecuada para menores, embarazadas, lesiones. | Baja | Límite declarado (no validación) en la documentación del motor: research §3.13. `POBLACION_EDAD_MIN`, `POBLACION_EDAD_MAX` y `POBLACION_REQUIERE_NIVEL_EXPLICITO` quedan como parámetros; la validación real queda para cuando existan datos de lesiones y edad en `Socio`. |
+| **R8 · Choque con el trabajo paralelo (alta con huella)**: `src/components/cliente-crud/cliente-form.tsx` y `src/app/clientes/page.tsx` están modificados por trabajo paralelo de Fernando. | S3 no puede integrar la carga de meta/nivel en el formulario sin conflicto ni commitear trabajo ajeno. | Alta | Ese trabajo debe estar integrado en `dev` antes de tocar esos archivos. Si no lo está, S3 usa un endpoint/pantalla separada (`PATCH /api/socios/[id]/entrenamiento`) y **no** modifica el formulario de clientes. |
 
 ## Dependencias
 
@@ -286,8 +346,10 @@ rutina adaptada da transparencia sin exponer el motor. El historial de fases que
 - **Matriz de roles**: `src/lib/authorization.ts` y `matrix-consistency.test.ts` para los endpoints de S3.
 - **Evidencia**: `openspec/changes/adaptacion-rutina/research.md` con los 10 DOIs verificados y la tabla de
   parámetros candidatos.
-- **Alineación de ramas**: antes de correr migraciones, `feat/adaptacion-rutina` debe rebasar sobre `dev` o
-  usar base aparte (R2).
+- **Alineación de ramas / base aislada (prerrequisito de S2)**: antes de correr migraciones hay que **alinear
+  `dev` con `feat/adaptacion-rutina` o crear una base de desarrollo aislada**. Es una tarea previa de S2, no un
+  supuesto: sin ella, `prisma migrate deploy` puede ver migraciones aplicadas que faltan localmente y ofrecer
+  `reset` (R2).
 
 ## Plan de reversión
 
