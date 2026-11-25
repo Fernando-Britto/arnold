@@ -94,12 +94,11 @@ El alcance es **solo micro** (D-136), en tres slices: **S1** motor puro probado 
 - Entrada: `HistorialEjercicioAdaptacion` sintético (series con carga, reps realizadas, RIR, tipo) y
   prescripción actual (series, reps objetivo).
 - Salida: `SugerenciaAdaptacion { tipo, carga, repeticiones, motivo, parametrosUsados }`.
-- Criterio primario: **pendiente de decisión (a)** — ver §"Decisiones que Fernando debe tomar antes del spec".
-  La implementación debe dejar el criterio como punto de extensión (inyección de estrategia) para que la
-  decisión se pueda swappear sin tocar el cableado.
+- Criterio primario: **decisión (a), resuelta en D-137** (ACSM + RIR blando sobre ventana).
+  La implementación deja el criterio como punto de extensión (inyección de estrategia).
 - RIR: señal blanda, leída en la última serie del ejercicio (`RIR_SERIE_DE_LECTURA`), con desfase global
   opcional (`RIR_DESFASE_GLOBAL`). No se usa como gatillo de una sola sesión; se evalúa sobre
-  `RIR_VENTANA_TENDENCIA`. El RIR entra al motor **solo cuando la meta lo justifique** (pendiente (b)).
+  `RIR_VENTANA_TENDENCIA`. El RIR entra al motor **solo cuando la meta lo justifique** (D-138).
 - Estancamiento: ventana configurable `ESTANCAMIENTO_VENTANA_SESIONES` (default 3), ingeniería, no derivada
   de evidencia (research §3.9).
 - Descarga reactiva: se mantiene la lógica de D-59 (3 fallos seguidos → −10 % ajustado a grilla), con el
@@ -132,16 +131,18 @@ El alcance es **solo micro** (D-136), en tres slices: **S1** motor puro probado 
   `EjercicioEnRutina` de la copia y se actualiza `planActualizadoAt` solo en los ejercicios que cambiaron
   series o reps.
 - Vista del socio: la rutina que ya ve hoy, con una línea adicional por ejercicio adaptado que muestra el
-  motivo de la última aprobación. Pendiente (c.4) decide el nivel de detalle.
+  motivo de la última aprobación. La decisión (c.4), resuelta en D-139, fija este nivel de detalle.
 
-## Decisiones que Fernando debe tomar antes del spec
+## Decisiones del proposal (resueltas 2026-11-18)
 
-Cada ítem se numera como "decisión pendiente"; al cerrarse recibirá el número **D-137** en adelante. No se
-usan números D-xxx aquí a propósito.
+Fernando resolvió las seis el 2026-11-18: (a) → **D-137**, (b) → **D-138**, (c.1–c.4) → **D-139**. Las tablas de
+opciones quedan como registro del porqué.
 
-### (a) Criterio primario de progresión en S1
+### (a) Criterio primario de progresión en S1 → **D-137**
 
 Reabre parcialmente D-59, que descartó la doble progresión por repeticiones enteras fijas.
+
+**Resuelta: opción C** — regla ACSM como criterio primario y RIR blando sobre ventana (D-137).
 
 | Opción | Qué evalúa | Ventaja | Costo |
 |---|---|---|---|
@@ -152,10 +153,12 @@ Reabre parcialmente D-59, que descartó la doble progresión por repeticiones en
 **Recomendación**: **C**, con ACSM como columna vertebral y el RIR como ajuste blando sobre una ventana,
 activado solo para metas de hipertrofia/definición. La decisión (b) define el encendido del RIR.
 
-### (b) La meta como parámetro del motor y cuándo se usa el RIR
+### (b) La meta como parámetro del motor y cuándo se usa el RIR → **D-138**
 
 Robinson 2024 (abstract leído) separa el efecto por objetivo: el RIR pesa en hipertrofia y no en fuerza.
 Para una meta tipo "mejorar press banca" (fuerza), el RIR aporta poco.
+
+**Resuelta: opción A** — meta como parámetro; RIR condicional apagable; persistencia de la meta en S2 (D-138).
 
 | Opción | Cómo entra la meta | Cuándo se usa el RIR |
 |---|---|---|
@@ -166,7 +169,9 @@ Para una meta tipo "mejorar press banca" (fuerza), el RIR aporta poco.
 **Recomendación**: **A**, pero depende de la decisión pendiente 4 del `explore.md` (metas del MVP). Si
 Fernando prefiere dejar la meta para S3, **C** mantiene S1 acotado y posterga el condicional.
 
-### (c) Recomendaciones provisionales 4 a 7 del `explore.md`
+### (c) Recomendaciones provisionales 4 a 7 del `explore.md` → **D-139**
+
+**Resueltas: (c.1) B, (c.2) A, (c.3) A, (c.4) B** (D-139).
 
 #### (c.1) Metas soportadas en el MVP (decisión pendiente 4 del explore)
 

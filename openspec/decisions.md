@@ -914,7 +914,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Verificado**: tests del dominio puro (agrupado, UTC-3, formato, "hace N días"), del dominio con Prisma mockeado, de la ruta y de
   la pantalla. **No** se probó contra una base real ni en el navegador: queda para Fernando.
 
-### D-59 · Tracking del socio: motor de progresión por ejercicio (T-046d, inspirado en openGym)
+### D-59 · Tracking del socio: motor de progresión por ejercicio (T-046d, inspirado en openGym) — **reemplazada parcialmente por [D-137](#d-137--criterio-primario-de-progresión-en-s1-regla-acsm-con-el-rir-como-modulador)**
 - **Origen**: Fernando (2026-10-16), idea 4 de la lista de tracking: progresión automática derivada del historial, que completa la
   `ReglaDeProgresion` que Arnold tenía a medias. Se toma la idea de openGym como referencia; **no se copió código** (AGPL-3.0).
 - **Orden**: se **adelanta T-046d a T-046b y T-046c** (los IDs no cambian). El resumen al terminar la sesión (T-046b) muestra un
@@ -937,6 +937,8 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Alternativas descartadas**: guardar el plan con cada sesión, como hace openGym (necesita migración); contadores guardados
   (pueden desincronizarse); rangos de repeticiones y doble progresión (`repeticiones` es un entero fijo); progresiones tipo Greyskull
   o triple (fuera del alcance del trabajo final).
+  **Reemplazada parcialmente por D-137 (2026-11-18)**: el criterio primario pasa a las repeticiones de sobra
+  sobre el objetivo; la descarga reactiva de esta decisión se mantiene.
 - **Conexión (parte 2)**: `GET /api/sesiones?enCurso=1` y `POST /api/sesiones` devuelven `sugerencias` (por `Ejercicio.id`, solo de
   ejercicios con historial) junto a `ultimasVeces`. De **una sola lectura** del historial por ejercicio salen las dos cosas
   (`seguimientoDeEjercicios`), y la sesión en curso no cuenta: una serie floja de hoy no cambia la sugerencia de hoy. La pantalla de
@@ -1885,6 +1887,60 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   agranda el alcance antes de validar el micro); **las tres capas** (sobredimensiona el primer entregable y pone
   la macro antes de validar el micro).
 - **Dónde**: `openspec/changes/adaptacion-rutina/explore.md` §7; slices S1, S2 y S3.
+
+### D-137 · Criterio primario de progresión en S1: regla ACSM con el RIR como modulador
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisión (a)).
+- **Contexto**: ACSM 2009 (abstract verificado) fija una regla condicional, no una tasa por nivel: subir la carga
+  **2–10 %** cuando la persona logra **1–2 repeticiones por encima** de las deseadas. El motor actual expone
+  solo `cumplida: boolean` (`src/domains/sesion/progresion-ejercicio.ts:64-78`) y D-59 había descartado la doble
+  progresión porque `repeticiones` era un entero fijo. Las repeticiones realizadas por serie ya se guardan
+  (`prisma/schema.prisma:520`), así que el dato existe.
+- **Decisión**: **opción C**. La regla ACSM es el criterio primario (repeticiones realizadas contra objetivo:
+  1–2 de sobra → subir 2–10 %); el RIR es **señal blanda** sobre una ventana de sesiones, leída en la última
+  serie. Los porcentajes y las repeticiones de sobra son **parámetros configurables**. La descarga reactiva de
+  D-59 (3 fallos → −10 %) se mantiene. **Reemplaza parcialmente a D-59** en lo que descartó la doble progresión.
+- **Consecuencia**: S1 extiende la lectura de sesión más allá de `cumplida` para exponer las repeticiones
+  realizadas contra el objetivo; no agrega columnas ni migración. El incremento fijo de 2,5 kg queda como caso
+  particular cuando el salto entra en el rango porcentual. Los tests deben distinguir "subir por repeticiones
+  de sobra" de "subir por repeticiones cumplidas".
+- **Por qué**: el dato objetivo manda y el RIR modula; el RIR es ruidoso (Halperin 2022: subestimación media
+  0,95 reps, I² 97,9 %, el nivel no influye) y no discrimina en fuerza (Robinson 2024). El ACSM es un position
+  stand de adultos sanos, no un ensayo de esa regla: por eso los números quedan como parámetros.
+- **Alternativas descartadas**: **RIR como criterio primario** (defiende más de lo que la evidencia banca y es
+  inestable con una sola serie); **mantener D-59 puro** (ignora las repeticiones de sobra, que es justo lo que
+  el ACSM usa como disparador).
+- **Dónde**: `openspec/changes/adaptacion-rutina/proposal.md` §S1; `research.md` §3.2, §3.6 y §3.7.
+
+### D-138 · La meta entra como parámetro del motor y el RIR condicional es apagable
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisión (b)).
+- **Contexto**: Robinson 2024 (meta-regresión exploratoria, ajuste modesto) muestra que el RIR pesa en
+  hipertrofia y no en fuerza. S1 se valida con historiales sintéticos, así que recibir la meta como entrada no
+  cuesta persistencia. D-135 acotó S2 a una única migración.
+- **Decisión**: el motor recibe la **meta como parámetro**. El RIR condicional por meta es **apagable**. Dónde se
+  persiste la meta del socio se resuelve en **S2, dentro de la única migración** (junto con `planActualizadoAt`).
+- **Consecuencia**: S1 no depende del schema ni suma migraciones; apagado el flag, el motor vuelve al criterio
+  ACSM puro. S2 agrega el campo/enum de meta en la misma migración que ya estaba prevista.
+- **Por qué**: no agranda S1 ni la migración y deja el condicional listo sin comprometer un enum antes de tiempo.
+- **Alternativas descartadas**: **persistir la meta en S1** (suma una migración que D-135 ya había acotado a una);
+  **RIR universal** (mismo problema que en D-137: la evidencia no lo banca para fuerza).
+- **Dónde**: `proposal.md` §S1 y §S2; `research.md` §3.15.
+
+### D-139 · Producto del MVP: metas, nivel, descarga y qué ve el socio
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisión (c)).
+- **Contexto**: las recomendaciones provisionales 4–7 del `explore.md`. "Definición" no tiene respaldo propio en
+  la literatura (research §3.12). El ACSM define el nivel por meses de entrenamiento consistente. La descarga
+  por calendario no tiene soporte empírico en el único ECA leído (Coleman 2024).
+- **Decisión**: **metas del MVP**: Fuerza, Hipertrofia y Definición; "Definición" se documenta como
+  **convención** de producto, no como hallazgo. **Nivel**: lo carga el instructor. **Descarga**: reactiva; el
+  calendario queda para el change de macro. **Vista del socio**: la rutina y el motivo de la última aprobación.
+- **Consecuencia**: S2 agrega un enum de 3 valores y reutiliza `NivelDeDificultad`; S1/S2 no implementan
+  descarga por calendario; S3 muestra una línea de motivo por ejercicio adaptado.
+- **Por qué**: las tres metas mapean a una fase de micro sin abrir el catálogo completo; el nivel explícito evita
+  inferencias sin datos; el motivo visible explica siempre el porqué del cambio.
+- **Alternativas descartadas**: **todas las de `OBJETIVOS_PRINCIPALES`** (Resistencia, Pérdida de Peso y
+  Acondicionamiento General no tienen fase en micro); **texto libre** (no se puede mapear a lógica); **inferir el
+  nivel en S1** (no hay historial suficiente); **descarga por calendario** (sin apoyo en la evidencia leída).
+- **Dónde**: `proposal.md` §S2 y §S3; `explore.md` §7.2.
 
 ---
 
