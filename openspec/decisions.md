@@ -1942,6 +1942,58 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   nivel en S1** (no hay historial suficiente); **descarga por calendario** (sin apoyo en la evidencia leída).
 - **Dónde**: `proposal.md` §S2 y §S3; `explore.md` §7.2.
 
+### D-140 · Ciclo de vida de la propuesta: reemplazo y enfriamiento tras rechazo
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisiones (d) y (g)).
+- **Contexto**: la regla idempotente de S2 solo evitaba duplicados. Si ya había una `PENDIENTE` y una sesión
+  nueva cambiaba el diagnóstico, la propuesta vieja seguía viva. Y tras un rechazo, la próxima sesión cerrada
+  volvía a proponer lo mismo: un bucle.
+- **Decisión**: estados `PENDIENTE | APROBADA | RECHAZADA | REEMPLAZADA`. Tras cada sesión cerrada el motor
+  recalcula; si el contenido cambia, la pendiente pasa a `REEMPLAZADA` (**la fila se conserva**). Aprobar una
+  propuesta que no está `PENDIENTE` devuelve **409** con el motivo. Tras un `RECHAZO`, el motor no vuelve a
+  proponer lo mismo durante un enfriamiento configurable en sesiones (`ENFRIAMIENTO_RECHAZO_SESIONES`).
+- **Consecuencia**: el historial queda auditable; el 409 cubre `REEMPLAZADA`, `APROBADA` y `RECHAZADA`; el
+  servicio compara contenido y cuenta sesiones desde el rechazo.
+- **Por qué**: nunca se aprueba un diagnóstico viejo y no se repite en bucle una propuesta rechazada.
+- **Alternativas descartadas**: **mantener la pendiente** (se aprueba algo obsoleto); **borrar la vieja** (pierde
+  traza); **caducar por SLA** (necesita job y no cubre el cambio inmediato); **sin enfriamiento** (bucle).
+- **Dónde**: `proposal.md` §S2 y §S3; criterios de éxito de S2 y S3.
+
+### D-141 · Incremento: la regla es el porcentaje, el paso es la grilla del socio
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisión (e)).
+- **Contexto**: hoy la subida es `ultima.carga + incrementoKg` (`src/domains/sesion/progresion-ejercicio.ts:150`),
+  con `incrementoKg` de la primera regla `LINEAL` o `DEFAULT_INCREMENTO_KG` = 2,5 (`:798-807`). **La regla es
+  global**: `incrementoLineal()` hace `findFirst({ where: { tipo: "LINEAL" } })` y `ReglaDeProgresion` no tiene
+  `ejercicioId` (`prisma/schema.prisma:564-570`; `incrementoSugerido` en `:568`). Con la regla ACSM, el 2 % de una
+  carga chica puede ser menor que un paso.
+- **Decisión**: `nueva carga = última + k × paso`, con
+  `k = max(1, redondeo(% elegido × última / paso))` y `%` dentro de `[INCREMENTO_PCT_MIN, INCREMENTO_PCT_MAX]`. El
+  **paso** es el `incrementoSugerido` de la regla `LINEAL` vigente (hoy global). El **paso mínimo prevalece sobre el
+  tope** cuando un paso supera el máximo (cargas livianas) y el motivo lo dice. La promesa "el motor nunca propone
+  una carga fuera de la grilla del socio" aplica a las **subidas**, que avanzan desde la última carga; **no** aplica
+  a la descarga de D-59, que redondea a múltiplos absolutos del paso y puede devolver un peso armable que el socio
+  nunca usó.
+- **Consecuencia**: al subir, el peso propuesto siempre está en la grilla que el socio ya usó. En cargas livianas el
+  salto puede superar el 10 % (ej. 20 kg + 2,5 = 12,5 %) y el motivo lo declara. El paso por ejercicio o por máquina
+  queda **fuera de este change**: no hay pantalla que lo cargue y toca el camino de D-59 (P-73).
+- **Por qué**: respeta la grilla real y la regla ACSM; el piso de un paso evita incrementos invisibles.
+- **Alternativas descartadas**: **paso global nuevo** (`PASO_GRILLA_KG`, ignora la regla existente); **% puro sin
+  grilla** (pesos no cargables); **2,5 kg fijo como regla** (contradice ACSM); **paso por ejercicio en este change**
+  (dato sin pantalla que lo cargue y cambio en un archivo que toca el trabajo paralelo).
+- **Dónde**: `proposal.md` §S1 y §S2; `research.md` §3.7; pendiente P-73.
+
+### D-142 · Aprobación todo-o-nada, con el contenido guardado como ítems
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisión (f)).
+- **Contexto**: la aprobación por ejercicio obliga a estado por ítem, duplica el modelo de S2, la lógica de
+  aprobación parcial y los tests. El change ya carga una migración.
+- **Decisión**: la aprobación es **todo-o-nada por propuesta**. El contenido se guarda como **lista de ítems por
+  ejercicio con id estable**, para permitir aprobación por ítem en un change posterior sin migrar datos.
+- **Consecuencia**: el estado vive en la propuesta, no en el ítem; el 409 de D-140 aplica a la propuesta entera;
+  los ítems quedan identificados para una futura aprobación parcial.
+- **Por qué**: mantiene S2/S3 acotados sin cerrar la puerta a la aprobación por ejercicio.
+- **Alternativas descartadas**: **aprobación por ejercicio ahora** (duplica modelo, lógica y tests); **JSON sin
+  ids** (obligaría a migrar datos para agregar la aprobación parcial).
+- **Dónde**: `proposal.md` §S2 y §S3.
+
 ---
 
 ## 2. Registro de defectos corregidos
@@ -2040,6 +2092,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-70 | ~~`ejercicioActualId` de la sesión debe reflejar la asignación aceptada~~ | — | **Resuelto (Etapa 4, T-056g2/g3a)**: `iniciarSesion` consume la reserva y fija el ejercicio; al completar, el siguiente sale de la reserva o del orden de rutina |
 | P-71 | Sensibilidad de la latencia del check-in: peor caso ≈2,25 s por la carrera externa | Media | Parcialmente mitigado: `ASIGNACION_TIMEOUT_CALCULO_MS` configurable por entorno (D-110). Falta medir con carga real y reevaluar `after` si se verifica P-28 |
 | P-72 | Saltar el ejercicio durante la sesión (máquina rota o socio lesionado): mover `ejercicioActualId`/`serieActual` y reasignar al siguiente ejercicio. Fuera de P-61, que solo cambia de máquina | Baja | Requiere tocar `sesion-de-entrenamiento`; se evalúa con la pantalla en uso |
+| P-73 | Paso de grilla por ejercicio o por máquina: hoy `ReglaDeProgresion` es global (`prisma/schema.prisma:564-570`; `incrementoLineal()` hace `findFirst` por tipo). S1 ya recibe el paso como parámetro, así que pasarlo a por-ejercicio no obliga a reescribir el motor; las máquinas ya están modeladas y ahí podría vivir el paso | Baja | Fuera de `adaptacion-rutina` (D-141): no hay pantalla que lo cargue y toca `incrementoLineal()` en `sesion-de-entrenamiento.ts`, modificado por trabajo paralelo |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | **Casi cerrado (2026-10-16)**: `npm run build` ✅ y `npm run start` ✅ (exit 0, 45 páginas). El **pooler se probó y funciona**: Prisma directo tolera las transacciones interactivas (el landmine de pgbouncer no se dispara) y `npm run start` con `DATABASE_URL` *pooled* responde login `200` y `/api/home-interno` `200` (6,01 s / 2,40 s, contra 3,21 s / 1,33–1,71 s de la conexión directa: **más lento en local por `connection_limit=1`**, que serializa las consultas; su beneficio es la concurrencia en serverless). **Falta probarlo en Vercel**; las migraciones siguen necesitando conexión directa (sin `directUrl`) |

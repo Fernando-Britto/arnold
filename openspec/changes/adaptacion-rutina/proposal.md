@@ -126,12 +126,16 @@ El alcance es **solo micro** (D-136), en tres slices: **S1** motor puro probado 
   defaults son parámetros (`META_POR_DEFECTO`, `NIVEL_POR_DEFECTO`) y se documentan en el contrato del motor.
 - Copia perezosa de rutina: la primera adaptación que se apruebe clona `Rutina` + `EjercicioEnRutina` para
   ese socio y reasigna `RutinaAsignada`. Hasta entonces el socio sigue en la plantilla compartida.
-- Tabla `PropuestaAdaptacion`: `{ id, socioId, rutinaId, estado (PENDIENTE | APROBADA | RECHAZADA),
-  creadoPor (sistema), aprobadoPor?, contenido (JSON con cambios por ejercicio), motivo, createdAt,
-  resueltoAt }`.
+- Tabla `PropuestaAdaptacion`: `{ id, socioId, rutinaId, estado (PENDIENTE | APROBADA | RECHAZADA |
+  REEMPLAZADA), creadoPor (sistema), aprobadoPor?, contenido (lista de ítems por ejercicio, cada uno con id
+  estable), motivo, createdAt, resueltoAt, reemplazadaPorId? }`. El estado vive en la propuesta; el ítem no tiene
+  estado propio (D-142).
+- **Recálculo y ciclo de vida**: tras cada sesión cerrada el motor recalcula; si el contenido cambia, la
+  `PENDIENTE` pasa a `REEMPLAZADA` (la fila se conserva) y se crea la nueva. Tras un rechazo, no se vuelve a
+  proponer el mismo contenido hasta pasar `ENFRIAMIENTO_RECHAZO_SESIONES` sesiones (D-140).
 - Servicio de disparo: tras cada sesión cerrada, el sistema evalúa el motor de S1 para los ejercicios con
-  historial y, si hay algo que proponer, crea una `PropuestaAdaptacion` en estado `PENDIENTE`. Idempotente:
-  no duplica propuestas pendientes para el mismo socio.
+  historial y, si hay algo que proponer, crea una `PropuestaAdaptacion` en estado `PENDIENTE`. No duplica la misma
+  propuesta pendiente; si el contenido cambia, la reemplaza (D-140).
 
 ### S3 — Aprobación y vista
 
@@ -231,14 +235,17 @@ prueba cese total de una semana, no descarga con volumen reducido.
 **Recomendación**: **B**. El motivo ya existe (`Sugerencia.motivo`, `progresion-ejercicio.ts:52`); mostrar la
 rutina adaptada da transparencia sin exponer el motor. El historial de fases queda para macro.
 
-### Pendientes antes del spec (sin resolver)
+### Decisiones (d)–(g) — resueltas 2026-11-18
 
-Fernando no las resolvió todavía. No se numeran D-xxx; se numerarán cuando se decidan.
+Fernando resolvió las cuatro el 2026-11-18: (d) y (g) → **D-140**, (e) → **D-141**, (f) → **D-142**.
 
-#### (d) Propuesta `PENDIENTE` que quedó obsoleta
+#### (d) Propuesta `PENDIENTE` que quedó obsoleta → **D-140**
 
 Si ya hay una propuesta pendiente y una sesión nueva cambia el diagnóstico, la regla idempotente actual deja viva
 la propuesta vieja.
+
+**Resuelta: opción B** — recalcular y reemplazar con estado `REEMPLAZADA`, conservando la fila; aprobar una
+propuesta no pendiente devuelve 409 (D-140).
 
 | Opción | Qué hace | Ventaja | Costo |
 |---|---|---|---|
@@ -249,7 +256,7 @@ la propuesta vieja.
 **Recomendación**: **B**. La propuesta vieja deja de ser accionable en el mismo momento en que el diagnóstico
 cambia, sin perder historial.
 
-#### (e) Redondeo del incremento: ¿el 2,5 kg es la grilla o la regla?
+#### (e) Redondeo del incremento: ¿el 2,5 kg es la grilla o la regla? → **D-141**
 
 | Opción | Qué es el 2,5 kg | Qué pasa cuando el 2 % es menor que un paso |
 |---|---|---|
@@ -257,19 +264,30 @@ cambia, sin perder historial.
 | **B. La grilla** | Paso de peso; la regla es el % ACSM (2–10 %) redondeado al paso más cercano, con **mínimo un paso** | El mínimo de un paso lo cubre: sube 2,5 kg |
 | C. Sin grilla | % puro sobre la carga actual (cargas arbitrarias) | Sube el 2 % exacto, aunque no sea un peso cargable en la práctica |
 
-**Recomendación**: **B**. El porcentaje manda y la grilla lo hace cargable. Parámetro `REDONDEO_INCREMENTO`
-(`cercano` | `abajo`) para elegir el criterio de redondeo; con `abajo`, nunca se baja de un paso. El paso de grilla
-queda como parámetro (`PASO_GRILLA_KG`, default 2,5) y no como constante del motor.
+**Resuelta: opción B**, con el paso tomado de `incrementoSugerido` de la regla `LINEAL` vigente (hoy **global**,
+`prisma/schema.prisma:568`; `incrementoLineal()` hace `findFirst` por tipo): `nueva carga = última + k × paso`,
+`k = max(1, redondeo(% × última / paso))`. El piso de un paso prevalece sobre el tope del 10 % en cargas livianas y
+el motivo lo declara. La promesa de "nunca fuera de la grilla del socio" aplica a las **subidas**; la descarga de
+D-59 redondea a múltiplos absolutos del paso y puede dar un peso armable que el socio no usó (D-141). El paso por
+ejercicio/máquina queda fuera de este change (P-73).
 
-#### (f) Granularidad de la aprobación
+#### (f) Granularidad de la aprobación → **D-142**
 
 | Opción | Qué aprueba el instructor | Ventaja | Costo |
 |---|---|---|---|
-| A. Todo o nada | La propuesta entera | Simple de modelar y de operar | Un solo cambio malo obliga a rechazar los buenos |
-| **B. Por ejercicio** | Cada cambio de ejercicio, con "aprobar todo" como atajo | Rechaza lo dudoso y conserva lo bueno | Más UI y el modelo de S2 necesita estado por ítem (tabla de ítems o JSON con estado) |
+| **A. Todo o nada** | La propuesta entera | Simple de modelar y de operar | Un solo cambio malo obliga a rechazar los buenos |
+| B. Por ejercicio | Cada cambio de ejercicio, con "aprobar todo" como atajo | Rechaza lo dudoso y conserva lo bueno | Más UI y el modelo de S2 necesita estado por ítem (tabla de ítems o JSON con estado) |
 
-**Recomendación**: **B**, con atajo "aprobar todo". Afecta el modelo de `PropuestaAdaptacion` en S2 (hoy planteado
-como `contenido` JSON con estado único): si se elige B, la migración debe incluir el estado por ítem.
+**Resuelta: opción A** (todo-o-nada). Se descarta B en este change por el costo en S2/S3; el contenido se guarda
+igual como lista de ítems con id estable, para habilitar la aprobación por ítem más adelante sin migrar datos
+(D-142).
+
+#### (g) Rechazo: bucle de reproposición → **D-140**
+
+Si el instructor rechaza, la próxima sesión cerrada vuelve a proponer lo mismo.
+
+**Resuelta: enfriamiento configurable** (`ENFRIAMIENTO_RECHAZO_SESIONES`) contado en sesiones desde el rechazo,
+antes de volver a proponer el mismo contenido (D-140).
 
 ## Criterios de éxito verificables
 
@@ -277,6 +295,10 @@ como `contenido` JSON con estado único): si se elige B, la migración debe incl
 
 - `npm test -- progresion-adaptacion` pasa con los casos ACSM: 1–2 reps de sobra → subida entre
   `INCREMENTO_PCT_MIN` y `INCREMENTO_PCT_MAX` de la carga actual.
+- Test de grilla (D-141): la carga propuesta es siempre `última + k × paso` con `k = max(1, redondeo(% × última /
+  paso))`; nunca cae fuera de la grilla del socio.
+- Test de carga liviana (D-141): con 20 kg y paso 2,5 (12,5 % > 10 %), el piso de un paso prevalece y el motivo lo
+  dice explícitamente.
 - Test que verifica que 3 fallos seguidos a la misma carga → descarga `DELOAD_REDUCCION_VOLUMEN_PCT`
   ajustada a grilla, con motivo legible.
 - Test que verifica que la tendencia de RIR sobre `RIR_VENTANA_TENDENCIA` sesiones modifica la sugerencia
@@ -300,8 +322,10 @@ como `contenido` JSON con estado único): si se elige B, la migración debe incl
   cambia el cálculo de carga.
 - Test de copia perezosa: primera adaptación clona `Rutina` + `EjercicioEnRutina` y reasigna
   `RutinaAsignada`; segunda adaptación trabaja sobre la copia sin volver a clonar.
-- Test de propuesta idempotente: dos sesiones cerradas seguidas sin aprobación intermedia generan **una**
-  sola `PropuestaAdaptacion` pendiente por socio.
+- Test de ciclo de vida (D-140): dos sesiones cerradas sin cambio de diagnóstico generan **una** sola
+  `PropuestaAdaptacion` pendiente; si el diagnóstico cambia, la anterior pasa a `REEMPLAZADA` y se conserva.
+- Test de enfriamiento (D-140): tras un `RECHAZO`, el motor no propone el mismo contenido hasta pasar
+  `ENFRIAMIENTO_RECHAZO_SESIONES` sesiones.
 - Test de `planActualizadoAt`: aprobar propuesta mueve `planActualizadoAt` solo en los ejercicios que
   cambiaron series/reps; los que solo cambiaron descanso/orden no lo mueven (hereda la semántica de D-61).
 
@@ -310,7 +334,7 @@ como `contenido` JSON con estado único): si se elige B, la migración debe incl
 - `GET /api/propuestas-adaptacion` con rol SOCIO o RECEPCIONISTA devuelve `403`; INSTRUCTOR y ADMINISTRADOR
   ven solo las de sus socios a cargo.
 - `POST …/aprobar` en `PENDIENTE` → `200` y la rutina del socio queda con los cambios aplicados; en
-  `APROBADA`/`RECHAZADA` → `409`.
+  `APROBADA`, `RECHAZADA` o `REEMPLAZADA` → `409` con el motivo (D-140).
 - `POST …/rechazar` deja la propuesta en `RECHAZADA` con `aprobadoPor` y `resueltoAt`, sin tocar la rutina.
 - Vista del socio muestra el motivo de la última adaptación aprobada por ejercicio (decisión (c.4)).
 - Smoke manual (Fernando): instructor lista pendientes, aprueba una, verifica en SQL la copia y los
