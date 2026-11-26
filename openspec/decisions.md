@@ -1827,7 +1827,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   `socioId` del reasignado (D-129).
 - **Por qué**: hereda el corte de inactividad (D-105) y la regla D-108 sin duplicar SQL ni divergir del motor.
 
-### D-134 · El sistema propone y el instructor aprueba
+### D-134 · El sistema propone y el instructor aprueba — **aplazada al change posterior (no descartada)**
 - **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (§7 del `explore.md`).
 - **Contexto**: el motor de progresión (D-59) solo sugiere una carga por ejercicio; no existe ningún mecanismo
   para cambiar la rutina de un socio. La propuesta de adaptación tenía tres salidas: automática, aprobada por
@@ -1844,7 +1844,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Dónde**: `openspec/changes/adaptacion-rutina/explore.md` §7; slice S3; la tabla de propuestas se define en
   el diseño de S2.
 
-### D-135 · Copia por socio perezosa y `planActualizadoAt` explícito
+### D-135 · Copia por socio perezosa y `planActualizadoAt` explícito — **aplazada al change posterior (no descartada)**
 - **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (§4 y §7 del `explore.md`).
 - **Contexto**: `Rutina` es una plantilla compartida (`prisma/schema.prisma:360-377`: `RutinaAsignada` apunta a
   `Rutina`), así que adaptar la rutina de un socio no puede editar la plantilla. Además, el juicio del motor
@@ -1869,24 +1869,25 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   (`EjercicioEnRutina`, `RutinaAsignada`) y la migración de S2; `src/domains/sesion/progresion-ejercicio.ts`
   (`planDesde`).
 
-### D-136 · El entregable se corta en S1 motor puro, S2 persistencia y S3 aprobación
-- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (§7 del `explore.md`).
+### D-136 · El entregable se corta en S1 motor puro y S2 integración en la sesión — **redefinida por D-143**
+- **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (§7 del `explore.md`); alcance redefinido el
+  2026-11-26 (D-143).
 - **Contexto**: la exploración ofrecía tres alcances para el primer slice: solo micro, micro + meso o las tres
   capas. La meso (volumen por músculo, estancamiento, fatiga semanal) hoy existe como tarjeta, no como insumo
   del motor, y la macro no existe.
-- **Decisión**: el alcance de este change es **micro**, cortado en tres slices: **S1** motor puro de micro
-  con el RIR como señal blanda y tests con historiales sintéticos; **S2** persistencia (copia por socio y
-  propuesta); **S3** aprobación del instructor y vista del socio. **Meso (volumen por músculo, estancamiento y
-  fatiga) será un change posterior.**
-- **Consecuencia**: tres PRs encadenados y revisables; S1 no toca la base ni la UI y se valida contra
-  historiales sintéticos; la detección de estancamiento por músculo queda fuera.
-- **Por qué**: el motor puro primero se valida barato y sin migraciones; la persistencia y la aprobación agregan
-  estado y UI recién cuando el criterio está probado. Meter meso en S1 rompía el límite de PR y mezclaba el
-  criterio por ejercicio con la agregación por músculo.
+- **Decisión**: el alcance de este change es **micro**, en **dos slices**: **S1** motor puro de micro con el RIR
+  como señal blanda y tests con historiales sintéticos; **S2** integración del motor en la sugerencia de la
+  sesión, sin persistencia. **Meso y macro** y todo lo que requiere estado (propuestas, aprobación, copia por
+  socio, `planActualizadoAt`, meta y nivel persistidos, estancamiento, `cambiar-repeticiones`) pasan al change
+  posterior `adaptacion-plan` (D-143).
+- **Consecuencia**: dos PRs encadenados y revisables; S1 no toca la base ni la UI; S2 toca la lectura de sesión y
+  el cableado de la sugerencia, con el contrato visible intacto. Desaparece la migración.
+- **Por qué**: el motor puro primero se valida barato y sin migraciones; la integración entrega valor visible
+  (mejor sugerencia) sin abrir el modelo de propuestas, que necesita cambios de plan y no de carga.
 - **Alternativas descartadas**: **micro + meso en el mismo change** (la meso todavía no tiene motor propio y
   agranda el alcance antes de validar el micro); **las tres capas** (sobredimensiona el primer entregable y pone
   la macro antes de validar el micro).
-- **Dónde**: `openspec/changes/adaptacion-rutina/explore.md` §7; slices S1, S2 y S3.
+- **Dónde**: `openspec/changes/adaptacion-rutina/explore.md` §7; `proposal.md`; slices S1 y S2.
 
 ### D-137 · Criterio primario de progresión en S1: regla ACSM con el RIR como modulador
 - **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisión (a)).
@@ -1897,7 +1898,9 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   (`prisma/schema.prisma:520`), así que el dato existe.
 - **Decisión**: **opción C**. La regla ACSM es el criterio primario (repeticiones realizadas contra objetivo:
   1–2 de sobra → subir 2–10 %); el RIR es **señal blanda** sobre una ventana de sesiones, leída en la última
-  serie. Los porcentajes y las repeticiones de sobra son **parámetros configurables**. La descarga reactiva de
+  serie. La modulación es **desplazar el porcentaje dentro de** `[INCREMENTO_PCT_MIN, INCREMENTO_PCT_MAX]`: RIR
+  **bajo sostenido → extremo bajo**; RIR **alto sostenido → extremo alto**. El RIR **nunca anula ni dispara** una
+  subida. Los porcentajes y las repeticiones de sobra son **parámetros configurables**. La descarga reactiva de
   D-59 (3 fallos → −10 %) se mantiene. **Reemplaza parcialmente a D-59** en lo que descartó la doble progresión.
 - **Consecuencia**: S1 extiende la lectura de sesión más allá de `cumplida` para exponer las repeticiones
   realizadas contra el objetivo; no agrega columnas ni migración. El incremento fijo de 2,5 kg queda como caso
@@ -1916,16 +1919,18 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Contexto**: Robinson 2024 (meta-regresión exploratoria, ajuste modesto) muestra que el RIR pesa en
   hipertrofia y no en fuerza. S1 se valida con historiales sintéticos, así que recibir la meta como entrada no
   cuesta persistencia. D-135 acotó S2 a una única migración.
-- **Decisión**: el motor recibe la **meta como parámetro**. El RIR condicional por meta es **apagable**. Dónde se
-  persiste la meta del socio se resuelve en **S2, dentro de la única migración** (junto con `planActualizadoAt`).
+- **Decisión**: el motor recibe la **meta como parámetro**. El RIR condicional por meta es **apagable**. En este
+  change la meta **no se persiste**: la integración de S2 pasa `meta = null`, así que producción aplica solo ACSM
+  y el RIR queda probado pero inactivo hasta que `adaptacion-plan` guarde la meta del socio. Dónde se persiste,
+  con qué enum y junto a qué migración, se resuelve en ese change posterior.
 - **Consecuencia**: S1 no depende del schema ni suma migraciones; apagado el flag, el motor vuelve al criterio
-  ACSM puro. S2 agrega el campo/enum de meta en la misma migración que ya estaba prevista.
+  ACSM puro. La persistencia de la meta y su enum quedan en `adaptacion-plan` (D-143).
 - **Por qué**: no agranda S1 ni la migración y deja el condicional listo sin comprometer un enum antes de tiempo.
 - **Alternativas descartadas**: **persistir la meta en S1** (suma una migración que D-135 ya había acotado a una);
   **RIR universal** (mismo problema que en D-137: la evidencia no lo banca para fuerza).
 - **Dónde**: `proposal.md` §S1 y §S2; `research.md` §3.15.
 
-### D-139 · Producto del MVP: metas, nivel, descarga y qué ve el socio
+### D-139 · Producto del MVP: metas, nivel, descarga y qué ve el socio — **aplazada parcialmente al change posterior (no descartada)**
 - **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisión (c)).
 - **Contexto**: las recomendaciones provisionales 4–7 del `explore.md`. "Definición" no tiene respaldo propio en
   la literatura (research §3.12). El ACSM define el nivel por meses de entrenamiento consistente. La descarga
@@ -1933,8 +1938,11 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Decisión**: **metas del MVP**: Fuerza, Hipertrofia y Definición; "Definición" se documenta como
   **convención** de producto, no como hallazgo. **Nivel**: lo carga el instructor. **Descarga**: reactiva; el
   calendario queda para el change de macro. **Vista del socio**: la rutina y el motivo de la última aprobación.
-- **Consecuencia**: S2 agrega un enum de 3 valores y reutiliza `NivelDeDificultad`; S1/S2 no implementan
-  descarga por calendario; S3 muestra una línea de motivo por ejercicio adaptado.
+  **Reencuadre (D-143)**: quedan **aplazados** la persistencia de metas y nivel y la vista de aprobación; **sigue
+  vigente** que el socio ve el motivo de la sugerencia.
+- **Consecuencia**: quedan **aplazados** el enum de metas, el nivel persistido y la vista de aprobación
+  (`adaptacion-plan`, D-143); no hay descarga por calendario en este change. Sigue vigente que el socio ve el
+  motivo de la sugerencia.
 - **Por qué**: las tres metas mapean a una fase de micro sin abrir el catálogo completo; el nivel explícito evita
   inferencias sin datos; el motivo visible explica siempre el porqué del cambio.
 - **Alternativas descartadas**: **todas las de `OBJETIVOS_PRINCIPALES`** (Resistencia, Pérdida de Peso y
@@ -1942,7 +1950,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   nivel en S1** (no hay historial suficiente); **descarga por calendario** (sin apoyo en la evidencia leída).
 - **Dónde**: `proposal.md` §S2 y §S3; `explore.md` §7.2.
 
-### D-140 · Ciclo de vida de la propuesta: reemplazo y enfriamiento tras rechazo
+### D-140 · Ciclo de vida de la propuesta: reemplazo y enfriamiento tras rechazo — **aplazada al change posterior (no descartada)**
 - **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisiones (d) y (g)).
 - **Contexto**: la regla idempotente de S2 solo evitaba duplicados. Si ya había una `PENDIENTE` y una sesión
   nueva cambiaba el diagnóstico, la propuesta vieja seguía viva. Y tras un rechazo, la próxima sesión cerrada
@@ -1981,7 +1989,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
   (dato sin pantalla que lo cargue y cambio en un archivo que toca el trabajo paralelo).
 - **Dónde**: `proposal.md` §S1 y §S2; `research.md` §3.7; pendiente P-73.
 
-### D-142 · Aprobación todo-o-nada, con el contenido guardado como ítems
+### D-142 · Aprobación todo-o-nada, con el contenido guardado como ítems — **aplazada al change posterior (no descartada)**
 - **Origen**: Fernando (2026-11-18), change `adaptacion-rutina` (`proposal.md`, decisión (f)).
 - **Contexto**: la aprobación por ejercicio obliga a estado por ítem, duplica el modelo de S2, la lógica de
   aprobación parcial y los tests. El change ya carga una migración.
@@ -1993,6 +2001,29 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 - **Alternativas descartadas**: **aprobación por ejercicio ahora** (duplica modelo, lógica y tests); **JSON sin
   ids** (obligaría a migrar datos para agregar la aprobación parcial).
 - **Dónde**: `proposal.md` §S2 y §S3.
+
+### D-143 · Reencuadre: el change se corta en el motor; propuestas y aprobación van a `adaptacion-plan`
+- **Origen**: Fernando (2026-11-26), change `adaptacion-rutina`.
+- **Contexto**: verificado en `prisma/schema.prisma:337-356`: `EjercicioEnRutina` tiene `series`, `repeticiones`,
+  `descanso` y `orden`, **no tiene carga**. La sugerencia de carga ya es automática en cada sesión (D-59), así que
+  una propuesta de "subir carga" no tiene dónde aterrizar, y exigir aprobación por cada subida sería inoperable.
+  La aprobación tiene sentido para cambios de **plan** (series, repeticiones, ejercicios, fases).
+- **Decisión**: el change queda en **S1 motor puro** + **S2 integración en la sugerencia de la sesión**, sin
+  persistencia ni propuestas. Se **aplaza, no se descarta**, al change posterior `adaptacion-plan`: propuestas con
+  estado (D-134), copia por socio y `planActualizadoAt` (D-135), ciclo de vida (D-140), aprobación todo-o-nada
+  (D-142), meta y nivel persistidos y vista de aprobación (D-139), estancamiento y `cambiar-repeticiones`. Quedan
+  vigentes D-137 (ACSM primario), D-138 (meta como parámetro) y D-141 (incremento por grilla).
+- **Consecuencia**: desaparece la migración, así que el riesgo de base compartida (R2 del proposal anterior) deja
+  de aplicar a este change. El motor se integra sobre el contrato actual de la sesión, que hay que ampliar para
+  exponer repeticiones y RIR por serie. En producción la integración pasa `meta = null`: aplica solo ACSM y el RIR
+  queda probado pero inactivo.
+- **Por qué**: sin un campo de carga en el plan no hay destino para una propuesta de carga; aprobar cada subida
+  convierte una función automática en una bandeja de trabajo. El cambio de plan sí necesita aprobación y merece su
+  propio change.
+- **Alternativas descartadas**: **B. mantener propuestas solo para cambios de plan, con migración y adelantando
+  meso** (mete una migración y la capa meso en un change que ya venía grande); **C. carga prescrita por socio
+  aprobada en cada sesión** (inoperable: la sugerencia ya es automática).
+- **Dónde**: `proposal.md`; `diferido/README.md`; pendiente P-74.
 
 ---
 
@@ -2093,6 +2124,7 @@ alternativas se descartaron y qué quedó pendiente. El plan dice *qué* se hace
 | P-71 | Sensibilidad de la latencia del check-in: peor caso ≈2,25 s por la carrera externa | Media | Parcialmente mitigado: `ASIGNACION_TIMEOUT_CALCULO_MS` configurable por entorno (D-110). Falta medir con carga real y reevaluar `after` si se verifica P-28 |
 | P-72 | Saltar el ejercicio durante la sesión (máquina rota o socio lesionado): mover `ejercicioActualId`/`serieActual` y reasignar al siguiente ejercicio. Fuera de P-61, que solo cambia de máquina | Baja | Requiere tocar `sesion-de-entrenamiento`; se evalúa con la pantalla en uso |
 | P-73 | Paso de grilla por ejercicio o por máquina: hoy `ReglaDeProgresion` es global (`prisma/schema.prisma:564-570`; `incrementoLineal()` hace `findFirst` por tipo). S1 ya recibe el paso como parámetro, así que pasarlo a por-ejercicio no obliga a reescribir el motor; las máquinas ya están modeladas y ahí podría vivir el paso | Baja | Fuera de `adaptacion-rutina` (D-141): no hay pantalla que lo cargue y toca `incrementoLineal()` en `sesion-de-entrenamiento.ts`, modificado por trabajo paralelo |
+| P-74 | Change posterior `adaptacion-plan`: propuestas con estado, copia por socio, `planActualizadoAt`, meta y nivel persistidos, aprobación del instructor, estancamiento y `cambiar-repeticiones`. Los borradores de spec quedan en `openspec/changes/adaptacion-rutina/diferido/` | Baja | Aplazado por D-143 (no descartado); necesita migración y alineación de `dev` antes de empezar |
 | P-26 | ~~`src/app/clientes/page.tsx` llama a `useMemo` después de `return` tempranos~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): el `useMemo` se movió arriba de los `return` y se quitó el `as any`; con test de regresión |
 | P-27 | ~~Errores de `eslint` en los paneles de Membresías y `any` en varias pantallas~~ | — | **Resuelto** (2026-10-13, commit `a9adb51`): tipado el form panel y reordenado el `fetchMembresias` del list panel; lint limpio en esos archivos |
 | P-28 | Despliegue: evaluar el pooler de Supabase con esta aplicación y confirmar `npm run build` / `npm run start` | Media | **Casi cerrado (2026-10-16)**: `npm run build` ✅ y `npm run start` ✅ (exit 0, 45 páginas). El **pooler se probó y funciona**: Prisma directo tolera las transacciones interactivas (el landmine de pgbouncer no se dispara) y `npm run start` con `DATABASE_URL` *pooled* responde login `200` y `/api/home-interno` `200` (6,01 s / 2,40 s, contra 3,21 s / 1,33–1,71 s de la conexión directa: **más lento en local por `connection_limit=1`**, que serializa las consultas; su beneficio es la concurrencia en serverless). **Falta probarlo en Vercel**; las migraciones siguen necesitando conexión directa (sin `directUrl`) |
