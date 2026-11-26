@@ -13,7 +13,7 @@ adaptado, proveniente de la propuesta `APROBADA` más reciente.
 | Capability | `home-socio-portal` (modificada) |
 | Change | `adaptacion-rutina` |
 | Dependencias | `adaptacion-propuesta` (S2), `adaptacion-aprobacion` (S3), `adaptacion-motor` (motivo) |
-| Numeración AC | `AC-625…AC-628`. No colisiona: el rango usado llega a AC-585 |
+| Numeración AC | `AC-TBD` (numeración sin reservar). No colisiona: el rango usado llega a AC-585 |
 
 ## MODIFIED Requirements
 
@@ -85,17 +85,17 @@ no existe propuesta aprobada para un ejercicio, **MUST NOT** mostrarse ninguna l
 
 ## Acceptance Criteria
 
-- **AC-625**: Tarjeta_Rutina muestra, por ejercicio adaptado, una línea con el motivo de la última aprobación.
-- **AC-626**: Sin propuesta aprobada para un ejercicio, no se muestra ninguna línea de motivo.
-- **AC-627**: Solo los ejercicios con un cambio aprobado muestran la línea; los no adaptados no.
-- **AC-628**: El motivo mostrado es el de la propuesta `APROBADA` más reciente; `PENDIENTE` y `RECHAZADA` no se muestran.
+- **AC-TBD**: Tarjeta_Rutina muestra, por ejercicio adaptado, una línea con el motivo de la última aprobación.
+- **AC-TBD**: Sin propuesta aprobada para un ejercicio, no se muestra ninguna línea de motivo.
+- **AC-TBD**: Solo los ejercicios con un cambio aprobado muestran la línea; los no adaptados no.
+- **AC-TBD**: El motivo mostrado es el de la propuesta `APROBADA` más reciente; `PENDIENTE` y `RECHAZADA` no se muestran.
 
 ## Trazabilidad
 
 | Requirement | Escenarios | AC |
 |---|---|---|
-| Tarjeta_Rutina Active Routine Display (RN-04) (modificado) | secuencia, motivo, sin rutina, controles | AC-625 |
-| Motivo de la última adaptación aprobada (nuevo) | aprobación, sin aprobación, solo adaptados, pendiente/rechazada | AC-626, AC-627, AC-628 |
+| Tarjeta_Rutina Active Routine Display (RN-04) (modificado) | secuencia, motivo, sin rutina, controles | AC-TBD |
+| Motivo de la última adaptación aprobada (nuevo) | aprobación, sin aprobación, solo adaptados, pendiente/rechazada | AC-TBD, AC-TBD, AC-TBD |
 
 ## Fuera de alcance
 

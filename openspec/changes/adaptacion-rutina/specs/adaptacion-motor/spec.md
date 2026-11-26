@@ -14,7 +14,7 @@ solo cuando la meta lo justifica; la descarga reactiva de D-59 se conserva.
 | Capability | `adaptacion-motor` (nueva) |
 | Change | `adaptacion-rutina` |
 | Dependencias | `progresion-ejercicio` (D-59/D-61, `sugerirProximaCarga`), `historial-ejercicio` (`agruparSesiones`), `ReglaDeProgresion` (`LINEAL`, `incrementoSugerido` global) |
-| Numeración AC | `AC-586…AC-599`. No colisiona: el rango usado llega a AC-585 |
+| Numeración AC | `AC-586…AC-599`, sin `AC-597` (retirado junto con el estancamiento). No colisiona: el rango usado llega a AC-585 |
 
 ## Requirements
 
@@ -65,14 +65,28 @@ El RIR **MUST NOT** ser gatillo de una sola sesión. Se evalúa como **tendencia
 sesiones, leído únicamente en la última serie del ejercicio (`RIR_SERIE_DE_LECTURA`). El desfase global
 `RIR_DESFASE_GLOBAL` **MUST** poder aplicarse a esa lectura y ser **desactivable**.
 
-El RIR solo **MAY** frenar o acelerar la decisión que ya tomó el criterio ACSM; nunca reemplazarla.
+El RIR **MUST** limitarse a **desplazar el porcentaje** de la subida dentro de
+`[INCREMENTO_PCT_MIN, INCREMENTO_PCT_MAX]`: RIR **bajo sostenido** → extremo bajo; RIR **alto sostenido** →
+extremo alto. El RIR **MUST NOT** anular una subida (convertirla en `mantener`) ni dispararla por sí solo.
 
-#### Scenario: Tendencia de RIR alto frena la subida
+#### Scenario: Tendencia de RIR alto desplaza al extremo alto
 
 - GIVEN una meta de hipertrofia y una tendencia de RIR alto (socio lejos del fallo) sostenida sobre la ventana
 - WHEN el motor evalúa una subida que ACSM habilitó
-- THEN la subida se frena o se atenúa
+- THEN la subida se mantiene y su porcentaje se desplaza al extremo alto del rango
 - AND el motivo menciona la tendencia de RIR
+
+#### Scenario: Tendencia de RIR bajo desplaza al extremo bajo
+
+- GIVEN una meta de hipertrofia y una tendencia de RIR bajo sostenida sobre la ventana
+- WHEN el motor evalúa una subida que ACSM habilitó
+- THEN la subida se mantiene y su porcentaje se desplaza al extremo bajo del rango
+
+#### Scenario: El RIR no anula ni dispara una subida
+
+- GIVEN una tendencia de RIR que empujaría al extremo bajo y una sesión sin repeticiones de sobra
+- WHEN el motor evalúa
+- THEN la decisión sigue siendo `mantener`: el RIR no la convierte en subida
 
 #### Scenario: RIR de una sola sesión no gatilla nada
 
@@ -98,7 +112,8 @@ El RIR solo **MAY** frenar o acelerar la decisión que ya tomó el criterio ACSM
 El motor **MUST** recibir la meta como parámetro. Con `meta = null` (o `META_POR_DEFECTO`), el motor **MUST**
 aplicar **solo ACSM** y **MUST NOT** leer el RIR. Con meta `FUERZA`, el RIR **MUST NOT** cambiar la decisión.
 Con meta `HIPERTROFIA` o `DEFINICION`, el RIR **MAY** modular. El condicional de RIR **MUST** ser apagable por
-flag (`USAR_RIR_COMO_SENAL`).
+flag (`USAR_RIR_COMO_SENAL`). En este change la integración de S2 pasa `meta = null`: el RIR queda probado en S1
+pero **inactivo en producción** hasta que `adaptacion-plan` persista la meta (D-138, D-143).
 
 #### Scenario: Sin meta no se lee RIR
 
@@ -108,7 +123,7 @@ flag (`USAR_RIR_COMO_SENAL`).
 
 #### Scenario: Meta fuerza ignora el RIR
 
-- GIVEN meta `FUERZA` y una tendencia de RIR que en otra meta frenaría
+- GIVEN meta `FUERZA` y una tendencia de RIR que en otra meta desplazaría el porcentaje
 - WHEN el motor evalúa
 - THEN la decisión no cambia por el RIR
 
@@ -214,24 +229,6 @@ Dada la misma entrada (historial + prescripción + parámetros) **MUST** produci
 - WHEN el motor se ejecuta dos veces
 - THEN produce exactamente la misma `SugerenciaAdaptacion`
 
-### Requirement: Estancamiento configurable
-
-La detección de estancamiento **MUST** ser criterio de ingeniería configurable
-(`ESTANCAMIENTO_VENTANA_SESIONES`, default 3). Por debajo del umbral, el motor **MUST NOT** proponer cambio de
-rango de repeticiones. Alcanzado el umbral, el motor **MAY** proponer `cambiar-repeticiones`.
-
-#### Scenario: Por debajo del umbral no propone cambio de rango
-
-- GIVEN `ESTANCAMIENTO_VENTANA_SESIONES = 3` y solo 2 sesiones sin progreso a la misma carga
-- WHEN el motor evalúa
-- THEN no propone cambio de rango de repeticiones
-
-#### Scenario: Alcanzado el umbral propone cambio de rango
-
-- GIVEN `ESTANCAMIENTO_VENTANA_SESIONES = 3` y 3 sesiones consecutivas sin progreso a la misma carga
-- WHEN el motor evalúa
-- THEN propone `cambiar-repeticiones` con el nuevo rango y su motivo
-
 ### Requirement: Población como límite declarado
 
 El motor **MUST** documentar en su contrato/JSDoc las exclusiones de `research.md` §3.13 (menores de 18,
@@ -272,7 +269,6 @@ su fuente en `research.md`, **MUST NOT** ser una constante derivada de la eviden
 | `RIR_OBJETIVO_HIPERTROFIA` | 1–2 | §3.2 (práctica) | RIR |
 | `USAR_RIR_COMO_SENAL` | true | §3.5 (Hickmott 2022) | bool |
 | `DELOAD_REDUCCION_VOLUMEN_PCT` | 10 | D-59 / §3.8 (Bell 2023) | % |
-| `ESTANCAMIENTO_VENTANA_SESIONES` | 3 | §3.9 (ingeniería) | sesiones |
 | `META_POR_DEFECTO` | solo ACSM (null) | proposal §S2 | enum/null |
 | `NIVEL_POR_DEFECTO` | `BASICO` | proposal §S2 | enum |
 | `POBLACION_EDAD_MIN` | 18 | §3.13 | años |
@@ -285,7 +281,7 @@ su fuente en `research.md`, **MUST NOT** ser una constante derivada de la eviden
 
 - **AC-586**: La subida se dispara por 1–2 repeticiones de sobra y queda dentro de `[2 %, 10 %]`; cumplir sin sobra o no cumplir da `mantener`.
 - **AC-587**: Tres o más repeticiones de sobra quedan topadas en el 10 %.
-- **AC-588**: El RIR se lee solo en la última serie y nunca es gatillo de una sola sesión; se evalúa como tendencia sobre `RIR_VENTANA_TENDENCIA`.
+- **AC-588**: El RIR se lee solo en la última serie y nunca es gatillo de una sola sesión; se evalúa como tendencia sobre `RIR_VENTANA_TENDENCIA` y solo desplaza el porcentaje dentro del rango: no anula ni dispara una subida.
 - **AC-589**: `RIR_DESFASE_GLOBAL` se aplica a la última serie y es desactivable.
 - **AC-590**: Con `meta = null` o meta `FUERZA`, el RIR no cambia la decisión; con hipertrofia/definición puede modular; el flag `USAR_RIR_COMO_SENAL` apaga el condicional.
 - **AC-591**: Tres fallos seguidos a la misma carga descargan `DELOAD_REDUCCION_VOLUMEN_PCT`; dos fallos no; un acierto corta la racha.
@@ -294,7 +290,6 @@ su fuente en `research.md`, **MUST NOT** ser una constante derivada de la eviden
 - **AC-594**: La promesa de grilla aplica a las subidas; la descarga redondea a múltiplos absolutos del paso y puede dar un peso no usado.
 - **AC-595**: Toda sugerencia incluye un `motivo` legible, distinto por tipo.
 - **AC-596**: El motor es puro y determinista: sin base, sin reloj, misma entrada → misma salida.
-- **AC-597**: `ESTANCAMIENTO_VENTANA_SESIONES` es configurable; por debajo del umbral no se propone cambio de rango.
 - **AC-598**: El motor documenta las exclusiones de población (§3.13) como límite y no valida edad ni lesiones.
 - **AC-599**: Todo umbral numérico es un parámetro configurable con default y fuente, sobrescribible sin tocar código.
 
@@ -303,14 +298,13 @@ su fuente en `research.md`, **MUST NOT** ser una constante derivada de la eviden
 | Requirement | Escenarios | AC |
 |---|---|---|
 | Criterio primario por repeticiones de sobra (ACSM) | 1 sobra, 2 sobras, 3+ topadas, sin sobra, no cumplida | AC-586, AC-587 |
-| RIR como señal blanda sobre ventana | tendencia frena, sesión única, última serie, desfase | AC-588, AC-589 |
+| RIR como señal blanda sobre ventana | desplaza al extremo alto, desplaza al extremo bajo, no anula ni dispara, sesión única, última serie, desfase | AC-588, AC-589 |
 | La meta condiciona el RIR | null, fuerza, hipertrofia, flag off | AC-590 |
 | Descarga reactiva intacta | 3 fallos, 2 fallos, acierto corta racha | AC-591 |
 | Incremento por grilla del socio | en grilla, carga liviana | AC-592, AC-593 |
 | La descarga redondea a múltiplos absolutos | descarga fuera de grilla usada | AC-594 |
 | Motivo textual en cada sugerencia | subir, mantener, descargar | AC-595 |
 | Función pura y determinista | determinismo | AC-596 |
-| Estancamiento configurable | bajo umbral, umbral alcanzado | AC-597 |
 | Población como límite declarado | no valida población | AC-598 |
 | Umbrales como parámetros configurables | sobrescribible | AC-599 |
 
@@ -322,28 +316,21 @@ su fuente en `research.md`, **MUST NOT** ser una constante derivada de la eviden
 | `prescripcion { series, repeticiones }` | `EjercicioEnRutina` de la rutina activa | objetivo juzgable |
 | `paso` | `ReglaDeProgresion.incrementoSugerido` (`LINEAL` global) | grilla de la subida/descarga |
 | `meta`, `nivel`, parámetros | entrada explícita del llamante | condicionales del motor |
-| `SugerenciaAdaptacion { tipo, carga, repeticiones, motivo, parametrosUsados }` | salida del motor | consumida por propuesta y vista |
+| `SugerenciaAdaptacion { tipo, carga, repeticiones, motivo, parametrosUsados }` | salida del motor | consumida por la sugerencia de la sesión (S2) |
 
 ## Fuera de alcance
 
 - Meso (volumen por músculo, estancamiento muscular, fatiga semanal) — change posterior (D-136).
 - Macro (transición entre fases) y descarga por calendario.
 - Días disponibles y lesiones como datos de entrada reales (el motor los acepta como parámetro opcional, no hay dato que los alimente).
+- Estancamiento y `cambiar-repeticiones` (D-143): pasan a `adaptacion-plan`.
 - Paso por ejercicio o por máquina (P-73).
 - Validación de población en ejecución (solo límite declarado).
 
 ## Preguntas abiertas para Fernando
 
 1. **`RIR_VENTANA_TENDENCIA` sin default numérico.** `research.md` la lista como parámetro pero no fija cuántas
-   sesiones. Opciones: (a) 3 sesiones (coherente con estancamiento), (b) 5 sesiones, (c) dejar sin default y
-   exigir configuración explícita antes de habilitar el RIR.
-2. **Forma de la modulación del RIR.** El spec fija "frena o atenúa", pero no el mecanismo exacto. Opciones:
-   (a) anular la subida (mantener) cuando el RIR sostenido es alto, (b) atenuar el porcentaje a la mitad,
-   (c) solo anotar el RIR en `parametrosUsados` sin cambiar la decisión en esta iteración.
-3. **`cambiar-repeticiones` y la doble progresión.** D-59 descartó la doble progresión porque `repeticiones` era
-   un entero fijo. El cambio de rango por estancamiento reabre ese punto: ¿el nuevo rango reemplaza el entero
-   fijo (rompiendo el contrato actual de `EjercicioEnRutina.repeticiones`) o se propone como sugerencia que el
-   instructor edita a mano? Opciones: (a) sugerencia informativa sin tocar el esquema, (b) migración de
-   `repeticiones` a rango (fuera del alcance de la migración única de D-135).
-4. **Tipo `primera` (sin historial).** El spec no lo define explícitamente. Opciones: (a) el motor devuelve
+   sesiones; es criterio de ingeniería, sin evidencia. Opciones: (a) 3 sesiones, (b) 5 sesiones, (c) dejar sin
+   default y exigir configuración explícita antes de habilitar el RIR.
+2. **Tipo `primera` (sin historial).** El spec no lo define explícitamente. Opciones: (a) el motor devuelve
    `null` para ejercicios sin historial (hereda D-59), (b) `primera` como tipo explícito con carga `null`.

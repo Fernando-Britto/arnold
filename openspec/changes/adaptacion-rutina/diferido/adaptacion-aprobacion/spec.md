@@ -13,7 +13,7 @@ rutina del socio con reinicio del juicio de progresión.
 | Capability | `adaptacion-aprobacion` (nueva) |
 | Change | `adaptacion-rutina` |
 | Dependencias | `adaptacion-propuesta` (S2), `adaptacion-motor` (S1), `rbac-middleware` (matriz), `autorización` (`src/lib/authorization.ts`), `clientes-crud` (edición de meta/nivel, R8) |
-| Numeración AC | `AC-610…AC-620`. No colisiona: el rango usado llega a AC-585 |
+| Numeración AC | `AC-TBD` (numeración sin reservar). No colisiona: el rango usado llega a AC-585 |
 
 ## Requirements
 
@@ -136,28 +136,28 @@ modificar `cliente-form.tsx` ni `clientes/page.tsx`.
 
 ## Acceptance Criteria
 
-- **AC-610**: Los tres endpoints de propuestas admiten solo INSTRUCTOR y ADMINISTRADOR; SOCIO/RECEPCIONISTA reciben 403 y sin sesión 401.
-- **AC-611**: El listado devuelve solo las propuestas de los socios a cargo del instructor.
-- **AC-612**: Aprobar aplica el contenido completo (todo-o-nada); no hay aprobación parcial por ítem.
-- **AC-613**: Aprobar/rechazar en `REEMPLAZADA`, `APROBADA` o `RECHAZADA` devuelve 409 con motivo y no cambia nada.
-- **AC-614**: Al aprobar se aplica la copia perezosa si falta, se escriben los cambios y la propuesta queda `APROBADA` con `aprobadoPor` y `resueltoAt`.
-- **AC-615**: `planActualizadoAt` se mueve solo en los ejercicios que cambiaron series o repeticiones.
-- **AC-616**: Rechazar deja `RECHAZADA` con `aprobadoPor` y `resueltoAt` y no toca la rutina; aplica el enfriamiento.
-- **AC-617**: La meta/nivel se cargan por `PUT /api/clientes/[id]` cuando está disponible, y por `PATCH /api/socios/[id]/entrenamiento` como ruta alternativa (R8), sin tocar los archivos del trabajo paralelo.
-- **AC-618**: Meta/nivel fuera de los enums se rechazan con error de validación.
-- **AC-619**: El juicio de progresión se reinicia desde el nuevo `planActualizadoAt` de los ejercicios afectados.
-- **AC-620**: La matriz (`src/lib/authorization.ts`) refleja los permisos y el test de consistencia matriz ↔ handler pasa.
+- **AC-TBD**: Los tres endpoints de propuestas admiten solo INSTRUCTOR y ADMINISTRADOR; SOCIO/RECEPCIONISTA reciben 403 y sin sesión 401.
+- **AC-TBD**: El listado devuelve solo las propuestas de los socios a cargo del instructor.
+- **AC-TBD**: Aprobar aplica el contenido completo (todo-o-nada); no hay aprobación parcial por ítem.
+- **AC-TBD**: Aprobar/rechazar en `REEMPLAZADA`, `APROBADA` o `RECHAZADA` devuelve 409 con motivo y no cambia nada.
+- **AC-TBD**: Al aprobar se aplica la copia perezosa si falta, se escriben los cambios y la propuesta queda `APROBADA` con `aprobadoPor` y `resueltoAt`.
+- **AC-TBD**: `planActualizadoAt` se mueve solo en los ejercicios que cambiaron series o repeticiones.
+- **AC-TBD**: Rechazar deja `RECHAZADA` con `aprobadoPor` y `resueltoAt` y no toca la rutina; aplica el enfriamiento.
+- **AC-TBD**: La meta/nivel se cargan por `PUT /api/clientes/[id]` cuando está disponible, y por `PATCH /api/socios/[id]/entrenamiento` como ruta alternativa (R8), sin tocar los archivos del trabajo paralelo.
+- **AC-TBD**: Meta/nivel fuera de los enums se rechazan con error de validación.
+- **AC-TBD**: El juicio de progresión se reinicia desde el nuevo `planActualizadoAt` de los ejercicios afectados.
+- **AC-TBD**: La matriz (`src/lib/authorization.ts`) refleja los permisos y el test de consistencia matriz ↔ handler pasa.
 
 ## Trazabilidad
 
 | Requirement | Escenarios | AC |
 |---|---|---|
-| RBAC de la aprobación | instructor, socio/recepción, socios a cargo | AC-610, AC-611, AC-620 |
-| Aprobación todo-o-nada | propuesta entera | AC-612 |
-| 409 en estado no pendiente | REEMPLAZADA, APROBADA/RECHAZADA | AC-613 |
-| Efecto de la aprobación sobre la rutina | copia y cambios, planActualizadoAt, reinicio | AC-614, AC-615, AC-619 |
-| Rechazo sin tocar la rutina | rechazo | AC-616 |
-| Carga y edición de meta y nivel | vía cliente, ruta alternativa, validación | AC-617, AC-618 |
+| RBAC de la aprobación | instructor, socio/recepción, socios a cargo | AC-TBD, AC-TBD, AC-TBD |
+| Aprobación todo-o-nada | propuesta entera | AC-TBD |
+| 409 en estado no pendiente | REEMPLAZADA, APROBADA/RECHAZADA | AC-TBD |
+| Efecto de la aprobación sobre la rutina | copia y cambios, planActualizadoAt, reinicio | AC-TBD, AC-TBD, AC-TBD |
+| Rechazo sin tocar la rutina | rechazo | AC-TBD |
+| Carga y edición de meta y nivel | vía cliente, ruta alternativa, validación | AC-TBD, AC-TBD |
 
 ## Contrato de datos
 

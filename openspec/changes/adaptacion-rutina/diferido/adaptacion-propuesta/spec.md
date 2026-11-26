@@ -13,7 +13,7 @@ Persistencia del registro de propuestas de adaptación (slice S2): tabla `Propue
 | Capability | `adaptacion-propuesta` (nueva) |
 | Change | `adaptacion-rutina` |
 | Dependencias | `adaptacion-motor` (S1), `rutinas-crud` (migración de `planActualizadoAt`), `asignar-rutina` (copia perezosa), schema Prisma (`Rutina`, `EjercicioEnRutina`, `RutinaAsignada`, `Socio`) |
-| Numeración AC | `AC-600…AC-609`. No colisiona: el rango usado llega a AC-585 |
+| Numeración AC | `AC-TBD` (numeración sin reservar). No colisiona: el rango usado llega a AC-585 |
 
 ## Requirements
 
@@ -158,28 +158,28 @@ Tras un rechazo, el motor **MUST NOT** volver a proponer el mismo contenido hast
 
 ## Acceptance Criteria
 
-- **AC-600**: El estado vive en la propuesta (`PENDIENTE | APROBADA | RECHAZADA | REEMPLAZADA`), nunca en el ítem.
-- **AC-601**: El contenido se guarda como ítems por ejercicio con `id` estable; la aprobación es todo-o-nada.
-- **AC-602**: La primera aprobación clona `Rutina` + `EjercicioEnRutina` y reasigna `RutinaAsignada`; la segunda trabaja sobre la copia sin clonar.
-- **AC-603**: `planActualizadoAt` existe con backfill desde `updatedAt` y es la única fuente de `planDesde`; el motor no usa `updatedAt`.
-- **AC-604**: La migración es única y aditiva: agrega `planActualizadoAt`, `Socio.metaDeEntrenamiento` y `Socio.nivel` (ambas nullable).
-- **AC-605**: `meta = null` → solo ACSM (sin RIR); `nivel = null` → `BASICO` sin cambiar el cálculo de carga.
-- **AC-606**: Dos sesiones cerradas sin cambio de diagnóstico generan una sola `PENDIENTE`.
-- **AC-607**: Si el diagnóstico cambia, la `PENDIENTE` pasa a `REEMPLAZADA` conservando la fila y se crea la nueva.
-- **AC-608**: Tras un rechazo, no se repropone el mismo contenido hasta `ENFRIAMIENTO_RECHAZO_SESIONES` sesiones.
-- **AC-609**: La copia perezosa no duplica plantillas de socios sin adaptación; la plantilla compartida sigue leyéndose por `RutinaAsignada.rutina`.
+- **AC-TBD**: El estado vive en la propuesta (`PENDIENTE | APROBADA | RECHAZADA | REEMPLAZADA`), nunca en el ítem.
+- **AC-TBD**: El contenido se guarda como ítems por ejercicio con `id` estable; la aprobación es todo-o-nada.
+- **AC-TBD**: La primera aprobación clona `Rutina` + `EjercicioEnRutina` y reasigna `RutinaAsignada`; la segunda trabaja sobre la copia sin clonar.
+- **AC-TBD**: `planActualizadoAt` existe con backfill desde `updatedAt` y es la única fuente de `planDesde`; el motor no usa `updatedAt`.
+- **AC-TBD**: La migración es única y aditiva: agrega `planActualizadoAt`, `Socio.metaDeEntrenamiento` y `Socio.nivel` (ambas nullable).
+- **AC-TBD**: `meta = null` → solo ACSM (sin RIR); `nivel = null` → `BASICO` sin cambiar el cálculo de carga.
+- **AC-TBD**: Dos sesiones cerradas sin cambio de diagnóstico generan una sola `PENDIENTE`.
+- **AC-TBD**: Si el diagnóstico cambia, la `PENDIENTE` pasa a `REEMPLAZADA` conservando la fila y se crea la nueva.
+- **AC-TBD**: Tras un rechazo, no se repropone el mismo contenido hasta `ENFRIAMIENTO_RECHAZO_SESIONES` sesiones.
+- **AC-TBD**: La copia perezosa no duplica plantillas de socios sin adaptación; la plantilla compartida sigue leyéndose por `RutinaAsignada.rutina`.
 
 ## Trazabilidad
 
 | Requirement | Escenarios | AC |
 |---|---|---|
-| Estado de la propuesta | estados válidos, estado no en el ítem | AC-600 |
-| Contenido como ítems con id estable | id estable, todo-o-nada | AC-601 |
-| Copia por socio perezosa | primera clona, segunda no clona, sin adaptación plantilla | AC-602, AC-609 |
-| `planActualizadoAt` como fuente de `planDesde` | backfill, motor lee planActualizadoAt, migración única | AC-603, AC-604 |
-| Defaults de meta y nivel | meta nula, nivel nulo | AC-605 |
-| Recálculo tras sesión cerrada | igual no duplica, distinto reemplaza | AC-606, AC-607 |
-| Enfriamiento tras rechazo | dentro, tras el enfriamiento | AC-608 |
+| Estado de la propuesta | estados válidos, estado no en el ítem | AC-TBD |
+| Contenido como ítems con id estable | id estable, todo-o-nada | AC-TBD |
+| Copia por socio perezosa | primera clona, segunda no clona, sin adaptación plantilla | AC-TBD, AC-TBD |
+| `planActualizadoAt` como fuente de `planDesde` | backfill, motor lee planActualizadoAt, migración única | AC-TBD, AC-TBD |
+| Defaults de meta y nivel | meta nula, nivel nulo | AC-TBD |
+| Recálculo tras sesión cerrada | igual no duplica, distinto reemplaza | AC-TBD, AC-TBD |
+| Enfriamiento tras rechazo | dentro, tras el enfriamiento | AC-TBD |
 
 ## Contrato de datos
 

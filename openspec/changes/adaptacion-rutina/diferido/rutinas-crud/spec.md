@@ -14,7 +14,7 @@ CRUD debe tolerar una `Rutina` propia del socio (la copia perezosa) sin romper l
 | Capability | `rutinas-crud` (modificada) |
 | Change | `adaptacion-rutina` |
 | Dependencias | `adaptacion-propuesta` (migración de `planActualizadoAt`), `asignar-rutina`, D-59/D-61 |
-| Numeración AC | `AC-621…AC-624`. No colisiona: el rango usado llega a AC-585 |
+| Numeración AC | `AC-TBD` (numeración sin reservar). No colisiona: el rango usado llega a AC-585 |
 
 ## MODIFIED Requirements
 
@@ -91,17 +91,17 @@ puede borrar mientras esté asignada activamente). El CRUD **MUST NOT** romper l
 
 ## Acceptance Criteria
 
-- **AC-621**: Guardar una rutina mueve `planActualizadoAt` solo en los `EjercicioEnRutina` cuyas `series` o `repeticiones` cambiaron.
-- **AC-622**: Editar solo `descanso` u `orden` no mueve `planActualizadoAt`.
-- **AC-623**: Una `Rutina` copia por socio aparece en el listado y el guard de borrado RN-04 aplica (no borrable si asignada).
-- **AC-624**: Leer `RutinaAsignada.rutina` apuntando a una copia por socio devuelve la copia sin romper el CRUD ni la asignación.
+- **AC-TBD**: Guardar una rutina mueve `planActualizadoAt` solo en los `EjercicioEnRutina` cuyas `series` o `repeticiones` cambiaron.
+- **AC-TBD**: Editar solo `descanso` u `orden` no mueve `planActualizadoAt`.
+- **AC-TBD**: Una `Rutina` copia por socio aparece en el listado y el guard de borrado RN-04 aplica (no borrable si asignada).
+- **AC-TBD**: Leer `RutinaAsignada.rutina` apuntando a una copia por socio devuelve la copia sin romper el CRUD ni la asignación.
 
 ## Trazabilidad
 
 | Requirement | Escenarios | AC |
 |---|---|---|
-| Ejercicios de la Rutina Subsection Management (modificado) | catalog, inline, series/reps mueve, descanso/orden no mueve, remove, search | AC-621, AC-622 |
-| Rutina propia del socio en el CRUD (nuevo) | listado, guard de borrado, lectura | AC-623, AC-624 |
+| Ejercicios de la Rutina Subsection Management (modificado) | catalog, inline, series/reps mueve, descanso/orden no mueve, remove, search | AC-TBD, AC-TBD |
+| Rutina propia del socio en el CRUD (nuevo) | listado, guard de borrado, lectura | AC-TBD, AC-TBD |
 
 ## Fuera de alcance
 
